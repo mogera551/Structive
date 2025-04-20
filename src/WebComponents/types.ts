@@ -28,9 +28,15 @@ export type QuelComponent = HTMLElement & IComponent;
 export type QuelComponentClass = Constructor<QuelComponent> & IComponentStatic;
 
 export interface IConfig {
-  debug          : boolean;
-  locale         : string; // The locale of the component, ex. "en-US", default is "en-US"
-  enableShadowDom: boolean; // Whether to use Shadow DOM or not
+  debug                : boolean;
+  locale               : string; // The locale of the component, ex. "en-US", default is "en-US"
+  enableShadowDom      : boolean; // Whether to use Shadow DOM or not
+  enableMainWrapper    : boolean; // Whether to use the main wrapper or not
+  enableRouter         : boolean; // Whether to use the router or not
+  autoInsertMainWrapper: boolean; // Whether to automatically insert the main wrapper or not
+  mainTagName          : string; // The tag name of the main wrapper, default is "app-main"
+  routerTagName        : string; // The tag name of the router, default is "view-router"
+
 }
 
 export interface IUserConfig {

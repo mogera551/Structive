@@ -1,5 +1,5 @@
 import { registerSingleFileComponents as _registerSingleFileComponents } from "./WebComponents/registerSingleFIleComponents";
-import { getGlobalConfig as _getGlobalConfig } from "./WebComponents/getGlobalConfig";
+import { getGlobalConfig as _getGlobalConfig, config as _config } from "./WebComponents/getGlobalConfig";
 import { IConfig } from "./WebComponents/types";
 
 export function registerSingleFileComponents(singleFileComponents: Record<string, string>) {
@@ -11,4 +11,6 @@ export const defineComponents = registerSingleFileComponents;
 export function getGlobalConfig(): IConfig {
   return _getGlobalConfig();
 }
+
+export const config = _config;
 
