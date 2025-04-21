@@ -9,6 +9,9 @@ interface ObjectConstructor {
       items: Iterable<T>,
       keySelector: (item: T, index: number) => K,
   ): Partial<Record<K, T[]>>;
+  getOwnPropertyDescriptors<T>(o: T): {
+    [P in keyof T]: TypedPropertyDescriptor<T[P]>; 
+  } & { [x: string]: PropertyDescriptor; };
 }
 
 interface MapConstructor {

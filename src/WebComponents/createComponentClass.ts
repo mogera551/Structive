@@ -10,15 +10,35 @@ import { registerHtml } from "../Template/registerHtml";
 import { getTemplateById } from "../Template/registerTemplate";
 import { getBaseClass } from "./getBaseClass";
 import { getComponentConfig } from "./getComponentConfig";
-import { IComponent, QuelComponent, IUserComponentData, IComponentStatic, QuelComponentClass } from "./types";
+import { IComponent, IUserComponentData, IUserConfig, StructiveComponentClass, StructiveComponent } from "./types";
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes";
+import { IStructiveState, IStructiveStaticState } from "../StateClass/types";
 
-export function createComponentClass(componentData: IUserComponentData): QuelComponentClass {
-  const componentConfig = getComponentConfig(componentData.config);
+function findStructiveParent(el:StructiveComponent): IComponent | null {
+  let current = el.parentNode;
+  while (current) {
+    if ((current as StructiveComponent).state && (current as StructiveComponent).isStructive) {
+      return current as StructiveComponent;
+    }
+    current = current.parentNode;
+    if (current instanceof ShadowRoot) {
+      if (current.host && (current.host as StructiveComponent).state && (current.host as StructiveComponent).isStructive) {
+        return current.host as StructiveComponent;
+      }
+      current = current.host;
+    }
+  }
+  return null;
+}
+
+export function createComponentClass(componentData: IUserComponentData): StructiveComponentClass {
+  const config = (componentData.stateClass.$config ?? {})as IUserConfig;
+  const componentConfig = getComponentConfig(config);
   const id = generateId();
   const { html, css, stateClass } = componentData;
   const inputFilters:FilterWithOptions = Object.assign({}, inputBuiltinFilters);
   const outputFilters:FilterWithOptions = Object.assign({}, outputBuiltinFilters);
+  stateClass.$isStructive = true;
   registerHtml(id, html);
   registerCss(id, css);
   registerStateClass(id, stateClass);
@@ -29,7 +49,7 @@ export function createComponentClass(componentData: IUserComponentData): QuelCom
 
     constructor() {
       super();
-      this.#engine = createComponentEngine(componentConfig, this as QuelComponent);
+      this.#engine = createComponentEngine(componentConfig, this as StructiveComponent);
     }
 
     connectedCallback() {
@@ -38,6 +58,22 @@ export function createComponentClass(componentData: IUserComponentData): QuelCom
 
     disconnectedCallback() {
       this.#engine.disconnectedCallback();
+    }
+
+    #parentStructiveComponent: IComponent | null | undefined;
+    get parentStructiveComponent(): IComponent | null {
+      if (typeof this.#parentStructiveComponent === "undefined") {
+        this.#parentStructiveComponent = findStructiveParent(this as StructiveComponent);
+      }
+      return this.#parentStructiveComponent;
+    }
+
+    get state(): IStructiveState {
+      return this.#engine.state as IStructiveState;
+    }
+
+    get isStructive(): boolean {
+      return (this.state.constructor as IStructiveStaticState).$isStructive ?? false;
     }
 
     static define(tagName:string) {
@@ -84,10 +120,10 @@ export function createComponentClass(componentData: IUserComponentData): QuelCom
       }
       return this.#styleSheet;
     }
-    static #stateClass: typeof Object | null = null;
-    static get stateClass():typeof Object {
+    static #stateClass: IStructiveState | null = null;
+    static get stateClass():IStructiveState {
       if (!this.#stateClass) {
-        this.#stateClass = getStateClassById(this.id);
+        this.#stateClass = getStateClassById(this.id) as IStructiveState;
       }
       return this.#stateClass;
     }
@@ -114,7 +150,7 @@ export function createComponentClass(componentData: IUserComponentData): QuelCom
           const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
           if (trackedGetters) {
             for (const [key, desc] of Object.entries(trackedGetters)) {
-              if (desc.get) {
+              if ((desc as PropertyDescriptor).get) {
                 this.#trackedGetters.add(key);
               }
             }
@@ -125,5 +161,5 @@ export function createComponentClass(componentData: IUserComponentData): QuelCom
       return this.#trackedGetters;
 
     }
-  } as QuelComponentClass;
+  } as StructiveComponentClass;
 }

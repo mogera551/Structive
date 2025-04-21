@@ -1,11 +1,11 @@
 import { createBindContent } from "../DataBinding/BindContent";
 import { IBindContent, IBinding } from "../DataBinding/types";
 import { FilterWithOptions } from "../Filter/types";
-import { IState, IStateProxy } from "../StateClass/types";
+import { IState, IStateProxy, IStructiveState } from "../StateClass/types";
 import { createStateProxy } from "../StateClass/createStateProxy";
 import { IUpdater } from "../Updater/types";
 import { createUpdater } from "../Updater/updater";
-import { ComponentType, IComponentConfig, IComponentStatic, QuelComponent } from "../WebComponents/types";
+import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
 import { attachShadow } from "./attachShadow";
 import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
 import { IStructuredPathInfo } from "../StateProperty/types";
@@ -21,7 +21,7 @@ export class ComponentEngine implements IComponentEngine {
   config        : IComponentConfig;
   template      : HTMLTemplateElement;
   styleSheet    : CSSStyleSheet;
-  stateClass    : typeof Object;
+  stateClass    : IStructiveState;
   state         : IState;
   stateProxy    : IStateProxy;
   updater       : IUpdater;
@@ -29,7 +29,7 @@ export class ComponentEngine implements IComponentEngine {
   outputFilters : FilterWithOptions;
   bindContent   : IBindContent;
   baseClass     : typeof HTMLElement = HTMLElement;
-  owner         : QuelComponent;
+  owner         : StructiveComponent;
   trackedGetters: Set<string>;
 
   listInfoSet       : Set<IStructuredPathInfo> = new Set();
@@ -42,7 +42,7 @@ export class ComponentEngine implements IComponentEngine {
   #stackStructuredPathInfo  : IStructuredPathInfo[] = [];
   #stackListIndex    : IListIndex[] = [];
 
-  constructor(config: IComponentConfig, owner: QuelComponent) {
+  constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
     if (this.config.extends) {
       this.type = 'builtin';
@@ -265,6 +265,6 @@ export class ComponentEngine implements IComponentEngine {
   }
 }
 
-export function createComponentEngine(config: IComponentConfig, component: QuelComponent): IComponentEngine {
+export function createComponentEngine(config: IComponentConfig, component: StructiveComponent): IComponentEngine {
   return new ComponentEngine(config, component);
 }

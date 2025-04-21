@@ -2,17 +2,17 @@ import { IBindContent, IBinding } from "../DataBinding/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
-import { IState, IStateProxy } from "../StateClass/types";
+import { IState, IStateProxy, IStructiveState } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IUpdater } from "../Updater/types";
-import { ComponentType, IComponentConfig, QuelComponent } from "../WebComponents/types";
+import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";
 
 export interface IComponentEngine {
   type          : ComponentType;
   config        : IComponentConfig;
   template      : HTMLTemplateElement;
   styleSheet    : CSSStyleSheet;
-  stateClass    : typeof Object;
+  stateClass    : IStructiveState;
   state         : IState;
   stateProxy    : IStateProxy;
   updater       : IUpdater;
@@ -20,7 +20,7 @@ export interface IComponentEngine {
   outputFilters : FilterWithOptions;
   bindContent   : IBindContent;
   baseClass     : typeof HTMLElement;
-  owner         : QuelComponent;
+  owner         : StructiveComponent;
   trackedGetters: Set<string>;
 
   getContextListIndex(patternName: string): IListIndex | null;               // パターン名からリストインデックスを取得する(ワイルドカード探索用)
