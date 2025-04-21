@@ -1,17 +1,22 @@
 import { Filters, FilterWithOptions } from "../Filter/types";
 import { IComponentEngine } from "../ComponentEngine/types";
+import { IState, IStructiveState } from "../StateClass/types";
 
 export type ComponentType = 'autonomous' | 'builtin';
 
 export interface IComponent {
+  readonly parentStructiveComponent: IComponent | null; // The parent component of the current component
+  readonly state: IStructiveState;
+  readonly isStructive: boolean; // Whether the component is structive or not
 }
+
 
 export interface IComponentStatic {
   new(instanceId: number, instanceName: string): IComponent;
   readonly id            : number;
   readonly template      : HTMLTemplateElement;
   readonly styleSheet    : CSSStyleSheet;
-  readonly stateClass    : typeof Object;
+  readonly stateClass    : IStructiveState;
   readonly inputFilters  : FilterWithOptions;
   readonly outputFilters : FilterWithOptions;
   readonly listPaths     : Set<string>;
@@ -23,9 +28,9 @@ export interface IComponentStatic {
 }
 export type Constructor<T = {}> = new (...args: any[]) => T;
 
-export type QuelComponent = HTMLElement & IComponent;
+export type StructiveComponent = HTMLElement & IComponent;
 
-export type QuelComponentClass = Constructor<QuelComponent> & IComponentStatic;
+export type StructiveComponentClass = Constructor<StructiveComponent> & IComponentStatic;
 
 export interface IConfig {
   debug                : boolean;
@@ -53,10 +58,9 @@ export interface IUserComponentData {
   text      : string; // The text content of the component file
   html      : string; // The HTML content of the component file
   css       : string;  // The CSS content of the component file
-  stateClass: typeof Object; // The class that will be used to create the state object
-  config    : IUserConfig;
+  stateClass: IStructiveState; // The class that will be used to create the state object
 }
 
-export type QuelComponentClasses = Record<string, QuelComponentClass>;
+export type QuelComponentClasses = Record<string, StructiveComponentClass>;
 
 export type SingleFileComponents = Record<string, string>;
