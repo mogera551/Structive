@@ -24,6 +24,13 @@ export interface IConfig {
     debug: boolean;
     locale: string;
     enableShadowDom: boolean;
+    enableMainWrapper: boolean;
+    enableRouter: boolean;
+    autoInsertMainWrapper: boolean;
+    autoInit: boolean;
+    mainTagName: string;
+    routerTagName: string;
+    layoutPath: string;
 }
 export interface IUserConfig {
     enableShadowDom?: boolean;

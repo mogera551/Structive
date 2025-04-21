@@ -1,16 +1,22 @@
-import { registerSingleFileComponents as _registerSingleFileComponents } from "./WebComponents/registerSingleFIleComponents";
-import { getGlobalConfig as _getGlobalConfig, config as _config } from "./WebComponents/getGlobalConfig";
+import { registerSingleFileComponents } from "./WebComponents/registerSingleFIleComponents";
+import { bootstrap } from "./bootstrap";
+import { config as _config } from "./WebComponents/getGlobalConfig";
 import { IConfig } from "./WebComponents/types";
 
-export function registerSingleFileComponents(singleFileComponents: Record<string, string>) {
-  _registerSingleFileComponents(singleFileComponents);
+export const config: IConfig = _config;
+
+let initialized = false;
+export async function defineComponents(singleFileComponents: Record<string, string>):Promise<void> {
+  await registerSingleFileComponents(singleFileComponents);
+  if (config.autoInit) {
+    bootstrapStructive();
+  }
 }
 
-export const defineComponents = registerSingleFileComponents;
-
-export function getGlobalConfig(): IConfig {
-  return _getGlobalConfig();
+export function bootstrapStructive() {
+  if (!initialized) {
+    bootstrap();
+    initialized = true;
+  }
 }
-
-export const config = _config;
 

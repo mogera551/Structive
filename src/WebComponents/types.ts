@@ -34,8 +34,10 @@ export interface IConfig {
   enableMainWrapper    : boolean; // Whether to use the main wrapper or not
   enableRouter         : boolean; // Whether to use the router or not
   autoInsertMainWrapper: boolean; // Whether to automatically insert the main wrapper or not
+  autoInit             : boolean; // Whether to automatically initialize the component or not
   mainTagName          : string; // The tag name of the main wrapper, default is "app-main"
   routerTagName        : string; // The tag name of the router, default is "view-router"
+  layoutPath           : string; // The path to the layout file, default is "src/layout.html"
 
 }
 

@@ -1,4 +1,4 @@
 import { IConfig } from "./WebComponents/types";
-export declare function registerSingleFileComponents(singleFileComponents: Record<string, string>): void;
-export declare const defineComponents: typeof registerSingleFileComponents;
-export declare function getGlobalConfig(): IConfig;
+export declare const config: IConfig;
+export declare function defineComponents(singleFileComponents: Record<string, string>): Promise<void>;
+export declare function bootstrapStructive(): void;

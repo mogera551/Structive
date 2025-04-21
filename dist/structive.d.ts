@@ -2,10 +2,17 @@ interface IConfig {
     debug: boolean;
     locale: string;
     enableShadowDom: boolean;
+    enableMainWrapper: boolean;
+    enableRouter: boolean;
+    autoInsertMainWrapper: boolean;
+    autoInit: boolean;
+    mainTagName: string;
+    routerTagName: string;
+    layoutPath: string;
 }
 
-declare function registerSingleFileComponents(singleFileComponents: Record<string, string>): void;
-declare const defineComponents: typeof registerSingleFileComponents;
-declare function getGlobalConfig(): IConfig;
+declare const config: IConfig;
+declare function defineComponents(singleFileComponents: Record<string, string>): Promise<void>;
+declare function bootstrapStructive(): void;
 
-export { defineComponents, getGlobalConfig, registerSingleFileComponents };
+export { bootstrapStructive, config, defineComponents };

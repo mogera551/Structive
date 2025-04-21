@@ -1,6 +1,7 @@
 import { config } from "../WebComponents/getGlobalConfig";
 
 const DEFAULT_ROUTE_PATH = '/'; // Default route path
+const ROUTE_PATH_PREFIX = 'routes:'; // Prefix for route paths
 /**
  * example:
  * ```ts
@@ -8,10 +9,11 @@ const DEFAULT_ROUTE_PATH = '/'; // Default route path
  */
 const routeMap: Record<string,string> = {};
 
-class Router extends HTMLElement {
+export class Router extends HTMLElement {
   _popstateHandler: (event: PopStateEvent) => void;
   constructor() {
     super();
+    this.innerHTML = '<slot name="content"></slot>';
     this._popstateHandler = this.popstateHandler.bind(this);
   }
 
@@ -50,19 +52,27 @@ class Router extends HTMLElement {
       }
     }
     if (tagName) {
+      // If a route matches, create the custom element and set its state
+      // Create the custom element with the tag name
+      // project the custom element into the router slot
       const customElement = document.createElement(tagName) as HTMLElement;
       customElement.setAttribute('state', JSON.stringify(params));
+      customElement.setAttribute('slot', 'content');
       this.appendChild(customElement);
     } else {
-      this.innerHTML = '<h1>404 Not Found</h1>';
+      // If no route matches, show 404 content
+      const messageElement = document.createElement('h1') as HTMLElement;
+      messageElement.setAttribute('slot', 'content');
+      messageElement.textContent = '404 Not Found';
+      this.appendChild(messageElement);
     }
   }
-}
 
-if (config.enableRouter) {
-  customElements.define(config.routerTagName, Router);
 }
 
 export function entryRoute(tagName: string, routePath: string): void {
+  if (routePath.startsWith(ROUTE_PATH_PREFIX)) {
+    routePath = routePath.substring(ROUTE_PATH_PREFIX.length); // Remove 'routes:' prefix
+  } 
   routeMap[routePath] = tagName;
 }

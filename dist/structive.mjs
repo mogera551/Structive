@@ -1,11 +1,90 @@
+const DEFAULT_ROUTE_PATH = '/'; // Default route path
+const ROUTE_PATH_PREFIX = 'routes:'; // Prefix for route paths
+/**
+ * example:
+ * ```ts
+ * entryRoute('my-view', '/my-view/:id');
+ */
+const routeMap = {};
+class Router extends HTMLElement {
+    _popstateHandler;
+    constructor() {
+        super();
+        this.innerHTML = '<slot name="content"></slot>';
+        this._popstateHandler = this.popstateHandler.bind(this);
+    }
+    connectedCallback() {
+        window.addEventListener('popstate', this._popstateHandler);
+        window.dispatchEvent(new Event("popstate")); // Dispatch popstate event to trigger the initial render
+    }
+    disconnectedCallback() {
+        window.removeEventListener('popstate', this._popstateHandler);
+    }
+    popstateHandler() {
+        this.render();
+        window.dispatchEvent(new Event('popstate')); // Dispatch popstate event to notify other components
+    }
+    render() {
+        const routePath = window.location.pathname || DEFAULT_ROUTE_PATH;
+        let tagName = undefined;
+        let params = {};
+        // Check if the routePath matches any of the defined routes
+        for (const [path, tag] of Object.entries(routeMap)) {
+            const regex = new RegExp(path.replace(/:[^\s/]+/g, '([^/]+)'));
+            if (regex.test(routePath)) {
+                tagName = tag;
+                // Extract the parameters from the routePath
+                const matches = routePath.match(regex);
+                if (matches) {
+                    const keys = path.match(/:[^\s/]+/g) || [];
+                    keys.forEach((key, index) => {
+                        params[key.substring(1)] = matches[index + 1]; // +1 to skip the full match
+                    });
+                }
+                break;
+            }
+        }
+        if (tagName) {
+            // If a route matches, create the custom element and set its state
+            // Create the custom element with the tag name
+            // project the custom element into the router slot
+            const customElement = document.createElement(tagName);
+            customElement.setAttribute('state', JSON.stringify(params));
+            customElement.setAttribute('slot', 'content');
+            this.appendChild(customElement);
+        }
+        else {
+            // If no route matches, show 404 content
+            const messageElement = document.createElement('h1');
+            messageElement.setAttribute('slot', 'content');
+            messageElement.textContent = '404 Not Found';
+            this.appendChild(messageElement);
+        }
+    }
+}
+function entryRoute(tagName, routePath) {
+    if (routePath.startsWith(ROUTE_PATH_PREFIX)) {
+        routePath = routePath.substring(ROUTE_PATH_PREFIX.length); // Remove 'routes:' prefix
+    }
+    routeMap[routePath] = tagName;
+}
+
 const globalConfig = {
     debug: false,
     locale: "en-US", // The locale of the component, ex. "en-US", default is "en-US"
     enableShadowDom: true,
+    enableMainWrapper: true, // Whether to use the main wrapper or not
+    enableRouter: true, // Whether to use the router or not
+    autoInsertMainWrapper: false, // Whether to automatically insert the main wrapper or not
+    autoInit: true, // Whether to automatically initialize the component or not
+    mainTagName: "app-main", // The tag name of the main wrapper, default is "app-main"
+    routerTagName: "view-router", // The tag name of the router, default is "view-router"
+    layoutPath: "", // The path to the layout file, default is ""
 };
-function getGlobalConfig$1() {
+function getGlobalConfig() {
     return globalConfig;
 }
+const config$2 = getGlobalConfig();
 
 function optionsRequired(fnName) {
     throw new Error(`${fnName} requires at least one option`);
@@ -23,7 +102,7 @@ function valueMustBeDate(fnName) {
     throw new Error(`${fnName} requires a date value`);
 }
 
-const config = getGlobalConfig$1();
+const config$1 = getGlobalConfig();
 const eq = (options) => {
     const opt = options?.[0] ?? optionsRequired('eq');
     const optValue = Number(opt);
@@ -153,7 +232,7 @@ const fix = (options) => {
     };
 };
 const locale = (options) => {
-    const opt = options?.[0] ?? config.locale;
+    const opt = options?.[0] ?? config$1.locale;
     return (value) => {
         if (typeof value !== 'number')
             valueMustBeNumber('locale');
@@ -287,27 +366,27 @@ const percent = (options) => {
     };
 };
 const date = (options) => {
-    options?.[0] ?? config.locale;
+    options?.[0] ?? config$1.locale;
     return (value) => {
         if (!(value instanceof Date))
             valueMustBeDate('date');
-        return value.toLocaleDateString(config.locale);
+        return value.toLocaleDateString(config$1.locale);
     };
 };
 const time = (options) => {
-    options?.[0] ?? config.locale;
+    options?.[0] ?? config$1.locale;
     return (value) => {
         if (!(value instanceof Date))
             valueMustBeDate('time');
-        return value.toLocaleTimeString(config.locale);
+        return value.toLocaleTimeString(config$1.locale);
     };
 };
 const datetime = (options) => {
-    options?.[0] ?? config.locale;
+    options?.[0] ?? config$1.locale;
     return (value) => {
         if (!(value instanceof Date))
             valueMustBeDate('datetime');
-        return value.toLocaleString(config.locale);
+        return value.toLocaleString(config$1.locale);
     };
 };
 const ymd = (options) => {
@@ -2392,7 +2471,7 @@ class Updater {
     waitForQueueEntry = Promise.withResolvers();
     async main(waitForComponentInit) {
         await waitForComponentInit.promise;
-        const config = getGlobalConfig$1();
+        const config = getGlobalConfig();
         while (true) {
             try {
                 const waitForMainLoopTerminate = await this.waitForQueueEntry.promise;
@@ -2920,7 +2999,7 @@ function getBaseClass(extendTagName) {
 }
 
 function getComponentConfig(userConfig) {
-    const globalConfig = getGlobalConfig$1();
+    const globalConfig = getGlobalConfig();
     return {
         enableShadowDom: userConfig.enableShadowDom ?? globalConfig.enableShadowDom,
         extends: userConfig.extends ?? null,
@@ -3077,8 +3156,11 @@ function registerComponentClass(tagName, componentClass) {
     componentClass.define(tagName);
 }
 
-async function registerSingleFileComponents$1(singleFileComponents) {
+async function registerSingleFileComponents(singleFileComponents) {
     const promises = Promise.all(Object.entries(singleFileComponents).map(async ([tagName, path]) => {
+        if (config$2.enableRouter) {
+            entryRoute(tagName, path); // routing
+        }
         const componentData = await loadSingleFileComponent(path);
         const componentClass = createComponentClass(componentData);
         registerComponentClass(tagName, componentClass);
@@ -3086,13 +3168,83 @@ async function registerSingleFileComponents$1(singleFileComponents) {
     await promises;
 }
 
-function registerSingleFileComponents(singleFileComponents) {
-    registerSingleFileComponents$1(singleFileComponents);
-}
-const defineComponents = registerSingleFileComponents;
-function getGlobalConfig() {
-    return getGlobalConfig$1();
+class MainWrapper extends HTMLElement {
+    constructor() {
+        super();
+        if (config$2.enableShadowDom) {
+            this.attachShadow({ mode: 'open' });
+        }
+    }
+    async connetctedCallback() {
+        await this.loadLayout();
+        this.render();
+    }
+    get root() {
+        return this.shadowRoot ?? this;
+    }
+    async loadLayout() {
+        if (config$2.layoutPath) {
+            const response = await fetch(config$2.layoutPath);
+            if (response.ok) {
+                const layoutText = await response.text();
+                const workTemplate = document.createElement("template");
+                workTemplate.innerHTML = layoutText;
+                const template = workTemplate.content.querySelector("template");
+                const style = workTemplate.content.querySelector("style");
+                this.root.appendChild(template?.content ?? document.createDocumentFragment());
+                if (style) {
+                    const shadowRootOrDocument = this.shadowRoot ?? document;
+                    const styleSheets = shadowRootOrDocument.adoptedStyleSheets;
+                    if (!styleSheets.includes(style)) {
+                        shadowRootOrDocument.adoptedStyleSheets = [...styleSheets, style];
+                    }
+                }
+            }
+            else {
+                raiseError(`Failed to load layout from ${config$2.layoutPath}`);
+            }
+        }
+        else {
+            this.root.innerHTML = `<slot name="router"></slot>`;
+        }
+    }
+    render() {
+        // add router
+        if (config$2.enableRouter) {
+            const router = document.createElement(config$2.routerTagName);
+            router.setAttribute('slot', 'router');
+            this.root.appendChild(router);
+        }
+    }
 }
 
-export { defineComponents, getGlobalConfig, registerSingleFileComponents };
+function bootstrap() {
+    if (config$2.enableRouter) {
+        customElements.define(config$2.routerTagName, Router);
+    }
+    if (config$2.enableMainWrapper) {
+        customElements.define(config$2.mainTagName, MainWrapper);
+        if (config$2.autoInsertMainWrapper) {
+            const mainWrapper = document.createElement(config$2.mainTagName);
+            document.body.appendChild(mainWrapper);
+        }
+    }
+}
+
+const config = config$2;
+let initialized = false;
+async function defineComponents(singleFileComponents) {
+    await registerSingleFileComponents(singleFileComponents);
+    if (config.autoInit) {
+        bootstrapStructive();
+    }
+}
+function bootstrapStructive() {
+    if (!initialized) {
+        bootstrap();
+        initialized = true;
+    }
+}
+
+export { bootstrapStructive, config, defineComponents };
 //# sourceMappingURL=structive.mjs.map
