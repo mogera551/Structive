@@ -1,5 +1,7 @@
 # Structive
 
+[日本語](README.ja.md)
+
 **Structive** is a structure-driven template engine where structure itself defines meaning, logic, and data flow. Write structure, not syntax.
 
 ---
