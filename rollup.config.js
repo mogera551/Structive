@@ -25,6 +25,7 @@ export default [
     ]
   },
   // Type declarations
+  /*
   {
     input: 'src/exports.ts',
     output: {
@@ -33,6 +34,7 @@ export default [
     },
     plugins: [dts()]
   },
+  */
   // Minified JS build
   {
     input: 'src/exports.ts',
