@@ -1844,81 +1844,6 @@ var Structive = (function (exports) {
         return bindContent;
     }
 
-    /**
-     * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
-     * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
-     * 指定することはないと考え、Mapを使わないことにした。
-     */
-    const _cache = {};
-    //const _cache: Map<string, IResolvedPathInfo> = new Map();
-    class ResolvedPathInfo {
-        static id = 0;
-        id = ++ResolvedPathInfo.id;
-        name;
-        elements;
-        paths;
-        wildcardCount;
-        wildcardType;
-        wildcardIndexes;
-        info;
-        constructor(name) {
-            const elements = name.split(".");
-            const tmpPatternElements = elements.slice();
-            const paths = [];
-            let incompleteCount = 0;
-            let completeCount = 0;
-            let lastPath = "";
-            let wildcardCount = 0;
-            let wildcardType = "none";
-            let wildcardIndexes = [];
-            for (let i = 0; i < elements.length; i++) {
-                const element = elements[i];
-                if (element === "*") {
-                    tmpPatternElements[i] = "*";
-                    wildcardIndexes.push(null);
-                    incompleteCount++;
-                    wildcardCount++;
-                }
-                else {
-                    const number = Number(element);
-                    if (!Number.isNaN(number)) {
-                        tmpPatternElements[i] = "*";
-                        wildcardIndexes.push(number);
-                        completeCount++;
-                        wildcardCount++;
-                    }
-                }
-                lastPath += element;
-                paths.push(lastPath);
-                lastPath += (i < elements.length - 1 ? "." : "");
-            }
-            const pattern = tmpPatternElements.join(".");
-            const info = getStructuredPathInfo(pattern);
-            if (incompleteCount > 0 || completeCount > 0) {
-                if (incompleteCount === wildcardCount) {
-                    wildcardType = "context";
-                }
-                else if (completeCount === wildcardCount) {
-                    wildcardType = "all";
-                }
-                else {
-                    wildcardType = "partial";
-                }
-            }
-            this.name = name;
-            this.elements = elements;
-            this.paths = paths;
-            this.wildcardCount = wildcardCount;
-            this.wildcardType = wildcardType;
-            this.wildcardIndexes = wildcardIndexes;
-            this.info = info;
-        }
-    }
-    function getResolvedPathInfo(name) {
-        //  return _cache.get(name) ?? (_cache.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
-        return _cache[name] ?? (_cache[name] = new ResolvedPathInfo(name));
-    }
-
     class ListIndex {
         static id = 0;
         id = ++ListIndex.id;
@@ -2005,9 +1930,310 @@ var Structive = (function (exports) {
         return info.id * (listIndexMaxId + 1) + (listIndex?.id ?? 0);
     }
 
-    const matchIndexPropertyName = new RegExp(/^\$(\d+)$/);
+    function setTracking(info, handler, callback) {
+        handler.trackingStack.push(info);
+        handler.lastTrackingStack = info;
+        try {
+            return callback();
+        }
+        finally {
+            handler.trackingStack.pop();
+            handler.lastTrackingStack = handler.trackingStack[handler.trackingStack.length - 1] ?? null;
+        }
+    }
+
+    function _getByRef(target, info, listIndex, receiver, handler) {
+        if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
+            const lastPattern = handler.lastTrackingStack;
+            if (lastPattern.parentInfo !== info) {
+                handler.engine.addDependentProp(lastPattern, info);
+            }
+        }
+        let refId = 0;
+        if (handler.cacheable) {
+            refId = getStatePropertyRefId(info, listIndex);
+            const value = handler.cache[refId];
+            if (typeof value !== "undefined") {
+                return value;
+            }
+            if (refId in handler.cache) {
+                return undefined;
+            }
+        }
+        let value;
+        try {
+            if (info.pattern in target) {
+                if (info.wildcardCount > 0) {
+                    if (listIndex === null) {
+                        raiseError(`propRef.listIndex is null`);
+                    }
+                    return (value = handler.engine.setStatePropertyRef(info, listIndex, () => {
+                        return Reflect.get(target, info.pattern, receiver);
+                    }));
+                }
+                else {
+                    return (value = Reflect.get(target, info.pattern, receiver));
+                }
+            }
+            else {
+                const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+                const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
+                const parentValue = getByRef$1(target, parentInfo, parentListIndex, receiver, handler);
+                const lastSegment = info.lastSegment;
+                if (lastSegment === "*") {
+                    const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+                    return (value = Reflect.get(parentValue, index));
+                }
+                else {
+                    return (value = Reflect.get(parentValue, lastSegment));
+                }
+            }
+        }
+        finally {
+            if (handler.cacheable && !(refId in handler.cache)) {
+                handler.cache[refId] = value;
+            }
+        }
+    }
+    function getByRef$1(target, info, listIndex, receiver, handler) {
+        if (handler.engine.trackedGetters.has(info.pattern)) {
+            return setTracking(info, handler, () => {
+                return _getByRef(target, info, listIndex, receiver, handler);
+            });
+        }
+        else {
+            return _getByRef(target, info, listIndex, receiver, handler);
+        }
+    }
+
+    function getByRef(target, prop, receiver, handler) {
+        return (pattern, listIndex) => getByRef$1(target, pattern, listIndex, receiver, handler);
+    }
+
+    function setByRef$1(target, info, listIndex, value, receiver, handler) {
+        try {
+            if (info.pattern in target) {
+                if (info.wildcardCount > 0) {
+                    if (listIndex === null) {
+                        raiseError(`propRef.listIndex is null`);
+                    }
+                    return handler.engine.setStatePropertyRef(info, listIndex, () => {
+                        return Reflect.set(target, info.pattern, value, receiver);
+                    });
+                }
+                else {
+                    return Reflect.set(target, info.pattern, value, receiver);
+                }
+            }
+            else {
+                const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+                const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
+                const parentValue = getByRef$1(target, parentInfo, parentListIndex, receiver, handler);
+                const lastSegment = info.lastSegment;
+                if (lastSegment === "*") {
+                    const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+                    return Reflect.set(parentValue, index, value);
+                }
+                else {
+                    return Reflect.set(parentValue, lastSegment, value);
+                }
+            }
+        }
+        finally {
+            handler.engine.updater.addUpdatedStatePropertyRefValue(info, listIndex, value);
+        }
+    }
+
+    function setByRef(target, prop, receiver, handler) {
+        return (pattern, listIndex, value) => setByRef$1(target, pattern, listIndex, value, receiver, handler);
+    }
+
+    async function setCacheable$1(handler, callback) {
+        handler.cacheable = true;
+        handler.cache = {};
+        try {
+            await callback();
+        }
+        finally {
+            handler.cacheable = false;
+        }
+    }
+
+    function setCacheable(target, prop, receiver, handler) {
+        return async (callback) => {
+            await setCacheable$1(handler, callback);
+        };
+    }
+
     const CONNECTED_CALLBACK = "$connectedCallback";
+    function connectedCallback(target, prop, receiver, handler) {
+        return async () => {
+            const callback = Reflect.get(target, CONNECTED_CALLBACK);
+            if (typeof callback === "function") {
+                await callback.call(target, receiver);
+            }
+        };
+    }
+
     const DISCONNECTED_CALLBACK = "$disconnectedCallback";
+    function disconnectedCallback(target, prop, receiver, handler) {
+        return async () => {
+            const callback = Reflect.get(target, DISCONNECTED_CALLBACK);
+            if (typeof callback === "function") {
+                await callback.call(target, receiver);
+            }
+        };
+    }
+
+    function resolve(target, prop, receiver, handler) {
+        return (path, indexes, value) => {
+            const info = getStructuredPathInfo(path);
+            let listIndex = null;
+            for (let i = 0; i < info.wildcardParentInfos.length; i++) {
+                const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
+                const listIndexes = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? []);
+                const index = indexes[i] ?? raiseError(`index is null`);
+                listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+            }
+            if (typeof value === "undefined") {
+                return getByRef$1(target, info, listIndex, receiver, handler);
+            }
+            else {
+                return setByRef$1(target, info, listIndex, value, receiver, handler);
+            }
+        };
+    }
+
+    function getAll(target, prop, receiver, handler) {
+        const resolve$1 = resolve(target, prop, receiver, handler);
+        return (path, indexes) => {
+            const info = getStructuredPathInfo(path);
+            if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
+                const lastPattern = handler.lastTrackingStack;
+                if (lastPattern.parentInfo !== info) {
+                    handler.engine.addDependentProp(lastPattern, info);
+                }
+            }
+            if (typeof indexes === "undefined") {
+                for (let i = 0; i < info.wildcardInfos.length; i++) {
+                    const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
+                    const listIndex = handler.engine.getContextListIndex(wildcardPattern.pattern);
+                    if (listIndex) {
+                        indexes = listIndex.indexes;
+                        break;
+                    }
+                }
+                if (typeof indexes === "undefined") {
+                    indexes = [];
+                }
+            }
+            const walkWildcardPattern = (wildcardParentInfos, wildardIndexPos, listIndex, indexes, indexPos, parentIndexes, results) => {
+                const wildcardParentPattern = wildcardParentInfos[wildardIndexPos] ?? null;
+                if (wildcardParentPattern === null) {
+                    results.push(parentIndexes);
+                    return;
+                }
+                const listIndexSet = handler.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+                const listIndexes = Array.from(listIndexSet);
+                const index = indexes[indexPos] ?? null;
+                if (index === null) {
+                    for (let i = 0; i < listIndexes.length; i++) {
+                        const listIndex = listIndexes[i];
+                        walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
+                    }
+                }
+                else {
+                    const listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+                    if ((wildardIndexPos + 1) < wildcardParentInfos.length) {
+                        walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
+                    }
+                }
+            };
+            const resultIndexes = [];
+            walkWildcardPattern(info.wildcardParentInfos, 0, null, indexes, 0, [], resultIndexes);
+            const resultValues = [];
+            for (let i = 0; i < resultIndexes.length; i++) {
+                resultValues.push(resolve$1(info.pattern, resultIndexes[i]));
+            }
+            return resultValues;
+        };
+    }
+
+    /**
+     * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
+     * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
+     * 指定することはないと考え、Mapを使わないことにした。
+     */
+    const _cache = {};
+    //const _cache: Map<string, IResolvedPathInfo> = new Map();
+    class ResolvedPathInfo {
+        static id = 0;
+        id = ++ResolvedPathInfo.id;
+        name;
+        elements;
+        paths;
+        wildcardCount;
+        wildcardType;
+        wildcardIndexes;
+        info;
+        constructor(name) {
+            const elements = name.split(".");
+            const tmpPatternElements = elements.slice();
+            const paths = [];
+            let incompleteCount = 0;
+            let completeCount = 0;
+            let lastPath = "";
+            let wildcardCount = 0;
+            let wildcardType = "none";
+            let wildcardIndexes = [];
+            for (let i = 0; i < elements.length; i++) {
+                const element = elements[i];
+                if (element === "*") {
+                    tmpPatternElements[i] = "*";
+                    wildcardIndexes.push(null);
+                    incompleteCount++;
+                    wildcardCount++;
+                }
+                else {
+                    const number = Number(element);
+                    if (!Number.isNaN(number)) {
+                        tmpPatternElements[i] = "*";
+                        wildcardIndexes.push(number);
+                        completeCount++;
+                        wildcardCount++;
+                    }
+                }
+                lastPath += element;
+                paths.push(lastPath);
+                lastPath += (i < elements.length - 1 ? "." : "");
+            }
+            const pattern = tmpPatternElements.join(".");
+            const info = getStructuredPathInfo(pattern);
+            if (incompleteCount > 0 || completeCount > 0) {
+                if (incompleteCount === wildcardCount) {
+                    wildcardType = "context";
+                }
+                else if (completeCount === wildcardCount) {
+                    wildcardType = "all";
+                }
+                else {
+                    wildcardType = "partial";
+                }
+            }
+            this.name = name;
+            this.elements = elements;
+            this.paths = paths;
+            this.wildcardCount = wildcardCount;
+            this.wildcardType = wildcardType;
+            this.wildcardIndexes = wildcardIndexes;
+            this.info = info;
+        }
+    }
+    function getResolvedPathInfo(name) {
+        //  return _cache.get(name) ?? (_cache.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
+        return _cache[name] ?? (_cache[name] = new ResolvedPathInfo(name));
+    }
+
     function getListIndex(info, engine) {
         if (info.info.wildcardCount === 0) {
             return null;
@@ -2033,285 +2259,73 @@ var Structive = (function (exports) {
         else if (info.wildcardType === "none") ;
         return listIndex;
     }
+
+    const matchIndexPropertyName = new RegExp(/^\$(\d+)$/);
+    function get(target, prop, receiver, handler) {
+        let value;
+        if (typeof prop === "string") {
+            if (matchIndexPropertyName.test(prop)) {
+                const number = prop.slice(1);
+                const index = Number(number);
+                const ref = handler.engine.getLastStatePropertyRef() ??
+                    raiseError(`get: this.engine.getLastStatePropertyRef() is null`);
+                return ref.listIndex?.at(index - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
+            }
+            else if (prop === "$resolve") {
+                return resolve(target, prop, receiver, handler);
+            }
+            else if (prop === "$getAll") {
+                return getAll(target, prop, receiver, handler);
+            }
+            else {
+                const resolvedInfo = getResolvedPathInfo(prop);
+                const listIndex = getListIndex(resolvedInfo, handler.engine);
+                value = getByRef$1(target, resolvedInfo.info, listIndex, receiver, handler);
+            }
+        }
+        else if (typeof prop === "symbol") {
+            if (prop in handler.callableApi) {
+                return handler.callableApi[prop](target, prop, receiver, handler);
+            }
+            value = Reflect.get(target, prop, receiver);
+        }
+        return value;
+    }
+
+    function set(target, prop, value, receiver, handler) {
+        if (typeof prop === "string") {
+            const resolvedInfo = getResolvedPathInfo(prop);
+            const listIndex = getListIndex(resolvedInfo, handler.engine);
+            return setByRef$1(target, resolvedInfo.info, listIndex, value, receiver, handler);
+        }
+        else {
+            return Reflect.set(target, prop, value, receiver);
+        }
+    }
+
     class StateHandler {
         engine;
         cacheable = false;
         cache = {};
+        lastTrackingStack = null;
+        trackingStack = [];
         constructor(engine) {
             this.engine = engine;
         }
-        _getByRef(target, info, listIndex, receiver) {
-            if (this.#lastTrackingStack != null && this.#lastTrackingStack !== info) {
-                const lastPattern = this.#lastTrackingStack;
-                if (lastPattern.parentInfo !== info) {
-                    this.engine.addDependentProp(lastPattern, info);
-                }
-            }
-            let refId = 0;
-            if (this.cacheable) {
-                refId = getStatePropertyRefId(info, listIndex);
-                const value = this.cache[refId];
-                if (typeof value !== "undefined") {
-                    return value;
-                }
-                if (refId in this.cache) {
-                    return undefined;
-                }
-            }
-            let value;
-            try {
-                if (info.pattern in target) {
-                    if (info.wildcardCount > 0) {
-                        if (listIndex === null) {
-                            raiseError(`propRef.listIndex is null`);
-                        }
-                        return (value = this.engine.setStatePropertyRef(info, listIndex, () => {
-                            return Reflect.get(target, info.pattern, receiver);
-                        }));
-                    }
-                    else {
-                        return (value = Reflect.get(target, info.pattern, receiver));
-                    }
-                }
-                else {
-                    const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-                    const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-                    const parentValue = this.getByRef(target, parentInfo, parentListIndex, receiver);
-                    const lastSegment = info.lastSegment;
-                    if (lastSegment === "*") {
-                        const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
-                        return (value = Reflect.get(parentValue, index));
-                    }
-                    else {
-                        return (value = Reflect.get(parentValue, lastSegment));
-                    }
-                }
-            }
-            finally {
-                if (this.cacheable && !(refId in this.cache)) {
-                    this.cache[refId] = value;
-                }
-            }
-        }
-        #trackingStack = [];
-        #lastTrackingStack = null;
-        setTracking(info, callback) {
-            this.#trackingStack.push(info);
-            this.#lastTrackingStack = info;
-            try {
-                return callback();
-            }
-            finally {
-                this.#trackingStack.pop();
-                this.#lastTrackingStack = this.#trackingStack[this.#trackingStack.length - 1] ?? null;
-            }
-        }
-        getByRef(target, info, listIndex, receiver) {
-            if (this.engine.trackedGetters.has(info.pattern)) {
-                return this.setTracking(info, () => {
-                    return this._getByRef(target, info, listIndex, receiver);
-                });
-            }
-            else {
-                return this._getByRef(target, info, listIndex, receiver);
-            }
-        }
-        setByRef(target, info, listIndex, value, receiver) {
-            try {
-                if (info.pattern in target) {
-                    if (info.wildcardCount > 0) {
-                        if (listIndex === null) {
-                            raiseError(`propRef.listIndex is null`);
-                        }
-                        return this.engine.setStatePropertyRef(info, listIndex, () => {
-                            return Reflect.set(target, info.pattern, value, receiver);
-                        });
-                    }
-                    else {
-                        return Reflect.set(target, info.pattern, value, receiver);
-                    }
-                }
-                else {
-                    const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-                    const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-                    const parentValue = this.getByRef(target, parentInfo, parentListIndex, receiver);
-                    const lastSegment = info.lastSegment;
-                    if (lastSegment === "*") {
-                        const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
-                        return Reflect.set(parentValue, index, value);
-                    }
-                    else {
-                        return Reflect.set(parentValue, lastSegment, value);
-                    }
-                }
-            }
-            finally {
-                this.engine.updater.addUpdatedStatePropertyRefValue(info, listIndex, value);
-            }
-        }
-        async setCacheable(callback) {
-            this.cacheable = true;
-            this.cache = {};
-            try {
-                await callback();
-            }
-            finally {
-                this.cacheable = false;
-            }
-        }
-        [GetByRefSymbol](target, prop, receiver) {
-            const self = this;
-            return (pattern, listIndex) => self.getByRef(target, pattern, listIndex, receiver);
-        }
-        [SetByRefSymbol](target, prop, receiver) {
-            const self = this;
-            return (pattern, listIndex, value) => self.setByRef(target, pattern, listIndex, value, receiver);
-        }
-        [SetCacheableSymbol](target, prop, receiver) {
-            const self = this;
-            return async (callback) => {
-                await self.setCacheable(callback);
-            };
-        }
-        [ConnectedCallbackSymbol](target, prop, receiver) {
-            return async () => {
-                const callback = Reflect.get(target, CONNECTED_CALLBACK);
-                if (typeof callback === "function") {
-                    await callback.call(target, receiver);
-                }
-            };
-        }
-        [DisconnectedCallbackSymbol](target, prop, receiver) {
-            return async () => {
-                const callback = Reflect.get(target, DISCONNECTED_CALLBACK);
-                if (typeof callback === "function") {
-                    await callback.call(target, receiver);
-                }
-            };
-        }
-        [ResolveSymbol](target, prop, receiver) {
-            const self = this;
-            return (path, indexes, value) => {
-                const info = getStructuredPathInfo(path);
-                let listIndex = null;
-                for (let i = 0; i < info.wildcardParentInfos.length; i++) {
-                    const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
-                    const listIndexes = Array.from(self.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? []);
-                    const index = indexes[i] ?? raiseError(`index is null`);
-                    listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
-                }
-                if (typeof value === "undefined") {
-                    return self.getByRef(target, info, listIndex, receiver);
-                }
-                else {
-                    return self.setByRef(target, info, listIndex, value, receiver);
-                }
-            };
-        }
-        [GetAllSymbol](target, prop, receiver) {
-            const self = this;
-            const resolve = this[ResolveSymbol](target, prop, receiver);
-            return (path, indexes) => {
-                const info = getStructuredPathInfo(path);
-                if (this.#lastTrackingStack != null && this.#lastTrackingStack !== info) {
-                    const lastPattern = this.#lastTrackingStack;
-                    if (lastPattern.parentInfo !== info) {
-                        this.engine.addDependentProp(lastPattern, info);
-                    }
-                }
-                if (typeof indexes === "undefined") {
-                    for (let i = 0; i < info.wildcardInfos.length; i++) {
-                        const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
-                        const listIndex = this.engine.getContextListIndex(wildcardPattern.pattern);
-                        if (listIndex) {
-                            indexes = listIndex.indexes;
-                            break;
-                        }
-                    }
-                    if (typeof indexes === "undefined") {
-                        indexes = [];
-                    }
-                }
-                const walkWildcardPattern = (wildcardParentInfos, wildardIndexPos, listIndex, indexes, indexPos, parentIndexes, results) => {
-                    const wildcardParentPattern = wildcardParentInfos[wildardIndexPos] ?? null;
-                    if (wildcardParentPattern === null) {
-                        results.push(parentIndexes);
-                        return;
-                    }
-                    const listIndexSet = self.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
-                    const listIndexes = Array.from(listIndexSet);
-                    const index = indexes[indexPos] ?? null;
-                    if (index === null) {
-                        for (let i = 0; i < listIndexes.length; i++) {
-                            const listIndex = listIndexes[i];
-                            walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
-                        }
-                    }
-                    else {
-                        const listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
-                        if ((wildardIndexPos + 1) < wildcardParentInfos.length) {
-                            walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
-                        }
-                    }
-                };
-                const resultIndexes = [];
-                walkWildcardPattern(info.wildcardParentInfos, 0, null, indexes, 0, [], resultIndexes);
-                const resultValues = [];
-                for (let i = 0; i < resultIndexes.length; i++) {
-                    resultValues.push(resolve(info.pattern, resultIndexes[i]));
-                }
-                return resultValues;
-            };
-        }
-        callableSymbols = new Set([
-            GetByRefSymbol,
-            SetByRefSymbol,
-            SetCacheableSymbol,
-            ConnectedCallbackSymbol,
-            DisconnectedCallbackSymbol,
-            ResolveSymbol,
-            GetAllSymbol
-        ]);
+        callableApi = {
+            [GetByRefSymbol]: getByRef,
+            [SetByRefSymbol]: setByRef,
+            [SetCacheableSymbol]: setCacheable,
+            [ConnectedCallbackSymbol]: connectedCallback,
+            [DisconnectedCallbackSymbol]: disconnectedCallback,
+            [ResolveSymbol]: resolve,
+            [GetAllSymbol]: getAll,
+        };
         get(target, prop, receiver) {
-            let value;
-            if (typeof prop === "string") {
-                if (matchIndexPropertyName.test(prop)) {
-                    const number = prop.slice(1);
-                    const index = Number(number);
-                    const ref = this.engine.getLastStatePropertyRef() ??
-                        raiseError(`get: this.engine.getLastStatePropertyRef() is null`);
-                    return ref.listIndex?.at(index - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-                }
-                else if (prop === "$resolve") {
-                    return this[ResolveSymbol].apply(this, [target, prop, receiver]);
-                }
-                else if (prop === "$getAll") {
-                    return this[GetAllSymbol].apply(this, [target, prop, receiver]);
-                }
-                else {
-                    const resolvedInfo = getResolvedPathInfo(prop);
-                    const listIndex = getListIndex(resolvedInfo, this.engine);
-                    value = this.getByRef(target, resolvedInfo.info, listIndex, receiver);
-                }
-            }
-            else if (typeof prop === "symbol") {
-                if (this.callableSymbols.has(prop)) {
-                    const func = Reflect.get(this, prop);
-                    return func.apply(this, [target, prop, receiver]);
-                }
-                value = Reflect.get(target, prop, receiver);
-            }
-            return value;
+            return get(target, prop, receiver, this);
         }
         set(target, prop, value, receiver) {
-            if (typeof prop === "string") {
-                const resolvedInfo = getResolvedPathInfo(prop);
-                const listIndex = getListIndex(resolvedInfo, this.engine);
-                return this.setByRef(target, resolvedInfo.info, listIndex, value, receiver);
-            }
-            else {
-                return Reflect.set(target, prop, value, receiver);
-            }
+            return set(target, prop, value, receiver, this);
         }
     }
     function createStateProxy(engine, state) {
@@ -3009,12 +3023,30 @@ var Structive = (function (exports) {
         };
     }
 
+    function findStructiveParent(el) {
+        let current = el.parentNode;
+        while (current) {
+            if (current.state && current.isStructive) {
+                return current;
+            }
+            current = current.parentNode;
+            if (current instanceof ShadowRoot) {
+                if (current.host && current.host.state && current.host.isStructive) {
+                    return current.host;
+                }
+                current = current.host;
+            }
+        }
+        return null;
+    }
     function createComponentClass(componentData) {
-        const componentConfig = getComponentConfig(componentData.config);
+        const config = (componentData.stateClass.$config ?? {});
+        const componentConfig = getComponentConfig(config);
         const id = generateId();
         const { html, css, stateClass } = componentData;
         const inputFilters = Object.assign({}, inputBuiltinFilters);
         const outputFilters = Object.assign({}, outputBuiltinFilters);
+        stateClass.$isStructive = true;
         registerHtml(id, html);
         registerCss(id, css);
         registerStateClass(id, stateClass);
@@ -3031,6 +3063,19 @@ var Structive = (function (exports) {
             }
             disconnectedCallback() {
                 this.#engine.disconnectedCallback();
+            }
+            #parentStructiveComponent;
+            get parentStructiveComponent() {
+                if (typeof this.#parentStructiveComponent === "undefined") {
+                    this.#parentStructiveComponent = findStructiveParent(this);
+                }
+                return this.#parentStructiveComponent;
+            }
+            get state() {
+                return this.#engine.state;
+            }
+            get isStructive() {
+                return this.state.constructor.$isStructive ?? false;
             }
             static define(tagName) {
                 if (extendTagName) {
@@ -3138,14 +3183,13 @@ var Structive = (function (exports) {
         script?.remove();
         const style = template.content.querySelector("style");
         style?.remove();
-        const stateClass = scriptModule.default ?? class {
-        };
+        const stateClass = (scriptModule.default ?? class {
+        });
         return {
             text,
             html: unescapeEmbed(html?.innerHTML ?? "").trim(),
             css: style?.textContent ?? "",
             stateClass,
-            config: stateClass.$config ?? {}
         };
     }
 
@@ -3171,6 +3215,8 @@ var Structive = (function (exports) {
         await promises;
     }
 
+    const SLOT_KEY = "router";
+    const DEFAULT_LAYOUT = `<slot name="${SLOT_KEY}"></slot>`;
     class MainWrapper extends HTMLElement {
         constructor() {
             super();
@@ -3208,14 +3254,14 @@ var Structive = (function (exports) {
                 }
             }
             else {
-                this.root.innerHTML = `<slot name="router"></slot>`;
+                this.root.innerHTML = DEFAULT_LAYOUT;
             }
         }
         render() {
             // add router
             if (config$2.enableRouter) {
                 const router = document.createElement(config$2.routerTagName);
-                router.setAttribute('slot', 'router');
+                router.setAttribute('slot', SLOT_KEY);
                 this.root.appendChild(router);
             }
         }

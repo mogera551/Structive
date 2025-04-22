@@ -1,3 +1,4 @@
+import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { Constructor, IComponentConfig, IUserConfig } from "../WebComponents/types";
@@ -30,3 +31,15 @@ export interface IStructiveStaticState {
 }
 
 export type IStructiveState = Constructor<IState> & IStructiveStaticState;
+
+export interface IStateHandler {
+  engine           : IComponentEngine;
+  cacheable        : boolean;
+  cache            : {[key:number]:any};
+  lastTrackingStack: IStructuredPathInfo | null;
+  trackingStack    : IStructuredPathInfo[];
+  callableApi      : { [key:symbol]: Function };
+  get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
+  set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
+
+}

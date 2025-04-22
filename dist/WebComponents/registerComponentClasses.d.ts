@@ -1,2 +1,2 @@
-import { QuelComponentClasses } from "./types";
-export declare function registerComponentClasses(componentClasses: QuelComponentClasses): void;
+import { StructiveComponentClasses } from "./types";
+export declare function registerComponentClasses(componentClasses: StructiveComponentClasses): void;

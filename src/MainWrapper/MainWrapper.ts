@@ -1,6 +1,9 @@
 import { raiseError } from "../utils";
 import { config } from "../WebComponents/getGlobalConfig";
 
+const SLOT_KEY = "router";
+const DEFAULT_LAYOUT = `<slot name="${SLOT_KEY}"></slot>`;
+
 export class MainWrapper extends HTMLElement {
   constructor() {
     super();
@@ -41,7 +44,7 @@ export class MainWrapper extends HTMLElement {
         raiseError(`Failed to load layout from ${config.layoutPath}`);
       }
     } else {
-      this.root.innerHTML = `<slot name="router"></slot>`;
+      this.root.innerHTML = DEFAULT_LAYOUT;
     }
   }
 
@@ -49,7 +52,7 @@ export class MainWrapper extends HTMLElement {
     // add router
     if (config.enableRouter) {
       const router = document.createElement(config.routerTagName);
-      router.setAttribute('slot', 'router');
+      router.setAttribute('slot', SLOT_KEY);
       this.root.appendChild(router);
     }
   }

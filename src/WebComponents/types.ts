@@ -63,6 +63,6 @@ export interface IUserComponentData {
   stateClass: IStructiveState; // The class that will be used to create the state object
 }
 
-export type QuelComponentClasses = Record<string, StructiveComponentClass>;
+export type StructiveComponentClasses = Record<string, StructiveComponentClass>;
 
 export type SingleFileComponents = Record<string, string>;

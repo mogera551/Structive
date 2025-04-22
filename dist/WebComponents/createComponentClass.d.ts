@@ -1,2 +1,2 @@
-import { IUserComponentData, QuelComponentClass } from "./types";
-export declare function createComponentClass(componentData: IUserComponentData): QuelComponentClass;
+import { IUserComponentData, StructiveComponentClass } from "./types";
+export declare function createComponentClass(componentData: IUserComponentData): StructiveComponentClass;

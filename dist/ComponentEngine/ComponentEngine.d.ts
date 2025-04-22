@@ -1,8 +1,8 @@
 import { IBindContent, IBinding } from "../DataBinding/types";
 import { FilterWithOptions } from "../Filter/types";
-import { IState, IStateProxy } from "../StateClass/types";
+import { IState, IStateProxy, IStructiveState } from "../StateClass/types";
 import { IUpdater } from "../Updater/types";
-import { ComponentType, IComponentConfig, QuelComponent } from "../WebComponents/types";
+import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";
 import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { ILoopContext } from "../LoopContext/types";
@@ -13,7 +13,7 @@ export declare class ComponentEngine implements IComponentEngine {
     config: IComponentConfig;
     template: HTMLTemplateElement;
     styleSheet: CSSStyleSheet;
-    stateClass: typeof Object;
+    stateClass: IStructiveState;
     state: IState;
     stateProxy: IStateProxy;
     updater: IUpdater;
@@ -21,13 +21,13 @@ export declare class ComponentEngine implements IComponentEngine {
     outputFilters: FilterWithOptions;
     bindContent: IBindContent;
     baseClass: typeof HTMLElement;
-    owner: QuelComponent;
+    owner: StructiveComponent;
     trackedGetters: Set<string>;
     listInfoSet: Set<IStructuredPathInfo>;
     elementInfoSet: Set<IStructuredPathInfo>;
     bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>;
     dependentTree: Map<IStructuredPathInfo, Set<IStructuredPathInfo>>;
-    constructor(config: IComponentConfig, owner: QuelComponent);
+    constructor(config: IComponentConfig, owner: StructiveComponent);
     connectedCallback(): Promise<void>;
     disconnectedCallback(): Promise<void>;
     setLoopContext(loopContext: ILoopContext, callback: () => Promise<void>): Promise<void>;
@@ -49,4 +49,4 @@ export declare class ComponentEngine implements IComponentEngine {
     getList(info: IStructuredPathInfo, listIndex: IListIndex | null): any[] | null;
     addDependentProp(info: IStructuredPathInfo, refInfo: IStructuredPathInfo): void;
 }
-export declare function createComponentEngine(config: IComponentConfig, component: QuelComponent): IComponentEngine;
+export declare function createComponentEngine(config: IComponentConfig, component: StructiveComponent): IComponentEngine;
