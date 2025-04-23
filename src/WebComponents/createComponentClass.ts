@@ -14,7 +14,7 @@ import { IComponent, IUserComponentData, IUserConfig, StructiveComponentClass, S
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes";
 import { IStructiveState, IStructiveStaticState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
-import { IComponentState } from "../ComponentState/types";
+import { IComponentState, IComponentStateProxy } from "../ComponentState/types";
 import { createComponentState } from "../ComponentState/createComponentState";
 
 function findStructiveParent(el:StructiveComponent): IComponent | null {
@@ -49,7 +49,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
   const extendTagName = componentConfig.extends;
   return class extends baseClass implements IComponent {
     #engine: IComponentEngine;
-    #componentState: IComponentState;
+    #componentState: IComponentStateProxy;
 
     constructor() {
       super();
@@ -73,7 +73,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       return this.#parentStructiveComponent;
     }
 
-    get state(): IComponentState {
+    get state(): IComponentStateProxy {
       return this.#componentState;
     }
 
@@ -81,7 +81,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       return (this.state.constructor as IStructiveStaticState).$isStructive ?? false;
     }
 
-    getBindings(component: IComponent): WeakSet<IBinding> | null {
+    getBindingsFromChild(component: IComponent): Set<IBinding> | null {
       return this.#engine.bindingsByComponent.get(component as StructiveComponent) ?? null;
     }
 

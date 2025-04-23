@@ -9,6 +9,7 @@ import { createBindingNodeProperty } from "../DataBinding/BindingNode/BindingNod
 import { createBindingNodeRadio } from "../DataBinding/BindingNode/BindingNodeRadio";
 import { createBindingNodeStyle } from "../DataBinding/BindingNode/BindingNodeStyle";
 import { raiseError } from "../utils";
+import { createBindingNodeComponent } from "../DataBinding/BindingNode/BindingNodeComponent";
 const nodePropertyConstructorByNameByIsComment = {
     0: {
         "class": createBindingNodeClassList,
@@ -23,7 +24,7 @@ const nodePropertyConstructorByFirstName = {
     "class": createBindingNodeClassName,
     "attr": createBindingNodeAttribute,
     "style": createBindingNodeStyle,
-    //  "props": ComponentProperty,
+    "state": createBindingNodeComponent,
     //  "popover": PopoverTarget,
     //  "commandfor": CommandForTarget,
 };

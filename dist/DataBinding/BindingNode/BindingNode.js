@@ -12,6 +12,9 @@ export class BindingNode {
     get name() {
         return this.#name;
     }
+    get subName() {
+        return this.#name;
+    }
     get binding() {
         return this.#binding;
     }
@@ -44,5 +47,11 @@ export class BindingNode {
     }
     get isSelectElement() {
         return this.node instanceof HTMLSelectElement;
+    }
+    get value() {
+        return null;
+    }
+    get filteredValue() {
+        return null;
     }
 }

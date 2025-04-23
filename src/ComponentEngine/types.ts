@@ -32,7 +32,7 @@ export interface IComponentEngine {
   bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する
   dependentTree      : Map<IStructuredPathInfo, Set<IStructuredPathInfo>>; // 依存関係の木を取得する
 
-  bindingsByComponent: WeakMap<StructiveComponent, WeakSet<IBinding>>; // コンポーネントからバインディングを取得する
+  bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // コンポーネントからバインディングを取得する
 
   setLoopContext(loopContext: ILoopContext, callback: ()=>Promise<void>): Promise<void>;
   asyncSetStatePropertyRef(
@@ -52,6 +52,9 @@ export interface IComponentEngine {
   getListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex | null): Set<IListIndex> | null;
   getList(pattern:IStructuredPathInfo, listIndex:IListIndex | null): any[] | null;
   addDependentProp(pattern:IStructuredPathInfo, dependentPattern:IStructuredPathInfo): void;
+
+  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
+  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する
 }
 
 export interface ISaveInfoByResolvedPathInfo {

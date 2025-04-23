@@ -558,6 +558,9 @@ var Structive = (function (exports) {
         get name() {
             return this.#name;
         }
+        get subName() {
+            return this.#name;
+        }
         get binding() {
             return this.#binding;
         }
@@ -590,6 +593,12 @@ var Structive = (function (exports) {
         }
         get isSelectElement() {
             return this.node instanceof HTMLSelectElement;
+        }
+        get value() {
+            return null;
+        }
+        get filteredValue() {
+            return null;
         }
     }
 
@@ -954,15 +963,6 @@ var Structive = (function (exports) {
         return _cache$3[key] ?? (_cache$3[key] = getDefaultPropertyByNodeType[nodeType]?.(node));
     }
 
-    const symbolName = "state";
-    const GetByRefSymbol = Symbol.for(`${symbolName}.GetByRef`);
-    const SetByRefSymbol = Symbol.for(`${symbolName}.SetByRef`);
-    const SetCacheableSymbol = Symbol.for(`${symbolName}.SetCacheable`);
-    const ConnectedCallbackSymbol = Symbol.for(`${symbolName}.ConnectedCallback`);
-    const DisconnectedCallbackSymbol = Symbol.for(`${symbolName}.DisconnectedCallback`);
-    const ResolveSymbol = Symbol.for(`${symbolName}.Resolve`);
-    const GetAllSymbol = Symbol.for(`${symbolName}.GetAll`);
-
     function isTwoWayBindable(element) {
         return element instanceof HTMLInputElement ||
             element instanceof HTMLTextAreaElement ||
@@ -999,23 +999,7 @@ var Structive = (function (exports) {
             if (event === "readonly" || event === "ro")
                 return;
             this.node.addEventListener(eventName, () => {
-                const loopContext = this.binding.parentBindContent.currentLoopContext;
-                const engine = this.binding.engine;
-                const stateProxy = engine.stateProxy;
-                const bindingState = this.binding.bindingState;
-                const value = this.filteredValue;
-                engine.updater.addProcess(() => {
-                    if (loopContext) {
-                        engine.setLoopContext(loopContext, async () => {
-                            // @ts-ignore
-                            stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-                        });
-                    }
-                    else {
-                        // @ts-ignore
-                        stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-                    }
-                });
+                this.binding.updateStateValue(this.filteredValue);
             });
         }
         init() {
@@ -1070,6 +1054,39 @@ var Structive = (function (exports) {
         return new BindingNodeStyle(binding, node, name, filterFns, event);
     };
 
+    const symbolName$1 = "componentState";
+    const RenderSymbol = Symbol.for(`${symbolName$1}.render`);
+    const BindParentComponentSymbol = Symbol.for(`${symbolName$1}.bindParentComponent`);
+
+    class BindingNodeComponent extends BindingNode {
+        #subName;
+        get subName() {
+            return this.#subName;
+        }
+        constructor(binding, node, name, filters, event) {
+            super(binding, node, name, filters, event);
+            const [, subName] = this.name.split(".");
+            this.#subName = subName;
+        }
+        init() {
+            const engine = this.binding.engine;
+            let bindings = engine.bindingsByComponent.get(this.node);
+            if (typeof bindings === "undefined") {
+                bindings = new Set();
+                engine.bindingsByComponent.set(this.node, bindings);
+            }
+            bindings.add(this.binding);
+        }
+        assignValue(value) {
+            const component = this.node;
+            component.state[RenderSymbol](this.subName, value);
+        }
+    }
+    const createBindingNodeComponent = (name, filterTexts, event) => (binding, node, filters) => {
+        const filterFns = createFilters(filters, filterTexts);
+        return new BindingNodeComponent(binding, node, name, filterFns, event);
+    };
+
     const nodePropertyConstructorByNameByIsComment = {
         0: {
             "class": createBindingNodeClassList,
@@ -1084,7 +1101,7 @@ var Structive = (function (exports) {
         "class": createBindingNodeClassName,
         "attr": createBindingNodeAttribute,
         "style": createBindingNodeStyle,
-        //  "props": ComponentProperty,
+        "state": createBindingNodeComponent,
         //  "popover": PopoverTarget,
         //  "commandfor": CommandForTarget,
     };
@@ -1130,6 +1147,15 @@ var Structive = (function (exports) {
         const fn = _cache$2[key] ?? (_cache$2[key] = _getBindingNodeCreator(isComment, isElement, propertyName));
         return fn(propertyName, filterTexts, event);
     }
+
+    const symbolName = "state";
+    const GetByRefSymbol = Symbol.for(`${symbolName}.GetByRef`);
+    const SetByRefSymbol = Symbol.for(`${symbolName}.SetByRef`);
+    const SetCacheableSymbol = Symbol.for(`${symbolName}.SetCacheable`);
+    const ConnectedCallbackSymbol = Symbol.for(`${symbolName}.ConnectedCallback`);
+    const DisconnectedCallbackSymbol = Symbol.for(`${symbolName}.DisconnectedCallback`);
+    const ResolveSymbol = Symbol.for(`${symbolName}.Resolve`);
+    const GetAllSymbol = Symbol.for(`${symbolName}.GetAll`);
 
     /**
      * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
@@ -1278,6 +1304,22 @@ var Structive = (function (exports) {
             }
             this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
         }
+        assignValue(value) {
+            const loopContext = this.binding.parentBindContent.currentLoopContext;
+            const engine = this.binding.engine;
+            const stateProxy = engine.stateProxy;
+            const bindingState = this.binding.bindingState;
+            if (loopContext) {
+                engine.setLoopContext(loopContext, async () => {
+                    // @ts-ignore
+                    stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+                });
+            }
+            else {
+                // @ts-ignore
+                stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+            }
+        }
     }
     const createBindingState = (name, filterTexts) => (binding, state, filters) => {
         const filterFns = createFilters(filters, filterTexts); // ToDo:ここは、メモ化できる
@@ -1344,6 +1386,9 @@ var Structive = (function (exports) {
             else {
                 bindings.add(this.binding);
             }
+        }
+        assignValue(value) {
+            raiseError("BindingStateIndex: assignValue is not implemented");
         }
     }
     const createBindingStateIndex = (name, filterTexts) => (binding, state, filters) => {
@@ -1623,6 +1668,13 @@ var Structive = (function (exports) {
         }
         render() {
             this.bindingNode.update();
+        }
+        updateStateValue(value) {
+            const engine = this.engine;
+            const bindingState = this.bindingState;
+            engine.updater.addProcess(() => {
+                return bindingState.assignValue(value);
+            });
         }
     }
     function createBinding(parentBindContent, node, engine, createBindingNode, createBindingState) {
@@ -2720,6 +2772,7 @@ var Structive = (function (exports) {
         elementInfoSet = new Set();
         bindingsByListIndex = new WeakMap();
         dependentTree = new Map();
+        bindingsByComponent = new WeakMap();
         #waitForInitialize = Promise.withResolvers();
         #loopContext = null;
         #stackStructuredPathInfo = [];
@@ -2767,6 +2820,7 @@ var Structive = (function (exports) {
             this.updater.main(this.#waitForInitialize);
         }
         async connectedCallback() {
+            this.owner.state[BindParentComponentSymbol]();
             attachShadow(this.owner, this.config, this.styleSheet);
             await this.stateProxy[ConnectedCallbackSymbol]();
             await this.stateProxy[SetCacheableSymbol](async () => {
@@ -2910,6 +2964,16 @@ var Structive = (function (exports) {
             }
             dependents.add(info);
         }
+        getPropertyValue(info, listIndex) {
+            // プロパティの値を取得する
+            return this.stateProxy[GetByRefSymbol](info, listIndex);
+        }
+        setPropertyValue(info, listIndex, value) {
+            // プロパティの値を設定する
+            this.updater.addProcess(() => {
+                this.stateProxy[SetByRefSymbol](info, listIndex, value);
+            });
+        }
     }
     function createComponentEngine(config, component) {
         return new ComponentEngine(config, component);
@@ -3023,6 +3087,78 @@ var Structive = (function (exports) {
         };
     }
 
+    class ComponentState {
+        engine;
+        constructor(engine) {
+            this.engine = engine;
+        }
+        bindParentProperty(binding) {
+            const propName = binding.bindingNode.subName;
+            Object.defineProperty(this.engine.state, propName, {
+                get: () => {
+                    return binding.bindingState.filteredValue;
+                },
+                set: (value) => {
+                    return binding.updateStateValue(value);
+                },
+            });
+        }
+        bindParentComponent() {
+            // bindParentComponent
+            const parent = this.engine.owner.parentStructiveComponent;
+            if (parent === null) {
+                return;
+            }
+            const bindings = parent.getBindingsFromChild(this.engine.owner);
+            for (const binding of bindings ?? []) {
+                this.bindParentProperty(binding);
+            }
+        }
+        render(name, value) {
+            // render
+            const info = getStructuredPathInfo(name);
+            this.engine.updater.addUpdatedStatePropertyRefValue(info, null, value);
+        }
+        getPropertyValue(name) {
+            // getPropertyValue
+            const info = getStructuredPathInfo(name);
+            return this.engine.getPropertyValue(info, null);
+        }
+        setPropertyValue(name, value) {
+            // setPropertyValue
+            const info = getStructuredPathInfo(name);
+            this.engine.setPropertyValue(info, null, value);
+        }
+    }
+    class ComponentStateHandler {
+        get(state, prop, receiver) {
+            if (prop === RenderSymbol) {
+                return state.render.bind(receiver);
+            }
+            else if (prop === BindParentComponentSymbol) {
+                return state.bindParentComponent.bind(receiver);
+            }
+            else if (typeof prop === 'string') {
+                return state.getPropertyValue.bind(receiver, prop);
+            }
+            else {
+                return Reflect.get(state, prop, receiver);
+            }
+        }
+        set(state, prop, value, receiver) {
+            if (typeof prop === 'string') {
+                state.setPropertyValue(prop, value);
+                return true;
+            }
+            else {
+                return Reflect.set(state, prop, value, receiver);
+            }
+        }
+    }
+    const createComponentState = (engine) => {
+        return new Proxy(new ComponentState(engine), new ComponentStateHandler());
+    };
+
     function findStructiveParent(el) {
         let current = el.parentNode;
         while (current) {
@@ -3054,9 +3190,11 @@ var Structive = (function (exports) {
         const extendTagName = componentConfig.extends;
         return class extends baseClass {
             #engine;
+            #componentState;
             constructor() {
                 super();
                 this.#engine = createComponentEngine(componentConfig, this);
+                this.#componentState = createComponentState(this.#engine);
             }
             connectedCallback() {
                 this.#engine.connectedCallback();
@@ -3072,10 +3210,13 @@ var Structive = (function (exports) {
                 return this.#parentStructiveComponent;
             }
             get state() {
-                return this.#engine.state;
+                return this.#componentState;
             }
             get isStructive() {
                 return this.state.constructor.$isStructive ?? false;
+            }
+            getBindingsFromChild(component) {
+                return this.#engine.bindingsByComponent.get(component) ?? null;
             }
             static define(tagName) {
                 if (extendTagName) {

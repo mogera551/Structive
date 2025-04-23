@@ -1,6 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters";
 import { getDefaultName } from "../../BindingBuilder/getDefaultName";
-import { SetByRefSymbol } from "../../StateClass/symbols";
 import { BindingNode } from "./BindingNode";
 function isTwoWayBindable(element) {
     return element instanceof HTMLInputElement ||
@@ -38,23 +37,7 @@ class BindingNodeProperty extends BindingNode {
         if (event === "readonly" || event === "ro")
             return;
         this.node.addEventListener(eventName, () => {
-            const loopContext = this.binding.parentBindContent.currentLoopContext;
-            const engine = this.binding.engine;
-            const stateProxy = engine.stateProxy;
-            const bindingState = this.binding.bindingState;
-            const value = this.filteredValue;
-            engine.updater.addProcess(() => {
-                if (loopContext) {
-                    engine.setLoopContext(loopContext, async () => {
-                        // @ts-ignore
-                        stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-                    });
-                }
-                else {
-                    // @ts-ignore
-                    stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-                }
-            });
+            this.binding.updateStateValue(this.filteredValue);
         });
     }
     init() {

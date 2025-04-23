@@ -21,6 +21,13 @@ class Binding {
     render() {
         this.bindingNode.update();
     }
+    updateStateValue(value) {
+        const engine = this.engine;
+        const bindingState = this.bindingState;
+        engine.updater.addProcess(() => {
+            return bindingState.assignValue(value);
+        });
+    }
 }
 export function createBinding(parentBindContent, node, engine, createBindingNode, createBindingState) {
     return new Binding(parentBindContent, node, engine, createBindingNode, createBindingState);

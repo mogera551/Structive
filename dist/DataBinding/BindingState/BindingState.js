@@ -1,5 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters";
-import { GetByRefSymbol } from "../../StateClass/symbols";
+import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo";
 import { raiseError } from "../../utils";
 class BindingState {
@@ -55,6 +55,22 @@ class BindingState {
             this.#listIndexRef = loopContext.listIndexRef;
         }
         this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
+    }
+    assignValue(value) {
+        const loopContext = this.binding.parentBindContent.currentLoopContext;
+        const engine = this.binding.engine;
+        const stateProxy = engine.stateProxy;
+        const bindingState = this.binding.bindingState;
+        if (loopContext) {
+            engine.setLoopContext(loopContext, async () => {
+                // @ts-ignore
+                stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+            });
+        }
+        else {
+            // @ts-ignore
+            stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+        }
     }
 }
 export const createBindingState = (name, filterTexts) => (binding, state, filters) => {

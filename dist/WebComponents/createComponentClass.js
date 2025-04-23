@@ -9,6 +9,7 @@ import { getTemplateById } from "../Template/registerTemplate";
 import { getBaseClass } from "./getBaseClass";
 import { getComponentConfig } from "./getComponentConfig";
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes";
+import { createComponentState } from "../ComponentState/createComponentState";
 function findStructiveParent(el) {
     let current = el.parentNode;
     while (current) {
@@ -40,9 +41,11 @@ export function createComponentClass(componentData) {
     const extendTagName = componentConfig.extends;
     return class extends baseClass {
         #engine;
+        #componentState;
         constructor() {
             super();
             this.#engine = createComponentEngine(componentConfig, this);
+            this.#componentState = createComponentState(this.#engine);
         }
         connectedCallback() {
             this.#engine.connectedCallback();
@@ -58,10 +61,13 @@ export function createComponentClass(componentData) {
             return this.#parentStructiveComponent;
         }
         get state() {
-            return this.#engine.state;
+            return this.#componentState;
         }
         get isStructive() {
             return this.state.constructor.$isStructive ?? false;
+        }
+        getBindingsFromChild(component) {
+            return this.#engine.bindingsByComponent.get(component) ?? null;
         }
         static define(tagName) {
             if (extendTagName) {

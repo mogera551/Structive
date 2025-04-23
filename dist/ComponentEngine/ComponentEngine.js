@@ -3,8 +3,9 @@ import { createStateProxy } from "../StateClass/createStateProxy";
 import { createUpdater } from "../Updater/updater";
 import { attachShadow } from "./attachShadow";
 import { buildListIndexTree } from "../StateClass/buildListIndexTree";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { BindParentComponentSymbol } from "../ComponentState/symbols";
 export class ComponentEngine {
     type = 'autonomous';
     config;
@@ -24,6 +25,7 @@ export class ComponentEngine {
     elementInfoSet = new Set();
     bindingsByListIndex = new WeakMap();
     dependentTree = new Map();
+    bindingsByComponent = new WeakMap();
     #waitForInitialize = Promise.withResolvers();
     #loopContext = null;
     #stackStructuredPathInfo = [];
@@ -71,6 +73,7 @@ export class ComponentEngine {
         this.updater.main(this.#waitForInitialize);
     }
     async connectedCallback() {
+        this.owner.state[BindParentComponentSymbol]();
         attachShadow(this.owner, this.config, this.styleSheet);
         await this.stateProxy[ConnectedCallbackSymbol]();
         await this.stateProxy[SetCacheableSymbol](async () => {
@@ -213,6 +216,16 @@ export class ComponentEngine {
             this.dependentTree.set(refInfo, dependents);
         }
         dependents.add(info);
+    }
+    getPropertyValue(info, listIndex) {
+        // プロパティの値を取得する
+        return this.stateProxy[GetByRefSymbol](info, listIndex);
+    }
+    setPropertyValue(info, listIndex, value) {
+        // プロパティの値を設定する
+        this.updater.addProcess(() => {
+            this.stateProxy[SetByRefSymbol](info, listIndex, value);
+        });
     }
 }
 export function createComponentEngine(config, component) {

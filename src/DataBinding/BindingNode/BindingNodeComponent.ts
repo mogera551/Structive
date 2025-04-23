@@ -1,5 +1,6 @@
 import { createFilters } from "../../BindingBuilder/createFilters";
 import { IFilterText } from "../../BindingBuilder/types";
+import { RenderSymbol } from "../../ComponentState/symbols";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { StructiveComponent } from "../../WebComponents/types";
 import { IBinding } from "../types";
@@ -27,7 +28,7 @@ class BindingNodeComponent extends BindingNode {
     const engine = this.binding.engine;
     let bindings = engine.bindingsByComponent.get(this.node as StructiveComponent);
     if (typeof bindings === "undefined") {
-      bindings = new WeakSet<IBinding>();
+      bindings = new Set<IBinding>();
       engine.bindingsByComponent.set(this.node as StructiveComponent, bindings);
     }
     bindings.add(this.binding);
@@ -35,7 +36,7 @@ class BindingNodeComponent extends BindingNode {
 
   assignValue(value: any): void {
     const component = this.node as StructiveComponent;
-    component.state.render(this.subName, value);
+    component.state[RenderSymbol](this.subName, value);
   }
 
 }
