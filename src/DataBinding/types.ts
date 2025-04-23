@@ -45,6 +45,7 @@ export interface IBinding {
   bindContents     : Set<IBindContent>;
   render(): void;
   init(): void;
+  updateStateValue(value: any): void;
 }
 
 export type StateBindSummary = Map<string, WeakMap<ILoopContext, IBindContent>>;

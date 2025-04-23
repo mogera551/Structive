@@ -37,6 +37,8 @@ export class ComponentEngine implements IComponentEngine {
   bindingsByListIndex                  : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
   dependentTree                        : Map<IStructuredPathInfo, Set<IStructuredPathInfo>> = new Map();
 
+  bindingsByComponent: WeakMap<StructiveComponent, WeakSet<IBinding>> = new WeakMap();
+
   #waitForInitialize : PromiseWithResolvers<void> = Promise.withResolvers<void>();
   #loopContext       : ILoopContext | null = null;
   #stackStructuredPathInfo  : IStructuredPathInfo[] = [];

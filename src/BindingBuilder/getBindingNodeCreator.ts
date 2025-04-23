@@ -11,6 +11,7 @@ import { createBindingNodeStyle } from "../DataBinding/BindingNode/BindingNodeSt
 import { CreateBindingNodeByNodeFn, CreateBindingNodeFn } from "../DataBinding/BindingNode/types";
 import { raiseError } from "../utils";
 import { IFilterText } from "./types";
+import { createBindingNodeComponent } from "../DataBinding/BindingNode/BindingNodeComponent";
 
 type NodePropertyConstructorByName = {[key:string]:CreateBindingNodeFn};
 type NodePropertyConstructorByNameByIsComment = {[key:number]:NodePropertyConstructorByName};
@@ -32,7 +33,7 @@ const nodePropertyConstructorByFirstName:NodePropertyConstructorByFirstName = {
   "class": createBindingNodeClassName,
   "attr" : createBindingNodeAttribute,
   "style": createBindingNodeStyle,
-//  "props": ComponentProperty,
+  "state": createBindingNodeComponent,
 //  "popover": PopoverTarget,
 //  "commandfor": CommandForTarget,
 };

@@ -2,7 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { GetByRefSymbol } from "../../StateClass/symbols";
+import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols";
 import { IStateProxy } from "../../StateClass/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../../StateProperty/types";
@@ -67,6 +67,21 @@ class BindingState implements IBindingState {
       this.#listIndexRef = loopContext.listIndexRef;
     }
     this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
+  }
+  assignValue(value:any) {
+    const loopContext = this.binding.parentBindContent.currentLoopContext;
+    const engine = this.binding.engine;
+    const stateProxy = engine.stateProxy;
+    const bindingState = this.binding.bindingState;
+    if (loopContext) {
+      engine.setLoopContext(loopContext, async () => {
+        // @ts-ignore
+        stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+      });
+    } else {
+      // @ts-ignore
+      stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+    }
   }
 }
 

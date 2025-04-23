@@ -35,6 +35,14 @@ class Binding implements IBinding {
   render() {
     this.bindingNode.update();
   }
+
+  updateStateValue(value: any) {
+    const engine = this.engine;
+    const bindingState = this.bindingState;
+    engine.updater.addProcess(() => {
+      return bindingState.assignValue(value);
+    });
+  }
 }
 
 export function createBinding(

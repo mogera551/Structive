@@ -11,6 +11,8 @@ export interface IBindingNode {
   readonly filters        : Filters;
   readonly isSelectElement: boolean;
   readonly bindContents   : Set<IBindContent>;
+  readonly value        : any;
+  readonly filteredValue: any;
   update(): void;
   init(): void;
   assignValue(value: any): void;

@@ -56,4 +56,10 @@ export class BindingNode implements IBindingNode {
   get isSelectElement(): boolean {
     return this.node instanceof HTMLSelectElement;
   }
+  get value():any {
+    return null;
+  }
+  get filteredValue():any {
+    return null;
+  }
 }
