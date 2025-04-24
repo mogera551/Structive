@@ -64,7 +64,7 @@ export function createComponentClass(componentData) {
             return this.#componentState;
         }
         get isStructive() {
-            return this.state.constructor.$isStructive ?? false;
+            return this.#engine.stateClass.$isStructive ?? false;
         }
         getBindingsFromChild(component) {
             return this.#engine.bindingsByComponent.get(component) ?? null;
@@ -76,6 +76,7 @@ export function createComponentClass(componentData) {
             else {
                 customElements.define(tagName, this);
             }
+            console.log(tagName + " defined");
         }
         static get id() {
             return id;

@@ -3209,7 +3209,7 @@ function createComponentClass(componentData) {
             return this.#componentState;
         }
         get isStructive() {
-            return this.state.constructor.$isStructive ?? false;
+            return this.#engine.stateClass.$isStructive ?? false;
         }
         getBindingsFromChild(component) {
             return this.#engine.bindingsByComponent.get(component) ?? null;
@@ -3221,6 +3221,7 @@ function createComponentClass(componentData) {
             else {
                 customElements.define(tagName, this);
             }
+            console.log(tagName + " defined");
         }
         static get id() {
             return id;
@@ -3341,7 +3342,7 @@ function registerComponentClass(tagName, componentClass) {
 }
 
 async function registerSingleFileComponents(singleFileComponents) {
-    const promises = Promise.all(Object.entries(singleFileComponents).map(async ([tagName, path]) => {
+    for (const [tagName, path] of Object.entries(singleFileComponents)) {
         let componentData = null;
         if (config$2.enableRouter) {
             const routePath = path.startsWith("@routes") ? path.slice(7) : path; // remove the prefix 'routes:'
@@ -3353,8 +3354,7 @@ async function registerSingleFileComponents(singleFileComponents) {
         }
         const componentClass = createComponentClass(componentData);
         registerComponentClass(tagName, componentClass);
-    }));
-    await promises;
+    }
 }
 
 const SLOT_KEY = "router";

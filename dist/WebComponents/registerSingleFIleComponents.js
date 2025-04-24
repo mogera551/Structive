@@ -4,7 +4,7 @@ import { config } from "./getGlobalConfig";
 import { loadSingleFileComponent } from "./loadSingleFileComponent";
 import { registerComponentClass } from "./registerComponentClass";
 export async function registerSingleFileComponents(singleFileComponents) {
-    const promises = Promise.all(Object.entries(singleFileComponents).map(async ([tagName, path]) => {
+    for (const [tagName, path] of Object.entries(singleFileComponents)) {
         let componentData = null;
         if (config.enableRouter) {
             const routePath = path.startsWith("@routes") ? path.slice(7) : path; // remove the prefix 'routes:'
@@ -16,6 +16,5 @@ export async function registerSingleFileComponents(singleFileComponents) {
         }
         const componentClass = createComponentClass(componentData);
         registerComponentClass(tagName, componentClass);
-    }));
-    await promises;
+    }
 }

@@ -78,7 +78,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
     }
 
     get isStructive(): boolean {
-      return (this.state.constructor as IStructiveStaticState).$isStructive ?? false;
+      return this.#engine.stateClass.$isStructive ?? false;
     }
 
     getBindingsFromChild(component: IComponent): Set<IBinding> | null {
@@ -91,6 +91,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       } else {
         customElements.define(tagName, this);
       }
+      console.log(tagName + " defined");
     }
 
     static get id():number {
