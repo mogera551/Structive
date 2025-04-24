@@ -24,6 +24,7 @@ export class ComponentEngine {
     elementInfoSet = new Set();
     bindingsByListIndex = new WeakMap();
     dependentTree = new Map();
+    bindingsByComponent = new WeakMap();
     #waitForInitialize = Promise.withResolvers();
     #loopContext = null;
     #stackStructuredPathInfo = [];

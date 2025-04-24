@@ -45,4 +45,10 @@ export class BindingNode {
     get isSelectElement() {
         return this.node instanceof HTMLSelectElement;
     }
+    get value() {
+        return null;
+    }
+    get filteredValue() {
+        return null;
+    }
 }

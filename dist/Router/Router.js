@@ -10,19 +10,18 @@ export class Router extends HTMLElement {
     _popstateHandler;
     constructor() {
         super();
-        this.innerHTML = '<slot name="content"></slot>';
         this._popstateHandler = this.popstateHandler.bind(this);
     }
     connectedCallback() {
+        this.innerHTML = '<slot name="content"></slot>';
         window.addEventListener('popstate', this._popstateHandler);
         window.dispatchEvent(new Event("popstate")); // Dispatch popstate event to trigger the initial render
     }
     disconnectedCallback() {
         window.removeEventListener('popstate', this._popstateHandler);
     }
-    popstateHandler() {
+    popstateHandler(event) {
         this.render();
-        window.dispatchEvent(new Event('popstate')); // Dispatch popstate event to notify other components
     }
     render() {
         const routePath = window.location.pathname || DEFAULT_ROUTE_PATH;

@@ -13,11 +13,11 @@ export class Router extends HTMLElement {
   _popstateHandler: (event: PopStateEvent) => void;
   constructor() {
     super();
-    this.innerHTML = '<slot name="content"></slot>';
     this._popstateHandler = this.popstateHandler.bind(this);
   }
 
   connectedCallback() {
+    this.innerHTML = '<slot name="content"></slot>';
     window.addEventListener('popstate', this._popstateHandler);
     window.dispatchEvent(new Event("popstate")); // Dispatch popstate event to trigger the initial render
   }
@@ -26,9 +26,8 @@ export class Router extends HTMLElement {
     window.removeEventListener('popstate', this._popstateHandler);
   }
 
-  popstateHandler() {
+  popstateHandler(event: PopStateEvent) {
     this.render();
-    window.dispatchEvent(new Event('popstate')); // Dispatch popstate event to notify other components
   }
 
   render() {
@@ -76,3 +75,5 @@ export function entryRoute(tagName: string, routePath: string): void {
   } 
   routeMap[routePath] = tagName;
 }
+
+

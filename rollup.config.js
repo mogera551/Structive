@@ -9,16 +9,18 @@ export default [
     input: 'src/exports.ts',
     output: [
       {
-        file: 'dist/structive.mjs',
+        file: 'dist/structive.js',
         format: 'esm',
         sourcemap: true,
       },
+      /*
       {
         file: 'dist/structive.js',
         format: 'iife',
         name: 'Structive',
         sourcemap: true,
       }
+      */
     ],
     plugins: [
       typescript({ tsconfig: './tsconfig.json' })

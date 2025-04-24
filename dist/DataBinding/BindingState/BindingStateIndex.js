@@ -61,6 +61,9 @@ class BindingStateIndex {
             bindings.add(this.binding);
         }
     }
+    assignValue(value) {
+        raiseError("BindingStateIndex: assignValue is not implemented");
+    }
 }
 export const createBindingStateIndex = (name, filterTexts) => (binding, state, filters) => {
     const filterFns = createFilters(filters, filterTexts); // ToDo:ここは、メモ化できる

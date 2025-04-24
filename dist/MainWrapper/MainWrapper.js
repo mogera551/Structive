@@ -9,7 +9,7 @@ export class MainWrapper extends HTMLElement {
             this.attachShadow({ mode: 'open' });
         }
     }
-    async connetctedCallback() {
+    async connectedCallback() {
         await this.loadLayout();
         this.render();
     }

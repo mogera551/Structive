@@ -3,14 +3,18 @@ import { createComponentClass } from "./createComponentClass";
 import { config } from "./getGlobalConfig";
 import { loadSingleFileComponent } from "./loadSingleFileComponent";
 import { registerComponentClass } from "./registerComponentClass";
-import { SingleFileComponents } from "./types";
+import { IUserComponentData, SingleFileComponents } from "./types";
 
 export async function registerSingleFileComponents(singleFileComponents:SingleFileComponents):Promise<void> {
   const promises = Promise.all(Object.entries(singleFileComponents).map(async ([tagName, path]) => {
+    let componentData : IUserComponentData | null = null;
     if (config.enableRouter) {
-      entryRoute(tagName, path); // routing
+      const routePath = path.startsWith("@routes") ? path.slice(7) : path; // remove the prefix 'routes:'
+      entryRoute(tagName, routePath === "/root" ? "/" : routePath); // routing
+      componentData = await loadSingleFileComponent("@routes" + (routePath === "/" ? "/root" : routePath));
+    } else {
+      componentData = await loadSingleFileComponent(path);
     }
-    const componentData = await loadSingleFileComponent(path);
     const componentClass = createComponentClass(componentData);
     registerComponentClass(tagName, componentClass);
   }));

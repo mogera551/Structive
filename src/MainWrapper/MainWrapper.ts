@@ -12,7 +12,7 @@ export class MainWrapper extends HTMLElement {
     }
   }
 
-  async connetctedCallback() {
+  async connectedCallback() {
     await this.loadLayout();
     this.render();
   }
