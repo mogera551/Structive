@@ -2,15 +2,15 @@ import { Filters, FilterWithOptions } from "../Filter/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IState, IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
-import { IComponentState } from "../ComponentState/types";
+import { IComponentState, IComponentStateProxy } from "../ComponentState/types";
 
 export type ComponentType = 'autonomous' | 'builtin';
 
 export interface IComponent {
   readonly parentStructiveComponent: IComponent | null; // The parent component of the current component
-  readonly state: IComponentState;
+  readonly state: IComponentStateProxy;
   readonly isStructive: boolean; // Whether the component is structive or not
-  getBindings(component:IComponent): WeakSet<IBinding> | null; // Get the bindings by component
+  getBindingsFromChild(component:IComponent): Set<IBinding> | null; // Get the bindings by component
 }
 
 export interface IComponentStatic {

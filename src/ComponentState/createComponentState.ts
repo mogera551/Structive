@@ -1,20 +1,81 @@
 import { IComponentEngine } from "../ComponentEngine/types";
+import { IBinding } from "../DataBinding/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { IComponentState } from "./types";
+import { BindParentComponentSymbol, RenderSymbol } from "./symbols";
+import { IComponentState, IComponentStateHandler, IComponentStateProxy } from "./types";
 
 class ComponentState implements IComponentState {
   engine: IComponentEngine;
   constructor(engine: IComponentEngine) {
     this.engine = engine;
   }
+
+  bindParentProperty(binding: IBinding): void {
+    const propName = binding.bindingNode.subName;
+    Object.defineProperty(this.engine.state, propName, {
+      get: () => {
+        return binding.bindingState.filteredValue;
+      },
+      set: (value: any) => {
+        return binding.updateStateValue(value);
+      },
+    });
+  }
+
+  bindParentComponent(): void {
+    // bindParentComponent
+    const parent = this.engine.owner.parentStructiveComponent;
+    if (parent === null) {
+      return;
+    }
+    const bindings = parent.getBindingsFromChild(this.engine.owner);
+    for (const binding of bindings ?? []) {
+      this.bindParentProperty(binding);
+    }
+  }
+
   render(name: string, value:any): void {
-    // @ts-ignore
     // render
     const info = getStructuredPathInfo(name);
     this.engine.updater.addUpdatedStatePropertyRefValue(info, null, value)
   }
+
+  getPropertyValue(name: string): any {
+    // getPropertyValue
+    const info = getStructuredPathInfo(name);
+    return this.engine.getPropertyValue(info, null);
+  }
+
+  setPropertyValue(name: string, value: any): void {
+    // setPropertyValue
+    const info = getStructuredPathInfo(name);
+    this.engine.setPropertyValue(info, null, value); 
+  }
 }
 
-export const createComponentState = (engine: IComponentEngine): IComponentState => {
-  return new ComponentState(engine);
+class ComponentStateHandler implements IComponentStateHandler {
+  get(state: IComponentState, prop: PropertyKey, receiver: IComponentState): any {
+    if (prop === RenderSymbol) {
+      return state.render.bind(receiver);
+    } else if (prop === BindParentComponentSymbol) {
+      return state.bindParentComponent.bind(receiver);
+    } else if (typeof prop === 'string') {
+      return state.getPropertyValue.bind(receiver, prop);
+    } else {
+      return Reflect.get(state, prop, receiver);
+    }
+  }
+
+  set(state: IComponentState, prop: PropertyKey, value: any, receiver: IComponentState): boolean {
+    if (typeof prop === 'string') {
+      state.setPropertyValue(prop, value);
+      return true;
+    } else {
+      return Reflect.set(state, prop, value, receiver);
+    }
+  }
+};
+
+export const createComponentState = (engine: IComponentEngine): IComponentStateProxy => {
+  return new Proxy<IComponentState>(new ComponentState(engine), new ComponentStateHandler()) as IComponentStateProxy;
 }

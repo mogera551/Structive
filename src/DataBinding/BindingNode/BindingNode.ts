@@ -17,6 +17,9 @@ export class BindingNode implements IBindingNode {
   get name(): string {
     return this.#name;
   }
+  get subName(): string {
+    return this.#name;
+  }
   get binding(): IBinding {
     return this.#binding;
   }

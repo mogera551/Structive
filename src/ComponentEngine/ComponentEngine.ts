@@ -10,11 +10,12 @@ import { attachShadow } from "./attachShadow";
 import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { buildListIndexTree } from "../StateClass/buildListIndexTree";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
 import { ILoopContext } from "../LoopContext/types";
 import { IListIndex } from "../ListIndex/types";
 import { raiseError } from "../utils";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { BindParentComponentSymbol } from "../ComponentState/symbols";
 
 export class ComponentEngine implements IComponentEngine {
   type          : ComponentType = 'autonomous';
@@ -37,7 +38,7 @@ export class ComponentEngine implements IComponentEngine {
   bindingsByListIndex                  : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
   dependentTree                        : Map<IStructuredPathInfo, Set<IStructuredPathInfo>> = new Map();
 
-  bindingsByComponent: WeakMap<StructiveComponent, WeakSet<IBinding>> = new WeakMap();
+  bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
 
   #waitForInitialize : PromiseWithResolvers<void> = Promise.withResolvers<void>();
   #loopContext       : ILoopContext | null = null;
@@ -87,6 +88,7 @@ export class ComponentEngine implements IComponentEngine {
   }
 
   async connectedCallback(): Promise<void> {
+    this.owner.state[BindParentComponentSymbol]();
     attachShadow(this.owner, this.config, this.styleSheet);
     await this.stateProxy[ConnectedCallbackSymbol]();
     await this.stateProxy[SetCacheableSymbol](async () => {
@@ -264,6 +266,17 @@ export class ComponentEngine implements IComponentEngine {
       this.dependentTree.set(refInfo, dependents);
     }
     dependents.add(info);
+  }
+
+  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any {
+    // プロパティの値を取得する
+    return this.stateProxy[GetByRefSymbol](info, listIndex);
+  }
+  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void {
+    // プロパティの値を設定する
+    this.updater.addProcess(() => {
+      this.stateProxy[SetByRefSymbol](info, listIndex, value);
+    });
   }
 }
 

@@ -6,6 +6,7 @@ import { IBindContent, IBinding } from "../types";
 export interface IBindingNode {
   readonly node           : Node;
   readonly name           : string;
+  readonly subName        : string;
   readonly event          : string | null;
   readonly binding        : IBinding;
   readonly filters        : Filters;
