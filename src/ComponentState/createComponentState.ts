@@ -56,11 +56,11 @@ class ComponentState implements IComponentState {
 class ComponentStateHandler implements IComponentStateHandler {
   get(state: IComponentState, prop: PropertyKey, receiver: IComponentState): any {
     if (prop === RenderSymbol) {
-      return state.render.bind(receiver);
+      return state.render.bind(state);
     } else if (prop === BindParentComponentSymbol) {
-      return state.bindParentComponent.bind(receiver);
+      return state.bindParentComponent.bind(state);
     } else if (typeof prop === 'string') {
-      return state.getPropertyValue.bind(receiver, prop);
+      return state.getPropertyValue(prop);
     } else {
       return Reflect.get(state, prop, receiver);
     }

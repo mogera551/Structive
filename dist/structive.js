@@ -3129,13 +3129,13 @@ class ComponentState {
 class ComponentStateHandler {
     get(state, prop, receiver) {
         if (prop === RenderSymbol) {
-            return state.render.bind(receiver);
+            return state.render.bind(state);
         }
         else if (prop === BindParentComponentSymbol) {
-            return state.bindParentComponent.bind(receiver);
+            return state.bindParentComponent.bind(state);
         }
         else if (typeof prop === 'string') {
-            return state.getPropertyValue.bind(receiver, prop);
+            return state.getPropertyValue(prop);
         }
         else {
             return Reflect.get(state, prop, receiver);
