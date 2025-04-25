@@ -3316,7 +3316,7 @@ async function createSingleFileComponent(text) {
     template.innerHTML = escapeEmbed(text);
     const html = template.content.querySelector("template");
     html?.remove();
-    const script = template.content.querySelector("script");
+    const script = template.content.querySelector("script[type=module]");
     const scriptModule = script ? await import("data:text/javascript;charset=utf-8," + script.text) : {};
     script?.remove();
     const style = template.content.querySelector("style");
