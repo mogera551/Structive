@@ -1,11 +1,11 @@
-import { createBindContent } from "../DataBinding/BindContent";
-import { createStateProxy } from "../StateClass/createStateProxy";
-import { createUpdater } from "../Updater/updater";
-import { attachShadow } from "./attachShadow";
-import { buildListIndexTree } from "../StateClass/buildListIndexTree";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { BindParentComponentSymbol } from "../ComponentState/symbols";
+import { createBindContent } from "../DataBinding/BindContent.js";
+import { createStateProxy } from "../StateClass/createStateProxy.js";
+import { createUpdater } from "../Updater/updater.js";
+import { attachShadow } from "./attachShadow.js";
+import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
+import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
 export class ComponentEngine {
     type = 'autonomous';
     config;

@@ -1,12 +1,12 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols";
+import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
 import { IStateProxy } from "../../StateClass/types";
-import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo";
+import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
-import { raiseError } from "../../utils";
+import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
 

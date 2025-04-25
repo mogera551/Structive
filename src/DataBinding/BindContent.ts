@@ -1,14 +1,14 @@
-import { resolveNodeFromPath } from "../BindingBuilder/resolveNodeFromPath";
+import { resolveNodeFromPath } from "../BindingBuilder/resolveNodeFromPath.js";
 import { ILoopContext } from "../LoopContext/types";
 import { IListIndex } from "../ListIndex/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { getTemplateById } from "../Template/registerTemplate";
-import { raiseError } from "../utils";
-import { createBinding } from "./Binding";
+import { getTemplateById } from "../Template/registerTemplate.js";
+import { raiseError } from "../utils.js";
+import { createBinding } from "./Binding.js";
 import { IBindContent, IBinding } from "./types";
-import { createLoopContext } from "../LoopContext/createLoopContext";
-import { render } from "../Render/render";
-import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes";
+import { createLoopContext } from "../LoopContext/createLoopContext.js";
+import { render } from "../Render/render.js";
+import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 

@@ -1,10 +1,10 @@
-import { resolveNodeFromPath } from "../BindingBuilder/resolveNodeFromPath";
-import { getTemplateById } from "../Template/registerTemplate";
-import { raiseError } from "../utils";
-import { createBinding } from "./Binding";
-import { createLoopContext } from "../LoopContext/createLoopContext";
-import { render } from "../Render/render";
-import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes";
+import { resolveNodeFromPath } from "../BindingBuilder/resolveNodeFromPath.js";
+import { getTemplateById } from "../Template/registerTemplate.js";
+import { raiseError } from "../utils.js";
+import { createBinding } from "./Binding.js";
+import { createLoopContext } from "../LoopContext/createLoopContext.js";
+import { render } from "../Render/render.js";
+import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 function createContent(id) {
     const template = getTemplateById(id) ??
         raiseError(`BindContent: template is not found: ${id}`);

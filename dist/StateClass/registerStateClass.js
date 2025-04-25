@@ -1,4 +1,4 @@
-import { raiseError } from "../utils";
+import { raiseError } from "../utils.js";
 const stateClassById = {};
 export function registerStateClass(id, stateClass) {
     stateClassById[id] = stateClass;

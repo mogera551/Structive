@@ -1,8 +1,8 @@
-import { COMMENT_TEMPLATE_MARK } from "../../constants";
+import { COMMENT_TEMPLATE_MARK } from "../../constants.js";
 import { Filters } from "../../Filter/types";
-import { raiseError } from "../../utils";
+import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
-import { BindingNode } from "./BindingNode";
+import { BindingNode } from "./BindingNode.js";
 
 const COMMENT_TEMPLATE_MARK_LEN = COMMENT_TEMPLATE_MARK.length;
 

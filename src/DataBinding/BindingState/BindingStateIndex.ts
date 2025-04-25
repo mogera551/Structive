@@ -1,9 +1,9 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
 import { IStateProxy } from "../../StateClass/types";
-import { raiseError } from "../../utils";
+import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
 

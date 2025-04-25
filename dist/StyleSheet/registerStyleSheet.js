@@ -1,4 +1,4 @@
-import { raiseError } from "../utils";
+import { raiseError } from "../utils.js";
 const styleSheetById = {};
 export function registerStyleSheet(id, css) {
     styleSheetById[id] = css;

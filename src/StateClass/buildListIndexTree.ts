@@ -1,8 +1,8 @@
-import { createListIndex } from "../ListIndex/createListIndex";
+import { createListIndex } from "../ListIndex/createListIndex.js";
 import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { GetByRefSymbol } from "./symbols";
+import { GetByRefSymbol } from "./symbols.js";
 
 const BLANK_LISTINDEXES_SET = new Set<IListIndex>();
 

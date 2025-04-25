@@ -1,5 +1,5 @@
-import { createDataBindAttributes } from "./createDataBindAttributes";
-import { getNodesHavingDataBind } from "./getNodesHavingDataBind";
+import { createDataBindAttributes } from "./createDataBindAttributes.js";
+import { getNodesHavingDataBind } from "./getNodesHavingDataBind.js";
 const listDataBindAttributesById = {};
 const listPathsSetById = {};
 const pathsSetById = {};

@@ -1,7 +1,7 @@
-import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo";
-import { raiseError } from "../../utils";
-import { getByRef } from "../methods/getByRef";
-import { setByRef } from "../methods/setByRef";
+import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
+import { raiseError } from "../../utils.js";
+import { getByRef } from "../methods/getByRef.js";
+import { setByRef } from "../methods/setByRef.js";
 export function resolve(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);

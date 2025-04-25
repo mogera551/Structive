@@ -1,4 +1,4 @@
-import { getStructuredPathInfo } from './getStructuredPathInfo';
+import { getStructuredPathInfo } from './getStructuredPathInfo.js';
 /**
  * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
  * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を

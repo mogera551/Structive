@@ -1,5 +1,5 @@
 import { IStateHandler, IStateProxy } from "../types";
-import { setCacheable as methodSetChargeable } from "../methods/setCacheable";
+import { setCacheable as methodSetChargeable } from "../methods/setCacheable.js";
 
 export function setCacheable(
   target: Object, 

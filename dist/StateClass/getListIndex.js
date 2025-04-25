@@ -1,4 +1,4 @@
-import { raiseError } from "../utils";
+import { raiseError } from "../utils.js";
 export function getListIndex(info, engine) {
     if (info.info.wildcardCount === 0) {
         return null;

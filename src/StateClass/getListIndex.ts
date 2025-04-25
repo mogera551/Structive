@@ -1,7 +1,7 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
 import { IResolvedPathInfo } from "../StateProperty/types";
-import { raiseError } from "../utils";
+import { raiseError } from "../utils.js";
 
 export function getListIndex(
   info: IResolvedPathInfo, 

@@ -1,6 +1,6 @@
-import { COMMENT_EMBED_MARK, COMMENT_TEMPLATE_MARK, DATA_BIND_ATTRIBUTE } from "../constants";
-import { getTemplateById } from "../Template/registerTemplate";
-import { raiseError } from "../utils";
+import { COMMENT_EMBED_MARK, COMMENT_TEMPLATE_MARK, DATA_BIND_ATTRIBUTE } from "../constants.js";
+import { getTemplateById } from "../Template/registerTemplate.js";
+import { raiseError } from "../utils.js";
 import { NodeType } from "./types";
 
 const COMMENT_EMBED_MARK_LEN = COMMENT_EMBED_MARK.length;

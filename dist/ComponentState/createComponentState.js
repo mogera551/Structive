@@ -1,5 +1,5 @@
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { BindParentComponentSymbol, RenderSymbol } from "./symbols";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
+import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
 class ComponentState {
     engine;
     constructor(engine) {

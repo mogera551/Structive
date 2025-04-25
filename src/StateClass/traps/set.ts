@@ -1,6 +1,6 @@
-import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo";
-import { getListIndex } from "../getListIndex";
-import { setByRef } from "../methods/setByRef";
+import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
+import { getListIndex } from "../getListIndex.js";
+import { setByRef } from "../methods/setByRef.js";
 import { IStateHandler, IStateProxy } from "../types";
 
 export function set(

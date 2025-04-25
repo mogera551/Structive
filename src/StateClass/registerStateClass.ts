@@ -1,4 +1,4 @@
-import { raiseError } from "../utils";
+import { raiseError } from "../utils.js";
 import { IStructiveState } from "./types";
 
 const stateClassById: Record<number,IStructiveState> = {};

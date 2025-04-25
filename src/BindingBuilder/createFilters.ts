@@ -1,5 +1,5 @@
 import { FilterFn, Filters, FilterWithOptions } from "../Filter/types";
-import { raiseError } from "../utils";
+import { raiseError } from "../utils.js";
 import { IFilterText } from "./types";
 
 function textToFilter(filters:FilterWithOptions, text: IFilterText): FilterFn {

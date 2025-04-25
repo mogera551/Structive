@@ -1,5 +1,5 @@
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { raiseError } from "../utils";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
+import { raiseError } from "../utils.js";
 class LoopContext {
     #path;
     #info;

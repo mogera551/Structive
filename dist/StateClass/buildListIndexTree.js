@@ -1,5 +1,5 @@
-import { createListIndex } from "../ListIndex/createListIndex";
-import { GetByRefSymbol } from "./symbols";
+import { createListIndex } from "../ListIndex/createListIndex.js";
+import { GetByRefSymbol } from "./symbols.js";
 const BLANK_LISTINDEXES_SET = new Set();
 function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
     const oldValue = engine.getList(info, listIndex) ?? [];

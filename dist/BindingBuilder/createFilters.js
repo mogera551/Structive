@@ -1,4 +1,4 @@
-import { raiseError } from "../utils";
+import { raiseError } from "../utils.js";
 function textToFilter(filters, text) {
     const filter = filters[text.name];
     if (!filter)

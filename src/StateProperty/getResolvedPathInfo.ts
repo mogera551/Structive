@@ -1,6 +1,6 @@
 
 import { IResolvedPathInfo, WildcardType } from './types';
-import { getStructuredPathInfo } from './getStructuredPathInfo';
+import { getStructuredPathInfo } from './getStructuredPathInfo.js';
 
 /**
  * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を

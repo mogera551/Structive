@@ -1,5 +1,5 @@
-import { createDataBindAttributes } from "./createDataBindAttributes";
-import { getNodesHavingDataBind } from "./getNodesHavingDataBind";
+import { createDataBindAttributes } from "./createDataBindAttributes.js";
+import { getNodesHavingDataBind } from "./getNodesHavingDataBind.js";
 import { IDataBindAttributes } from "./types";
 
 const listDataBindAttributesById: {[key:number]:IDataBindAttributes[]} = {};

@@ -1,6 +1,6 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
-import { RenderSymbol } from "../../ComponentState/symbols";
-import { BindingNode } from "./BindingNode";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { RenderSymbol } from "../../ComponentState/symbols.js";
+import { BindingNode } from "./BindingNode.js";
 class BindingNodeComponent extends BindingNode {
     #subName;
     get subName() {

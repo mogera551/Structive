@@ -1,5 +1,5 @@
-import { createBindingState } from "../DataBinding/BindingState/BindingState";
-import { createBindingStateIndex } from "../DataBinding/BindingState/BindingStateIndex";
+import { createBindingState } from "../DataBinding/BindingState/BindingState.js";
+import { createBindingStateIndex } from "../DataBinding/BindingState/BindingStateIndex.js";
 import { CreateBindingStateByStateFn } from "../DataBinding/BindingState/types";
 import { IFilterText } from "./types";
 

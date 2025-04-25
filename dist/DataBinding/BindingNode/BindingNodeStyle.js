@@ -1,5 +1,5 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
-import { BindingNode } from "./BindingNode";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { BindingNode } from "./BindingNode.js";
 class BindingNodeStyle extends BindingNode {
     #subName;
     get subName() {

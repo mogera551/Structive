@@ -1,6 +1,6 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
-import { raiseError } from "../../utils";
-import { BindingNode } from "./BindingNode";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { raiseError } from "../../utils.js";
+import { BindingNode } from "./BindingNode.js";
 class BindingNodeClassList extends BindingNode {
     assignValue(value) {
         if (!Array.isArray(value)) {

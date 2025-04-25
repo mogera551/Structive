@@ -1,6 +1,6 @@
-import { getStatePropertyRefId } from "../../StatePropertyRef/getStatePropertyRefId";
+import { getStatePropertyRefId } from "../../StatePropertyRef/getStatePropertyRefId.js";
 import { raiseError } from "../../utils";
-import { setTracking } from "./setTracking";
+import { setTracking } from "./setTracking.js";
 function _getByRef(target, info, listIndex, receiver, handler) {
     if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
         const lastPattern = handler.lastTrackingStack;

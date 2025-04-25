@@ -1,9 +1,9 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { FilterWithOptions } from "../../Filter/types";
-import { raiseError } from "../../utils";
+import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
-import { BindingNode } from "./BindingNode";
+import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
 
 class BindingNodeClassList extends BindingNode {

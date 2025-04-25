@@ -1,4 +1,4 @@
-import { BindParentComponentSymbol, RenderSymbol } from "./symbols";
+import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
 
 export interface IComponentState {
   render(name: string, value: any): void;

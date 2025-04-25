@@ -1,6 +1,6 @@
 import { Filters } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { raiseError } from "../../utils";
+import { raiseError } from "../../utils.js";
 import { IBindContent, IBinding } from "../types";
 import { IBindingNode } from "./types";
 

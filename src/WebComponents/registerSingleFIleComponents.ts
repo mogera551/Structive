@@ -1,8 +1,8 @@
-import { entryRoute } from "../Router/Router";
-import { createComponentClass } from "./createComponentClass";
-import { config } from "./getGlobalConfig";
-import { loadSingleFileComponent } from "./loadSingleFileComponent";
-import { registerComponentClass } from "./registerComponentClass";
+import { entryRoute } from "../Router/Router.js";
+import { createComponentClass } from "./createComponentClass.js";
+import { config } from "./getGlobalConfig.js";
+import { loadSingleFileComponent } from "./loadSingleFileComponent.js";
+import { registerComponentClass } from "./registerComponentClass.js";
 import { IUserComponentData, SingleFileComponents } from "./types";
 
 export async function registerSingleFileComponents(singleFileComponents:SingleFileComponents):Promise<void> {

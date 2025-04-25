@@ -1,21 +1,20 @@
-import { createBindContent } from "../DataBinding/BindContent";
+import { createBindContent } from "../DataBinding/BindContent.js";
 import { IBindContent, IBinding } from "../DataBinding/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IState, IStateProxy, IStructiveState } from "../StateClass/types";
-import { createStateProxy } from "../StateClass/createStateProxy";
+import { createStateProxy } from "../StateClass/createStateProxy.js";
 import { IUpdater } from "../Updater/types";
-import { createUpdater } from "../Updater/updater";
+import { createUpdater } from "../Updater/updater.js";
 import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
-import { attachShadow } from "./attachShadow";
+import { attachShadow } from "./attachShadow.js";
 import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { buildListIndexTree } from "../StateClass/buildListIndexTree";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
+import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { ILoopContext } from "../LoopContext/types";
 import { IListIndex } from "../ListIndex/types";
-import { raiseError } from "../utils";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { BindParentComponentSymbol } from "../ComponentState/symbols";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
+import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
 
 export class ComponentEngine implements IComponentEngine {
   type          : ComponentType = 'autonomous';

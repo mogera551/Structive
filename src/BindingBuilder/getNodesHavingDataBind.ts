@@ -1,4 +1,4 @@
-import { DATA_BIND_ATTRIBUTE, COMMENT_EMBED_MARK, COMMENT_TEMPLATE_MARK } from "../constants";
+import { DATA_BIND_ATTRIBUTE, COMMENT_EMBED_MARK, COMMENT_TEMPLATE_MARK } from "../constants.js";
 
 /**
  * "@@:"もしくは"@@|"で始まるコメントノードを取得する

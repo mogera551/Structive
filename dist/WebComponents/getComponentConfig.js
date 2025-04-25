@@ -1,4 +1,4 @@
-import { getGlobalConfig } from "./getGlobalConfig";
+import { getGlobalConfig } from "./getGlobalConfig.js";
 export function getComponentConfig(userConfig) {
     const globalConfig = getGlobalConfig();
     return {

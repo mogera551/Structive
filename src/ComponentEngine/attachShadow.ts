@@ -1,6 +1,6 @@
-import { raiseError } from "../utils";
+import { raiseError } from "../utils.js";
 import { IComponentConfig } from "../WebComponents/types";
-import { canHaveShadowRoot } from "./canHaveShadowRoot";
+import { canHaveShadowRoot } from "./canHaveShadowRoot.js";
 
 function getParentShadowRoot(parentNode: Node | null): ShadowRoot|undefined{
   let node: Node | null = parentNode;

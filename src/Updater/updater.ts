@@ -1,15 +1,15 @@
 import { IBinding } from "../DataBinding/types";
 import { IListIndex } from "../ListIndex/types";
-import { render } from "../Render/render";
-import { buildListIndexTree } from "../StateClass/buildListIndexTree";
-import { SetCacheableSymbol } from "../StateClass/symbols";
+import { render } from "../Render/render.js";
+import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
+import { SetCacheableSymbol } from "../StateClass/symbols.js";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { getStatePropertyRefId } from "../StatePropertyRef/getStatePropertyRefId";
+import { getStatePropertyRefId } from "../StatePropertyRef/getStatePropertyRefId.js";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { raiseError } from "../utils";
-import { getGlobalConfig } from "../WebComponents/getGlobalConfig";
+import { raiseError } from "../utils.js";
+import { getGlobalConfig } from "../WebComponents/getGlobalConfig.js";
 import { IUpdater } from "./types";
-import { collectAffectedGetters } from "./collectAffectedGetters";
+import { collectAffectedGetters } from "./collectAffectedGetters.js";
 
 type UpdatedArrayElementBinding = {
   parentRef: {info: IStructuredPathInfo, listIndex: IListIndex | null};

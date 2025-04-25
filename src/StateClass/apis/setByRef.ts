@@ -1,7 +1,7 @@
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { IStateHandler, IStateProxy } from "../types";
-import { setByRef as methodSetByRef } from "../methods/setByRef";
+import { setByRef as methodSetByRef } from "../methods/setByRef.js";
 
 export function setByRef(
   target: Object, 

@@ -1,7 +1,7 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
-import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols";
-import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo";
-import { raiseError } from "../../utils";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
+import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
+import { raiseError } from "../../utils.js";
 class BindingState {
     #binding;
     #pattern;

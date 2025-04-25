@@ -1,6 +1,6 @@
-import { COMMENT_TEMPLATE_MARK } from "../../constants";
-import { raiseError } from "../../utils";
-import { BindingNode } from "./BindingNode";
+import { COMMENT_TEMPLATE_MARK } from "../../constants.js";
+import { raiseError } from "../../utils.js";
+import { BindingNode } from "./BindingNode.js";
 const COMMENT_TEMPLATE_MARK_LEN = COMMENT_TEMPLATE_MARK.length;
 export class BindingNodeBlock extends BindingNode {
     #id;

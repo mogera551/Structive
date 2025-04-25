@@ -1,6 +1,5 @@
-import { raiseError } from '../utils';
-import { getResolvedPathInfo } from './getResolvedPathInfo';
-import { IResolvedPathInfo, IStructuredPathInfo } from './types';
+import { raiseError } from '../utils.js';
+import { IStructuredPathInfo } from './types';
 
 /**
  * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を

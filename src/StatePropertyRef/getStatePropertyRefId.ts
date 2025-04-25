@@ -1,4 +1,4 @@
-import { getMaxListIndexId } from "../ListIndex/createListIndex";
+import { getMaxListIndexId } from "../ListIndex/createListIndex.js";
 import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 

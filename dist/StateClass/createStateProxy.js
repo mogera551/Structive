@@ -1,13 +1,13 @@
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
-import { getByRef as apiGetByRef } from "./apis/getByRef";
-import { setByRef as apiSetByRef } from "./apis/setByRef";
-import { setCacheable as apiSetCacheable } from "./apis/setCacheable";
-import { connectedCallback } from "./apis/connectedCallback";
-import { disconnectedCallback } from "./apis/disconnectedCallback";
-import { resolve } from "./apis/resolve";
-import { getAll } from "./apis/getAll";
-import { get as trapGet } from "./traps/get";
-import { set as trapSet } from "./traps/set";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols.js";
+import { getByRef as apiGetByRef } from "./apis/getByRef.js";
+import { setByRef as apiSetByRef } from "./apis/setByRef.js";
+import { setCacheable as apiSetCacheable } from "./apis/setCacheable.js";
+import { connectedCallback } from "./apis/connectedCallback.js";
+import { disconnectedCallback } from "./apis/disconnectedCallback.js";
+import { resolve } from "./apis/resolve.js";
+import { getAll } from "./apis/getAll.js";
+import { get as trapGet } from "./traps/get.js";
+import { set as trapSet } from "./traps/set.js";
 class StateHandler {
     engine;
     cacheable = false;

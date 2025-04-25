@@ -1,5 +1,5 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
-import { raiseError } from "../../utils";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { raiseError } from "../../utils.js";
 class BindingStateIndex {
     #binding;
     #indexNumber;

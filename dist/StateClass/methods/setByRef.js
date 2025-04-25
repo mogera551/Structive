@@ -1,5 +1,5 @@
-import { raiseError } from "../../utils";
-import { getByRef } from "./getByRef";
+import { raiseError } from "../../utils.js";
+import { getByRef } from "./getByRef.js";
 export function setByRef(target, info, listIndex, value, receiver, handler) {
     try {
         if (info.pattern in target) {

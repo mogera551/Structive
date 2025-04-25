@@ -1,4 +1,4 @@
-import { getMaxListIndexId } from "../ListIndex/createListIndex";
+import { getMaxListIndexId } from "../ListIndex/createListIndex.js";
 /**
  * 参照用のIDを生成する
  * ListIndexのIDは最大値を取得してから計算するため、ListIndexの構築が完了していない場合、重複が発生する可能性がある

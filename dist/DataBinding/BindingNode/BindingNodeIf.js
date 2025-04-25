@@ -1,7 +1,7 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
-import { raiseError } from "../../utils";
-import { createBindContent } from "../BindContent";
-import { BindingNodeBlock } from "./BindingNodeBlock";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { raiseError } from "../../utils.js";
+import { createBindContent } from "../BindContent.js";
+import { BindingNodeBlock } from "./BindingNodeBlock.js";
 class BindingNodeIf extends BindingNodeBlock {
     #bindContent;
     #trueBindContents;

@@ -1,15 +1,15 @@
-import { createBindingNodeAttribute } from "../DataBinding/BindingNode/BindingNodeAttribute";
-import { createBindingNodeCheckbox } from "../DataBinding/BindingNode/BindingNodeCheckbox";
-import { createBindingNodeClassList } from "../DataBinding/BindingNode/BindingNodeClassList";
-import { createBindingNodeClassName } from "../DataBinding/BindingNode/BindingNodeClassName";
-import { createBindingNodeEvent } from "../DataBinding/BindingNode/BindingNodeEvent";
-import { createBindingNodeIf } from "../DataBinding/BindingNode/BindingNodeIf";
-import { createBindingNodeFor } from "../DataBinding/BindingNode/BindingNodeFor";
-import { createBindingNodeProperty } from "../DataBinding/BindingNode/BindingNodeProperty";
-import { createBindingNodeRadio } from "../DataBinding/BindingNode/BindingNodeRadio";
-import { createBindingNodeStyle } from "../DataBinding/BindingNode/BindingNodeStyle";
-import { raiseError } from "../utils";
-import { createBindingNodeComponent } from "../DataBinding/BindingNode/BindingNodeComponent";
+import { createBindingNodeAttribute } from "../DataBinding/BindingNode/BindingNodeAttribute.js";
+import { createBindingNodeCheckbox } from "../DataBinding/BindingNode/BindingNodeCheckbox.js";
+import { createBindingNodeClassList } from "../DataBinding/BindingNode/BindingNodeClassList.js";
+import { createBindingNodeClassName } from "../DataBinding/BindingNode/BindingNodeClassName.js";
+import { createBindingNodeEvent } from "../DataBinding/BindingNode/BindingNodeEvent.js";
+import { createBindingNodeIf } from "../DataBinding/BindingNode/BindingNodeIf.js";
+import { createBindingNodeFor } from "../DataBinding/BindingNode/BindingNodeFor.js";
+import { createBindingNodeProperty } from "../DataBinding/BindingNode/BindingNodeProperty.js";
+import { createBindingNodeRadio } from "../DataBinding/BindingNode/BindingNodeRadio.js";
+import { createBindingNodeStyle } from "../DataBinding/BindingNode/BindingNodeStyle.js";
+import { raiseError } from "../utils.js";
+import { createBindingNodeComponent } from "../DataBinding/BindingNode/BindingNodeComponent.js";
 const nodePropertyConstructorByNameByIsComment = {
     0: {
         "class": createBindingNodeClassList,

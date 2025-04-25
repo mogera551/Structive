@@ -1,6 +1,6 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
-import { getDefaultName } from "../../BindingBuilder/getDefaultName";
-import { BindingNode } from "./BindingNode";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
+import { BindingNode } from "./BindingNode.js";
 function isTwoWayBindable(element) {
     return element instanceof HTMLInputElement ||
         element instanceof HTMLTextAreaElement ||

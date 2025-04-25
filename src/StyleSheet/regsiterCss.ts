@@ -1,4 +1,4 @@
-import { registerStyleSheet } from "./registerStyleSheet";
+import { registerStyleSheet } from "./registerStyleSheet.js";
 
 export function registerCss(id: number, css: string) {
   const styleSheet = new CSSStyleSheet();

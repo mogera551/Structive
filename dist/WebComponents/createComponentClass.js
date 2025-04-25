@@ -1,15 +1,15 @@
-import { inputBuiltinFilters, outputBuiltinFilters } from "../Filter/builtinFilters";
-import { generateId } from "../GlobalId/generateId";
-import { getStateClassById, registerStateClass } from "../StateClass/registerStateClass";
-import { getStyleSheetById } from "../StyleSheet/registerStyleSheet";
-import { registerCss } from "../StyleSheet/regsiterCss";
-import { createComponentEngine } from "../ComponentEngine/ComponentEngine";
-import { registerHtml } from "../Template/registerHtml";
-import { getTemplateById } from "../Template/registerTemplate";
-import { getBaseClass } from "./getBaseClass";
-import { getComponentConfig } from "./getComponentConfig";
-import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes";
-import { createComponentState } from "../ComponentState/createComponentState";
+import { inputBuiltinFilters, outputBuiltinFilters } from "../Filter/builtinFilters.js";
+import { generateId } from "../GlobalId/generateId.js";
+import { getStateClassById, registerStateClass } from "../StateClass/registerStateClass.js";
+import { getStyleSheetById } from "../StyleSheet/registerStyleSheet.js";
+import { registerCss } from "../StyleSheet/regsiterCss.js";
+import { createComponentEngine } from "../ComponentEngine/ComponentEngine.js";
+import { registerHtml } from "../Template/registerHtml.js";
+import { getTemplateById } from "../Template/registerTemplate.js";
+import { getBaseClass } from "./getBaseClass.js";
+import { getComponentConfig } from "./getComponentConfig.js";
+import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes.js";
+import { createComponentState } from "../ComponentState/createComponentState.js";
 function findStructiveParent(el) {
     let current = el.parentNode;
     while (current) {

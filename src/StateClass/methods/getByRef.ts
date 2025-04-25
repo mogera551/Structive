@@ -1,9 +1,9 @@
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
-import { getStatePropertyRefId } from "../../StatePropertyRef/getStatePropertyRefId";
+import { getStatePropertyRefId } from "../../StatePropertyRef/getStatePropertyRefId.js";
 import { raiseError } from "../../utils";
 import { IStateHandler, IStateProxy } from "../types";
-import { setTracking } from "./setTracking";
+import { setTracking } from "./setTracking.js";
 
 function _getByRef(
   target   : Object, 

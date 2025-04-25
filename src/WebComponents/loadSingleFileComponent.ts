@@ -1,4 +1,4 @@
-import { createSingleFileComponent } from "./createSingleFileComponent";
+import { createSingleFileComponent } from "./createSingleFileComponent.js";
 import { IUserComponentData } from "./types";
 
 export async function loadSingleFileComponent(path: string): Promise<IUserComponentData> {

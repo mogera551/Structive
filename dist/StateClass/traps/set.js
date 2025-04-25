@@ -1,6 +1,6 @@
-import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo";
-import { getListIndex } from "../getListIndex";
-import { setByRef } from "../methods/setByRef";
+import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
+import { getListIndex } from "../getListIndex.js";
+import { setByRef } from "../methods/setByRef.js";
 export function set(target, prop, value, receiver, handler) {
     if (typeof prop === "string") {
         const resolvedInfo = getResolvedPathInfo(prop);

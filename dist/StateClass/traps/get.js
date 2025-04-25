@@ -1,9 +1,9 @@
-import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo";
-import { raiseError } from "../../utils";
-import { getAll } from "../apis/getAll";
-import { resolve } from "../apis/resolve";
-import { getListIndex } from "../getListIndex";
-import { getByRef } from "../methods/getByRef";
+import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
+import { raiseError } from "../../utils.js";
+import { getAll } from "../apis/getAll.js";
+import { resolve } from "../apis/resolve.js";
+import { getListIndex } from "../getListIndex.js";
+import { getByRef } from "../methods/getByRef.js";
 const matchIndexPropertyName = new RegExp(/^\$(\d+)$/);
 export function get(target, prop, receiver, handler) {
     let value;

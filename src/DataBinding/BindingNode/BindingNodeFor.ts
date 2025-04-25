@@ -1,12 +1,11 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo";
-import { raiseError } from "../../utils";
-import { createBindContent } from "../BindContent";
+import { raiseError } from "../../utils.js";
+import { createBindContent } from "../BindContent.js";
 import { IBindContent, IBinding } from "../types";
-import { BindingNodeBlock } from "./BindingNodeBlock";
+import { BindingNodeBlock } from "./BindingNodeBlock.js";
 import { CreateBindingNodeFn } from "./types";
 
 class BindingNodeFor extends BindingNodeBlock {

@@ -1,7 +1,7 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { BindParentComponentSymbol, RenderSymbol } from "./symbols";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
+import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
 import { IComponentState, IComponentStateHandler, IComponentStateProxy } from "./types";
 
 class ComponentState implements IComponentState {

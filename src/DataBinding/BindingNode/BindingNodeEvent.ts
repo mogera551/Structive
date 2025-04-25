@@ -1,8 +1,8 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IBinding } from "../types";
-import { BindingNode } from "./BindingNode";
+import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
 
 class BindingNodeEvent extends BindingNode {

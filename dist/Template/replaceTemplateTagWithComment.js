@@ -1,6 +1,6 @@
-import { COMMENT_TEMPLATE_MARK, DATA_BIND_ATTRIBUTE } from "../constants";
-import { generateId } from "../GlobalId/generateId";
-import { registerTemplate } from "./registerTemplate";
+import { COMMENT_TEMPLATE_MARK, DATA_BIND_ATTRIBUTE } from "../constants.js";
+import { generateId } from "../GlobalId/generateId.js";
+import { registerTemplate } from "./registerTemplate.js";
 const SVG_NS = "http://www.w3.org/2000/svg";
 export function replaceTemplateTagWithComment(id, template, rootId = id) {
     // テンプレートの親ノードが存在する場合は、テンプレートをコメントノードに置き換える

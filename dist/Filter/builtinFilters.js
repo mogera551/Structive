@@ -1,5 +1,5 @@
-import { getGlobalConfig } from "../WebComponents/getGlobalConfig";
-import { optionMustBeNumber, optionsRequired, valueMustBeBoolean, valueMustBeDate, valueMustBeNumber } from "./errorMessages";
+import { getGlobalConfig } from "../WebComponents/getGlobalConfig.js";
+import { optionMustBeNumber, optionsRequired, valueMustBeBoolean, valueMustBeDate, valueMustBeNumber } from "./errorMessages.js";
 const config = getGlobalConfig();
 const eq = (options) => {
     const opt = options?.[0] ?? optionsRequired('eq');

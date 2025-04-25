@@ -1,5 +1,3 @@
-import { config } from "../WebComponents/getGlobalConfig";
-
 const DEFAULT_ROUTE_PATH = '/'; // Default route path
 const ROUTE_PATH_PREFIX = 'routes:'; // Prefix for route paths
 /**

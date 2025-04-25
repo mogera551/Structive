@@ -1,10 +1,10 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
-import { RenderSymbol } from "../../ComponentState/symbols";
+import { RenderSymbol } from "../../ComponentState/symbols.js";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { StructiveComponent } from "../../WebComponents/types";
 import { IBinding } from "../types";
-import { BindingNode } from "./BindingNode";
+import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
 
 class BindingNodeComponent extends BindingNode {

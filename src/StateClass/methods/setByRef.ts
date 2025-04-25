@@ -1,8 +1,8 @@
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
-import { raiseError } from "../../utils";
+import { raiseError } from "../../utils.js";
 import { IStateHandler, IStateProxy } from "../types";
-import { getByRef } from "./getByRef";
+import { getByRef } from "./getByRef.js";
 
 export function setByRef(
     target   : Object, 

@@ -1,5 +1,5 @@
-import { COMMENT_EMBED_MARK } from "../constants";
-import { raiseError } from "../utils";
+import { COMMENT_EMBED_MARK } from "../constants.js";
+import { raiseError } from "../utils.js";
 const MUSTACHE_REGEXP = /\{\{([^\}]+)\}\}/g;
 const MUSTACHE_TYPES = new Set(['if', 'for', 'endif', 'endfor', 'elseif', 'else']);
 export function replaceMustacheWithTemplateTag(html) {

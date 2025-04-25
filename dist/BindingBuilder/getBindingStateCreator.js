@@ -1,5 +1,5 @@
-import { createBindingState } from "../DataBinding/BindingState/BindingState";
-import { createBindingStateIndex } from "../DataBinding/BindingState/BindingStateIndex";
+import { createBindingState } from "../DataBinding/BindingState/BindingState.js";
+import { createBindingStateIndex } from "../DataBinding/BindingState/BindingStateIndex.js";
 const ereg = new RegExp(/^\$\d+$/);
 export function getBindingStateCreator(name, filterTexts) {
     if (ereg.test(name)) {

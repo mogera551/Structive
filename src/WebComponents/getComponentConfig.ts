@@ -1,4 +1,4 @@
-import { getGlobalConfig } from "./getGlobalConfig";
+import { getGlobalConfig } from "./getGlobalConfig.js";
 import { IUserConfig, IComponentConfig } from "./types";
 
 export function getComponentConfig(userConfig: IUserConfig): IComponentConfig {

@@ -1,10 +1,9 @@
-import { createFilters } from "../../BindingBuilder/createFilters";
-import { getDefaultName } from "../../BindingBuilder/getDefaultName";
+import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
-import { SetByRefSymbol } from "../../StateClass/symbols";
 import { IBinding } from "../types";
-import { BindingNode } from "./BindingNode";
+import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
 
 function isTwoWayBindable(element: HTMLElement): boolean {

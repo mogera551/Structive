@@ -1,8 +1,8 @@
 import { IBindContent } from "../DataBinding/types";
 import { IListIndex } from "../ListIndex/types";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { raiseError } from "../utils";
+import { raiseError } from "../utils.js";
 import { ILoopContext } from "./types";
 
 class LoopContext implements ILoopContext {

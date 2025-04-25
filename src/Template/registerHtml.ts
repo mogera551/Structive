@@ -1,5 +1,5 @@
-import { replaceMustacheWithTemplateTag } from "./replaceMustacheWithTemplateTag";
-import { replaceTemplateTagWithComment } from "./replaceTemplateTagWithComment";
+import { replaceMustacheWithTemplateTag } from "./replaceMustacheWithTemplateTag.js";
+import { replaceTemplateTagWithComment } from "./replaceTemplateTagWithComment.js";
 
 export function registerHtml(id: number, html:string) {
   const template = document.createElement("template");

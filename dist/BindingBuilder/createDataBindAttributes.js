@@ -1,11 +1,11 @@
-import { getAbsoluteNodePath } from "./getAbsoluteNodePath";
-import { getBindingNodeCreator } from "./getBindingNodeCreator";
-import { getBindingStateCreator } from "./getBindingStateCreator";
-import { getDataBindText } from "./getDataBindText";
-import { getNodeType } from "./getNodeType";
-import { parseBindText } from "./parseBindText";
-import { removeDataBindAttribute } from "./removeDataBindAttribute";
-import { replaceTextNodeFromComment } from "./replaceTextNodeFromComment";
+import { getAbsoluteNodePath } from "./getAbsoluteNodePath.js";
+import { getBindingNodeCreator } from "./getBindingNodeCreator.js";
+import { getBindingStateCreator } from "./getBindingStateCreator.js";
+import { getDataBindText } from "./getDataBindText.js";
+import { getNodeType } from "./getNodeType.js";
+import { parseBindText } from "./parseBindText.js";
+import { removeDataBindAttribute } from "./removeDataBindAttribute.js";
+import { replaceTextNodeFromComment } from "./replaceTextNodeFromComment.js";
 class DataBindAttributes {
     nodeType; // ノードの種別
     nodePath; // ノードのルート

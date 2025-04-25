@@ -1,9 +1,9 @@
 import { IListIndex } from "../../ListIndex/types";
-import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo";
+import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
-import { raiseError } from "../../utils";
+import { raiseError } from "../../utils.js";
 import { IStateHandler, IStateProxy } from "../types";
-import { resolve as _resolve } from "./resolve";
+import { resolve as _resolve } from "./resolve.js";
 
 export function getAll(
   target: Object, 

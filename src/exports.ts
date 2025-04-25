@@ -1,6 +1,6 @@
-import { registerSingleFileComponents } from "./WebComponents/registerSingleFIleComponents";
-import { bootstrap } from "./bootstrap";
-import { config as _config } from "./WebComponents/getGlobalConfig";
+import { registerSingleFileComponents } from "./WebComponents/registerSingleFIleComponents.js";
+import { bootstrap } from "./bootstrap.js";
+import { config as _config } from "./WebComponents/getGlobalConfig.js";
 import { IConfig } from "./WebComponents/types";
 
 export const config: IConfig = _config;

@@ -1,4 +1,4 @@
-import { raiseError } from "../../utils";
+import { raiseError } from "../../utils.js";
 export class BindingNode {
     #binding;
     #node;

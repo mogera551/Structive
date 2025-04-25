@@ -1,5 +1,5 @@
-import { raiseError } from "../utils";
-import { canHaveShadowRoot } from "./canHaveShadowRoot";
+import { raiseError } from "../utils.js";
+import { canHaveShadowRoot } from "./canHaveShadowRoot.js";
 function getParentShadowRoot(parentNode) {
     let node = parentNode;
     while (node) {

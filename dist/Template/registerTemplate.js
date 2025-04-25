@@ -1,6 +1,6 @@
-import { registerDataBindAttributes } from "../BindingBuilder/registerDataBindAttributes";
-import { raiseError } from "../utils";
-import { removeEmptyTextNodes } from "./removeEmptyTextNodes";
+import { registerDataBindAttributes } from "../BindingBuilder/registerDataBindAttributes.js";
+import { raiseError } from "../utils.js";
+import { removeEmptyTextNodes } from "./removeEmptyTextNodes.js";
 const templateById = {};
 export function registerTemplate(id, template, rootId) {
     removeEmptyTextNodes(template.content);

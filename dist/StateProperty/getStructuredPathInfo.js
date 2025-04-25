@@ -1,4 +1,4 @@
-import { raiseError } from '../utils';
+import { raiseError } from '../utils.js';
 /**
  * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
  * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を

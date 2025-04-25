@@ -1,10 +1,10 @@
-import { render } from "../Render/render";
-import { buildListIndexTree } from "../StateClass/buildListIndexTree";
-import { SetCacheableSymbol } from "../StateClass/symbols";
-import { getStatePropertyRefId } from "../StatePropertyRef/getStatePropertyRefId";
-import { raiseError } from "../utils";
-import { getGlobalConfig } from "../WebComponents/getGlobalConfig";
-import { collectAffectedGetters } from "./collectAffectedGetters";
+import { render } from "../Render/render.js";
+import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
+import { SetCacheableSymbol } from "../StateClass/symbols.js";
+import { getStatePropertyRefId } from "../StatePropertyRef/getStatePropertyRefId.js";
+import { raiseError } from "../utils.js";
+import { getGlobalConfig } from "../WebComponents/getGlobalConfig.js";
+import { collectAffectedGetters } from "./collectAffectedGetters.js";
 class Updater {
     processList = [];
     updatedProperties = new Set();
