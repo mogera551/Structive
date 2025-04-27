@@ -2011,17 +2011,9 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     let value;
     try {
         if (info.pattern in target) {
-            if (info.wildcardCount > 0) {
-                if (listIndex === null) {
-                    raiseError(`propRef.listIndex is null`);
-                }
-                return (value = handler.engine.setStatePropertyRef(info, listIndex, () => {
-                    return Reflect.get(target, info.pattern, receiver);
-                }));
-            }
-            else {
-                return (value = Reflect.get(target, info.pattern, receiver));
-            }
+            return (value = handler.engine.setStatePropertyRef(info, listIndex, () => {
+                return Reflect.get(target, info.pattern, receiver);
+            }));
         }
         else {
             const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
@@ -2886,7 +2878,7 @@ class ComponentEngine {
         const info = lastRef.info;
         const index = info.wildcardPaths.indexOf(structuredPath);
         if (index >= 0) {
-            return lastRef.listIndex.at(index) ?? null;
+            return lastRef.listIndex?.at(index) ?? null;
         }
         return null;
     }
@@ -3221,7 +3213,6 @@ function createComponentClass(componentData) {
             else {
                 customElements.define(tagName, this);
             }
-            console.log(tagName + " defined");
         }
         static get id() {
             return id;

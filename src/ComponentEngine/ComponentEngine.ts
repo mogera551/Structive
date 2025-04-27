@@ -42,7 +42,7 @@ export class ComponentEngine implements IComponentEngine {
   #waitForInitialize : PromiseWithResolvers<void> = Promise.withResolvers<void>();
   #loopContext       : ILoopContext | null = null;
   #stackStructuredPathInfo  : IStructuredPathInfo[] = [];
-  #stackListIndex    : IListIndex[] = [];
+  #stackListIndex    : (IListIndex | null)[] = [];
 
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
@@ -117,7 +117,7 @@ export class ComponentEngine implements IComponentEngine {
 
   async asyncSetStatePropertyRef(
     info     : IStructuredPathInfo, 
-    listIndex: IListIndex, 
+    listIndex: IListIndex | null, 
     callback : ()=>Promise<any>
   ): Promise<any> {
     this.#stackStructuredPathInfo.push(info);
@@ -132,7 +132,7 @@ export class ComponentEngine implements IComponentEngine {
 
   setStatePropertyRef(
     info     : IStructuredPathInfo, 
-    listIndex: IListIndex, 
+    listIndex: IListIndex | null, 
     callback : ()=>any
   ): any {
     this.#stackStructuredPathInfo.push(info);
@@ -145,7 +145,7 @@ export class ComponentEngine implements IComponentEngine {
     }
   }
 
-  getLastStatePropertyRef(): {info:IStructuredPathInfo, listIndex:IListIndex} | null {
+  getLastStatePropertyRef(): {info:IStructuredPathInfo, listIndex:IListIndex | null} | null {
     if (this.#stackStructuredPathInfo.length === 0) {
       return null;
     }
@@ -168,7 +168,7 @@ export class ComponentEngine implements IComponentEngine {
     const info = lastRef.info;
     const index = info.wildcardPaths.indexOf(structuredPath);
     if (index >= 0) {
-      return lastRef.listIndex.at(index) ?? null;
+      return lastRef.listIndex?.at(index) ?? null;
     }
     return null;
   }

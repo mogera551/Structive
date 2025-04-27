@@ -91,7 +91,6 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       } else {
         customElements.define(tagName, this);
       }
-      console.log(tagName + " defined");
     }
 
     static get id():number {

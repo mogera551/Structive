@@ -143,7 +143,7 @@ export class ComponentEngine {
         const info = lastRef.info;
         const index = info.wildcardPaths.indexOf(structuredPath);
         if (index >= 0) {
-            return lastRef.listIndex.at(index) ?? null;
+            return lastRef.listIndex?.at(index) ?? null;
         }
         return null;
     }

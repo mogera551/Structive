@@ -76,7 +76,6 @@ export function createComponentClass(componentData) {
             else {
                 customElements.define(tagName, this);
             }
-            console.log(tagName + " defined");
         }
         static get id() {
             return id;

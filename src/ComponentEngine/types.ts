@@ -25,7 +25,7 @@ export interface IComponentEngine {
 
   getContextListIndex(patternName: string): IListIndex | null;               // パターン名からリストインデックスを取得する(ワイルドカード探索用)
   getLoopContexts():ILoopContext[];               // ループコンテキストを取得する
-  getLastStatePropertyRef(): {info:IStructuredPathInfo, listIndex:IListIndex} | null; // 最後に取得したプロパティ参照を取得する
+  getLastStatePropertyRef(): {info:IStructuredPathInfo, listIndex:IListIndex | null} | null; // 最後に取得したプロパティ参照を取得する
 
   listInfoSet        : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列を持つもの
   elementInfoSet     : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列の要素を持つもの
@@ -36,11 +36,11 @@ export interface IComponentEngine {
 
   setLoopContext(loopContext: ILoopContext, callback: ()=>Promise<void>): Promise<void>;
   asyncSetStatePropertyRef(
-    info: IStructuredPathInfo | IStructuredPathInfo[], 
-    listIndex  : IListIndex | IListIndex[], 
+    info: IStructuredPathInfo, 
+    listIndex  : IListIndex | null, 
     callback: ()=>Promise<any>
   ): Promise<any>;
-  setStatePropertyRef(info:IStructuredPathInfo, listIndex:IListIndex, callback: ()=>any): any;
+  setStatePropertyRef(info:IStructuredPathInfo, listIndex:IListIndex | null, callback: ()=>any): any;
 
   connectedCallback(): Promise<void>;
   disconnectedCallback(): Promise<void>;

@@ -34,16 +34,9 @@ function _getByRef(
   let value;
   try {
     if (info.pattern in target) {
-      if (info.wildcardCount > 0) {
-        if (listIndex === null) {
-          raiseError(`propRef.listIndex is null`);
-        }
-        return (value = handler.engine.setStatePropertyRef(info, listIndex, () => {
-          return Reflect.get(target, info.pattern, receiver);
-        }));
-      } else {
-        return (value = Reflect.get(target, info.pattern, receiver));
-      }
+      return (value = handler.engine.setStatePropertyRef(info, listIndex, () => {
+        return Reflect.get(target, info.pattern, receiver);
+      }));
     } else {
       const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
       const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
