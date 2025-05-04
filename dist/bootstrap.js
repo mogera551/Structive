@@ -1,7 +1,11 @@
 import { MainWrapper } from "./MainWrapper/MainWrapper.js";
 import { Router } from "./Router/Router.js";
 import { config } from "./WebComponents/getGlobalConfig.js";
-export function bootstrap() {
+import { loadFromImportMap } from "./WebComponents/loadFromImportMap.js";
+export async function bootstrap() {
+    if (config.autoLoadFromImportMap) {
+        await loadFromImportMap();
+    }
     if (config.enableRouter) {
         customElements.define(config.routerTagName, Router);
     }

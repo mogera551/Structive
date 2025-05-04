@@ -45,7 +45,7 @@ export interface IConfig {
   mainTagName          : string; // The tag name of the main wrapper, default is "app-main"
   routerTagName        : string; // The tag name of the router, default is "view-router"
   layoutPath           : string; // The path to the layout file, default is "src/layout.html"
-
+  autoLoadFromImportMap: boolean; // Whether to automatically load the component from the import map or not
 }
 
 export interface IUserConfig {
@@ -68,3 +68,8 @@ export interface IUserComponentData {
 export type StructiveComponentClasses = Record<string, StructiveComponentClass>;
 
 export type SingleFileComponents = Record<string, string>;
+
+export interface IImportMap {
+  imports? : Record<string, string>; // The import map of the component
+  scopes? : Record<string, Record<string, string>>; // The scopes of the component
+}

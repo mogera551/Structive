@@ -11,10 +11,8 @@ export async function registerSingleFileComponents(singleFileComponents:SingleFi
     if (config.enableRouter) {
       const routePath = path.startsWith("@routes") ? path.slice(7) : path; // remove the prefix 'routes:'
       entryRoute(tagName, routePath === "/root" ? "/" : routePath); // routing
-      componentData = await loadSingleFileComponent("@routes" + (routePath === "/" ? "/root" : routePath));
-    } else {
-      componentData = await loadSingleFileComponent(path);
     }
+    componentData = await loadSingleFileComponent(path);
     const componentClass = createComponentClass(componentData);
     registerComponentClass(tagName, componentClass);
   }

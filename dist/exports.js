@@ -6,12 +6,12 @@ let initialized = false;
 export async function defineComponents(singleFileComponents) {
     await registerSingleFileComponents(singleFileComponents);
     if (config.autoInit) {
-        bootstrapStructive();
+        await bootstrapStructive();
     }
 }
-export function bootstrapStructive() {
+export async function bootstrapStructive() {
     if (!initialized) {
-        bootstrap();
+        await bootstrap();
         initialized = true;
     }
 }

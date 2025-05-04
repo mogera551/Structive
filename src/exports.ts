@@ -9,13 +9,13 @@ let initialized = false;
 export async function defineComponents(singleFileComponents: Record<string, string>):Promise<void> {
   await registerSingleFileComponents(singleFileComponents);
   if (config.autoInit) {
-    bootstrapStructive();
+    await bootstrapStructive();
   }
 }
 
-export function bootstrapStructive() {
+export async function bootstrapStructive():Promise<void> {
   if (!initialized) {
-    bootstrap();
+    await bootstrap();
     initialized = true;
   }
 }

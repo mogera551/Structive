@@ -79,6 +79,7 @@ const globalConfig = {
     mainTagName: "app-main", // The tag name of the main wrapper, default is "app-main"
     routerTagName: "view-router", // The tag name of the router, default is "view-router"
     layoutPath: "", // The path to the layout file, default is ""
+    autoLoadFromImportMap: false, // Whether to automatically load the component from the import map or not
 };
 function getGlobalConfig() {
     return globalConfig;
@@ -3338,11 +3339,8 @@ async function registerSingleFileComponents(singleFileComponents) {
         if (config$2.enableRouter) {
             const routePath = path.startsWith("@routes") ? path.slice(7) : path; // remove the prefix 'routes:'
             entryRoute(tagName, routePath === "/root" ? "/" : routePath); // routing
-            componentData = await loadSingleFileComponent("@routes" + (routePath === "/" ? "/root" : routePath));
         }
-        else {
-            componentData = await loadSingleFileComponent(path);
-        }
+        componentData = await loadSingleFileComponent(path);
         const componentClass = createComponentClass(componentData);
         registerComponentClass(tagName, componentClass);
     }
@@ -3400,7 +3398,46 @@ class MainWrapper extends HTMLElement {
     }
 }
 
-function bootstrap() {
+function loadImportmap() {
+    const importmap = {};
+    document.querySelectorAll("script[type='importmap']").forEach(script => {
+        const scriptImportmap = JSON.parse(script.innerHTML);
+        if (scriptImportmap.imports) {
+            importmap.imports = Object.assign(importmap.imports || {}, scriptImportmap.imports);
+        }
+    });
+    return importmap;
+}
+
+const ROUTES_KEY = "@routes/";
+const COMPONENTS_KEY = "@components/";
+async function loadFromImportMap() {
+    const importmap = loadImportmap();
+    if (importmap.imports) {
+        for (const [alias, value] of Object.entries(importmap.imports)) {
+            let tagName;
+            if (alias.startsWith(ROUTES_KEY)) {
+                const path = alias.slice(ROUTES_KEY.length - 1); // remove the prefix '@routes'
+                tagName = "routes-" + path.replace(/\//g, "-"); // replace '/' with '-'
+            }
+            if (alias.startsWith(COMPONENTS_KEY)) {
+                tagName = alias.slice(COMPONENTS_KEY.length - 1); // remove the prefix '@components'
+            }
+            if (!tagName) {
+                continue;
+            }
+            let componentData = null;
+            componentData = await loadSingleFileComponent(alias);
+            const componentClass = createComponentClass(componentData);
+            registerComponentClass(tagName, componentClass);
+        }
+    }
+}
+
+async function bootstrap() {
+    if (config$2.autoLoadFromImportMap) {
+        await loadFromImportMap();
+    }
     if (config$2.enableRouter) {
         customElements.define(config$2.routerTagName, Router);
     }
@@ -3418,12 +3455,12 @@ let initialized = false;
 async function defineComponents(singleFileComponents) {
     await registerSingleFileComponents(singleFileComponents);
     if (config.autoInit) {
-        bootstrapStructive();
+        await bootstrapStructive();
     }
 }
-function bootstrapStructive() {
+async function bootstrapStructive() {
     if (!initialized) {
-        bootstrap();
+        await bootstrap();
         initialized = true;
     }
 }

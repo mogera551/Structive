@@ -9,6 +9,7 @@ const globalConfig = {
     mainTagName: "app-main", // The tag name of the main wrapper, default is "app-main"
     routerTagName: "view-router", // The tag name of the router, default is "view-router"
     layoutPath: "", // The path to the layout file, default is ""
+    autoLoadFromImportMap: false, // Whether to automatically load the component from the import map or not
 };
 export function getGlobalConfig() {
     return globalConfig;
