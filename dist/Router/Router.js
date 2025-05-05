@@ -5,7 +5,8 @@ const ROUTE_PATH_PREFIX = 'routes:'; // Prefix for route paths
  * ```ts
  * entryRoute('my-view', '/my-view/:id');
  */
-const routeMap = {};
+const routeEntries = [];
+let globalRouter = null;
 export class Router extends HTMLElement {
     _popstateHandler;
     constructor() {
@@ -13,22 +14,32 @@ export class Router extends HTMLElement {
         this._popstateHandler = this.popstateHandler.bind(this);
     }
     connectedCallback() {
+        globalRouter = this;
         this.innerHTML = '<slot name="content"></slot>';
         window.addEventListener('popstate', this._popstateHandler);
         window.dispatchEvent(new Event("popstate")); // Dispatch popstate event to trigger the initial render
     }
     disconnectedCallback() {
         window.removeEventListener('popstate', this._popstateHandler);
+        globalRouter = null;
     }
     popstateHandler(event) {
+        event.preventDefault();
+        this.render();
+    }
+    navigate(to) {
+        history.pushState({}, '', to);
         this.render();
     }
     render() {
+        // スロットコンテントをクリア
+        const slotChildren = Array.from(this.childNodes).filter(n => n.getAttribute?.('slot') === 'content');
+        slotChildren.forEach(n => this.removeChild(n));
         const routePath = window.location.pathname || DEFAULT_ROUTE_PATH;
         let tagName = undefined;
         let params = {};
         // Check if the routePath matches any of the defined routes
-        for (const [path, tag] of Object.entries(routeMap)) {
+        for (const [path, tag] of routeEntries) {
             const regex = new RegExp(path.replace(/:[^\s/]+/g, '([^/]+)'));
             if (regex.test(routePath)) {
                 tagName = tag;
@@ -65,5 +76,8 @@ export function entryRoute(tagName, routePath) {
     if (routePath.startsWith(ROUTE_PATH_PREFIX)) {
         routePath = routePath.substring(ROUTE_PATH_PREFIX.length); // Remove 'routes:' prefix
     }
-    routeMap[routePath] = tagName;
+    routeEntries.push([routePath, tagName]);
+}
+export function getRouter() {
+    return globalRouter;
 }

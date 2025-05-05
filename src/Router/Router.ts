@@ -1,3 +1,6 @@
+import { config } from "../WebComponents/getGlobalConfig";
+import { IRouter } from "./types";
+
 const DEFAULT_ROUTE_PATH = '/'; // Default route path
 const ROUTE_PATH_PREFIX = 'routes:'; // Prefix for route paths
 /**
@@ -5,9 +8,11 @@ const ROUTE_PATH_PREFIX = 'routes:'; // Prefix for route paths
  * ```ts
  * entryRoute('my-view', '/my-view/:id');
  */
-const routeMap: Record<string,string> = {};
+const routeEntries: Array<[string, string]> = [];
 
-export class Router extends HTMLElement {
+let globalRouter : Router | null = null;
+
+export class Router extends HTMLElement implements IRouter {
   _popstateHandler: (event: PopStateEvent) => void;
   constructor() {
     super();
@@ -15,6 +20,7 @@ export class Router extends HTMLElement {
   }
 
   connectedCallback() {
+    globalRouter = this;
     this.innerHTML = '<slot name="content"></slot>';
     window.addEventListener('popstate', this._popstateHandler);
     window.dispatchEvent(new Event("popstate")); // Dispatch popstate event to trigger the initial render
@@ -22,18 +28,31 @@ export class Router extends HTMLElement {
 
   disconnectedCallback() {
     window.removeEventListener('popstate', this._popstateHandler);
+    globalRouter = null;
   }
 
   popstateHandler(event: PopStateEvent) {
+    event.preventDefault();
+    this.render();
+  }
+
+  navigate(to: string) {
+    history.pushState({}, '', to);
     this.render();
   }
 
   render() {
+    // スロットコンテントをクリア
+    const slotChildren = Array.from(this.childNodes).filter(
+      n => (n as HTMLElement).getAttribute?.('slot') === 'content'
+    );
+    slotChildren.forEach(n => this.removeChild(n));
+
     const routePath = window.location.pathname || DEFAULT_ROUTE_PATH;
     let tagName: string | undefined = undefined;
     let params: Record<string, string> = {};
     // Check if the routePath matches any of the defined routes
-    for (const [path, tag] of Object.entries(routeMap)) {
+    for (const [path, tag] of routeEntries) {
       const regex = new RegExp(path.replace(/:[^\s/]+/g, '([^/]+)'));
       if (regex.test(routePath)) {
         tagName = tag;
@@ -70,8 +89,11 @@ export class Router extends HTMLElement {
 export function entryRoute(tagName: string, routePath: string): void {
   if (routePath.startsWith(ROUTE_PATH_PREFIX)) {
     routePath = routePath.substring(ROUTE_PATH_PREFIX.length); // Remove 'routes:' prefix
-  } 
-  routeMap[routePath] = tagName;
+  }
+  routeEntries.push([routePath, tagName]);
 }
 
+export function getRouter(): Router | null {
+  return globalRouter;
+}
 

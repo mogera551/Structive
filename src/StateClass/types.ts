@@ -1,5 +1,6 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
+import { Router } from "../Router/Router";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { Constructor, IComponentConfig, IUserConfig } from "../WebComponents/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
@@ -14,6 +15,7 @@ export interface IState {
   $disconnectedCallback?(): Promise<void> | void;
   $dependentProps?: IDependentProps;
   $component?: any;
+  $router?: Router;
 }
 
 export interface IStateProxy extends IState {

@@ -1,3 +1,4 @@
+import { getRouter } from "../../Router/Router.js";
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { getAll } from "../apis/getAll.js";
@@ -20,6 +21,9 @@ export function get(target, prop, receiver, handler) {
         }
         else if (prop === "$getAll") {
             return getAll(target, prop, receiver, handler);
+        }
+        else if (prop === "$router") {
+            return getRouter();
         }
         else {
             const resolvedInfo = getResolvedPathInfo(prop);
