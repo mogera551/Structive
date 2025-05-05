@@ -16,6 +16,10 @@ class ComponentState {
             },
         });
     }
+    unbindParentProperty(binding) {
+        const propName = binding.bindingNode.subName;
+        Object.defineProperty(this.engine.state, propName, { value: undefined });
+    }
     bindParentComponent() {
         // bindParentComponent
         const parent = this.engine.owner.parentStructiveComponent;

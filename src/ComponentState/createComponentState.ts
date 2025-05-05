@@ -22,6 +22,11 @@ class ComponentState implements IComponentState {
     });
   }
 
+  unbindParentProperty(binding: IBinding): void {
+    const propName = binding.bindingNode.subName;
+    Object.defineProperty(this.engine.state, propName, { value:undefined });
+  }
+  
   bindParentComponent(): void {
     // bindParentComponent
     const parent = this.engine.owner.parentStructiveComponent;

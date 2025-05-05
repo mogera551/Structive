@@ -3092,6 +3092,10 @@ class ComponentState {
             },
         });
     }
+    unbindParentProperty(binding) {
+        const propName = binding.bindingNode.subName;
+        Object.defineProperty(this.engine.state, propName, { value: undefined });
+    }
     bindParentComponent() {
         // bindParentComponent
         const parent = this.engine.owner.parentStructiveComponent;
@@ -3418,7 +3422,8 @@ async function loadFromImportMap() {
             let tagName;
             if (alias.startsWith(ROUTES_KEY)) {
                 const path = alias.slice(ROUTES_KEY.length - 1); // remove the prefix '@routes'
-                tagName = "routes-" + path.replace(/\//g, "-"); // replace '/' with '-'
+                tagName = "routes" + path.replace(/\//g, "-"); // replace '/' with '-'
+                entryRoute(tagName, path === "/root" ? "/" : path); // routing
             }
             if (alias.startsWith(COMPONENTS_KEY)) {
                 tagName = alias.slice(COMPONENTS_KEY.length - 1); // remove the prefix '@components'
