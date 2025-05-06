@@ -72,7 +72,7 @@ export class Router extends HTMLElement implements IRouter {
       // Create the custom element with the tag name
       // project the custom element into the router slot
       const customElement = document.createElement(tagName) as HTMLElement;
-      customElement.setAttribute('state', JSON.stringify(params));
+      customElement.setAttribute('data-state', JSON.stringify(params));
       customElement.setAttribute('slot', 'content');
       this.appendChild(customElement);
     } else {

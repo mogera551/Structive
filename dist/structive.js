@@ -59,7 +59,7 @@ class Router extends HTMLElement {
             // Create the custom element with the tag name
             // project the custom element into the router slot
             const customElement = document.createElement(tagName);
-            customElement.setAttribute('state', JSON.stringify(params));
+            customElement.setAttribute('data-state', JSON.stringify(params));
             customElement.setAttribute('slot', 'content');
             this.appendChild(customElement);
         }
@@ -2833,6 +2833,20 @@ class ComponentEngine {
         this.updater.main(this.#waitForInitialize);
     }
     async connectedCallback() {
+        if (this.owner.dataset.state) {
+            try {
+                const json = JSON.parse(this.owner.dataset.state);
+                for (const [key, value] of Object.entries(json)) {
+                    const info = getStructuredPathInfo(key);
+                    if (info.wildcardCount > 0)
+                        continue;
+                    this.stateProxy[SetByRefSymbol](info, null, value);
+                }
+            }
+            catch (e) {
+                raiseError("Failed to parse state from dataset");
+            }
+        }
         this.owner.state[BindParentComponentSymbol]();
         attachShadow(this.owner, this.config, this.styleSheet);
         await this.stateProxy[ConnectedCallbackSymbol]();
@@ -3446,7 +3460,8 @@ async function loadFromImportMap() {
             let tagName;
             if (alias.startsWith(ROUTES_KEY)) {
                 const path = alias.slice(ROUTES_KEY.length - 1); // remove the prefix '@routes'
-                tagName = "routes" + path.replace(/\//g, "-"); // replace '/' with '-'
+                const pathWithoutParams = path.replace(/:[^\s/]+/g, ""); // remove the params
+                tagName = "routes" + pathWithoutParams.replace(/\//g, "-"); // replace '/' with '-'
                 entryRoute(tagName, path === "/root" ? "/" : path); // routing
             }
             if (alias.startsWith(COMPONENTS_KEY)) {

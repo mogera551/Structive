@@ -15,7 +15,8 @@ export async function loadFromImportMap(): Promise<void> {
       let tagName;
       if (alias.startsWith(ROUTES_KEY)) {
         const path = alias.slice(ROUTES_KEY.length - 1); // remove the prefix '@routes'
-        tagName = "routes" + path.replace(/\//g, "-"); // replace '/' with '-'
+        const pathWithoutParams = path.replace(/:[^\s/]+/g, ""); // remove the params
+        tagName = "routes" + pathWithoutParams.replace(/\//g, "-"); // replace '/' with '-'
         entryRoute(tagName, path === "/root" ? "/" : path); // routing
       } if (alias.startsWith(COMPONENTS_KEY)) {
         tagName = alias.slice(COMPONENTS_KEY.length - 1); // remove the prefix '@components'

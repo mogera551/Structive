@@ -6,6 +6,7 @@ import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
+import { raiseError } from "../utils.js";
 export class ComponentEngine {
     type = 'autonomous';
     config;
@@ -73,6 +74,20 @@ export class ComponentEngine {
         this.updater.main(this.#waitForInitialize);
     }
     async connectedCallback() {
+        if (this.owner.dataset.state) {
+            try {
+                const json = JSON.parse(this.owner.dataset.state);
+                for (const [key, value] of Object.entries(json)) {
+                    const info = getStructuredPathInfo(key);
+                    if (info.wildcardCount > 0)
+                        continue;
+                    this.stateProxy[SetByRefSymbol](info, null, value);
+                }
+            }
+            catch (e) {
+                raiseError("Failed to parse state from dataset");
+            }
+        }
         this.owner.state[BindParentComponentSymbol]();
         attachShadow(this.owner, this.config, this.styleSheet);
         await this.stateProxy[ConnectedCallbackSymbol]();

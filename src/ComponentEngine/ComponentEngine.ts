@@ -15,6 +15,7 @@ import { ILoopContext } from "../LoopContext/types";
 import { IListIndex } from "../ListIndex/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
+import { raiseError } from "../utils.js";
 
 export class ComponentEngine implements IComponentEngine {
   type          : ComponentType = 'autonomous';
@@ -87,6 +88,18 @@ export class ComponentEngine implements IComponentEngine {
   }
 
   async connectedCallback(): Promise<void> {
+    if (this.owner.dataset.state) {
+      try {
+        const json = JSON.parse(this.owner.dataset.state);
+        for(const [key, value] of Object.entries(json)) {
+          const info = getStructuredPathInfo(key);
+          if (info.wildcardCount > 0) continue;
+          this.stateProxy[SetByRefSymbol](info, null, value);
+        }
+      } catch(e) {
+        raiseError("Failed to parse state from dataset");
+      }
+    }
     this.owner.state[BindParentComponentSymbol]();
     attachShadow(this.owner, this.config, this.styleSheet);
     await this.stateProxy[ConnectedCallbackSymbol]();
