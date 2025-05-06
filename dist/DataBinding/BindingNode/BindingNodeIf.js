@@ -10,8 +10,8 @@ class BindingNodeIf extends BindingNodeBlock {
     get bindContents() {
         return this.#bindContents;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
         this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
     }
@@ -34,7 +34,7 @@ class BindingNodeIf extends BindingNodeBlock {
         }
     }
 }
-export const createBindingNodeIf = (name, filterTexts, event) => (binding, node, filters) => {
+export const createBindingNodeIf = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeIf(binding, node, name, filterFns, event);
+    return new BindingNodeIf(binding, node, name, filterFns, decorates);
 };

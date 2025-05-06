@@ -141,7 +141,7 @@ class BindingNodeFor extends BindingNodeBlock {
         engine.saveList(this.binding.bindingState.info, this.binding.bindingState.listIndex, this.binding.bindingState.value.slice(0));
     }
 }
-export const createBindingNodeFor = (name, filterTexts, event) => (binding, node, filters) => {
+export const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeFor(binding, node, name, filterFns, event);
+    return new BindingNodeFor(binding, node, name, filterFns, decorates);
 };

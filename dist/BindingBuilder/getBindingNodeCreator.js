@@ -63,10 +63,10 @@ const _cache = {};
  * @param propertyName プロパティ名
  * @returns {CreateBindingNodeFn} ノードプロパティのコンストラクタ
  */
-export function getBindingNodeCreator(node, propertyName, filterTexts, event) {
+export function getBindingNodeCreator(node, propertyName, filterTexts, decorates) {
     const isComment = node instanceof Comment;
     const isElement = node instanceof Element;
     const key = isComment + "\t" + isElement + "\t" + propertyName;
     const fn = _cache[key] ?? (_cache[key] = _getBindingNodeCreator(isComment, isElement, propertyName));
-    return fn(propertyName, filterTexts, event);
+    return fn(propertyName, filterTexts, decorates);
 }

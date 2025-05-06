@@ -12,13 +12,13 @@ export class BindingNodeBlock extends BindingNode {
     return this.#id;
   }
   constructor(
-    binding: IBinding, 
-    node   : Node, 
-    name   : string,
-    filters: Filters,
-    event  : string | null
+    binding   : IBinding, 
+    node      : Node, 
+    name      : string,
+    filters   : Filters,
+    decorates : string[]
   ) {
-    super(binding, node, name, filters, event);
+    super(binding, node, name, filters, decorates);
     const id = this.node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN) ?? raiseError("BindingNodeBlock.id: invalid node");
     this.#id = Number(id);
   }

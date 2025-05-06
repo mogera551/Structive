@@ -5,8 +5,8 @@ class BindingNodeStyle extends BindingNode {
     get subName() {
         return this.#subName;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
@@ -18,7 +18,7 @@ class BindingNodeStyle extends BindingNode {
         element.style.setProperty(this.subName, value.toString());
     }
 }
-export const createBindingNodeStyle = (name, filterTexts, event) => (binding, node, filters) => {
+export const createBindingNodeStyle = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeStyle(binding, node, name, filterFns, event);
+    return new BindingNodeStyle(binding, node, name, filterFns, decorates);
 };

@@ -11,13 +11,13 @@ class BindingNodeAttribute extends BindingNode {
     return this.#subName;
   }
   constructor(
-    binding: IBinding, 
-    node   : Node, 
-    name   : string,
-    filters: Filters,
-    event  : string | null
+    binding   : IBinding, 
+    node      : Node, 
+    name      : string,
+    filters   : Filters,
+    decorates : string[]
   ) {
-    super(binding, node, name, filters, event);
+    super(binding, node, name, filters, decorates);
     const [, subName] = this.name.split(".");
     this.#subName = subName;
   }
@@ -31,8 +31,8 @@ class BindingNodeAttribute extends BindingNode {
 }
 
 export const createBindingNodeAttribute: CreateBindingNodeFn = 
-(name: string, filterTexts: IFilterText[], event: string | null) => 
+(name: string, filterTexts: IFilterText[], decorates: string[]) => 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeAttribute(binding, node, name, filterFns, event);
+    return new BindingNodeAttribute(binding, node, name, filterFns, decorates);
   }

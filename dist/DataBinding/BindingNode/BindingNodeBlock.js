@@ -7,8 +7,8 @@ export class BindingNodeBlock extends BindingNode {
     get id() {
         return this.#id;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const id = this.node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN) ?? raiseError("BindingNodeBlock.id: invalid node");
         this.#id = Number(id);
     }

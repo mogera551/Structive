@@ -10,7 +10,7 @@ class BindingNodeCheckbox extends BindingNode {
         element.checked = value.map(_val => _val.toString()).includes(element.value);
     }
 }
-export const createBindingNodeCheckbox = (name, filterTexts, event) => (binding, node, filters) => {
+export const createBindingNodeCheckbox = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeCheckbox(binding, node, name, filterFns, event);
+    return new BindingNodeCheckbox(binding, node, name, filterFns, decorates);
 };

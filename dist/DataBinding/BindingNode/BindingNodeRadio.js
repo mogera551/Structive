@@ -9,7 +9,7 @@ class BindingNodeRadio extends BindingNode {
         element.checked = value.toString() === element.value.toString();
     }
 }
-export const createBindingNodeRadio = (name, filterTexts, event) => (binding, node, filters) => {
+export const createBindingNodeRadio = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeRadio(binding, node, name, filterFns, event);
+    return new BindingNodeRadio(binding, node, name, filterFns, decorates);
 };

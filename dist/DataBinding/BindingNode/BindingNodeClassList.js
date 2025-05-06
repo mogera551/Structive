@@ -10,7 +10,7 @@ class BindingNodeClassList extends BindingNode {
         element.className = value.join(" ");
     }
 }
-export const createBindingNodeClassList = (name, filterTexts, event) => (binding, node, filters) => {
+export const createBindingNodeClassList = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeClassList(binding, node, name, filterFns, event);
+    return new BindingNodeClassList(binding, node, name, filterFns, decorates);
 };

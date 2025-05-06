@@ -17,8 +17,8 @@ class BindingNodeCheckbox extends BindingNode {
 }
 
 export const createBindingNodeCheckbox: CreateBindingNodeFn = 
-(name: string, filterTexts: IFilterText[], event: string | null) => 
+(name: string, filterTexts: IFilterText[], decorates: string[]) => 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeCheckbox(binding, node, name, filterFns, event);
+    return new BindingNodeCheckbox(binding, node, name, filterFns, decorates);
   }

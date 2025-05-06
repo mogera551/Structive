@@ -1,5 +1,6 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
+import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 function isTwoWayBindable(element) {
     return element instanceof HTMLInputElement ||
@@ -23,8 +24,8 @@ class BindingNodeProperty extends BindingNode {
         }
         return value;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const isElement = this.node instanceof HTMLElement;
         if (!isElement)
             return;
@@ -33,8 +34,11 @@ class BindingNodeProperty extends BindingNode {
         const defaultName = getDefaultName(this.node, "HTMLElement");
         if (defaultName !== this.name)
             return;
-        const eventName = this.event ?? defaultEventByName[this.name] ?? "readonly";
-        if (event === "readonly" || event === "ro")
+        if (decorates.length > 1)
+            raiseError(`BindingNodeProperty: ${this.name} has multiple decorators`);
+        const event = (decorates[0]?.startsWith("on") ? decorates[0]?.slice(2) : decorates[0]) ?? null;
+        const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
+        if (eventName === "readonly" || eventName === "ro")
             return;
         this.node.addEventListener(eventName, () => {
             this.binding.updateStateValue(this.filteredValue);
@@ -50,7 +54,7 @@ class BindingNodeProperty extends BindingNode {
         this.node[this.name] = value;
     }
 }
-export const createBindingNodeProperty = (name, filterTexts, event) => (binding, node, filters) => {
+export const createBindingNodeProperty = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeProperty(binding, node, name, filterFns, event);
+    return new BindingNodeProperty(binding, node, name, filterFns, decorates);
 };

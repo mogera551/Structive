@@ -16,8 +16,8 @@ class BindingNodeRadio extends BindingNode {
 }
 
 export const createBindingNodeRadio: CreateBindingNodeFn = 
-(name: string, filterTexts: IFilterText[], event: string | null) => 
+(name: string, filterTexts: IFilterText[], decorates: string[]) => 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeRadio(binding, node, name, filterFns, event);
+    return new BindingNodeRadio(binding, node, name, filterFns, decorates);
   }

@@ -561,7 +561,7 @@ class BindingNode {
     #node;
     #name;
     #filters;
-    #event;
+    #decorates;
     #bindContents = new Set();
     get node() {
         return this.#node;
@@ -575,8 +575,8 @@ class BindingNode {
     get binding() {
         return this.#binding;
     }
-    get event() {
-        return this.#event;
+    get decorates() {
+        return this.#decorates;
     }
     get filters() {
         return this.#filters;
@@ -584,12 +584,12 @@ class BindingNode {
     get bindContents() {
         return this.#bindContents;
     }
-    constructor(binding, node, name, filters, event) {
+    constructor(binding, node, name, filters, decorates) {
         this.#binding = binding;
         this.#node = node;
         this.#name = name;
         this.#filters = filters;
-        this.#event = event;
+        this.#decorates = decorates;
     }
     init() {
     }
@@ -618,8 +618,8 @@ class BindingNodeAttribute extends BindingNode {
     get subName() {
         return this.#subName;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
@@ -631,9 +631,9 @@ class BindingNodeAttribute extends BindingNode {
         element.setAttribute(this.subName, value.toString());
     }
 }
-const createBindingNodeAttribute = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeAttribute = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeAttribute(binding, node, name, filterFns, event);
+    return new BindingNodeAttribute(binding, node, name, filterFns, decorates);
 };
 
 class BindingNodeCheckbox extends BindingNode {
@@ -645,9 +645,9 @@ class BindingNodeCheckbox extends BindingNode {
         element.checked = value.map(_val => _val.toString()).includes(element.value);
     }
 }
-const createBindingNodeCheckbox = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeCheckbox = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeCheckbox(binding, node, name, filterFns, event);
+    return new BindingNodeCheckbox(binding, node, name, filterFns, decorates);
 };
 
 class BindingNodeClassList extends BindingNode {
@@ -659,9 +659,9 @@ class BindingNodeClassList extends BindingNode {
         element.className = value.join(" ");
     }
 }
-const createBindingNodeClassList = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeClassList = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeClassList(binding, node, name, filterFns, event);
+    return new BindingNodeClassList(binding, node, name, filterFns, decorates);
 };
 
 class BindingNodeClassName extends BindingNode {
@@ -669,8 +669,8 @@ class BindingNodeClassName extends BindingNode {
     get subName() {
         return this.#subName;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
@@ -687,15 +687,15 @@ class BindingNodeClassName extends BindingNode {
         }
     }
 }
-const createBindingNodeClassName = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeClassName = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeClassName(binding, node, name, filterFns, event);
+    return new BindingNodeClassName(binding, node, name, filterFns, decorates);
 };
 
 class BindingNodeEvent extends BindingNode {
     #subName;
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         this.#subName = this.name.slice(2); // on～
         const element = node;
         element.addEventListener(this.subName, (e) => this.handler(e));
@@ -713,9 +713,12 @@ class BindingNodeEvent extends BindingNode {
         const updater = engine.updater;
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const indexes = loopContext?.serialize().map((context) => context.listIndex.index) ?? [];
-        const option = this.event;
-        if (option === "preventDefault") {
+        const options = this.decorates;
+        if (options.includes("preventDefault")) {
             e.preventDefault();
+        }
+        if (options.includes("stopPropagation")) {
+            e.stopPropagation();
         }
         this.binding.engine.updater.addProcess(async () => {
             const value = bindingState.value;
@@ -737,9 +740,9 @@ class BindingNodeEvent extends BindingNode {
         });
     }
 }
-const createBindingNodeEvent = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeEvent = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeEvent(binding, node, name, filterFns, event);
+    return new BindingNodeEvent(binding, node, name, filterFns, decorates);
 };
 
 const DATA_BIND_ATTRIBUTE = "data-bind";
@@ -752,8 +755,8 @@ class BindingNodeBlock extends BindingNode {
     get id() {
         return this.#id;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const id = this.node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN$1) ?? raiseError("BindingNodeBlock.id: invalid node");
         this.#id = Number(id);
     }
@@ -767,8 +770,8 @@ class BindingNodeIf extends BindingNodeBlock {
     get bindContents() {
         return this.#bindContents;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
         this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
     }
@@ -791,9 +794,9 @@ class BindingNodeIf extends BindingNodeBlock {
         }
     }
 }
-const createBindingNodeIf = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeIf = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeIf(binding, node, name, filterFns, event);
+    return new BindingNodeIf(binding, node, name, filterFns, decorates);
 };
 
 class BindingNodeFor extends BindingNodeBlock {
@@ -935,9 +938,9 @@ class BindingNodeFor extends BindingNodeBlock {
         engine.saveList(this.binding.bindingState.info, this.binding.bindingState.listIndex, this.binding.bindingState.value.slice(0));
     }
 }
-const createBindingNodeFor = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeFor(binding, node, name, filterFns, event);
+    return new BindingNodeFor(binding, node, name, filterFns, decorates);
 };
 
 const DEFAULT_PROPERTY = "textContent";
@@ -996,8 +999,8 @@ class BindingNodeProperty extends BindingNode {
         }
         return value;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const isElement = this.node instanceof HTMLElement;
         if (!isElement)
             return;
@@ -1006,8 +1009,11 @@ class BindingNodeProperty extends BindingNode {
         const defaultName = getDefaultName(this.node, "HTMLElement");
         if (defaultName !== this.name)
             return;
-        const eventName = this.event ?? defaultEventByName[this.name] ?? "readonly";
-        if (event === "readonly" || event === "ro")
+        if (decorates.length > 1)
+            raiseError(`BindingNodeProperty: ${this.name} has multiple decorators`);
+        const event = (decorates[0]?.startsWith("on") ? decorates[0]?.slice(2) : decorates[0]) ?? null;
+        const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
+        if (eventName === "readonly" || eventName === "ro")
             return;
         this.node.addEventListener(eventName, () => {
             this.binding.updateStateValue(this.filteredValue);
@@ -1023,9 +1029,9 @@ class BindingNodeProperty extends BindingNode {
         this.node[this.name] = value;
     }
 }
-const createBindingNodeProperty = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeProperty = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeProperty(binding, node, name, filterFns, event);
+    return new BindingNodeProperty(binding, node, name, filterFns, decorates);
 };
 
 class BindingNodeRadio extends BindingNode {
@@ -1037,9 +1043,9 @@ class BindingNodeRadio extends BindingNode {
         element.checked = value.toString() === element.value.toString();
     }
 }
-const createBindingNodeRadio = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeRadio = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeRadio(binding, node, name, filterFns, event);
+    return new BindingNodeRadio(binding, node, name, filterFns, decorates);
 };
 
 class BindingNodeStyle extends BindingNode {
@@ -1047,8 +1053,8 @@ class BindingNodeStyle extends BindingNode {
     get subName() {
         return this.#subName;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
@@ -1060,9 +1066,9 @@ class BindingNodeStyle extends BindingNode {
         element.style.setProperty(this.subName, value.toString());
     }
 }
-const createBindingNodeStyle = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeStyle = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeStyle(binding, node, name, filterFns, event);
+    return new BindingNodeStyle(binding, node, name, filterFns, decorates);
 };
 
 const symbolName$1 = "componentState";
@@ -1074,8 +1080,8 @@ class BindingNodeComponent extends BindingNode {
     get subName() {
         return this.#subName;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
@@ -1093,9 +1099,9 @@ class BindingNodeComponent extends BindingNode {
         component.state[RenderSymbol](this.subName, value);
     }
 }
-const createBindingNodeComponent = (name, filterTexts, event) => (binding, node, filters) => {
+const createBindingNodeComponent = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeComponent(binding, node, name, filterFns, event);
+    return new BindingNodeComponent(binding, node, name, filterFns, decorates);
 };
 
 const nodePropertyConstructorByNameByIsComment = {
@@ -1151,12 +1157,12 @@ const _cache$2 = {};
  * @param propertyName プロパティ名
  * @returns {CreateBindingNodeFn} ノードプロパティのコンストラクタ
  */
-function getBindingNodeCreator(node, propertyName, filterTexts, event) {
+function getBindingNodeCreator(node, propertyName, filterTexts, decorates) {
     const isComment = node instanceof Comment;
     const isElement = node instanceof Element;
     const key = isComment + "\t" + isElement + "\t" + propertyName;
     const fn = _cache$2[key] ?? (_cache$2[key] = _getBindingNodeCreator(isComment, isElement, propertyName));
-    return fn(propertyName, filterTexts, event);
+    return fn(propertyName, filterTexts, decorates);
 }
 
 const symbolName = "state";
@@ -1488,11 +1494,12 @@ const parseProperty = (text) => {
  * "textContent:value|eq,100|falsey" ---> ["textContent", "value", Filter[eq, falsey]]
  */
 const parseExpression = (expression) => {
-    const [bindExpression, event = null] = expression.split("@").map(trim);
+    const [bindExpression, decoratesExpression = null] = expression.split("@").map(trim);
+    const decorates = decoratesExpression ? decoratesExpression.split(",").map(trim) : [];
     const [nodePropertyText, statePropertyText] = bindExpression.split(":").map(trim);
     const { property: nodeProperty, filters: inputFilterTexts } = parseProperty(nodePropertyText);
     const { property: stateProperty, filters: outputFilterTexts } = parseProperty(statePropertyText);
-    return { nodeProperty, stateProperty, inputFilterTexts, outputFilterTexts, event };
+    return { nodeProperty, stateProperty, inputFilterTexts, outputFilterTexts, decorates };
 };
 /**
  * parse bind text and return BindText[]
@@ -1573,7 +1580,7 @@ class DataBindAttributes {
         for (let i = 0; i < this.bindTexts.length; i++) {
             const bindText = this.bindTexts[i];
             const creator = {
-                createBindingNode: getBindingNodeCreator(node, bindText.nodeProperty, bindText.inputFilterTexts, bindText.event),
+                createBindingNode: getBindingNodeCreator(node, bindText.nodeProperty, bindText.inputFilterTexts, bindText.decorates),
                 createBindingState: getBindingStateCreator(bindText.stateProperty, bindText.outputFilterTexts),
             };
             this.creatorByText.set(bindText, creator);

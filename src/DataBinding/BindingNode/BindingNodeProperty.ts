@@ -2,6 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
@@ -31,21 +32,23 @@ class BindingNodeProperty extends BindingNode {
     return value;
   }
   constructor(
-    binding: IBinding, 
-    node   : Node, 
-    name   : string,
-    filters: Filters,
-    event  : string | null
+    binding   : IBinding, 
+    node      : Node, 
+    name      : string,
+    filters   : Filters,
+    decorates : string[]
   ) {
-    super(binding, node, name, filters, event);
+    super(binding, node, name, filters, decorates);
 
     const isElement = this.node instanceof HTMLElement;
     if (!isElement) return;
     if (!isTwoWayBindable(this.node)) return;
     const defaultName = getDefaultName(this.node, "HTMLElement");
     if (defaultName !== this.name) return;
-    const eventName = this.event ?? defaultEventByName[this.name] ?? "readonly";
-    if (event === "readonly" || event === "ro") return;
+    if (decorates.length > 1) raiseError(`BindingNodeProperty: ${this.name} has multiple decorators`);
+    const event = (decorates[0]?.startsWith("on") ? decorates[0]?.slice(2) : decorates[0]) ?? null;
+    const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
+    if (eventName === "readonly" || eventName === "ro") return;
     this.node.addEventListener(eventName, () => {
       this.binding.updateStateValue(this.filteredValue);
     });
@@ -65,8 +68,8 @@ class BindingNodeProperty extends BindingNode {
 }
 
 export const createBindingNodeProperty: CreateBindingNodeFn = 
-(name: string, filterTexts: IFilterText[], event: string | null) => 
+(name: string, filterTexts: IFilterText[], decorates: string[]) => 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeProperty(binding, node, name, filterFns, event);
+    return new BindingNodeProperty(binding, node, name, filterFns, decorates);
   }

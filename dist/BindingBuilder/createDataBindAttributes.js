@@ -23,7 +23,7 @@ class DataBindAttributes {
         for (let i = 0; i < this.bindTexts.length; i++) {
             const bindText = this.bindTexts[i];
             const creator = {
-                createBindingNode: getBindingNodeCreator(node, bindText.nodeProperty, bindText.inputFilterTexts, bindText.event),
+                createBindingNode: getBindingNodeCreator(node, bindText.nodeProperty, bindText.inputFilterTexts, bindText.decorates),
                 createBindingState: getBindingStateCreator(bindText.stateProperty, bindText.outputFilterTexts),
             };
             this.creatorByText.set(bindText, creator);

@@ -76,12 +76,12 @@ const _cache: {[key:string]:CreateBindingNodeFn} = {};
 export function getBindingNodeCreator(
   node        : Node, 
   propertyName: string,
-  filterTexts: IFilterText[],
-  event       : string | null
+  filterTexts : IFilterText[],
+  decorates   : string[]
 ): CreateBindingNodeByNodeFn {
   const isComment = node instanceof Comment;
   const isElement = node instanceof Element;
   const key = isComment + "\t" + isElement + "\t" + propertyName;
   const fn = _cache[key] ?? (_cache[key] = _getBindingNodeCreator(isComment, isElement, propertyName));
-  return fn(propertyName, filterTexts, event);
+  return fn(propertyName, filterTexts, decorates);
 }

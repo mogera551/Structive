@@ -30,7 +30,7 @@ class DataBindAttributes implements IDataBindAttributes {
           node, 
           bindText.nodeProperty, 
           bindText.inputFilterTexts,
-          bindText.event
+          bindText.decorates
         ),
         createBindingState: getBindingStateCreator(
           bindText.stateProperty, 

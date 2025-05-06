@@ -26,11 +26,12 @@ const parseProperty = (text) => {
  * "textContent:value|eq,100|falsey" ---> ["textContent", "value", Filter[eq, falsey]]
  */
 const parseExpression = (expression) => {
-    const [bindExpression, event = null] = expression.split("@").map(trim);
+    const [bindExpression, decoratesExpression = null] = expression.split("@").map(trim);
+    const decorates = decoratesExpression ? decoratesExpression.split(",").map(trim) : [];
     const [nodePropertyText, statePropertyText] = bindExpression.split(":").map(trim);
     const { property: nodeProperty, filters: inputFilterTexts } = parseProperty(nodePropertyText);
     const { property: stateProperty, filters: outputFilterTexts } = parseProperty(statePropertyText);
-    return { nodeProperty, stateProperty, inputFilterTexts, outputFilterTexts, event };
+    return { nodeProperty, stateProperty, inputFilterTexts, outputFilterTexts, decorates };
 };
 /**
  * parse bind text and return BindText[]

@@ -4,7 +4,7 @@ export class BindingNode {
     #node;
     #name;
     #filters;
-    #event;
+    #decorates;
     #bindContents = new Set();
     get node() {
         return this.#node;
@@ -18,8 +18,8 @@ export class BindingNode {
     get binding() {
         return this.#binding;
     }
-    get event() {
-        return this.#event;
+    get decorates() {
+        return this.#decorates;
     }
     get filters() {
         return this.#filters;
@@ -27,12 +27,12 @@ export class BindingNode {
     get bindContents() {
         return this.#bindContents;
     }
-    constructor(binding, node, name, filters, event) {
+    constructor(binding, node, name, filters, decorates) {
         this.#binding = binding;
         this.#node = node;
         this.#name = name;
         this.#filters = filters;
-        this.#event = event;
+        this.#decorates = decorates;
     }
     init() {
     }

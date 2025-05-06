@@ -8,13 +8,13 @@ import { CreateBindingNodeFn } from "./types";
 class BindingNodeEvent extends BindingNode {
   #subName    : string;
   constructor(
-    binding: IBinding, 
-    node   : Node, 
-    name   : string,
-    filters: Filters,
-    event  : string | null
+    binding   : IBinding, 
+    node      : Node, 
+    name      : string,
+    filters   : Filters,
+    decorates : string[]
   ) {
-    super(binding, node, name, filters, event);
+    super(binding, node, name, filters, decorates);
     this.#subName = this.name.slice(2); // on～
     const element = node as HTMLElement;
     element.addEventListener(this.subName, (e:Event) => this.handler(e));
@@ -33,9 +33,12 @@ class BindingNodeEvent extends BindingNode {
     const updater = engine.updater;
     const loopContext = this.binding.parentBindContent.currentLoopContext;
     const indexes = loopContext?.serialize().map((context) => context.listIndex.index) ?? [];
-    const option = this.event;
-    if (option === "preventDefault") {
+    const options = this.decorates;
+    if (options.includes("preventDefault")) {
       e.preventDefault();
+    }
+    if (options.includes("stopPropagation")) {
+      e.stopPropagation();
     }
     this.binding.engine.updater.addProcess(async () => {
       const value = bindingState.value;
@@ -62,8 +65,8 @@ class BindingNodeEvent extends BindingNode {
 }
 
 export const createBindingNodeEvent: CreateBindingNodeFn = 
-(name: string, filterTexts: IFilterText[], event: string | null) => 
+(name: string, filterTexts: IFilterText[], decorates: string[]) => 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeEvent(binding, node, name, filterFns, event);
+    return new BindingNodeEvent(binding, node, name, filterFns, decorates);
   }

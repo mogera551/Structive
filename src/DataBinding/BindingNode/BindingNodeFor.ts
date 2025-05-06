@@ -174,8 +174,8 @@ class BindingNodeFor extends BindingNodeBlock {
 }
 
 export const createBindingNodeFor: CreateBindingNodeFn = 
-(name: string, filterTexts: IFilterText[], event: string | null) => 
+(name: string, filterTexts: IFilterText[], decorates: string[]) => 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeFor(binding, node, name, filterFns, event);
+    return new BindingNodeFor(binding, node, name, filterFns, decorates);
   }

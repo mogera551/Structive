@@ -9,7 +9,7 @@ export class BindingNode implements IBindingNode {
   #node: Node;
   #name: string;
   #filters: Filters;
-  #event: string | null;
+  #decorates: string[];
   #bindContents: Set<IBindContent> = new Set<IBindContent>();
   get node(): Node {
     return this.#node;
@@ -23,8 +23,8 @@ export class BindingNode implements IBindingNode {
   get binding(): IBinding {
     return this.#binding;
   }
-  get event(): string | null {
-    return this.#event;
+  get decorates(): string[] {
+    return this.#decorates;
   }
   get filters(): Filters {
     return this.#filters;
@@ -33,17 +33,17 @@ export class BindingNode implements IBindingNode {
     return this.#bindContents;
   }
   constructor(
-    binding: IBinding, 
-    node  : Node, 
-    name  : string,
-    filters: Filters,
-    event : string | null
+    binding   : IBinding, 
+    node      : Node, 
+    name      : string,
+    filters   : Filters,
+    decorates : string[]
   ) {
     this.#binding = binding;
     this.#node = node;
     this.#name = name;
     this.#filters = filters;
-    this.#event = event;
+    this.#decorates = decorates;
   }
   init():void {
   }

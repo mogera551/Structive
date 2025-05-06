@@ -6,8 +6,8 @@ class BindingNodeComponent extends BindingNode {
     get subName() {
         return this.#subName;
     }
-    constructor(binding, node, name, filters, event) {
-        super(binding, node, name, filters, event);
+    constructor(binding, node, name, filters, decorates) {
+        super(binding, node, name, filters, decorates);
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
@@ -25,7 +25,7 @@ class BindingNodeComponent extends BindingNode {
         component.state[RenderSymbol](this.subName, value);
     }
 }
-export const createBindingNodeComponent = (name, filterTexts, event) => (binding, node, filters) => {
+export const createBindingNodeComponent = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeComponent(binding, node, name, filterFns, event);
+    return new BindingNodeComponent(binding, node, name, filterFns, decorates);
 };

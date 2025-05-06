@@ -7,7 +7,7 @@ export interface IBindingNode {
   readonly node           : Node;
   readonly name           : string;
   readonly subName        : string;
-  readonly event          : string | null;
+  readonly decorates      : string[];
   readonly binding        : IBinding;
   readonly filters        : Filters;
   readonly isSelectElement: boolean;
@@ -23,4 +23,4 @@ export interface IBindingNode {
 export type CreateBindingNodeByNodeFn = 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => IBindingNode;
 export type CreateBindingNodeFn = 
-  (name: string, filterTexts: IFilterText[], event: string | null) => CreateBindingNodeByNodeFn;
+  (name: string, filterTexts: IFilterText[], decorates: string[]) => CreateBindingNodeByNodeFn;

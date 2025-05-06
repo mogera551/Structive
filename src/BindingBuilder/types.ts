@@ -22,7 +22,7 @@ export interface IBindText {
   stateProperty    : string; // ステートプロパティ名
   inputFilterTexts : IFilterText[]; // 入力フィルタのテキスト情報リスト
   outputFilterTexts: IFilterText[]; // 出力フィルタのテキスト情報リスト
-  event            : string | null; // イベント名
+  decorates        : string[]; // 修飾子のリスト
 }
 
 export interface IBindingCreator {
