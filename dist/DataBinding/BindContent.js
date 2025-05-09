@@ -88,12 +88,27 @@ class BindContent {
         this.bindings = createBindings(this, id, engine, this.fragment);
     }
     mount(parentNode) {
+        if (this.fragment.childNodes.length === 0) {
+            for (let i = 0; i < this.childNodes.length; i++) {
+                this.fragment.appendChild(this.childNodes[i]);
+            }
+        }
         parentNode.appendChild(this.fragment);
     }
     mountBefore(parentNode, beforeNode) {
+        if (this.fragment.childNodes.length === 0) {
+            for (let i = 0; i < this.childNodes.length; i++) {
+                this.fragment.appendChild(this.childNodes[i]);
+            }
+        }
         parentNode.insertBefore(this.fragment, beforeNode);
     }
     mountAfter(parentNode, afterNode) {
+        if (this.fragment.childNodes.length === 0) {
+            for (let i = 0; i < this.childNodes.length; i++) {
+                this.fragment.appendChild(this.childNodes[i]);
+            }
+        }
         parentNode.insertBefore(this.fragment, afterNode?.nextSibling ?? null);
     }
     unmount() {

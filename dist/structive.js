@@ -785,7 +785,7 @@ class BindingNodeIf extends BindingNodeBlock {
         }
         if (value) {
             this.#bindContent.render();
-            this.#bindContent.mountBefore(parentNode, this.node.nextSibling);
+            this.#bindContent.mountAfter(parentNode, this.node.nextSibling);
             this.#bindContents = this.#trueBindContents;
         }
         else {
@@ -1881,12 +1881,27 @@ class BindContent {
         this.bindings = createBindings(this, id, engine, this.fragment);
     }
     mount(parentNode) {
+        if (this.fragment.childNodes.length === 0) {
+            for (let i = 0; i < this.childNodes.length; i++) {
+                this.fragment.appendChild(this.childNodes[i]);
+            }
+        }
         parentNode.appendChild(this.fragment);
     }
     mountBefore(parentNode, beforeNode) {
+        if (this.fragment.childNodes.length === 0) {
+            for (let i = 0; i < this.childNodes.length; i++) {
+                this.fragment.appendChild(this.childNodes[i]);
+            }
+        }
         parentNode.insertBefore(this.fragment, beforeNode);
     }
     mountAfter(parentNode, afterNode) {
+        if (this.fragment.childNodes.length === 0) {
+            for (let i = 0; i < this.childNodes.length; i++) {
+                this.fragment.appendChild(this.childNodes[i]);
+            }
+        }
         parentNode.insertBefore(this.fragment, afterNode?.nextSibling ?? null);
     }
     unmount() {
@@ -2537,6 +2552,10 @@ function buildListIndexTree(engine, info, listIndex, value) {
 }
 
 function restructListIndex(info, listIndex, engine, updateValues, refIds = new Set()) {
+    const refId = getStatePropertyRefId(info, listIndex);
+    if (refIds.has(refId)) {
+        return;
+    }
     const curListIndexLen = listIndex?.length ?? 0;
     if (curListIndexLen < info.wildcardCount) {
         const wildcardInfo = info.wildcardInfos[curListIndexLen];
@@ -2545,7 +2564,6 @@ function restructListIndex(info, listIndex, engine, updateValues, refIds = new S
             restructListIndex(info, curlistIndex, engine, updateValues, refIds);
         }
     }
-    const refId = getStatePropertyRefId(info, listIndex);
     const values = updateValues[refId] ?? engine.stateProxy[GetByRefSymbol](info, listIndex);
     if (engine.listInfoSet.has(info)) {
         refIds.add(refId);

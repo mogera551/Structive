@@ -14,6 +14,10 @@ export function restructListIndex(
   refIds: Set<number> = new Set()
 
 ) {
+  const refId = getStatePropertyRefId(info, listIndex);
+  if (refIds.has(refId)) {
+    return;
+  }
   const curListIndexLen = listIndex?.length ?? 0;
   if (curListIndexLen < info.wildcardCount) {
     const wildcardInfo = info.wildcardInfos[curListIndexLen];
@@ -22,7 +26,6 @@ export function restructListIndex(
       restructListIndex(info, curlistIndex, engine, updateValues, refIds);
     }
   }
-  const refId = getStatePropertyRefId(info, listIndex);
   const values = updateValues[refId] ?? engine.stateProxy[GetByRefSymbol](info, listIndex);
   if (engine.listInfoSet.has(info)) {
     refIds.add(refId);

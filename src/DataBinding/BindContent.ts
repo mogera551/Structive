@@ -115,12 +115,27 @@ class BindContent implements IBindContent {
     );
   }
   mount(parentNode: Node) {
+    if (this.fragment.childNodes.length === 0) {
+      for(let i = 0; i < this.childNodes.length; i++) {
+        this.fragment.appendChild(this.childNodes[i]);
+      }
+    }
     parentNode.appendChild(this.fragment);
   }
   mountBefore(parentNode: Node, beforeNode: Node | null) {
+    if (this.fragment.childNodes.length === 0) {
+      for(let i = 0; i < this.childNodes.length; i++) {
+        this.fragment.appendChild(this.childNodes[i]);
+      }
+    }
     parentNode.insertBefore(this.fragment, beforeNode);
   }
   mountAfter(parentNode: Node, afterNode: Node | null) {
+    if (this.fragment.childNodes.length === 0) {
+      for(let i = 0; i < this.childNodes.length; i++) {
+        this.fragment.appendChild(this.childNodes[i]);
+      }
+    }
     parentNode.insertBefore(
       this.fragment, 
       afterNode?.nextSibling ?? null

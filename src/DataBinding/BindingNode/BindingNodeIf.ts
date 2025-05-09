@@ -45,7 +45,7 @@ class BindingNodeIf extends BindingNodeBlock {
     }
     if (value) {
       this.#bindContent.render();
-      this.#bindContent.mountBefore(parentNode, this.node.nextSibling);
+      this.#bindContent.mountAfter(parentNode, this.node.nextSibling);
       this.#bindContents = this.#trueBindContents;
     } else {
       this.#bindContent.unmount();
