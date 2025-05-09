@@ -2566,18 +2566,20 @@ function restructListIndex(info, listIndex, engine, updateValues, refIds = new S
             restructListIndex(info, curlistIndex, engine, updateValues, refIds);
         }
     }
-    const values = updateValues[refId] ?? engine.stateProxy[GetByRefSymbol](info, listIndex);
-    if (engine.listInfoSet.has(info)) {
-        refIds.add(refId);
-        buildListIndexTree(engine, info, listIndex, values);
-    }
-    const infoSub = getStructuredPathInfo(info.pattern + ".*");
-    for (const refInfo of engine.dependentTree.get(info) ?? []) {
-        if (refInfo.cumulativeInfos.includes(infoSub)) {
-            continue;
+    else {
+        if (engine.listInfoSet.has(info)) {
+            refIds.add(refId);
+            const values = updateValues[refId] ?? engine.stateProxy[GetByRefSymbol](info, listIndex);
+            buildListIndexTree(engine, info, listIndex, values);
         }
-        // ここにサブは来ない
-        restructListIndex(refInfo, null, engine, updateValues, refIds);
+        const infoSub = getStructuredPathInfo(info.pattern + ".*");
+        for (const refInfo of engine.dependentTree.get(info) ?? []) {
+            if (refInfo.cumulativeInfos.includes(infoSub)) {
+                continue;
+            }
+            // ここにサブは来ない
+            restructListIndex(refInfo, null, engine, updateValues, refIds);
+        }
     }
 }
 function restructListIndexes(infos, engine, updateValues, refIds) {
