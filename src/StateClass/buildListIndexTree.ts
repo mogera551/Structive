@@ -18,6 +18,7 @@ function buildListIndexTreeSub(
     return;
   }
   const newListIndexesSet:Set<IListIndex> = new Set();
+/*
   if ((oldValue.length > 0 && typeof oldValue[0] !== "object") || (value.length > 0 && typeof value[0] !== "object")) {
     // 配列の中身がオブジェクトでない場合は、リストインデックスを作成しない
     for(let i = 0; i < value.length; i++) {
@@ -28,6 +29,7 @@ function buildListIndexTreeSub(
     engine.saveList(info, listIndex, value.slice(0));
     return;
   }
+*/
 
   const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET;
   const oldListIndexesByItem = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
