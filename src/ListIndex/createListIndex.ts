@@ -18,6 +18,10 @@ class ListIndex implements IListIndex {
     return (this.parentListIndex?.position ?? -1) + 1;
   }
 
+  get length(): number {
+    return (this.parentListIndex?.length ?? 0) + 1;
+  }
+  
   constructor(
     parentListIndex: IListIndex | null,
     index: number

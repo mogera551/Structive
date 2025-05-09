@@ -14,6 +14,9 @@ class ListIndex {
     get position() {
         return (this.parentListIndex?.position ?? -1) + 1;
     }
+    get length() {
+        return (this.parentListIndex?.length ?? 0) + 1;
+    }
     constructor(parentListIndex, index) {
         this.#parentListIndex = parentListIndex;
         this.index = index;

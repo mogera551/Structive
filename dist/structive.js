@@ -1930,6 +1930,9 @@ class ListIndex {
     get position() {
         return (this.parentListIndex?.position ?? -1) + 1;
     }
+    get length() {
+        return (this.parentListIndex?.length ?? 0) + 1;
+    }
     constructor(parentListIndex, index) {
         this.#parentListIndex = parentListIndex;
         this.index = index;
@@ -2397,53 +2400,6 @@ function createStateProxy(engine, state) {
     return new Proxy(state, new StateHandler(engine));
 }
 
-const BLANK_LISTINDEXES_SET = new Set();
-function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
-    const oldValue = engine.getList(info, listIndex) ?? [];
-    if (oldValue === value) {
-        return;
-    }
-    const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET;
-    const oldListIndexesByItem = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
-    const newListIndexesSet = new Set();
-    for (let i = 0; i < value.length; i++) {
-        const item = value[i];
-        const oldListIndexes = oldListIndexesByItem.get(item);
-        let curListIndex = oldListIndexes?.shift();
-        if (!curListIndex) {
-            curListIndex = createListIndex(listIndex, i);
-        }
-        else {
-            if (curListIndex.index !== i) {
-                curListIndex.index = i;
-                engine.updater.addUpdatedListIndex(curListIndex);
-            }
-        }
-        newListIndexesSet.add(curListIndex);
-    }
-    engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
-    engine.saveList(info, listIndex, value.slice(0));
-    const searchPath = info.pattern + ".*";
-    for (const info of listInfos) {
-        if (searchPath !== info.lastWildcardPath) {
-            continue;
-        }
-        for (const subListIndex of newListIndexesSet) {
-            const subValue = engine.stateProxy[GetByRefSymbol](info, subListIndex);
-            buildListIndexTreeSub(engine, listInfos, info, subListIndex, subValue ?? []);
-        }
-    }
-}
-function buildListIndexTree(engine, info, listIndex, value) {
-    engine.listInfoSet;
-    // 配列じゃなければ何もしない
-    if (!engine.listInfoSet.has(info)) {
-        return;
-    }
-    const values = (value ?? []);
-    buildListIndexTreeSub(engine, engine.listInfoSet, info, listIndex, values);
-}
-
 function extractListIndexes(info, listIndex, engine) {
     const wildcardParentInfos = info.wildcardParentInfos ?? [];
     const _extractListIndexes = (pos, currentListIndex, resultListIndexes) => {
@@ -2521,6 +2477,93 @@ function collectAffectedGetters(updateRefs, engine) {
         resultPathInfos.add(info);
     }
     return resultRefs;
+}
+
+const BLANK_LISTINDEXES_SET = new Set();
+function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
+    const oldValue = engine.getList(info, listIndex) ?? [];
+    if (oldValue === value) {
+        return;
+    }
+    const newListIndexesSet = new Set();
+    if ((oldValue.length > 0 && typeof oldValue[0] !== "object") || (value.length > 0 && typeof value[0] !== "object")) {
+        // 配列の中身がオブジェクトでない場合は、リストインデックスを作成しない
+        for (let i = 0; i < value.length; i++) {
+            const curListIndex = createListIndex(listIndex, i);
+            newListIndexesSet.add(curListIndex);
+        }
+        engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
+        engine.saveList(info, listIndex, value.slice(0));
+        return;
+    }
+    const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET;
+    const oldListIndexesByItem = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
+    for (let i = 0; i < value.length; i++) {
+        const item = value[i];
+        const oldListIndexes = oldListIndexesByItem.get(item);
+        let curListIndex = oldListIndexes?.shift();
+        if (!curListIndex) {
+            curListIndex = createListIndex(listIndex, i);
+        }
+        else {
+            if (curListIndex.index !== i) {
+                curListIndex.index = i;
+                engine.updater.addUpdatedListIndex(curListIndex);
+            }
+        }
+        newListIndexesSet.add(curListIndex);
+    }
+    engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
+    engine.saveList(info, listIndex, value.slice(0));
+    const searchPath = info.pattern + ".*";
+    for (const info of listInfos) {
+        if (searchPath !== info.lastWildcardPath) {
+            continue;
+        }
+        for (const subListIndex of newListIndexesSet) {
+            const subValue = engine.stateProxy[GetByRefSymbol](info, subListIndex);
+            buildListIndexTreeSub(engine, listInfos, info, subListIndex, subValue ?? []);
+        }
+    }
+}
+function buildListIndexTree(engine, info, listIndex, value) {
+    engine.listInfoSet;
+    // 配列じゃなければ何もしない
+    if (!engine.listInfoSet.has(info)) {
+        return;
+    }
+    const values = (value ?? []);
+    buildListIndexTreeSub(engine, engine.listInfoSet, info, listIndex, values);
+}
+
+function restructListIndex(info, listIndex, engine, updateValues, refIds = new Set()) {
+    const curListIndexLen = listIndex?.length ?? 0;
+    if (curListIndexLen < info.wildcardCount) {
+        const wildcardInfo = info.wildcardInfos[curListIndexLen];
+        const listIndexSet = engine.getListIndexesSet(wildcardInfo, listIndex);
+        for (const curlistIndex of listIndexSet ?? []) {
+            restructListIndex(info, curlistIndex, engine, updateValues, refIds);
+        }
+    }
+    const refId = getStatePropertyRefId(info, listIndex);
+    const values = updateValues[refId] ?? engine.stateProxy[GetByRefSymbol](info, listIndex);
+    if (engine.listInfoSet.has(info)) {
+        refIds.add(refId);
+        buildListIndexTree(engine, info, listIndex, values);
+    }
+    const infoSub = getStructuredPathInfo(info.pattern + ".*");
+    for (const refInfo of engine.dependentTree.get(info) ?? []) {
+        if (refInfo.cumulativeInfos.includes(infoSub)) {
+            continue;
+        }
+        // ここにサブは来ない
+        restructListIndex(refInfo, null, engine, updateValues, refIds);
+    }
+}
+function restructListIndexes(infos, engine, updateValues, refIds) {
+    for (const { info, listIndex } of infos) {
+        restructListIndex(info, listIndex, engine, updateValues, refIds);
+    }
 }
 
 class Updater {
@@ -2605,7 +2648,6 @@ class Updater {
         while (this.updatedProperties.size > 0) {
             const updatedProiperties = Array.from(this.updatedProperties.values());
             const updatedRefs = []; // 更新されたプロパティ参照のリスト
-            const arrayPropertyRefs = [];
             const arrayElementPropertyRefs = [];
             this.updatedProperties.clear();
             for (let i = 0; i < updatedProiperties.length; i++) {
@@ -2623,9 +2665,6 @@ class Updater {
                     if (processedPropertyRefIdsSet.has(statePropertyRefId))
                         continue;
                     const statePropertyRef = item;
-                    if (engine.listInfoSet.has(statePropertyRef.info)) {
-                        arrayPropertyRefs.push(statePropertyRef);
-                    }
                     if (engine.elementInfoSet.has(statePropertyRef.info)) {
                         arrayElementPropertyRefs.push(statePropertyRef);
                     }
@@ -2637,13 +2676,7 @@ class Updater {
             }
             // リストインデックスの構築
             const builtStatePropertyRefIds = new Set();
-            for (let i = 0; i < arrayPropertyRefs.length; i++) {
-                const arrayPropertyRef = arrayPropertyRefs[i];
-                const statePropertyRefId = getStatePropertyRefId(arrayPropertyRef.info, arrayPropertyRef.listIndex);
-                const value = this.updatedValues[statePropertyRefId] ?? null;
-                buildListIndexTree(engine, arrayPropertyRef.info, arrayPropertyRef.listIndex, value);
-                builtStatePropertyRefIds.add(statePropertyRefId);
-            }
+            restructListIndexes(updatedRefs, engine, this.updatedValues, builtStatePropertyRefIds);
             const parentRefByRefId = {};
             const statePropertyRefByStatePropertyRefId = Object.groupBy(arrayElementPropertyRefs, ref => {
                 if (ref.info.parentInfo === null)

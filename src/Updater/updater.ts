@@ -10,6 +10,7 @@ import { raiseError } from "../utils.js";
 import { getGlobalConfig } from "../WebComponents/getGlobalConfig.js";
 import { IUpdater } from "./types";
 import { collectAffectedGetters } from "./collectAffectedGetters.js";
+import { restructListIndexes } from "./restructListIndex";
 
 type UpdatedArrayElementBinding = {
   parentRef: {info: IStructuredPathInfo, listIndex: IListIndex | null};
@@ -113,8 +114,7 @@ class Updater implements IUpdater {
       const updatedProiperties = Array.from(this.updatedProperties.values());
 
       const updatedRefs = []; // 更新されたプロパティ参照のリスト
-      const arrayPropertyRefs = [];
-      const arrayElementPropertyRefs = [];
+      const arrayElementPropertyRefs: {info:IStructuredPathInfo, listIndex: IListIndex | null}[] = [];
       this.updatedProperties.clear();
       for(let i = 0; i < updatedProiperties.length; i++) {
         const item = updatedProiperties[i];
@@ -128,9 +128,6 @@ class Updater implements IUpdater {
           const statePropertyRefId = getStatePropertyRefId(item.info, item.listIndex);
           if (processedPropertyRefIdsSet.has(statePropertyRefId)) continue;
           const statePropertyRef = item as {info:IStructuredPathInfo, listIndex:IListIndex | null};
-          if (engine.listInfoSet.has(statePropertyRef.info)) {
-            arrayPropertyRefs.push(statePropertyRef);
-          }
           if (engine.elementInfoSet.has(statePropertyRef.info)) {
             arrayElementPropertyRefs.push(statePropertyRef);
           }
@@ -143,13 +140,7 @@ class Updater implements IUpdater {
 
       // リストインデックスの構築
       const builtStatePropertyRefIds = new Set<number>();
-      for(let i = 0; i < arrayPropertyRefs.length; i++) {
-        const arrayPropertyRef = arrayPropertyRefs[i];
-        const statePropertyRefId = getStatePropertyRefId(arrayPropertyRef.info, arrayPropertyRef.listIndex);
-        const value = this.updatedValues[statePropertyRefId] ?? null;
-        buildListIndexTree(engine, arrayPropertyRef.info, arrayPropertyRef.listIndex, value);
-        builtStatePropertyRefIds.add(statePropertyRefId);
-      }
+      restructListIndexes(updatedRefs, engine, this.updatedValues, builtStatePropertyRefIds);
 
       const parentRefByRefId: {[parentRefId: number]: {info: IStructuredPathInfo, listIndex: IListIndex | null }} = {};
       const statePropertyRefByStatePropertyRefId = Object.groupBy(arrayElementPropertyRefs, ref => {
