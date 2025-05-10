@@ -14,7 +14,9 @@ export async function createSingleFileComponent(text) {
     const html = template.content.querySelector("template");
     html?.remove();
     const script = template.content.querySelector("script[type=module]");
-    const scriptModule = script ? await import("data:text/javascript;charset=utf-8," + script.text) : {};
+    const b64 = btoa(String.fromCodePoint(...new TextEncoder().encode(script.text)));
+    const scriptModule = script ? await import("data:application/javascript;base64," + b64) : {};
+    //  const scriptModule = script ? await import("data:text/javascript;charset=utf-8," + script.text) : {};
     script?.remove();
     const style = template.content.querySelector("style");
     style?.remove();

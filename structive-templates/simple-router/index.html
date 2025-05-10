@@ -1,6 +1,3 @@
-<!--
-  This is a simple component without any additional features like routing or shadow DOM. 
--->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -10,7 +7,7 @@
       {
         "imports": {
           "structive": "https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/structive.js",
-          "main": "./simple-component.st.html"
+          "@routes/root": "./simple-router.st.html"
         }
       }
     </script>
@@ -19,10 +16,9 @@
     <app-main></app-main>
   </body>
   <script type="module">
-    import { config, defineComponents } from "structive";
-    config.enableMainWrapper = false;
-    config.enableRouter = false;
-    config.enableShadowDom = false;
-    defineComponents({ "app-main": "main" });
+    import { bootstrapStructive, config } from "structive";
+
+    config.autoLoadFromImportMap = true;
+    bootstrapStructive();
   </script>
 </html>
