@@ -1,54 +1,91 @@
 import { IComponentEngine } from "../ComponentEngine/types";
+import { createDependencyWalker } from "../DependencyWalker/createDependencyWalker";
+import { createListIndex } from "../ListIndex/createListIndex";
 import { IListIndex } from "../ListIndex/types";
-import { buildListIndexTree } from "../StateClass/buildListIndexTree";
+import { listWalker } from "../ListWalker/listWalker";
 import { GetByRefSymbol } from "../StateClass/symbols";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { getStatePropertyRefId } from "../StatePropertyRef/getStatePropertyRefId";
+import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
+import { IStatePropertyRef } from "../StatePropertyRef/types";
 
-export function restructListIndex(
-  info: IStructuredPathInfo,
-  listIndex: IListIndex | null,
-  engine: IComponentEngine,
-  updateValues: {[key:number]: any[]},
-  refIds: Set<number> = new Set()
+const BLANK_LISTINDEXES_SET = new Set<IListIndex>();
 
-) {
-  const refId = getStatePropertyRefId(info, listIndex);
-  if (refIds.has(refId)) {
+function buildListIndexTree(
+  engine   : IComponentEngine, 
+  info     : IStructuredPathInfo,
+  listIndex: IListIndex | null, 
+  value: any[]
+): void {
+  const oldValue = engine.getList(info, listIndex) ?? [];
+  if (oldValue === value) {
     return;
   }
-  const curListIndexLen = listIndex?.length ?? 0;
-  if (curListIndexLen < info.wildcardCount) {
-    const wildcardInfo = info.wildcardInfos[curListIndexLen];
-    const listIndexSet = engine.getListIndexesSet(wildcardInfo, listIndex)    
-    for(const curlistIndex of listIndexSet ?? []) {
-      restructListIndex(info, curlistIndex, engine, updateValues, refIds);
+  const newListIndexesSet:Set<IListIndex> = new Set();
+  const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET;
+  const oldListIndexesByItem = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
+  for(let i = 0; i < value.length; i++) {
+    // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
+    // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
+    let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+    if (curListIndex.index !== i) {
+      curListIndex.index = i;
+      // リストインデックスのインデックスを更新したので、リストインデックスを登録する
+      engine.updater.addUpdatedListIndex(curListIndex);
     }
-  } else {
-    if (engine.listInfoSet.has(info)) {
-      refIds.add(refId);
-      const values = updateValues[refId] ?? engine.stateProxy[GetByRefSymbol](info, listIndex);
-      buildListIndexTree(engine, info, listIndex, values);
-    }
-    const infoSub = getStructuredPathInfo(info.pattern + ".*");
-    for(const refInfo of engine.dependentTree.get(info) ?? []) {
-      if (refInfo.cumulativeInfos.includes(infoSub)) {
-        continue;
-      }
-      // ここにサブは来ない
-      restructListIndex(refInfo, null, engine, updateValues, refIds);
-    }
+    // リストインデックスを新しいリストインデックスセットに追加する
+    newListIndexesSet.add(curListIndex);
   }
+  // 新しいリストインデックスセットを保存する
+  engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
+  engine.saveList(info, listIndex, value.slice(0)); // コピーを保存
+
 }
 
 export function restructListIndexes(
-  infos: {info: IStructuredPathInfo, listIndex: IListIndex | null}[],
+  infos: IStatePropertyRef[],
   engine: IComponentEngine,
-  updateValues: {[key:number]: any[]},
-  refIds: Set<number>
+  updateValues: {[key:string]: any[]},
+  refKeys: Set<string>,
+  cache: Map<IStructuredPathInfo, Set<IListIndex|null>>,
 ) {
+  const skipInfoSet = new Set<IStructuredPathInfo>();
   for(const {info, listIndex} of infos) {
-    restructListIndex(info, listIndex, engine, updateValues, refIds);
+    const dependentWalker = createDependencyWalker(engine, {info, listIndex});
+    const nowOnList = engine.listInfoSet.has(info);
+    dependentWalker.walk((ref, info) => {
+      const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(info.wildcardInfoSet));
+      const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
+      const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
+      if (skipInfoSet.has(info)) {
+        return;
+      }
+      if (nowOnList && info !== ref.info) {
+        if (info.cumulativeInfoSet.has(ref.info)) {
+          skipInfoSet.add(info);
+          return;
+        }
+      }
+      listWalker(engine, info, listIndex, (_info, _listIndex) => {
+        if (!engine.existsBindingsByInfo(_info)) {
+          return;
+        }
+        const refKey = createRefKey(_info, _listIndex);
+        if (refKeys.has(refKey)) {
+          return;
+        }
+        let cacheListIndexSet = cache.get(info);
+        if (!cacheListIndexSet) {
+          cacheListIndexSet = new Set<IListIndex|null>();
+          cache.set(info, cacheListIndexSet);
+        }
+        cacheListIndexSet.add(_listIndex);
+        refKeys.add(refKey);
+        if (engine.listInfoSet.has(_info)) {
+          const values = updateValues[refKey] ?? engine.stateProxy[GetByRefSymbol](_info, _listIndex);
+          buildListIndexTree(engine, _info, _listIndex, values);
+        }
+      });
+    });
   }
 }
+

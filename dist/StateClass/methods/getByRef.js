@@ -1,4 +1,4 @@
-import { getStatePropertyRefId } from "../../StatePropertyRef/getStatePropertyRefId.js";
+import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
 import { setTracking } from "./setTracking.js";
 function _getByRef(target, info, listIndex, receiver, handler) {
@@ -8,14 +8,14 @@ function _getByRef(target, info, listIndex, receiver, handler) {
             handler.engine.addDependentProp(lastPattern, info);
         }
     }
-    let refId = 0;
+    let refKey = '';
     if (handler.cacheable) {
-        refId = getStatePropertyRefId(info, listIndex);
-        const value = handler.cache[refId];
+        refKey = createRefKey(info, listIndex);
+        const value = handler.cache[refKey];
         if (typeof value !== "undefined") {
             return value;
         }
-        if (refId in handler.cache) {
+        if (refKey in handler.cache) {
             return undefined;
         }
     }
@@ -41,8 +41,8 @@ function _getByRef(target, info, listIndex, receiver, handler) {
         }
     }
     finally {
-        if (handler.cacheable && !(refId in handler.cache)) {
-            handler.cache[refId] = value;
+        if (handler.cacheable && !(refKey in handler.cache)) {
+            handler.cache[refKey] = value;
         }
     }
 }

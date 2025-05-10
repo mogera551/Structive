@@ -18,6 +18,10 @@ class BindingNodeFor extends BindingNodeBlock {
     return this.#bindContentsSet;
   }
 
+  get isFor(): boolean {
+    return true;
+  }
+
   init() {
   }
 

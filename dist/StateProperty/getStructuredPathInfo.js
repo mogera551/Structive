@@ -19,15 +19,19 @@ class StructuredPathInfo {
     lastSegment;
     cumulativePaths;
     cumulativeInfos;
+    cumulativeInfoSet;
     wildcardPaths;
     wildcardInfos;
+    wildcardInfoSet;
     wildcardParentPaths;
     wildcardParentInfos;
+    wildcardParentInfoSet;
     lastWildcardPath;
     lastWildcardInfo;
     parentPath;
     parentInfo;
     wildcardCount;
+    children = {};
     constructor(pattern) {
         const getPattern = (_pattern) => {
             return (pattern === _pattern) ? this : getStructuredPathInfo(_pattern);
@@ -62,15 +66,21 @@ class StructuredPathInfo {
         this.lastSegment = pathSegments[pathSegments.length - 1];
         this.cumulativePaths = cumulativePaths;
         this.cumulativeInfos = cumulativeInfos;
+        this.cumulativeInfoSet = new Set(cumulativeInfos);
         this.wildcardPaths = wildcardPaths;
         this.wildcardInfos = wildcardInfos;
+        this.wildcardInfoSet = new Set(wildcardInfos);
         this.wildcardParentPaths = wildcardParentPaths;
         this.wildcardParentInfos = wildcardParentInfos;
+        this.wildcardParentInfoSet = new Set(wildcardParentInfos);
         this.lastWildcardPath = lastWildcardPath;
         this.lastWildcardInfo = lastWildcardPath ? getPattern(lastWildcardPath) : null;
         this.parentPath = parentPath;
         this.parentInfo = parentPath ? getPattern(parentPath) : null;
         this.wildcardCount = wildcardCount;
+        if (this.parentInfo) {
+            this.parentInfo.children[this.lastSegment] = this;
+        }
     }
 }
 const reservedWords = new Set([

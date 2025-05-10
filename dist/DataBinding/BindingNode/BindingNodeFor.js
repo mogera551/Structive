@@ -10,6 +10,9 @@ class BindingNodeFor extends BindingNodeBlock {
     get bindContents() {
         return this.#bindContentsSet;
     }
+    get isFor() {
+        return true;
+    }
     init() {
     }
     createBindContent(listIndex) {

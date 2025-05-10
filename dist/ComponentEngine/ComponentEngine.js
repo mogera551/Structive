@@ -216,6 +216,15 @@ export class ComponentEngine {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.bindings;
     }
+    existsBindingsByInfo(info) {
+        if (typeof this.#saveInfoByStructuredPathId[info.id] !== "undefined") {
+            return true;
+        }
+        if (typeof this.#saveInfoByListIndexByResolvedPathInfoId[info.id] !== "undefined") {
+            return true;
+        }
+        return false;
+    }
     getListIndexesSet(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.listIndexesSet;

@@ -65,4 +65,7 @@ export class BindingNode implements IBindingNode {
   get filteredValue():any {
     return null;
   }
+  get isFor(): boolean {
+    return false;
+  }
 }

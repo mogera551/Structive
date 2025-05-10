@@ -37,7 +37,7 @@ export type IStructiveState = Constructor<IState> & IStructiveStaticState;
 export interface IStateHandler {
   engine           : IComponentEngine;
   cacheable        : boolean;
-  cache            : {[key:number]:any};
+  cache            : {[key:string]:any};
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
   callableApi      : { [key:symbol]: Function };

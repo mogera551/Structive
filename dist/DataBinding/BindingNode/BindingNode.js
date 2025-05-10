@@ -54,4 +54,7 @@ export class BindingNode {
     get filteredValue() {
         return null;
     }
+    get isFor() {
+        return false;
+    }
 }

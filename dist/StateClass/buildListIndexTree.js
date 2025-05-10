@@ -7,37 +7,24 @@ function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
         return;
     }
     const newListIndexesSet = new Set();
-    /*
-      if ((oldValue.length > 0 && typeof oldValue[0] !== "object") || (value.length > 0 && typeof value[0] !== "object")) {
-        // 配列の中身がオブジェクトでない場合は、リストインデックスを作成しない
-        for(let i = 0; i < value.length; i++) {
-          const curListIndex = createListIndex(listIndex, i);
-          newListIndexesSet.add(curListIndex);
-        }
-        engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
-        engine.saveList(info, listIndex, value.slice(0));
-        return;
-      }
-    */
     const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET;
     const oldListIndexesByItem = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
     for (let i = 0; i < value.length; i++) {
-        const item = value[i];
-        const oldListIndexes = oldListIndexesByItem.get(item);
-        let curListIndex = oldListIndexes?.shift();
-        if (!curListIndex) {
-            curListIndex = createListIndex(listIndex, i);
+        // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
+        // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
+        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+        if (curListIndex.index !== i) {
+            curListIndex.index = i;
+            // リストインデックスのインデックスを更新したので、リストインデックスを登録する
+            engine.updater.addUpdatedListIndex(curListIndex);
         }
-        else {
-            if (curListIndex.index !== i) {
-                curListIndex.index = i;
-                engine.updater.addUpdatedListIndex(curListIndex);
-            }
-        }
+        // リストインデックスを新しいリストインデックスセットに追加する
         newListIndexesSet.add(curListIndex);
     }
+    // 新しいリストインデックスセットを保存する
     engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
-    engine.saveList(info, listIndex, value.slice(0));
+    engine.saveList(info, listIndex, value.slice(0)); // コピーを保存
+    // サブ要素のリストインデックスを構築する
     const searchPath = info.pattern + ".*";
     for (const info of listInfos) {
         if (searchPath !== info.lastWildcardPath) {

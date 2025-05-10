@@ -15,22 +15,26 @@ const _cache: { [key:string]: IStructuredPathInfo } = {};
  * @returns {IPatternInfo} パターン情報
  */
 class StructuredPathInfo implements IStructuredPathInfo {
-  static id = 0;
+  static id : number = 0;
   id = ++StructuredPathInfo.id;
   pattern;
   pathSegments;
   lastSegment;
   cumulativePaths;
   cumulativeInfos;
+  cumulativeInfoSet;
   wildcardPaths;
   wildcardInfos;
+  wildcardInfoSet;
   wildcardParentPaths;
   wildcardParentInfos;
+  wildcardParentInfoSet;
   lastWildcardPath;
   lastWildcardInfo;
   parentPath;
   parentInfo;
   wildcardCount;
+  children = {};
 
   constructor(pattern: string) {
     const getPattern = (_pattern: string): IStructuredPathInfo => {
@@ -66,15 +70,21 @@ class StructuredPathInfo implements IStructuredPathInfo {
     this.lastSegment = pathSegments[pathSegments.length - 1];
     this.cumulativePaths = cumulativePaths;
     this.cumulativeInfos = cumulativeInfos;
+    this.cumulativeInfoSet = new Set(cumulativeInfos);
     this.wildcardPaths = wildcardPaths;
     this.wildcardInfos = wildcardInfos;
+    this.wildcardInfoSet = new Set(wildcardInfos);
     this.wildcardParentPaths = wildcardParentPaths;
     this.wildcardParentInfos = wildcardParentInfos;
+    this.wildcardParentInfoSet = new Set(wildcardParentInfos);
     this.lastWildcardPath = lastWildcardPath;
     this.lastWildcardInfo = lastWildcardPath ? getPattern(lastWildcardPath) : null;
     this.parentPath = parentPath;
     this.parentInfo = parentPath ? getPattern(parentPath) : null;
     this.wildcardCount = wildcardCount;
+    if (this.parentInfo) {
+      this.parentInfo.children[this.lastSegment] = this;
+    }
   }
 }
 

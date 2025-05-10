@@ -611,6 +611,9 @@ class BindingNode {
     get filteredValue() {
         return null;
     }
+    get isFor() {
+        return false;
+    }
 }
 
 class BindingNodeAttribute extends BindingNode {
@@ -806,6 +809,9 @@ class BindingNodeFor extends BindingNodeBlock {
     #bindContentLastIndex = 0;
     get bindContents() {
         return this.#bindContentsSet;
+    }
+    get isFor() {
+        return true;
     }
     init() {
     }
@@ -1194,15 +1200,19 @@ class StructuredPathInfo {
     lastSegment;
     cumulativePaths;
     cumulativeInfos;
+    cumulativeInfoSet;
     wildcardPaths;
     wildcardInfos;
+    wildcardInfoSet;
     wildcardParentPaths;
     wildcardParentInfos;
+    wildcardParentInfoSet;
     lastWildcardPath;
     lastWildcardInfo;
     parentPath;
     parentInfo;
     wildcardCount;
+    children = {};
     constructor(pattern) {
         const getPattern = (_pattern) => {
             return (pattern === _pattern) ? this : getStructuredPathInfo(_pattern);
@@ -1237,15 +1247,21 @@ class StructuredPathInfo {
         this.lastSegment = pathSegments[pathSegments.length - 1];
         this.cumulativePaths = cumulativePaths;
         this.cumulativeInfos = cumulativeInfos;
+        this.cumulativeInfoSet = new Set(cumulativeInfos);
         this.wildcardPaths = wildcardPaths;
         this.wildcardInfos = wildcardInfos;
+        this.wildcardInfoSet = new Set(wildcardInfos);
         this.wildcardParentPaths = wildcardParentPaths;
         this.wildcardParentInfos = wildcardParentInfos;
+        this.wildcardParentInfoSet = new Set(wildcardParentInfos);
         this.lastWildcardPath = lastWildcardPath;
         this.lastWildcardInfo = lastWildcardPath ? getPattern(lastWildcardPath) : null;
         this.parentPath = parentPath;
         this.parentInfo = parentPath ? getPattern(parentPath) : null;
         this.wildcardCount = wildcardCount;
+        if (this.parentInfo) {
+            this.parentInfo.children[this.lastSegment] = this;
+        }
     }
 }
 const reservedWords = new Set([
@@ -1929,93 +1945,8 @@ function createBindContent(parentBinding, id, engine, loopContext, listIndex) {
     return bindContent;
 }
 
-class ListIndex {
-    static id = 0;
-    id = ++ListIndex.id;
-    #parentListIndex = null;
-    get parentListIndex() {
-        return this.#parentListIndex;
-    }
-    index;
-    get indexes() {
-        const indexes = this.parentListIndex?.indexes ?? [];
-        indexes.push(this.index);
-        return indexes;
-    }
-    get position() {
-        return (this.parentListIndex?.position ?? -1) + 1;
-    }
-    get length() {
-        return (this.parentListIndex?.length ?? 0) + 1;
-    }
-    constructor(parentListIndex, index) {
-        this.#parentListIndex = parentListIndex;
-        this.index = index;
-    }
-    truncate(length) {
-        let listIndex = this;
-        while (listIndex !== null) {
-            if (listIndex.position < length)
-                return listIndex;
-            listIndex = listIndex.parentListIndex;
-        }
-        return null;
-    }
-    add(value) {
-        return new ListIndex(this, value);
-    }
-    *reverseIterator() {
-        yield this;
-        if (this.parentListIndex !== null) {
-            yield* this.parentListIndex.reverseIterator();
-        }
-        return;
-    }
-    *iterator() {
-        if (this.parentListIndex !== null) {
-            yield* this.parentListIndex.iterator();
-        }
-        yield this;
-        return;
-    }
-    toString() {
-        const parentListIndex = this.parentListIndex?.toString();
-        return (parentListIndex !== null) ? parentListIndex + "," + this.index.toString() : this.index.toString();
-    }
-    at(position) {
-        let iterator;
-        if (position >= 0) {
-            iterator = this.iterator();
-        }
-        else {
-            position = -position - 1;
-            iterator = this.reverseIterator();
-        }
-        let next;
-        while (position >= 0) {
-            next = iterator.next();
-            position--;
-        }
-        return next?.value ?? null;
-    }
-}
-function createListIndex(parentListIndex, index) {
-    return new ListIndex(parentListIndex, index);
-}
-function getMaxListIndexId() {
-    return ListIndex.id;
-}
-
-/**
- * 参照用のIDを生成する
- * ListIndexのIDは最大値を取得してから計算するため、ListIndexの構築が完了していない場合、重複が発生する可能性がある
- */
-/**
- * ToDo:ListIndexの構築が完了していない状態で、IDを取得すると例外を発生させる仕組みが必要
- */
-function getStatePropertyRefId(info, listIndex) {
-    const listIndexMaxId = getMaxListIndexId();
-    return info.id * (listIndexMaxId + 1) + (listIndex?.id ?? 0);
+function createRefKey(info, listIndex) {
+    return `${info.id}-${listIndex?.id ?? 0}`;
 }
 
 function setTracking(info, handler, callback) {
@@ -2037,14 +1968,14 @@ function _getByRef(target, info, listIndex, receiver, handler) {
             handler.engine.addDependentProp(lastPattern, info);
         }
     }
-    let refId = 0;
+    let refKey = '';
     if (handler.cacheable) {
-        refId = getStatePropertyRefId(info, listIndex);
-        const value = handler.cache[refId];
+        refKey = createRefKey(info, listIndex);
+        const value = handler.cache[refKey];
         if (typeof value !== "undefined") {
             return value;
         }
-        if (refId in handler.cache) {
+        if (refKey in handler.cache) {
             return undefined;
         }
     }
@@ -2070,8 +2001,8 @@ function _getByRef(target, info, listIndex, receiver, handler) {
         }
     }
     finally {
-        if (handler.cacheable && !(refId in handler.cache)) {
-            handler.cache[refId] = value;
+        if (handler.cacheable && !(refKey in handler.cache)) {
+            handler.cache[refKey] = value;
         }
     }
 }
@@ -2415,182 +2346,194 @@ function createStateProxy(engine, state) {
     return new Proxy(state, new StateHandler(engine));
 }
 
-function extractListIndexes(info, listIndex, engine) {
-    const wildcardParentInfos = info.wildcardParentInfos ?? [];
-    const _extractListIndexes = (pos, currentListIndex, resultListIndexes) => {
-        const wildcardParentInfo = wildcardParentInfos[pos];
-        if (!wildcardParentInfo) {
-            if (currentListIndex) {
-                resultListIndexes.push(currentListIndex);
-            }
+class dependencyWalker {
+    engine;
+    entryRef;
+    traced = new Set();
+    constructor(engine, entryRef) {
+        this.engine = engine;
+        this.entryRef = entryRef;
+    }
+    walkSub(info, callback) {
+        if (this.traced.has(info)) {
             return;
         }
-        const subListIndex = listIndex?.at(pos) ?? null;
-        if (subListIndex) {
-            _extractListIndexes(pos + 1, subListIndex, resultListIndexes);
-        }
-        else {
-            const listIndexes = engine.getListIndexesSet(wildcardParentInfo, currentListIndex);
-            for (const loopListIndex of listIndexes ?? []) {
-                _extractListIndexes(pos + 1, loopListIndex, resultListIndexes);
-            }
-        }
-    };
-    const resultListIndexes = [];
-    _extractListIndexes(0, listIndex, resultListIndexes);
-    return resultListIndexes;
-}
-function _collectAffectedGetters(refInfo, refListIndex, engine, resultPathInfos, resultRefs) {
-    //  if (engine.listInfoSet.has(refInfo)) return;
-    if (resultPathInfos.has(refInfo))
-        return;
-    const dependentPathInfos = engine.dependentTree.get(refInfo);
-    for (const dependentPathInfo of dependentPathInfos ?? []) {
-        if (engine.listInfoSet.has(refInfo) && dependentPathInfo.parentInfo === refInfo && dependentPathInfo.lastSegment === "*") {
-            continue;
-        }
-        let dependentListIndex = null;
-        let updateList = false;
-        for (let i = dependentPathInfo.wildcardParentInfos.length - 1; i >= 0; i--) {
-            const wildcardParentInfo = dependentPathInfo.wildcardParentInfos[i];
-            if (resultPathInfos.has(wildcardParentInfo)) {
-                updateList = true;
-                break;
-            }
-            const pos = refInfo.wildcardParentInfos.indexOf(wildcardParentInfo);
-            if (pos < 0)
-                continue;
-            dependentListIndex = refListIndex?.at(pos) ?? null;
-            if (dependentListIndex !== null)
-                break;
-        }
-        if (updateList) {
-            continue;
-        }
-        if (dependentPathInfo.wildcardParentInfos.length > 0) {
-            const extractlistIndexes = extractListIndexes(dependentPathInfo, dependentListIndex, engine);
-            for (const listIndex of extractlistIndexes) {
-                resultRefs.push({ info: dependentPathInfo, listIndex });
-                _collectAffectedGetters(dependentPathInfo, listIndex, engine, resultPathInfos, resultRefs);
-            }
-        }
-        else {
-            resultRefs.push({ info: dependentPathInfo, listIndex: null });
-            _collectAffectedGetters(dependentPathInfo, null, engine, resultPathInfos, resultRefs);
+        this.traced.add(info);
+        callback(this.entryRef, info);
+        const refs = this.engine.dependentTree.get(info) ?? [];
+        for (const ref of refs) {
+            this.walkSub(ref, callback);
         }
     }
-}
-function collectAffectedGetters(updateRefs, engine) {
-    const resultPathInfos = new Set();
-    const resultRefs = [];
-    for (const ref of updateRefs) {
-        const info = ref.info;
-        const listIndex = ref.listIndex;
-        if (resultPathInfos.has(info))
-            continue;
-        _collectAffectedGetters(info, listIndex, engine, resultPathInfos, resultRefs);
-        resultPathInfos.add(info);
+    walk(callback) {
+        this.walkSub(this.entryRef.info, callback);
     }
-    return resultRefs;
+}
+function createDependencyWalker(engine, entryRef) {
+    return new dependencyWalker(engine, entryRef);
 }
 
-const BLANK_LISTINDEXES_SET = new Set();
-function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
+class ListIndex {
+    static id = 0;
+    id = ++ListIndex.id;
+    #parentListIndex = null;
+    get parentListIndex() {
+        return this.#parentListIndex;
+    }
+    index;
+    get indexes() {
+        const indexes = this.parentListIndex?.indexes ?? [];
+        indexes.push(this.index);
+        return indexes;
+    }
+    get position() {
+        return (this.parentListIndex?.position ?? -1) + 1;
+    }
+    get length() {
+        return (this.parentListIndex?.length ?? 0) + 1;
+    }
+    constructor(parentListIndex, index) {
+        this.#parentListIndex = parentListIndex;
+        this.index = index;
+    }
+    truncate(length) {
+        let listIndex = this;
+        while (listIndex !== null) {
+            if (listIndex.position < length)
+                return listIndex;
+            listIndex = listIndex.parentListIndex;
+        }
+        return null;
+    }
+    add(value) {
+        return new ListIndex(this, value);
+    }
+    *reverseIterator() {
+        yield this;
+        if (this.parentListIndex !== null) {
+            yield* this.parentListIndex.reverseIterator();
+        }
+        return;
+    }
+    *iterator() {
+        if (this.parentListIndex !== null) {
+            yield* this.parentListIndex.iterator();
+        }
+        yield this;
+        return;
+    }
+    toString() {
+        const parentListIndex = this.parentListIndex?.toString();
+        return (parentListIndex !== null) ? parentListIndex + "," + this.index.toString() : this.index.toString();
+    }
+    at(position) {
+        let iterator;
+        if (position >= 0) {
+            iterator = this.iterator();
+        }
+        else {
+            position = -position - 1;
+            iterator = this.reverseIterator();
+        }
+        let next;
+        while (position >= 0) {
+            next = iterator.next();
+            position--;
+        }
+        return next?.value ?? null;
+    }
+}
+function createListIndex(parentListIndex, index) {
+    return new ListIndex(parentListIndex, index);
+}
+
+function listWalkerSub(engine, info, listIndex, callback) {
+    const listIndexLen = listIndex?.length ?? 0;
+    if (info.wildcardCount === listIndexLen) {
+        callback(info, listIndex);
+    }
+    else {
+        const parentInfo = info.wildcardParentInfos[listIndexLen] ?? raiseError("Invalid state property info");
+        const listIndexes = engine.getListIndexesSet(parentInfo, listIndex);
+        for (const subListIndex of listIndexes ?? []) {
+            listWalkerSub(engine, info, subListIndex, callback);
+        }
+    }
+}
+function listWalker(engine, info, listIndex, callback) {
+    listWalkerSub(engine, info, listIndex, callback);
+}
+
+const BLANK_LISTINDEXES_SET$1 = new Set();
+function buildListIndexTree$1(engine, info, listIndex, value) {
     const oldValue = engine.getList(info, listIndex) ?? [];
     if (oldValue === value) {
         return;
     }
     const newListIndexesSet = new Set();
-    /*
-      if ((oldValue.length > 0 && typeof oldValue[0] !== "object") || (value.length > 0 && typeof value[0] !== "object")) {
-        // 配列の中身がオブジェクトでない場合は、リストインデックスを作成しない
-        for(let i = 0; i < value.length; i++) {
-          const curListIndex = createListIndex(listIndex, i);
-          newListIndexesSet.add(curListIndex);
-        }
-        engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
-        engine.saveList(info, listIndex, value.slice(0));
-        return;
-      }
-    */
-    const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET;
+    const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET$1;
     const oldListIndexesByItem = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
     for (let i = 0; i < value.length; i++) {
-        const item = value[i];
-        const oldListIndexes = oldListIndexesByItem.get(item);
-        let curListIndex = oldListIndexes?.shift();
-        if (!curListIndex) {
-            curListIndex = createListIndex(listIndex, i);
+        // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
+        // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
+        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+        if (curListIndex.index !== i) {
+            curListIndex.index = i;
+            // リストインデックスのインデックスを更新したので、リストインデックスを登録する
+            engine.updater.addUpdatedListIndex(curListIndex);
         }
-        else {
-            if (curListIndex.index !== i) {
-                curListIndex.index = i;
-                engine.updater.addUpdatedListIndex(curListIndex);
-            }
-        }
+        // リストインデックスを新しいリストインデックスセットに追加する
         newListIndexesSet.add(curListIndex);
     }
+    // 新しいリストインデックスセットを保存する
     engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
-    engine.saveList(info, listIndex, value.slice(0));
-    const searchPath = info.pattern + ".*";
-    for (const info of listInfos) {
-        if (searchPath !== info.lastWildcardPath) {
-            continue;
-        }
-        for (const subListIndex of newListIndexesSet) {
-            const subValue = engine.stateProxy[GetByRefSymbol](info, subListIndex);
-            buildListIndexTreeSub(engine, listInfos, info, subListIndex, subValue ?? []);
-        }
-    }
+    engine.saveList(info, listIndex, value.slice(0)); // コピーを保存
 }
-function buildListIndexTree(engine, info, listIndex, value) {
-    engine.listInfoSet;
-    // 配列じゃなければ何もしない
-    if (!engine.listInfoSet.has(info)) {
-        return;
-    }
-    const values = (value ?? []);
-    buildListIndexTreeSub(engine, engine.listInfoSet, info, listIndex, values);
-}
-
-function restructListIndex(info, listIndex, engine, updateValues, refIds = new Set()) {
-    const refId = getStatePropertyRefId(info, listIndex);
-    if (refIds.has(refId)) {
-        return;
-    }
-    const curListIndexLen = listIndex?.length ?? 0;
-    if (curListIndexLen < info.wildcardCount) {
-        const wildcardInfo = info.wildcardInfos[curListIndexLen];
-        const listIndexSet = engine.getListIndexesSet(wildcardInfo, listIndex);
-        for (const curlistIndex of listIndexSet ?? []) {
-            restructListIndex(info, curlistIndex, engine, updateValues, refIds);
-        }
-    }
-    else {
-        if (engine.listInfoSet.has(info)) {
-            refIds.add(refId);
-            const values = updateValues[refId] ?? engine.stateProxy[GetByRefSymbol](info, listIndex);
-            buildListIndexTree(engine, info, listIndex, values);
-        }
-        const infoSub = getStructuredPathInfo(info.pattern + ".*");
-        for (const refInfo of engine.dependentTree.get(info) ?? []) {
-            if (refInfo.cumulativeInfos.includes(infoSub)) {
-                continue;
-            }
-            // ここにサブは来ない
-            restructListIndex(refInfo, null, engine, updateValues, refIds);
-        }
-    }
-}
-function restructListIndexes(infos, engine, updateValues, refIds) {
+function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
+    const skipInfoSet = new Set();
     for (const { info, listIndex } of infos) {
-        restructListIndex(info, listIndex, engine, updateValues, refIds);
+        const dependentWalker = createDependencyWalker(engine, { info, listIndex });
+        const nowOnList = engine.listInfoSet.has(info);
+        dependentWalker.walk((ref, info) => {
+            const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(info.wildcardInfoSet));
+            const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
+            const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
+            if (skipInfoSet.has(info)) {
+                return;
+            }
+            if (nowOnList && info !== ref.info) {
+                if (info.cumulativeInfoSet.has(ref.info)) {
+                    skipInfoSet.add(info);
+                    return;
+                }
+            }
+            listWalker(engine, info, listIndex, (_info, _listIndex) => {
+                if (!engine.existsBindingsByInfo(_info)) {
+                    return;
+                }
+                const refKey = createRefKey(_info, _listIndex);
+                if (refKeys.has(refKey)) {
+                    return;
+                }
+                let cacheListIndexSet = cache.get(info);
+                if (!cacheListIndexSet) {
+                    cacheListIndexSet = new Set();
+                    cache.set(info, cacheListIndexSet);
+                }
+                cacheListIndexSet.add(_listIndex);
+                refKeys.add(refKey);
+                if (engine.listInfoSet.has(_info)) {
+                    const values = updateValues[refKey] ?? engine.stateProxy[GetByRefSymbol](_info, _listIndex);
+                    buildListIndexTree$1(engine, _info, _listIndex, values);
+                }
+            });
+        });
     }
 }
 
 class Updater {
     processList = [];
-    updatedProperties = new Set();
+    updatedProperties = new Set;
     updatedValues = {};
     engine;
     constructor(engine) {
@@ -2601,9 +2544,9 @@ class Updater {
         this.waitForQueueEntry.resolve();
     }
     addUpdatedStatePropertyRefValue(info, listIndex, value) {
-        const refId = getStatePropertyRefId(info, listIndex);
+        const refKey = createRefKey(info, listIndex);
         this.updatedProperties.add({ info, listIndex });
-        this.updatedValues[refId] = value;
+        this.updatedValues[refKey] = value;
         this.waitForQueueEntry.resolve();
     }
     addUpdatedListIndex(listIndex) {
@@ -2665,90 +2608,64 @@ class Updater {
         const retArrayElementBindings = [];
         const retBindings = [];
         const engine = this.engine;
-        const processedListIndexes = new Set();
-        const processedPropertyRefIdsSet = new Set();
         while (this.updatedProperties.size > 0) {
             const updatedProiperties = Array.from(this.updatedProperties.values());
-            const updatedRefs = []; // 更新されたプロパティ参照のリスト
-            const arrayElementPropertyRefs = [];
             this.updatedProperties.clear();
+            const bindingsByListIndex = [];
+            const updatedRefs = []; // 更新されたプロパティ参照のリスト
+            const arrayElementBindingByParentRefKey = new Map();
             for (let i = 0; i < updatedProiperties.length; i++) {
                 const item = updatedProiperties[i];
-                let bindings;
                 if ("index" in item) {
-                    if (processedListIndexes.has(item))
-                        continue;
-                    const listIndex = item;
-                    bindings = engine.bindingsByListIndex.get(listIndex);
-                    processedListIndexes.add(listIndex);
+                    const bindings = engine.bindingsByListIndex.get(item) ?? [];
+                    bindingsByListIndex.push(...bindings);
                 }
                 else {
-                    const statePropertyRefId = getStatePropertyRefId(item.info, item.listIndex);
-                    if (processedPropertyRefIdsSet.has(statePropertyRefId))
-                        continue;
-                    const statePropertyRef = item;
-                    if (engine.elementInfoSet.has(statePropertyRef.info)) {
-                        arrayElementPropertyRefs.push(statePropertyRef);
+                    updatedRefs.push(item);
+                    if (engine.elementInfoSet.has(item.info)) {
+                        const parentInfo = item.info.parentInfo ?? raiseError("info is null"); // リストのパス情報
+                        const parentListIndex = item.listIndex?.at(-2) ?? null; // リストのインデックス
+                        const parentRef = { info: parentInfo, listIndex: parentListIndex };
+                        const parentRefKey = createRefKey(parentInfo, parentListIndex);
+                        let info = arrayElementBindingByParentRefKey.get(parentRefKey);
+                        if (!info) {
+                            info = {
+                                parentRef,
+                                listIndexes: [],
+                                values: []
+                            };
+                            arrayElementBindingByParentRefKey.set(parentRefKey, info);
+                        }
+                        const refKey = createRefKey(item.info, item.listIndex);
+                        const value = this.updatedValues[refKey] ?? null;
+                        info.values?.push(value);
+                        info.listIndexes?.push(item.listIndex);
                     }
-                    bindings = engine.getBindings(item.info, item.listIndex);
-                    processedPropertyRefIdsSet.add(statePropertyRefId);
-                    updatedRefs.push(statePropertyRef);
                 }
-                retBindings.push(...bindings ?? []);
             }
             // リストインデックスの構築
-            const builtStatePropertyRefIds = new Set();
-            restructListIndexes(updatedRefs, engine, this.updatedValues, builtStatePropertyRefIds);
-            const parentRefByRefId = {};
-            const statePropertyRefByStatePropertyRefId = Object.groupBy(arrayElementPropertyRefs, ref => {
-                if (ref.info.parentInfo === null)
-                    raiseError(`parentInfo is null`);
-                const parentInfo = ref.info.parentInfo;
-                const parentListIndex = (ref.info.wildcardCount === ref.info.parentInfo.wildcardCount) ?
-                    ref.listIndex : (ref.listIndex?.parentListIndex ?? null);
-                const parentRefId = getStatePropertyRefId(parentInfo, parentListIndex);
-                if (!(parentRefId in parentRefByRefId)) {
-                    parentRefByRefId[parentRefId] = { info: parentInfo, listIndex: parentListIndex };
-                }
-                return parentRefId;
-            });
-            for (const [parentRefIdKey, refs] of Object.entries(statePropertyRefByStatePropertyRefId)) {
-                const parentRefId = Number(parentRefIdKey);
-                if (builtStatePropertyRefIds.has(parentRefId))
-                    continue;
-                if (typeof refs === "undefined")
-                    continue;
-                const parentRef = parentRefByRefId[parentRefId];
-                if (parentRef === null)
-                    continue;
-                const values = [];
-                const listIndexes = [];
-                for (let j = 0; j < refs.length; j++) {
-                    const ref = refs[j];
-                    const statePropertyRefId = getStatePropertyRefId(ref.info, ref.listIndex);
-                    const value = this.updatedValues[statePropertyRefId] ?? null;
-                    values.push(value);
-                    const listIndex = ref.listIndex;
-                    if (listIndex === null) {
-                        throw new Error("listIndex is null");
-                    }
-                    listIndexes.push(listIndex);
-                }
-                const bindings = engine.getBindings(parentRef.info, parentRef.listIndex);
+            const builtStatePropertyRefKeySet = new Set();
+            const affectedRefs = new Map();
+            restructListIndexes(updatedRefs, engine, this.updatedValues, builtStatePropertyRefKeySet, affectedRefs);
+            // スワップの場合の情報を構築する
+            for (const [parentRefKey, info] of arrayElementBindingByParentRefKey) {
+                const parentInfo = info.parentRef?.info ?? raiseError("parentInfo is null");
+                const parentListIndex = info.parentRef?.listIndex ?? null;
+                const bindings = engine.getBindings(parentInfo, parentListIndex);
                 for (const binding of bindings) {
-                    const arrayElementBinding = {
-                        parentRef,
-                        binding,
-                        listIndexes,
-                        values
-                    };
-                    retArrayElementBindings.push(arrayElementBinding);
+                    if (!binding.bindingNode.isFor) {
+                        continue;
+                    }
+                    const bindingInfo = Object.assign({}, info, { binding });
+                    retArrayElementBindings.push(bindingInfo);
                 }
             }
-            const updatingRefs = collectAffectedGetters(updatedRefs, engine);
-            for (const updatingRef of updatingRefs) {
-                const bindings = engine.getBindings(updatingRef.info, updatingRef.listIndex);
-                retBindings.push(...bindings ?? []);
+            // 影響する全てのバインド情報を取得する
+            for (const [info, listIndexes] of affectedRefs.entries()) {
+                for (const listIndex of listIndexes) {
+                    const bindings = engine.getBindings(info, listIndex);
+                    retBindings.push(...bindings ?? []);
+                }
             }
         }
         this.updatedValues = {};
@@ -2819,6 +2736,52 @@ function attachShadow(element, config, styleSheet) {
             shadowRootOrDocument.adoptedStyleSheets = [...styleSheets, styleSheet];
         }
     }
+}
+
+const BLANK_LISTINDEXES_SET = new Set();
+function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
+    const oldValue = engine.getList(info, listIndex) ?? [];
+    if (oldValue === value) {
+        return;
+    }
+    const newListIndexesSet = new Set();
+    const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET;
+    const oldListIndexesByItem = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
+    for (let i = 0; i < value.length; i++) {
+        // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
+        // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
+        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+        if (curListIndex.index !== i) {
+            curListIndex.index = i;
+            // リストインデックスのインデックスを更新したので、リストインデックスを登録する
+            engine.updater.addUpdatedListIndex(curListIndex);
+        }
+        // リストインデックスを新しいリストインデックスセットに追加する
+        newListIndexesSet.add(curListIndex);
+    }
+    // 新しいリストインデックスセットを保存する
+    engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
+    engine.saveList(info, listIndex, value.slice(0)); // コピーを保存
+    // サブ要素のリストインデックスを構築する
+    const searchPath = info.pattern + ".*";
+    for (const info of listInfos) {
+        if (searchPath !== info.lastWildcardPath) {
+            continue;
+        }
+        for (const subListIndex of newListIndexesSet) {
+            const subValue = engine.stateProxy[GetByRefSymbol](info, subListIndex);
+            buildListIndexTreeSub(engine, listInfos, info, subListIndex, subValue ?? []);
+        }
+    }
+}
+function buildListIndexTree(engine, info, listIndex, value) {
+    engine.listInfoSet;
+    // 配列じゃなければ何もしない
+    if (!engine.listInfoSet.has(info)) {
+        return;
+    }
+    const values = (value ?? []);
+    buildListIndexTreeSub(engine, engine.listInfoSet, info, listIndex, values);
 }
 
 class ComponentEngine {
@@ -3029,6 +2992,15 @@ class ComponentEngine {
     getBindings(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.bindings;
+    }
+    existsBindingsByInfo(info) {
+        if (typeof this.#saveInfoByStructuredPathId[info.id] !== "undefined") {
+            return true;
+        }
+        if (typeof this.#saveInfoByListIndexByResolvedPathInfoId[info.id] !== "undefined") {
+            return true;
+        }
+        return false;
     }
     getListIndexesSet(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);

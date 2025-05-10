@@ -18,6 +18,7 @@ export interface IStructuredPathInfo {
    */
   readonly cumulativePaths: string[];
   readonly cumulativeInfos: IStructuredPathInfo[];
+  readonly cumulativeInfoSet: Set<IStructuredPathInfo>;
   /** 
    * ex. aaa.\*.bbb.\*.ccc => "aaa.\*.bbb.\*"
    */
@@ -31,8 +32,10 @@ export interface IStructuredPathInfo {
    */
   readonly wildcardPaths: string[];
   readonly wildcardInfos: IStructuredPathInfo[];
+  readonly wildcardInfoSet: Set<IStructuredPathInfo>;
   readonly wildcardParentPaths: string[];
   readonly wildcardParentInfos: IStructuredPathInfo[];
+  readonly wildcardParentInfoSet: Set<IStructuredPathInfo>;
   readonly lastWildcardPath: string | null;
   readonly lastWildcardInfo: IStructuredPathInfo | null;
   /**
@@ -40,6 +43,7 @@ export interface IStructuredPathInfo {
    */
   readonly pattern: string;
   readonly wildcardCount: number;
+  readonly children: {[segment:string]: IStructuredPathInfo};
 }
 
 export type WildcardType = "none" | "context" | "partial" | "all";

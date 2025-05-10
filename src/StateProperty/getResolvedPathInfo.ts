@@ -11,7 +11,7 @@ const _cache: { [key:string]: IResolvedPathInfo } = {};
 //const _cache: Map<string, IResolvedPathInfo> = new Map();
 
 class ResolvedPathInfo implements IResolvedPathInfo {
-  static id = 0;
+  static id : number = 0;
   id = ++ResolvedPathInfo.id;
   name;
   elements;

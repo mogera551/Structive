@@ -225,6 +225,7 @@ export class ComponentEngine implements IComponentEngine {
       return saveInfo;
     }
   }
+  
   saveBinding(
     info     : IStructuredPathInfo, 
     listIndex: IListIndex | null, 
@@ -233,6 +234,7 @@ export class ComponentEngine implements IComponentEngine {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     saveInfo.bindings.push(binding);
   }
+
   saveListIndexesSet(
     info              :IStructuredPathInfo, 
     listIndex         :IListIndex | null, 
@@ -241,6 +243,7 @@ export class ComponentEngine implements IComponentEngine {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     saveInfo.listIndexesSet = saveListIndexesSet;
   }
+
   saveList(
     info     :IStructuredPathInfo, 
     listIndex:IListIndex | null, 
@@ -249,6 +252,7 @@ export class ComponentEngine implements IComponentEngine {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     saveInfo.list = list;
   }
+
   getBindings(
     info     :IStructuredPathInfo, 
     listIndex:IListIndex | null
@@ -256,13 +260,22 @@ export class ComponentEngine implements IComponentEngine {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     return saveInfo.bindings;
   }
-  getListIndexesSet(
-    info     :IStructuredPathInfo, 
-    listIndex:IListIndex | null
-  ): Set<IListIndex> | null {
+
+  existsBindingsByInfo(info: IStructuredPathInfo): boolean {
+    if (typeof this.#saveInfoByStructuredPathId[info.id] !== "undefined") {
+      return true;
+    }
+    if (typeof this.#saveInfoByListIndexByResolvedPathInfoId[info.id] !== "undefined") {
+      return true;
+    }
+    return false;
+  }
+
+  getListIndexesSet(info:IStructuredPathInfo, listIndex:IListIndex | null): Set<IListIndex> | null {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     return saveInfo.listIndexesSet;
   }
+    
   getList(
     info     :IStructuredPathInfo, 
     listIndex:IListIndex | null

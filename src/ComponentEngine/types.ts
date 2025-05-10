@@ -49,6 +49,7 @@ export interface IComponentEngine {
   saveListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex | null, saveListIndexesSet:Set<IListIndex>): void;
   saveList(pattern:IStructuredPathInfo, listIndex:IListIndex | null, list:any[]): void;
   getBindings(pattern:IStructuredPathInfo, listIndex:IListIndex | null): IBinding[];
+  existsBindingsByInfo(info: IStructuredPathInfo): boolean;
   getListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex | null): Set<IListIndex> | null;
   getList(pattern:IStructuredPathInfo, listIndex:IListIndex | null): any[] | null;
   addDependentProp(pattern:IStructuredPathInfo, dependentPattern:IStructuredPathInfo): void;

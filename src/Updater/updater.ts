@@ -1,19 +1,18 @@
 import { IBinding } from "../DataBinding/types";
 import { IListIndex } from "../ListIndex/types";
 import { render } from "../Render/render.js";
-import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
 import { SetCacheableSymbol } from "../StateClass/symbols.js";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { getStatePropertyRefId } from "../StatePropertyRef/getStatePropertyRefId.js";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { raiseError } from "../utils.js";
 import { getGlobalConfig } from "../WebComponents/getGlobalConfig.js";
 import { IUpdater } from "./types";
-import { collectAffectedGetters } from "./collectAffectedGetters.js";
 import { restructListIndexes } from "./restructListIndex";
+import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
+import { IStatePropertyRef } from "../StatePropertyRef/types";
 
 type UpdatedArrayElementBinding = {
-  parentRef: {info: IStructuredPathInfo, listIndex: IListIndex | null};
+  parentRef: IStatePropertyRef;
   binding: IBinding;
   listIndexes: IListIndex[];
   values: any[];
@@ -21,9 +20,8 @@ type UpdatedArrayElementBinding = {
 
 class Updater implements IUpdater {
   processList      : (() => Promise<void> | void)[] = [];
-  updatedProperties: Set<{info:IStructuredPathInfo, listIndex:IListIndex | null} | IListIndex> = 
-    new Set<{info:IStructuredPathInfo, listIndex:IListIndex | null} | IListIndex>();
-  updatedValues    : {[key:number]: any} = {};
+  updatedProperties: Set<IStatePropertyRef | IListIndex> = new Set;
+  updatedValues    : {[key:string]: any} = {};
   engine           : IComponentEngine;
 
   constructor(engine: IComponentEngine) {
@@ -40,9 +38,9 @@ class Updater implements IUpdater {
     listIndex: IListIndex | null, 
     value    : any
   ): void {
-    const refId = getStatePropertyRefId(info, listIndex);
+    const refKey = createRefKey(info, listIndex);
     this.updatedProperties.add({info, listIndex});
-    this.updatedValues[refId] = value;
+    this.updatedValues[refKey] = value;
     this.waitForQueueEntry.resolve();
   }
 
@@ -108,88 +106,64 @@ class Updater implements IUpdater {
     const retArrayElementBindings: UpdatedArrayElementBinding[] = [];
     const retBindings: IBinding[] = [];
     const engine = this.engine;
-    const processedListIndexes = new Set<IListIndex>();
-    const processedPropertyRefIdsSet = new Set<number>();
     while(this.updatedProperties.size > 0) {
       const updatedProiperties = Array.from(this.updatedProperties.values());
-
-      const updatedRefs = []; // 更新されたプロパティ参照のリスト
-      const arrayElementPropertyRefs: {info:IStructuredPathInfo, listIndex: IListIndex | null}[] = [];
       this.updatedProperties.clear();
+      const bindingsByListIndex: IBinding[] = [];
+      const updatedRefs: IStatePropertyRef[] = []; // 更新されたプロパティ参照のリスト
+      const arrayElementBindingByParentRefKey = new Map<string, Partial<UpdatedArrayElementBinding>>();
       for(let i = 0; i < updatedProiperties.length; i++) {
         const item = updatedProiperties[i];
-        let bindings;
         if ("index" in item) {
-          if (processedListIndexes.has(item)) continue;
-          const listIndex = item as IListIndex;
-          bindings = engine.bindingsByListIndex.get(listIndex);
-          processedListIndexes.add(listIndex);
+          const bindings = engine.bindingsByListIndex.get(item as IListIndex) ?? [];
+          bindingsByListIndex.push(...bindings);
         } else {
-          const statePropertyRefId = getStatePropertyRefId(item.info, item.listIndex);
-          if (processedPropertyRefIdsSet.has(statePropertyRefId)) continue;
-          const statePropertyRef = item as {info:IStructuredPathInfo, listIndex:IListIndex | null};
-          if (engine.elementInfoSet.has(statePropertyRef.info)) {
-            arrayElementPropertyRefs.push(statePropertyRef);
+          updatedRefs.push(item as IStatePropertyRef);
+          if (engine.elementInfoSet.has(item.info)) {
+            const parentInfo = item.info.parentInfo ?? raiseError("info is null"); // リストのパス情報
+            const parentListIndex = item.listIndex?.at(-2) ?? null; // リストのインデックス
+            const parentRef = {info: parentInfo, listIndex: parentListIndex};
+            const parentRefKey = createRefKey(parentInfo, parentListIndex);
+            let info = arrayElementBindingByParentRefKey.get(parentRefKey);
+            if (!info) {
+              info = {
+                parentRef,
+                listIndexes: [],
+                values: []
+              };
+              arrayElementBindingByParentRefKey.set(parentRefKey, info);
+            }
+            const refKey = createRefKey(item.info, item.listIndex);
+            const value = this.updatedValues[refKey] ?? null;
+            info.values?.push(value);
+            info.listIndexes?.push(item.listIndex as IListIndex);
           }
-          bindings = engine.getBindings(item.info, item.listIndex);
-          processedPropertyRefIdsSet.add(statePropertyRefId);
-          updatedRefs.push(statePropertyRef);
         }
-        retBindings.push(...bindings ?? []);
       }
-
       // リストインデックスの構築
-      const builtStatePropertyRefIds = new Set<number>();
-      restructListIndexes(updatedRefs, engine, this.updatedValues, builtStatePropertyRefIds);
+      const builtStatePropertyRefKeySet = new Set<string>();
+      const affectedRefs = new Map<IStructuredPathInfo, Set<IListIndex|null>>();
+      restructListIndexes(updatedRefs, engine, this.updatedValues, builtStatePropertyRefKeySet, affectedRefs);
 
-      const parentRefByRefId: {[parentRefId: number]: {info: IStructuredPathInfo, listIndex: IListIndex | null }} = {};
-      const statePropertyRefByStatePropertyRefId = Object.groupBy(arrayElementPropertyRefs, ref => {
-        if (ref.info.parentInfo === null) raiseError(`parentInfo is null`);
-        const parentInfo = ref.info.parentInfo;
-        const parentListIndex = (ref.info.wildcardCount === ref.info.parentInfo.wildcardCount) ?
-          ref.listIndex : (ref.listIndex?.parentListIndex ?? null);
-        const parentRefId = getStatePropertyRefId(parentInfo, parentListIndex);
-        if (!(parentRefId in parentRefByRefId)) {
-          parentRefByRefId[parentRefId] = {info: parentInfo, listIndex: parentListIndex};
-        }
-        return parentRefId;
-      });
-      for(const [parentRefIdKey, refs] of Object.entries(statePropertyRefByStatePropertyRefId)) {
-        const parentRefId = Number(parentRefIdKey);
-        if (builtStatePropertyRefIds.has(parentRefId)) continue;
-        if (typeof refs === "undefined") continue;
-        const parentRef = parentRefByRefId[parentRefId];
-        if (parentRef === null) continue;
-
-        const values = [];
-        const listIndexes = [];
-        for(let j = 0; j < refs.length; j++) {
-          const ref = refs[j];
-          const statePropertyRefId = getStatePropertyRefId(ref.info, ref.listIndex);
-          const value = this.updatedValues[statePropertyRefId] ?? null;
-          values.push(value);
-          const listIndex = ref.listIndex;
-          if (listIndex === null) {
-            throw new Error("listIndex is null");
-          }
-          listIndexes.push(listIndex);
-        }
-        const bindings = engine.getBindings(parentRef.info, parentRef.listIndex);
+      // スワップの場合の情報を構築する
+      for(const [parentRefKey, info] of arrayElementBindingByParentRefKey) {
+        const parentInfo = info.parentRef?.info ?? raiseError("parentInfo is null");
+        const parentListIndex = info.parentRef?.listIndex ?? null;
+        const bindings = engine.getBindings(parentInfo, parentListIndex);
         for(const binding of bindings) {
-          const arrayElementBinding: UpdatedArrayElementBinding = {
-            parentRef,
-            binding,
-            listIndexes,
-            values
-          };
-          retArrayElementBindings.push(arrayElementBinding);
+          if (!binding.bindingNode.isFor) {
+            continue;
+          }
+          const bindingInfo = Object.assign({}, info, { binding });
+          retArrayElementBindings.push(bindingInfo as UpdatedArrayElementBinding);
         }
       }
-      
-      const updatingRefs = collectAffectedGetters(updatedRefs, engine);
-      for(const updatingRef of updatingRefs) {
-        const bindings = engine.getBindings(updatingRef.info, updatingRef.listIndex);
-        retBindings.push(...bindings ?? []);
+      // 影響する全てのバインド情報を取得する
+      for(const [ info, listIndexes ] of affectedRefs.entries()) {
+        for(const listIndex of listIndexes) {
+          const bindings = engine.getBindings(info, listIndex);
+          retBindings.push(...bindings ?? []);
+        }
       }
       
     }
