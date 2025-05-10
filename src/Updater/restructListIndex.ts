@@ -52,20 +52,20 @@ export function restructListIndexes(
   for(const {info, listIndex} of infos) {
     const dependentWalker = createDependencyWalker(engine, {info, listIndex});
     const nowOnList = engine.listInfoSet.has(info);
-    dependentWalker.walk((ref, info) => {
-      const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(info.wildcardInfoSet));
+    dependentWalker.walk((ref, refInfo) => {
+      const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(refInfo.wildcardInfoSet));
       const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
       const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
-      if (skipInfoSet.has(info)) {
+      if (skipInfoSet.has(refInfo)) {
         return;
       }
-      if (nowOnList && info !== ref.info) {
-        if (info.cumulativeInfoSet.has(ref.info)) {
-          skipInfoSet.add(info);
+      if (nowOnList && refInfo.parentInfo === ref.info) {
+        if (refInfo.cumulativeInfoSet.has(ref.info)) {
+          skipInfoSet.add(refInfo);
           return;
         }
       }
-      listWalker(engine, info, listIndex, (_info, _listIndex) => {
+      listWalker(engine, refInfo, listIndex, (_info, _listIndex) => {
         if (!engine.existsBindingsByInfo(_info)) {
           return;
         }
@@ -73,10 +73,10 @@ export function restructListIndexes(
         if (refKeys.has(refKey)) {
           return;
         }
-        let cacheListIndexSet = cache.get(info);
+        let cacheListIndexSet = cache.get(_info);
         if (!cacheListIndexSet) {
           cacheListIndexSet = new Set<IListIndex|null>();
-          cache.set(info, cacheListIndexSet);
+          cache.set(_info, cacheListIndexSet);
         }
         cacheListIndexSet.add(_listIndex);
         refKeys.add(refKey);

@@ -140,6 +140,7 @@ class Updater {
                     retBindings.push(...bindings ?? []);
                 }
             }
+            retBindings.push(...bindingsByListIndex);
         }
         this.updatedValues = {};
         return { bindings: retBindings, arrayElementBindings: retArrayElementBindings };
