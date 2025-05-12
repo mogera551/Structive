@@ -9,6 +9,7 @@ class Binding implements IBinding {
   engine           : IComponentEngine;
   bindingNode      : IBindingNode;
   bindingState     : IBindingState;
+  version          : number | undefined;
   constructor(
     parentBindContent : IBindContent,
     node              : Node,
@@ -33,7 +34,13 @@ class Binding implements IBinding {
   }
 
   render() {
-    this.bindingNode.update();
+    if (this.version !== this.engine.updater.version) {
+      try {
+        this.bindingNode.update();
+      } finally {
+        this.version = this.engine.updater.version;
+      }
+    }
   }
 
   updateStateValue(value: any) {

@@ -9,8 +9,12 @@ class Updater {
     updatedProperties = new Set;
     updatedValues = {};
     engine;
+    #version = 0;
     constructor(engine) {
         this.engine = engine;
+    }
+    get version() {
+        return this.#version;
     }
     addProcess(process) {
         this.processList.push(process);
@@ -146,6 +150,7 @@ class Updater {
         return { bindings: retBindings, arrayElementBindings: retArrayElementBindings };
     }
     async render(bindings) {
+        this.#version++;
         await this.engine.stateProxy[SetCacheableSymbol](async () => {
             return render(bindings);
         });

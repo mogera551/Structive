@@ -49,17 +49,21 @@ export function restructListIndexes(
   cache: Map<IStructuredPathInfo, Set<IListIndex|null>>,
 ) {
   for(const {info, listIndex} of infos) {
+    if (engine.elementInfoSet.has(info)) {
+      // スワップ処理のためスキップ
+      continue;
+    }
     const dependentWalker = createDependencyWalker(engine, {info, listIndex});
     const nowOnList = engine.listInfoSet.has(info);
     dependentWalker.walk((ref, refInfo, type) => {
-      const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(refInfo.wildcardInfoSet));
-      const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
-      const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
       if (nowOnList && type === "structured" && ref.info !== refInfo) {
         if (refInfo.cumulativeInfoSet.has(ref.info)) {
           return;
         }
       }
+      const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(refInfo.wildcardInfoSet));
+      const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
+      const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
       listWalker(engine, refInfo, listIndex, (_info, _listIndex) => {
         if (!engine.existsBindingsByInfo(_info)) {
           return;

@@ -4,6 +4,7 @@ class Binding {
     engine;
     bindingNode;
     bindingState;
+    version;
     constructor(parentBindContent, node, engine, createBindingNode, createBindingState) {
         this.parentBindContent = parentBindContent;
         this.node = node;
@@ -19,7 +20,14 @@ class Binding {
         this.bindingState.init();
     }
     render() {
-        this.bindingNode.update();
+        if (this.version !== this.engine.updater.version) {
+            try {
+                this.bindingNode.update();
+            }
+            finally {
+                this.version = this.engine.updater.version;
+            }
+        }
     }
     updateStateValue(value) {
         const engine = this.engine;

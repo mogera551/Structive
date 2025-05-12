@@ -23,9 +23,14 @@ class Updater implements IUpdater {
   updatedProperties: Set<IStatePropertyRef | IListIndex> = new Set;
   updatedValues    : {[key:string]: any} = {};
   engine           : IComponentEngine;
+  #version         : number = 0;
 
   constructor(engine: IComponentEngine) {
     this.engine = engine;
+  }
+
+  get version(): number {
+    return this.#version;
   }
 
   addProcess(process: () => Promise<void> | void): void {
@@ -172,6 +177,7 @@ class Updater implements IUpdater {
   }
 
   async render(bindings: IBinding[]) {
+    this.#version++;
     await this.engine.stateProxy[SetCacheableSymbol](async () => {
       return render(bindings);
     });

@@ -1686,6 +1686,7 @@ class Binding {
     engine;
     bindingNode;
     bindingState;
+    version;
     constructor(parentBindContent, node, engine, createBindingNode, createBindingState) {
         this.parentBindContent = parentBindContent;
         this.node = node;
@@ -1701,7 +1702,14 @@ class Binding {
         this.bindingState.init();
     }
     render() {
-        this.bindingNode.update();
+        if (this.version !== this.engine.updater.version) {
+            try {
+                this.bindingNode.update();
+            }
+            finally {
+                this.version = this.engine.updater.version;
+            }
+        }
     }
     updateStateValue(value) {
         const engine = this.engine;
@@ -2502,17 +2510,21 @@ function buildListIndexTree$1(engine, info, listIndex, value) {
 }
 function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
     for (const { info, listIndex } of infos) {
+        if (engine.elementInfoSet.has(info)) {
+            // スワップ処理のためスキップ
+            continue;
+        }
         const dependentWalker = createDependencyWalker(engine, { info, listIndex });
         const nowOnList = engine.listInfoSet.has(info);
         dependentWalker.walk((ref, refInfo, type) => {
-            const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(refInfo.wildcardInfoSet));
-            const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
-            const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
             if (nowOnList && type === "structured" && ref.info !== refInfo) {
                 if (refInfo.cumulativeInfoSet.has(ref.info)) {
                     return;
                 }
             }
+            const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(refInfo.wildcardInfoSet));
+            const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
+            const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
             listWalker(engine, refInfo, listIndex, (_info, _listIndex) => {
                 if (!engine.existsBindingsByInfo(_info)) {
                     return;
@@ -2542,8 +2554,12 @@ class Updater {
     updatedProperties = new Set;
     updatedValues = {};
     engine;
+    #version = 0;
     constructor(engine) {
         this.engine = engine;
+    }
+    get version() {
+        return this.#version;
     }
     addProcess(process) {
         this.processList.push(process);
@@ -2679,6 +2695,7 @@ class Updater {
         return { bindings: retBindings, arrayElementBindings: retArrayElementBindings };
     }
     async render(bindings) {
+        this.#version++;
         await this.engine.stateProxy[SetCacheableSymbol](async () => {
             return render(bindings);
         });
