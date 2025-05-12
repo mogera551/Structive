@@ -1954,7 +1954,7 @@ function createBindContent(parentBinding, id, engine, loopContext, listIndex) {
 }
 
 function createRefKey(info, listIndex) {
-    return `${info.id}-${listIndex?.id ?? 0}`;
+    return info.id + ":" + (listIndex?.id ?? 0);
 }
 
 function setTracking(info, handler, callback) {
