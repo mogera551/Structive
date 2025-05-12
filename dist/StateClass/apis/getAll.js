@@ -8,7 +8,7 @@ export function getAll(target, prop, receiver, handler) {
         if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
             const lastPattern = handler.lastTrackingStack;
             if (lastPattern.parentInfo !== info) {
-                handler.engine.addDependentProp(lastPattern, info);
+                handler.engine.addDependentProp(lastPattern, info, "reference");
             }
         }
         if (typeof indexes === "undefined") {

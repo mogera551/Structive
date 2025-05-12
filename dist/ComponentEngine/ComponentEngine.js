@@ -7,6 +7,7 @@ import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, Se
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
 import { raiseError } from "../utils.js";
+import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 export class ComponentEngine {
     type = 'autonomous';
     config;
@@ -52,7 +53,7 @@ export class ComponentEngine {
             const parentInfo = info.parentInfo;
             if (parentInfo === null)
                 return;
-            this.addDependentProp(info, parentInfo);
+            this.addDependentProp(info, parentInfo, "structured");
             checkDependentProp(parentInfo);
         };
         for (const path of componentClass.paths) {
@@ -233,13 +234,14 @@ export class ComponentEngine {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.list;
     }
-    addDependentProp(info, refInfo) {
+    addDependentProp(info, refInfo, type) {
         let dependents = this.dependentTree.get(refInfo);
         if (typeof dependents === "undefined") {
             dependents = new Set();
             this.dependentTree.set(refInfo, dependents);
         }
-        dependents.add(info);
+        const edge = createDependencyEdge(info, type);
+        dependents.add(edge);
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する

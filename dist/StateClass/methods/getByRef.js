@@ -5,7 +5,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
         const lastPattern = handler.lastTrackingStack;
         if (lastPattern.parentInfo !== info) {
-            handler.engine.addDependentProp(lastPattern, info);
+            handler.engine.addDependentProp(lastPattern, info, "reference");
         }
     }
     let refKey = '';

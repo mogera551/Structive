@@ -16,6 +16,8 @@ import { IListIndex } from "../ListIndex/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
 import { raiseError } from "../utils.js";
+import { DependencyType, IDependencyEdge } from "../DependencyWalker/types.js";
+import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 
 export class ComponentEngine implements IComponentEngine {
   type          : ComponentType = 'autonomous';
@@ -33,10 +35,10 @@ export class ComponentEngine implements IComponentEngine {
   owner         : StructiveComponent;
   trackedGetters: Set<string>;
 
-  listInfoSet       : Set<IStructuredPathInfo> = new Set();
-  elementInfoSet: Set<IStructuredPathInfo> = new Set();
-  bindingsByListIndex                  : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
-  dependentTree                        : Map<IStructuredPathInfo, Set<IStructuredPathInfo>> = new Map();
+  listInfoSet         : Set<IStructuredPathInfo> = new Set();
+  elementInfoSet      : Set<IStructuredPathInfo> = new Set();
+  bindingsByListIndex : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
+  dependentTree       : Map<IStructuredPathInfo, Set<IDependencyEdge>> = new Map();
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
 
@@ -65,7 +67,7 @@ export class ComponentEngine implements IComponentEngine {
     const checkDependentProp = (info: IStructuredPathInfo) => {
       const parentInfo = info.parentInfo;
       if (parentInfo === null) return;
-      this.addDependentProp(info, parentInfo);
+      this.addDependentProp(info, parentInfo, "structured");
       checkDependentProp(parentInfo);
     }
     for(const path of componentClass.paths) {
@@ -284,13 +286,14 @@ export class ComponentEngine implements IComponentEngine {
     return saveInfo.list;
   }
 
-  addDependentProp(info: IStructuredPathInfo, refInfo: IStructuredPathInfo) {
+  addDependentProp(info: IStructuredPathInfo, refInfo: IStructuredPathInfo, type: DependencyType) {
     let dependents = this.dependentTree.get(refInfo);
     if (typeof dependents === "undefined") {
-      dependents = new Set<IStructuredPathInfo>();
+      dependents = new Set<IDependencyEdge>();
       this.dependentTree.set(refInfo, dependents);
     }
-    dependents.add(info);
+    const edge = createDependencyEdge(info, type);
+    dependents.add(edge);
   }
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any {

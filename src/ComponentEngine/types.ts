@@ -1,4 +1,5 @@
 import { IBindContent, IBinding } from "../DataBinding/types";
+import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
@@ -30,7 +31,7 @@ export interface IComponentEngine {
   listInfoSet        : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列を持つもの
   elementInfoSet     : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列の要素を持つもの
   bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する
-  dependentTree      : Map<IStructuredPathInfo, Set<IStructuredPathInfo>>; // 依存関係の木を取得する
+  dependentTree      : Map<IStructuredPathInfo, Set<IDependencyEdge>>; // 依存関係の木を取得する
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // コンポーネントからバインディングを取得する
 
@@ -52,7 +53,7 @@ export interface IComponentEngine {
   existsBindingsByInfo(info: IStructuredPathInfo): boolean;
   getListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex | null): Set<IListIndex> | null;
   getList(pattern:IStructuredPathInfo, listIndex:IListIndex | null): any[] | null;
-  addDependentProp(pattern:IStructuredPathInfo, dependentPattern:IStructuredPathInfo): void;
+  addDependentProp(pattern:IStructuredPathInfo, dependentPattern:IStructuredPathInfo, type:DependencyType): void;
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する

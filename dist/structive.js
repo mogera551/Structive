@@ -543,15 +543,15 @@ function textToFilter(filters, text) {
         raiseError(`outputBuiltinFiltersFn: filter not found: ${name}`);
     return filter(text.options);
 }
-const cache$1 = new Map();
+const cache$2 = new Map();
 function createFilters(filters, texts) {
-    let result = cache$1.get(texts);
+    let result = cache$2.get(texts);
     if (typeof result === "undefined") {
         result = [];
         for (let i = 0; i < texts.length; i++) {
             result.push(textToFilter(filters, texts[i]));
         }
-        cache$1.set(texts, result);
+        cache$2.set(texts, result);
     }
     return result;
 }
@@ -1523,7 +1523,7 @@ const parseExpression = (expression) => {
 const parseExpressions = (text) => {
     return text.split(";").map(trim).filter(has).map(s => parseExpression(s));
 };
-const cache = {};
+const cache$1 = {};
 /**
  * 取得したバインドテキスト(getBindTextByNodeType)を解析して、バインド情報を取得する
  * @param text バインドテキスト
@@ -1534,7 +1534,7 @@ function parseBindText(text) {
     if (text.trim() === "") {
         return [];
     }
-    return cache[text] ?? (cache[text] = parseExpressions(text));
+    return cache$1[text] ?? (cache$1[text] = parseExpressions(text));
 }
 
 const DATASET_BIND_PROPERTY = 'data-bind';
@@ -1965,7 +1965,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
         const lastPattern = handler.lastTrackingStack;
         if (lastPattern.parentInfo !== info) {
-            handler.engine.addDependentProp(lastPattern, info);
+            handler.engine.addDependentProp(lastPattern, info, "reference");
         }
     }
     let refKey = '';
@@ -2122,7 +2122,7 @@ function getAll(target, prop, receiver, handler) {
         if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
             const lastPattern = handler.lastTrackingStack;
             if (lastPattern.parentInfo !== info) {
-                handler.engine.addDependentProp(lastPattern, info);
+                handler.engine.addDependentProp(lastPattern, info, "reference");
             }
         }
         if (typeof indexes === "undefined") {
@@ -2346,6 +2346,15 @@ function createStateProxy(engine, state) {
     return new Proxy(state, new StateHandler(engine));
 }
 
+function createDependencyKey(info, type) {
+    return `${info.pattern}@${type}`;
+}
+const cache = {};
+function createDependencyEdge(info, type) {
+    const key = createDependencyKey(info, type);
+    return cache[key] ?? (cache[key] = { info, type });
+}
+
 class dependencyWalker {
     engine;
     entryRef;
@@ -2354,19 +2363,21 @@ class dependencyWalker {
         this.engine = engine;
         this.entryRef = entryRef;
     }
-    walkSub(info, callback) {
-        if (this.traced.has(info)) {
+    walkSub(info, type, callback) {
+        const key = createDependencyKey(info, type);
+        if (this.traced.has(key)) {
             return;
         }
-        this.traced.add(info);
-        callback(this.entryRef, info);
-        const refs = this.engine.dependentTree.get(info) ?? [];
-        for (const ref of refs) {
-            this.walkSub(ref, callback);
+        this.traced.add(key);
+        callback(this.entryRef, info, type);
+        const edges = this.engine.dependentTree.get(info) ?? [];
+        for (const edge of edges) {
+            const overridedType = edge.type === "structured" ? type : edge.type;
+            this.walkSub(edge.info, overridedType, callback);
         }
     }
     walk(callback) {
-        this.walkSub(this.entryRef.info, callback);
+        this.walkSub(this.entryRef.info, "structured", callback);
     }
 }
 function createDependencyWalker(engine, entryRef) {
@@ -2490,20 +2501,15 @@ function buildListIndexTree$1(engine, info, listIndex, value) {
     engine.saveList(info, listIndex, value.slice(0)); // コピーを保存
 }
 function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
-    const skipInfoSet = new Set();
     for (const { info, listIndex } of infos) {
         const dependentWalker = createDependencyWalker(engine, { info, listIndex });
         const nowOnList = engine.listInfoSet.has(info);
-        dependentWalker.walk((ref, refInfo) => {
+        dependentWalker.walk((ref, refInfo, type) => {
             const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(refInfo.wildcardInfoSet));
             const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
             const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
-            if (skipInfoSet.has(refInfo)) {
-                return;
-            }
-            if (nowOnList && refInfo.parentInfo === ref.info) {
+            if (nowOnList && type === "structured" && ref.info !== refInfo) {
                 if (refInfo.cumulativeInfoSet.has(ref.info)) {
-                    skipInfoSet.add(refInfo);
                     return;
                 }
             }
@@ -2830,7 +2836,7 @@ class ComponentEngine {
             const parentInfo = info.parentInfo;
             if (parentInfo === null)
                 return;
-            this.addDependentProp(info, parentInfo);
+            this.addDependentProp(info, parentInfo, "structured");
             checkDependentProp(parentInfo);
         };
         for (const path of componentClass.paths) {
@@ -3011,13 +3017,14 @@ class ComponentEngine {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.list;
     }
-    addDependentProp(info, refInfo) {
+    addDependentProp(info, refInfo, type) {
         let dependents = this.dependentTree.get(refInfo);
         if (typeof dependents === "undefined") {
             dependents = new Set();
             this.dependentTree.set(refInfo, dependents);
         }
-        dependents.add(info);
+        const edge = createDependencyEdge(info, type);
+        dependents.add(edge);
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する

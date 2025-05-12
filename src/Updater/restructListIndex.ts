@@ -48,20 +48,15 @@ export function restructListIndexes(
   refKeys: Set<string>,
   cache: Map<IStructuredPathInfo, Set<IListIndex|null>>,
 ) {
-  const skipInfoSet = new Set<IStructuredPathInfo>();
   for(const {info, listIndex} of infos) {
     const dependentWalker = createDependencyWalker(engine, {info, listIndex});
     const nowOnList = engine.listInfoSet.has(info);
-    dependentWalker.walk((ref, refInfo) => {
+    dependentWalker.walk((ref, refInfo, type) => {
       const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(refInfo.wildcardInfoSet));
       const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
       const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
-      if (skipInfoSet.has(refInfo)) {
-        return;
-      }
-      if (nowOnList && refInfo.parentInfo === ref.info) {
+      if (nowOnList && type === "structured" && ref.info !== refInfo) {
         if (refInfo.cumulativeInfoSet.has(ref.info)) {
-          skipInfoSet.add(refInfo);
           return;
         }
       }
