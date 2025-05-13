@@ -46,6 +46,9 @@ export interface IConfig {
   routerTagName        : string; // The tag name of the router, default is "view-router"
   layoutPath           : string; // The path to the layout file, default is "src/layout.html"
   autoLoadFromImportMap: boolean; // Whether to automatically load the component from the import map or not
+  optimizeList         : boolean; // Whether to optimize the list or not
+  optimizeListElements : boolean; // Whether to optimize the list elements or not
+  optimizeAccessor     : boolean; // Whether to optimize the accessors or not
 }
 
 export interface IUserConfig {

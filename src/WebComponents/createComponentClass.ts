@@ -16,6 +16,9 @@ import { IStructiveState, IStructiveStaticState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
 import { IComponentStateProxy } from "../ComponentState/types";
 import { createComponentState } from "../ComponentState/createComponentState.js";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
+import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
+import { config as globalConfig } from "./getGlobalConfig.js";
 
 function findStructiveParent(el:StructiveComponent): IComponent | null {
   let current = el.parentNode;
@@ -165,6 +168,24 @@ export function createComponentClass(componentData: IUserComponentData): Structi
             }
           }
           currentProto = Object.getPrototypeOf(currentProto);
+        }
+        if (globalConfig.optimizeAccessor) {
+          for(const path of this.paths) {
+            const info = getStructuredPathInfo(path);
+            if (info.pathSegments.length === 1) {
+              continue;
+            }
+            if (this.#trackedGetters.has(path)) {
+              continue;
+            }
+            const funcs = createAccessorFunctions(info, this.#trackedGetters);
+            Object.defineProperty(this.stateClass.prototype, path, {
+              get: funcs.get,
+              set: funcs.set,
+              enumerable: true,
+              configurable: true,
+            });
+          }
         }
       }
       return this.#trackedGetters;

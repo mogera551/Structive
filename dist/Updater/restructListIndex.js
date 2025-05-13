@@ -3,6 +3,7 @@ import { createListIndex } from "../ListIndex/createListIndex";
 import { listWalker } from "../ListWalker/listWalker";
 import { GetByRefSymbol } from "../StateClass/symbols";
 import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
+import { config } from "../WebComponents/getGlobalConfig";
 const BLANK_LISTINDEXES_SET = new Set();
 function buildListIndexTree(engine, info, listIndex, value) {
     const oldValue = engine.getList(info, listIndex) ?? [];
@@ -30,12 +31,12 @@ function buildListIndexTree(engine, info, listIndex, value) {
 }
 export function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
     for (const { info, listIndex } of infos) {
-        if (engine.elementInfoSet.has(info)) {
+        if (config.optimizeListElements && engine.elementInfoSet.has(info)) {
             // スワップ処理のためスキップ
             continue;
         }
         const dependentWalker = createDependencyWalker(engine, { info, listIndex });
-        const nowOnList = engine.listInfoSet.has(info);
+        const nowOnList = config.optimizeList && engine.listInfoSet.has(info);
         dependentWalker.walk((ref, refInfo, type) => {
             if (nowOnList && type === "structured" && ref.info !== refInfo) {
                 if (refInfo.cumulativeInfoSet.has(ref.info)) {

@@ -75,3 +75,8 @@ export interface IResolvedPathInfo {
 
 export type Index = number | undefined;
 export type Indexes = (undefined|number)[];
+
+export interface IAccessorFunctions {
+  get: () => any;
+  set: (value: any) => void;
+}

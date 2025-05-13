@@ -9,6 +9,12 @@ import { IStateHandler, IStateProxy } from "../types";
 
 const matchIndexPropertyName = new RegExp(/^\$(\d+)$/);
 
+const apiProps = new Set([
+  "$resolve",
+  "$getAll",
+  "$router"
+]);
+
 export function get(
   target  : Object, 
   prop    : PropertyKey, 
@@ -23,12 +29,14 @@ export function get(
       const ref = handler.engine.getLastStatePropertyRef() ?? 
         raiseError(`get: this.engine.getLastStatePropertyRef() is null`);
       return ref.listIndex?.at(index - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-    } else if (prop === "$resolve") {
-      return resolve(target, prop, receiver, handler);
-    } else if (prop === "$getAll") {
-      return getAll(target, prop, receiver, handler);
-    } else if (prop === "$router") {
-      return getRouter();
+    } else if (apiProps.has(prop)) {
+      if (prop === "$resolve") {
+        return resolve(target, prop, receiver, handler);
+      } else if (prop === "$getAll") {
+        return getAll(target, prop, receiver, handler);
+      } else if (prop === "$router") {
+        return getRouter();
+      }
     } else {
       const resolvedInfo = getResolvedPathInfo(prop);
       const listIndex = getListIndex(resolvedInfo, handler.engine);

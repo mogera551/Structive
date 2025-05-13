@@ -12,7 +12,11 @@ const globalConfig: IConfig = {
   routerTagName        : "view-router", // The tag name of the router, default is "view-router"
   layoutPath           : "", // The path to the layout file, default is ""
   autoLoadFromImportMap: false, // Whether to automatically load the component from the import map or not
+  optimizeList         : true, // Whether to optimize the list or not
+  optimizeListElements : true, // Whether to optimize the list elements or not
+  optimizeAccessor     : true, // Whether to optimize the accessors or not
 };
+
 
 export function getGlobalConfig():IConfig {
   return globalConfig;

@@ -7,6 +7,7 @@ import { GetByRefSymbol } from "../StateClass/symbols";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
+import { config } from "../WebComponents/getGlobalConfig";
 
 const BLANK_LISTINDEXES_SET = new Set<IListIndex>();
 
@@ -49,12 +50,12 @@ export function restructListIndexes(
   cache: Map<IStructuredPathInfo, Set<IListIndex|null>>,
 ) {
   for(const {info, listIndex} of infos) {
-    if (engine.elementInfoSet.has(info)) {
+    if (config.optimizeListElements && engine.elementInfoSet.has(info)) {
       // スワップ処理のためスキップ
       continue;
     }
     const dependentWalker = createDependencyWalker(engine, {info, listIndex});
-    const nowOnList = engine.listInfoSet.has(info);
+    const nowOnList = config.optimizeList && engine.listInfoSet.has(info);
     dependentWalker.walk((ref, refInfo, type) => {
       if (nowOnList && type === "structured" && ref.info !== refInfo) {
         if (refInfo.cumulativeInfoSet.has(ref.info)) {

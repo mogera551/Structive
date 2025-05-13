@@ -94,6 +94,9 @@ const globalConfig = {
     routerTagName: "view-router", // The tag name of the router, default is "view-router"
     layoutPath: "", // The path to the layout file, default is ""
     autoLoadFromImportMap: false, // Whether to automatically load the component from the import map or not
+    optimizeList: true, // Whether to optimize the list or not
+    optimizeListElements: true, // Whether to optimize the list elements or not
+    optimizeAccessor: true, // Whether to optimize the accessors or not
 };
 function getGlobalConfig() {
     return globalConfig;
@@ -2280,6 +2283,11 @@ function getListIndex(info, engine) {
 }
 
 const matchIndexPropertyName = new RegExp(/^\$(\d+)$/);
+const apiProps = new Set([
+    "$resolve",
+    "$getAll",
+    "$router"
+]);
 function get(target, prop, receiver, handler) {
     let value;
     if (typeof prop === "string") {
@@ -2290,14 +2298,16 @@ function get(target, prop, receiver, handler) {
                 raiseError(`get: this.engine.getLastStatePropertyRef() is null`);
             return ref.listIndex?.at(index - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
         }
-        else if (prop === "$resolve") {
-            return resolve(target, prop, receiver, handler);
-        }
-        else if (prop === "$getAll") {
-            return getAll(target, prop, receiver, handler);
-        }
-        else if (prop === "$router") {
-            return getRouter();
+        else if (apiProps.has(prop)) {
+            if (prop === "$resolve") {
+                return resolve(target, prop, receiver, handler);
+            }
+            else if (prop === "$getAll") {
+                return getAll(target, prop, receiver, handler);
+            }
+            else if (prop === "$router") {
+                return getRouter();
+            }
         }
         else {
             const resolvedInfo = getResolvedPathInfo(prop);
@@ -2510,12 +2520,12 @@ function buildListIndexTree$1(engine, info, listIndex, value) {
 }
 function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
     for (const { info, listIndex } of infos) {
-        if (engine.elementInfoSet.has(info)) {
+        if (config$2.optimizeListElements && engine.elementInfoSet.has(info)) {
             // スワップ処理のためスキップ
             continue;
         }
         const dependentWalker = createDependencyWalker(engine, { info, listIndex });
-        const nowOnList = engine.listInfoSet.has(info);
+        const nowOnList = config$2.optimizeList && engine.listInfoSet.has(info);
         dependentWalker.walk((ref, refInfo, type) => {
             if (nowOnList && type === "structured" && ref.info !== refInfo) {
                 if (refInfo.cumulativeInfoSet.has(ref.info)) {
@@ -3242,6 +3252,60 @@ const createComponentState = (engine) => {
     return new Proxy(new ComponentState(engine), new ComponentStateHandler());
 };
 
+function createAccessorFunctions(info, trackedGetters) {
+    const matchPaths = new Set(info.cumulativePaths).intersection(trackedGetters);
+    let len = -1;
+    let matchPath = '';
+    for (const curPath of matchPaths) {
+        const pathSegments = curPath.split('.');
+        if (pathSegments.length === 1) {
+            continue;
+        }
+        if (pathSegments.length > len) {
+            len = pathSegments.length;
+            matchPath = curPath;
+        }
+    }
+    if (matchPath.length > 0) {
+        const matchInfo = getStructuredPathInfo(matchPath);
+        const segments = [];
+        let count = matchInfo.wildcardCount;
+        for (let i = matchInfo.pathSegments.length; i < info.pathSegments.length; i++) {
+            const segment = info.pathSegments[i];
+            if (segment === '*') {
+                segments.push("[this.$" + (count + 1) + "]");
+                count++;
+            }
+            else {
+                segments.push("." + segment);
+            }
+        }
+        const path = segments.join('');
+        return {
+            get: new Function('', `return this["${matchPath}"]${path};`),
+            set: new Function('value', `this["${matchPath}"]${path} = value;`),
+        };
+    }
+    else {
+        const segments = [];
+        let count = 0;
+        for (const segment of info.pathSegments) {
+            if (segment === '*') {
+                segments.push("[this.$" + (count + 1) + "]");
+                count++;
+            }
+            else {
+                segments.push((segments.length > 0 ? "." : "") + segment);
+            }
+        }
+        const path = segments.join('');
+        return {
+            get: new Function('', `return this.${path};`),
+            set: new Function('value', `this.${path} = value;`),
+        };
+    }
+}
+
 function findStructiveParent(el) {
     let current = el.parentNode;
     while (current) {
@@ -3380,6 +3444,24 @@ function createComponentClass(componentData) {
                         }
                     }
                     currentProto = Object.getPrototypeOf(currentProto);
+                }
+                if (config$2.optimizeAccessor) {
+                    for (const path of this.paths) {
+                        const info = getStructuredPathInfo(path);
+                        if (info.pathSegments.length === 1) {
+                            continue;
+                        }
+                        if (this.#trackedGetters.has(path)) {
+                            continue;
+                        }
+                        const funcs = createAccessorFunctions(info, this.#trackedGetters);
+                        Object.defineProperty(this.stateClass.prototype, path, {
+                            get: funcs.get,
+                            set: funcs.set,
+                            enumerable: true,
+                            configurable: true,
+                        });
+                    }
                 }
             }
             return this.#trackedGetters;
