@@ -29,26 +29,28 @@
 <script type="importmap">
 {
   "imports": {
-    "my-component": "./components/my-component.html"
+    "structive": "path/to/cdn/structive.js",
+    "@routes/root": "./components/my-component.html",
+    "@components/sub-component": "./components/sub-component.html"
   }
 }
 </script>
 ```
 
-2. コンポーネントを `defineComponents()` で読み込み：
+2. コンポーネントを `bootstrapStructive()` で自動読み込み：
 
 ```js
-import { defineComponents } from "structive";
+import { config, bootstrapStructive } from "structive";
 
-defineComponents({
-  "my-component": "my-component"
-});
+config.autoLoadFromImportMap = true;
+bootstrapStructive();
 ```
 
 3. HTMLに記述して使用：
 
 ```html
-<my-component></my-component>
+<app-main></app-main> <!-- default app main, attach @routes/root -->
+<sub-component></sub-component>
 ```
 
 ---

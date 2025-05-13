@@ -27,26 +27,28 @@
 <script type="importmap">
 {
   "imports": {
-    "my-component": "./components/my-component.html"
+    "structive": "path/to/cdn/structive.js",
+    "@routes/root": "./components/my-component.html",
+    "@components/sub-component": "./components/sub-component.html"
   }
 }
 </script>
 ```
 
-2. Load components using `defineComponents()`:
+2. Load components using `bootstrapStructive()`:
 
 ```js
-import { defineComponents } from "structive";
+import { config, bootstrapStructive } from "structive";
 
-defineComponents({
-  "my-component": "my-component"
-});
+config.autoLoadFromImportMap = true;
+bootstrapStructive();
 ```
 
 3. Use it in your HTML:
 
 ```html
-<my-component></my-component>
+<app-main></app-main> <!-- default app main, attach @routes/root -->
+<sub-component></sub-component>
 ```
 
 ---
