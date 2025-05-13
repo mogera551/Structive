@@ -810,6 +810,7 @@ class BindingNodeFor extends BindingNodeBlock {
     #bindContentByListIndex = new WeakMap();
     #bindContentPool = [];
     #bindContentLastIndex = 0;
+    #lastListIndexSet = new Set();
     get bindContents() {
         return this.#bindContentsSet;
     }
@@ -862,13 +863,24 @@ class BindingNodeFor extends BindingNodeBlock {
         if (listIndexesSet === null) {
             raiseError(`BindingNodeFor.assignValue: listIndexes is not found`);
         }
-        this.bindContentLastIndex = this.poolLength - 1;
         const newBindContensSet = new Set();
         let lastBindContent = null;
         const parentNode = this.node.parentNode;
         if (parentNode == null) {
             raiseError(`BindingNodeFor.update: parentNode is null`);
         }
+        const removeBindContentsSet = new Set();
+        const diff = this.#lastListIndexSet.difference(listIndexesSet);
+        // 削除を先にする
+        for (const listIndex of diff) {
+            const bindContent = this.#bindContentByListIndex.get(listIndex);
+            if (bindContent) {
+                this.deleteBindContent(bindContent);
+                removeBindContentsSet.add(bindContent);
+            }
+        }
+        this.#bindContentPool.push(...removeBindContentsSet);
+        this.bindContentLastIndex = this.poolLength - 1;
         for (const listIndex of listIndexesSet) {
             const lastNode = lastBindContent?.getLastNode(parentNode) ?? this.node;
             let bindContent = this.#bindContentByListIndex.get(listIndex);
@@ -888,13 +900,8 @@ class BindingNodeFor extends BindingNodeBlock {
         // プールの長さを更新する
         // プールの長さは、プールの最後の要素のインデックス+1であるため、
         this.poolLength = this.bindContentLastIndex + 1;
-        // 削除
-        const removeBindContentsSet = this.#bindContentsSet.difference(newBindContensSet);
-        for (const bindContent of removeBindContentsSet) {
-            this.deleteBindContent(bindContent);
-        }
-        this.#bindContentPool.push(...removeBindContentsSet);
         this.#bindContentsSet = newBindContensSet;
+        this.#lastListIndexSet = new Set(listIndexesSet);
     }
     /**
      * SWAP処理を想定
