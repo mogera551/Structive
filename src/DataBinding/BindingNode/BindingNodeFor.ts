@@ -83,13 +83,9 @@ class BindingNodeFor extends BindingNodeBlock {
     }
     const newBindContensSet = new Set<IBindContent>();
     let lastBindContent = null;
-    const parentNode = this.node.parentNode;
-    if (parentNode == null) {
-      raiseError(`BindingNodeFor.update: parentNode is null`);
-    }
+    // 削除を先にする
     const removeBindContentsSet = new Set<IBindContent>();
     const diff = this.#lastListIndexSet.difference(listIndexesSet);
-    // 削除を先にする
     for(const listIndex of diff) {
       const bindContent = this.#bindContentByListIndex.get(listIndex);
       if (bindContent) {
@@ -99,16 +95,19 @@ class BindingNodeFor extends BindingNodeBlock {
     }
     this.#bindContentPool.push(...removeBindContentsSet);
 
+    const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
+    const firstNode = this.node;
+
     this.bindContentLastIndex = this.poolLength - 1;
     for(const listIndex of listIndexesSet) {
-      const lastNode = lastBindContent?.getLastNode(parentNode) ?? this.node;
+      const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
       let bindContent = this.#bindContentByListIndex.get(listIndex);
       if (typeof bindContent === "undefined") {
         bindContent = this.createBindContent(listIndex);
         bindContent.render();
         bindContent.mountAfter(parentNode, lastNode);
       } else {
-        if (lastNode.nextSibling !== bindContent.firstChildNode) {
+        if (lastNode?.nextSibling !== bindContent.firstChildNode) {
           bindContent.mountAfter(parentNode, lastNode);
         }
       }
