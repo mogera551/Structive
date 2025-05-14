@@ -14,14 +14,15 @@ const apiProps = new Set([
 export function get(target, prop, receiver, handler) {
     let value;
     if (typeof prop === "string") {
-        if (matchIndexPropertyName.test(prop)) {
-            const number = prop.slice(1);
-            const index = Number(number);
-            const ref = handler.engine.getLastStatePropertyRef() ??
-                raiseError(`get: this.engine.getLastStatePropertyRef() is null`);
-            return ref.listIndex?.at(index - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-        }
-        else if (apiProps.has(prop)) {
+        if (prop.charCodeAt(0) === 36) {
+            if (prop.length === 2) {
+                const d = prop.charCodeAt(1) - 48;
+                if (d >= 1 && d <= 9) {
+                    const ref = handler.engine.getLastStatePropertyRef() ??
+                        raiseError(`get: this.engine.getLastStatePropertyRef() is null`);
+                    return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
+                }
+            }
             if (prop === "$resolve") {
                 return resolve(target, prop, receiver, handler);
             }
@@ -32,11 +33,9 @@ export function get(target, prop, receiver, handler) {
                 return getRouter();
             }
         }
-        else {
-            const resolvedInfo = getResolvedPathInfo(prop);
-            const listIndex = getListIndex(resolvedInfo, handler.engine);
-            value = getByRef(target, resolvedInfo.info, listIndex, receiver, handler);
-        }
+        const resolvedInfo = getResolvedPathInfo(prop);
+        const listIndex = getListIndex(resolvedInfo, handler.engine);
+        value = getByRef(target, resolvedInfo.info, listIndex, receiver, handler);
     }
     else if (typeof prop === "symbol") {
         if (prop in handler.callableApi) {
