@@ -2,8 +2,8 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { getStructuredPathInfo } from "./getStructuredPathInfo";
 import { IAccessorFunctions, IStructuredPathInfo } from "./types";
 
-export function createAccessorFunctions(info: IStructuredPathInfo, trackedGetters: Set<string>): IAccessorFunctions {
-  const matchPaths = new Set(info.cumulativePaths).intersection(trackedGetters);
+export function createAccessorFunctions(info: IStructuredPathInfo, getters: Set<string>): IAccessorFunctions {
+  const matchPaths = new Set(info.cumulativePaths).intersection(getters);
   let len = -1;
   let matchPath = '';
   for(const curPath of matchPaths) {

@@ -1,6 +1,6 @@
 import { getStructuredPathInfo } from "./getStructuredPathInfo";
-export function createAccessorFunctions(info, trackedGetters) {
-    const matchPaths = new Set(info.cumulativePaths).intersection(trackedGetters);
+export function createAccessorFunctions(info, getters) {
+    const matchPaths = new Set(info.cumulativePaths).intersection(getters);
     let len = -1;
     let matchPath = '';
     for (const curPath of matchPaths) {

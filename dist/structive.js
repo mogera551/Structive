@@ -3257,8 +3257,8 @@ const createComponentState = (engine) => {
     return new Proxy(new ComponentState(engine), new ComponentStateHandler());
 };
 
-function createAccessorFunctions(info, trackedGetters) {
-    const matchPaths = new Set(info.cumulativePaths).intersection(trackedGetters);
+function createAccessorFunctions(info, getters) {
+    const matchPaths = new Set(info.cumulativePaths).intersection(getters);
     let len = -1;
     let matchPath = '';
     for (const curPath of matchPaths) {
@@ -3434,18 +3434,24 @@ function createComponentClass(componentData) {
         static get paths() {
             return getPathsSetById(this.id);
         }
+        static #getters = null;
+        static get getters() {
+            return this.#getters ?? raiseError("getters is null");
+        }
         static #trackedGetters = null;
         static get trackedGetters() {
             if (this.#trackedGetters === null) {
                 this.#trackedGetters = new Set();
+                this.#getters = new Set();
                 let currentProto = this.stateClass.prototype;
                 while (currentProto && currentProto !== Object.prototype) {
                     const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
                     if (trackedGetters) {
                         for (const [key, desc] of Object.entries(trackedGetters)) {
-                            if (desc.get) {
+                            if (desc.get && !desc.set) {
                                 this.#trackedGetters.add(key);
                             }
+                            this.#getters.add(key);
                         }
                     }
                     currentProto = Object.getPrototypeOf(currentProto);
@@ -3456,10 +3462,10 @@ function createComponentClass(componentData) {
                         if (info.pathSegments.length === 1) {
                             continue;
                         }
-                        if (this.#trackedGetters.has(path)) {
+                        if (this.#getters.has(path)) {
                             continue;
                         }
-                        const funcs = createAccessorFunctions(info, this.#trackedGetters);
+                        const funcs = createAccessorFunctions(info, this.#getters);
                         Object.defineProperty(this.stateClass.prototype, path, {
                             get: funcs.get,
                             set: funcs.set,
