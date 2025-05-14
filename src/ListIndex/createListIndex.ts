@@ -63,7 +63,12 @@ class ListIndex implements IListIndex {
     return (parentListIndex !== null) ? parentListIndex + "," + this.index.toString() : this.index.toString();
   }
 
+  #atcache:{[key:number]:(WeakRef<IListIndex> | null)} = {};
   at(position: number): IListIndex | null {
+    const value = this.#atcache[position];
+    if (value !== undefined) {
+      return value ? (value.deref() ?? null) : null;
+    }
     let iterator;
     if (position >= 0) {
       iterator = this.iterator();
@@ -76,7 +81,9 @@ class ListIndex implements IListIndex {
       next = iterator.next();
       position--;
     }
-    return next?.value ?? null;
+    const lisIndex = next?.value ?? null;
+    this.#atcache[position] = lisIndex ? new WeakRef(lisIndex) : null;
+    return lisIndex;
   }
   
 }

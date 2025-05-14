@@ -51,7 +51,12 @@ class ListIndex {
         const parentListIndex = this.parentListIndex?.toString();
         return (parentListIndex !== null) ? parentListIndex + "," + this.index.toString() : this.index.toString();
     }
+    #atcache = {};
     at(position) {
+        const value = this.#atcache[position];
+        if (value !== undefined) {
+            return value ? (value.deref() ?? null) : null;
+        }
         let iterator;
         if (position >= 0) {
             iterator = this.iterator();
@@ -65,7 +70,9 @@ class ListIndex {
             next = iterator.next();
             position--;
         }
-        return next?.value ?? null;
+        const lisIndex = next?.value ?? null;
+        this.#atcache[position] = lisIndex ? new WeakRef(lisIndex) : null;
+        return lisIndex;
     }
 }
 export function createListIndex(parentListIndex, index) {
