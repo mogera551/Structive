@@ -1915,26 +1915,33 @@ class BindContent {
     mount(parentNode) {
         if (this.fragment.childNodes.length === 0) {
             for (let i = 0; i < this.childNodes.length; i++) {
-                this.fragment.appendChild(this.childNodes[i]);
+                parentNode.appendChild(this.childNodes[i]);
             }
         }
-        parentNode.appendChild(this.fragment);
+        else {
+            parentNode.appendChild(this.fragment);
+        }
     }
     mountBefore(parentNode, beforeNode) {
         if (this.fragment.childNodes.length === 0) {
             for (let i = 0; i < this.childNodes.length; i++) {
-                this.fragment.appendChild(this.childNodes[i]);
+                parentNode.insertBefore(this.childNodes[i], beforeNode);
             }
         }
-        parentNode.insertBefore(this.fragment, beforeNode);
+        else {
+            parentNode.insertBefore(this.fragment, beforeNode);
+        }
     }
     mountAfter(parentNode, afterNode) {
+        const beforeNode = afterNode?.nextSibling ?? null;
         if (this.fragment.childNodes.length === 0) {
             for (let i = 0; i < this.childNodes.length; i++) {
-                this.fragment.appendChild(this.childNodes[i]);
+                parentNode.insertBefore(this.childNodes[i], beforeNode);
             }
         }
-        parentNode.insertBefore(this.fragment, afterNode?.nextSibling ?? null);
+        else {
+            parentNode.insertBefore(this.fragment, beforeNode);
+        }
     }
     unmount() {
         for (let i = 0; i < this.childNodes.length; i++) {
