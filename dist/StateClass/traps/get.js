@@ -5,12 +5,6 @@ import { getAll } from "../apis/getAll.js";
 import { resolve } from "../apis/resolve.js";
 import { getListIndex } from "../getListIndex.js";
 import { getByRef } from "../methods/getByRef.js";
-const matchIndexPropertyName = new RegExp(/^\$(\d+)$/);
-const apiProps = new Set([
-    "$resolve",
-    "$getAll",
-    "$router"
-]);
 export function get(target, prop, receiver, handler) {
     let value;
     if (typeof prop === "string") {

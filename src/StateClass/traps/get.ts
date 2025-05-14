@@ -7,14 +7,6 @@ import { getListIndex } from "../getListIndex.js";
 import { getByRef } from "../methods/getByRef.js";
 import { IStateHandler, IStateProxy } from "../types";
 
-const matchIndexPropertyName = new RegExp(/^\$(\d+)$/);
-
-const apiProps = new Set([
-  "$resolve",
-  "$getAll",
-  "$router"
-]);
-
 export function get(
   target  : Object, 
   prop    : PropertyKey, 
