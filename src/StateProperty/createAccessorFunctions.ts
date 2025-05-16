@@ -2,6 +2,9 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { getStructuredPathInfo } from "./getStructuredPathInfo";
 import { IAccessorFunctions, IStructuredPathInfo } from "./types";
 
+const checkSegmentRegexp = /^[a-zA-Z_$][0-9a-zA-Z_$]*$/;
+const checkPathRegexp = /^[a-zA-Z_$][0-9a-zA-Z_$]*(\.[a-zA-Z_$][0-9a-zA-Z_$]*|\.\*)*$/;
+
 export function createAccessorFunctions(info: IStructuredPathInfo, getters: Set<string>): IAccessorFunctions {
   const matchPaths = new Set(info.cumulativePaths).intersection(getters);
   let len = -1;
@@ -17,6 +20,9 @@ export function createAccessorFunctions(info: IStructuredPathInfo, getters: Set<
     }
   }
   if (matchPath.length > 0) {
+    if (!checkPathRegexp.test(matchPath)) {
+      throw new Error(`Invalid path: ${matchPath}`);
+    }
     const matchInfo = getStructuredPathInfo(matchPath);
     const segments = [];
     let count = matchInfo.wildcardCount;
@@ -26,6 +32,9 @@ export function createAccessorFunctions(info: IStructuredPathInfo, getters: Set<
         segments.push("[this.$" + (count + 1) + "]");
         count++;
       } else {
+        if (!checkSegmentRegexp.test(segment)) {
+          throw new Error(`Invalid segment name: ${segment}`);
+        }
         segments.push("." + segment);
       }
     }
@@ -42,6 +51,9 @@ export function createAccessorFunctions(info: IStructuredPathInfo, getters: Set<
         segments.push("[this.$" + (count + 1) + "]");
         count++;
       } else {
+        if (!checkSegmentRegexp.test(segment)) {
+          throw new Error(`Invalid segment name: ${segment}`);
+        }
         segments.push((segments.length > 0 ? "." : "") + segment);
       }
     }

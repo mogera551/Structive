@@ -3264,6 +3264,8 @@ const createComponentState = (engine) => {
     return new Proxy(new ComponentState(engine), new ComponentStateHandler());
 };
 
+const checkSegmentRegexp = /^[a-zA-Z_$][0-9a-zA-Z_$]*$/;
+const checkPathRegexp = /^[a-zA-Z_$][0-9a-zA-Z_$]*(\.[a-zA-Z_$][0-9a-zA-Z_$]*|\.\*)*$/;
 function createAccessorFunctions(info, getters) {
     const matchPaths = new Set(info.cumulativePaths).intersection(getters);
     let len = -1;
@@ -3279,6 +3281,9 @@ function createAccessorFunctions(info, getters) {
         }
     }
     if (matchPath.length > 0) {
+        if (!checkPathRegexp.test(matchPath)) {
+            throw new Error(`Invalid path: ${matchPath}`);
+        }
         const matchInfo = getStructuredPathInfo(matchPath);
         const segments = [];
         let count = matchInfo.wildcardCount;
@@ -3289,6 +3294,9 @@ function createAccessorFunctions(info, getters) {
                 count++;
             }
             else {
+                if (!checkSegmentRegexp.test(segment)) {
+                    throw new Error(`Invalid segment name: ${segment}`);
+                }
                 segments.push("." + segment);
             }
         }
@@ -3307,6 +3315,9 @@ function createAccessorFunctions(info, getters) {
                 count++;
             }
             else {
+                if (!checkSegmentRegexp.test(segment)) {
+                    throw new Error(`Invalid segment name: ${segment}`);
+                }
                 segments.push((segments.length > 0 ? "." : "") + segment);
             }
         }
