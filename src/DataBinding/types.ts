@@ -3,6 +3,7 @@ import { IListIndex } from "../ListIndex/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
+import { IStateProxy } from "../StateClass/types";
 
 export interface IBindContent {
   loopContext  : ILoopContext | null;
@@ -28,7 +29,7 @@ export interface IBindContent {
   bindings: IBinding[];
   // ToDo: statePropと紐づくバインドプロパティ情報の持たせ方
   //       コンポーネントに持たせるが、再構築時のコストを考える
-  render(): void;
+  render(readonlyState: IStateProxy): void;
   init(): void;
   assignListIndex(listIndex: IListIndex): void;
   getLastNode(parentNode: Node): Node | null  
@@ -43,9 +44,9 @@ export interface IBinding {
   bindingNode      : IBindingNode;
   bindingState     : IBindingState;
   bindContents     : Set<IBindContent>;
-  render(): void;
+  render(readonlyState: IStateProxy): void;
   init(): void;
-  updateStateValue(value: any): void;
+  updateStateValue(writableState: IStateProxy, value: any): void;
 }
 
 export type StateBindSummary = Map<string, WeakMap<ILoopContext, IBindContent>>;

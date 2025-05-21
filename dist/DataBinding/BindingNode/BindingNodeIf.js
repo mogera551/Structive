@@ -15,7 +15,7 @@ class BindingNodeIf extends BindingNodeBlock {
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
         this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (typeof value !== "boolean") {
             raiseError(`BindingNodeIf.update: value is not boolean`);
         }
@@ -24,7 +24,7 @@ class BindingNodeIf extends BindingNodeBlock {
             raiseError(`BindingNodeIf.update: parentNode is null`);
         }
         if (value) {
-            this.#bindContent.render();
+            this.#bindContent.render(readonlyState);
             this.#bindContent.mountAfter(parentNode, this.node.nextSibling);
             this.#bindContents = this.#trueBindContents;
         }

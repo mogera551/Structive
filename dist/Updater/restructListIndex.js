@@ -29,7 +29,7 @@ function buildListIndexTree(engine, info, listIndex, value) {
     engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
     engine.saveList(info, listIndex, value.slice(0)); // コピーを保存
 }
-export function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
+export function restructListIndexes(infos, readonlyState, engine, updateValues, refKeys, cache) {
     for (const { info, listIndex } of infos) {
         if (config.optimizeListElements && engine.elementInfoSet.has(info)) {
             // スワップ処理のためスキップ
@@ -62,7 +62,7 @@ export function restructListIndexes(infos, engine, updateValues, refKeys, cache)
                 cacheListIndexSet.add(_listIndex);
                 refKeys.add(refKey);
                 if (engine.listInfoSet.has(_info)) {
-                    const values = updateValues[refKey] ?? engine.stateProxy[GetByRefSymbol](_info, _listIndex);
+                    const values = updateValues[refKey] ?? readonlyState[GetByRefSymbol](_info, _listIndex);
                     buildListIndexTree(engine, _info, _listIndex, values);
                 }
             });

@@ -1,7 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { BindingNode } from "./BindingNode.js";
 class BindingNodeRadio extends BindingNode {
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (value === null || value === undefined || Number.isNaN(value)) {
             value = "";
         }

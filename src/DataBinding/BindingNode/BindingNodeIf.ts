@@ -1,6 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { IStateProxy } from "../../StateClass/types.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
 import { IBindContent, IBinding } from "../types";
@@ -35,7 +36,7 @@ class BindingNodeIf extends BindingNodeBlock {
     this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
   }
 
-  assignValue(value:any) {
+  assignValue(readonlyState: IStateProxy, value:any) {
     if (typeof value !== "boolean") {
       raiseError(`BindingNodeIf.update: value is not boolean`);
     }
@@ -44,7 +45,7 @@ class BindingNodeIf extends BindingNodeBlock {
       raiseError(`BindingNodeIf.update: parentNode is null`);
     }
     if (value) {
-      this.#bindContent.render();
+      this.#bindContent.render(readonlyState);
       this.#bindContent.mountAfter(parentNode, this.node.nextSibling);
       this.#bindContents = this.#trueBindContents;
     } else {

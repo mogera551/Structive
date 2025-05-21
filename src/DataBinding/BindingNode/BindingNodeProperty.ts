@@ -50,7 +50,8 @@ class BindingNodeProperty extends BindingNode {
     const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
     if (eventName === "readonly" || eventName === "ro") return;
     this.node.addEventListener(eventName, () => {
-      this.binding.updateStateValue(this.filteredValue);
+      const writableState = this.binding.engine.createWritableStateProxy();
+      this.binding.updateStateValue(writableState, this.filteredValue);
     });
 
   }

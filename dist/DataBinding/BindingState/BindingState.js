@@ -36,11 +36,11 @@ class BindingState {
         this.#state = state;
         this.#filters = filters;
     }
-    get value() {
-        return this.#state[GetByRefSymbol](this.info, this.listIndex);
+    getValue(readonyState) {
+        return readonyState[GetByRefSymbol](this.info, this.listIndex);
     }
-    get filteredValue() {
-        let value = this.value;
+    getFilteredValue(readonyState) {
+        let value = this.getValue(readonyState);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -56,20 +56,19 @@ class BindingState {
         }
         this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
     }
-    assignValue(value) {
+    assignValue(writableState, value) {
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const engine = this.binding.engine;
-        const stateProxy = engine.stateProxy;
         const bindingState = this.binding.bindingState;
         if (loopContext) {
             engine.setLoopContext(loopContext, async () => {
                 // @ts-ignore
-                stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+                writableState[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
             });
         }
         else {
             // @ts-ignore
-            stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+            writableState[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
         }
     }
 }

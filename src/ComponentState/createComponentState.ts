@@ -12,12 +12,15 @@ class ComponentState implements IComponentState {
 
   bindParentProperty(binding: IBinding): void {
     const propName = binding.bindingNode.subName;
+    const engine = this.engine;
     Object.defineProperty(this.engine.state, propName, {
       get: () => {
-        return binding.bindingState.filteredValue;
+        const readonlyState = engine.createReadonlyStateProxy();
+        return binding.bindingState.getFilteredValue(readonlyState);
       },
       set: (value: any) => {
-        return binding.updateStateValue(value);
+        const writableState = engine.createWritableStateProxy();
+        return binding.updateStateValue(writableState, value);
       },
     });
   }

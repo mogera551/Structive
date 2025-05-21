@@ -29,7 +29,8 @@ class BindingNodeEvent extends BindingNode {
             e.stopPropagation();
         }
         this.binding.engine.updater.addProcess(async () => {
-            const value = bindingState.value;
+            const stateProxy = engine.createWritableStateProxy();
+            const value = bindingState.getValue(stateProxy);
             const typeOfValue = typeof value;
             updater.addProcess(async () => {
                 if (loopContext) {

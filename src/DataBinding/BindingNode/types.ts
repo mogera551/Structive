@@ -1,6 +1,7 @@
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
+import { IStateProxy } from "../../StateClass/types";
 import { IBindContent, IBinding } from "../types";
 
 export interface IBindingNode {
@@ -15,10 +16,10 @@ export interface IBindingNode {
   readonly bindContents   : Set<IBindContent>;
   readonly value        : any;
   readonly filteredValue: any;
-  update(): void;
+  update(readonlyState: IStateProxy): void;
   init(): void;
-  assignValue(value: any): void;
-  updateElements(listIndexes: IListIndex[], values: any[]): void;
+  assignValue(readonlyState: IStateProxy, value: any): void;
+  updateElements(readonlyState:IStateProxy, listIndexes: IListIndex[], values: any[]): void;
 }
 
 export type CreateBindingNodeByNodeFn = 

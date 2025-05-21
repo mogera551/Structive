@@ -596,13 +596,13 @@ class BindingNode {
     }
     init() {
     }
-    update() {
-        this.assignValue(this.binding.bindingState.filteredValue);
+    update(readonlyState) {
+        this.assignValue(readonlyState, this.binding.bindingState.getFilteredValue(readonlyState));
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         raiseError(`BindingNode: assignValue not implemented`);
     }
-    updateElements(listIndexes, values) {
+    updateElements(readonlyState, listIndexes, values) {
         raiseError(`BindingNode: updateElements not implemented`);
     }
     get isSelectElement() {
@@ -629,7 +629,7 @@ class BindingNodeAttribute extends BindingNode {
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (value === null || value === undefined || Number.isNaN(value)) {
             value = "";
         }
@@ -643,7 +643,7 @@ const createBindingNodeAttribute = (name, filterTexts, decorates) => (binding, n
 };
 
 class BindingNodeCheckbox extends BindingNode {
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (!Array.isArray(value)) {
             raiseError(`BindingNodeCheckbox.update: value is not array`);
         }
@@ -657,7 +657,7 @@ const createBindingNodeCheckbox = (name, filterTexts, decorates) => (binding, no
 };
 
 class BindingNodeClassList extends BindingNode {
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (!Array.isArray(value)) {
             raiseError(`BindingNodeClassList.update: value is not array`);
         }
@@ -680,7 +680,7 @@ class BindingNodeClassName extends BindingNode {
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (typeof value !== "boolean") {
             raiseError(`BindingNodeClassName.update: value is not boolean`);
         }
@@ -715,7 +715,7 @@ class BindingNodeEvent extends BindingNode {
     handler(e) {
         const bindingState = this.binding.bindingState;
         const engine = this.binding.engine;
-        const stateProxy = engine.stateProxy;
+        engine.stateProxy;
         const updater = engine.updater;
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const indexes = loopContext?.serialize().map((context) => context.listIndex.index) ?? [];
@@ -727,7 +727,8 @@ class BindingNodeEvent extends BindingNode {
             e.stopPropagation();
         }
         this.binding.engine.updater.addProcess(async () => {
-            const value = bindingState.value;
+            const stateProxy = engine.createWritableStateProxy();
+            const value = bindingState.getValue(stateProxy);
             const typeOfValue = typeof value;
             updater.addProcess(async () => {
                 if (loopContext) {
@@ -781,7 +782,7 @@ class BindingNodeIf extends BindingNodeBlock {
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
         this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (typeof value !== "boolean") {
             raiseError(`BindingNodeIf.update: value is not boolean`);
         }
@@ -790,7 +791,7 @@ class BindingNodeIf extends BindingNodeBlock {
             raiseError(`BindingNodeIf.update: parentNode is null`);
         }
         if (value) {
-            this.#bindContent.render();
+            this.#bindContent.render(readonlyState);
             this.#bindContent.mountAfter(parentNode, this.node.nextSibling);
             this.#bindContents = this.#trueBindContents;
         }
@@ -855,7 +856,7 @@ class BindingNodeFor extends BindingNodeBlock {
         }
         this.#bindContentPool.length = length;
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (!Array.isArray(value)) {
             raiseError(`BindingNodeFor.assignValue: value is not array`);
         }
@@ -884,7 +885,7 @@ class BindingNodeFor extends BindingNodeBlock {
             let bindContent = this.#bindContentByListIndex.get(listIndex);
             if (typeof bindContent === "undefined") {
                 bindContent = this.createBindContent(listIndex);
-                bindContent.render();
+                bindContent.render(readonlyState);
                 bindContent.mountAfter(parentNode, lastNode);
             }
             else {
@@ -908,7 +909,7 @@ class BindingNodeFor extends BindingNodeBlock {
      * @param values
      * @returns
      */
-    updateElements(listIndexes, values) {
+    updateElements(readonlyState, listIndexes, values) {
         if (typeof values[0] !== "object")
             return;
         const engine = this.binding.engine;
@@ -935,7 +936,7 @@ class BindingNodeFor extends BindingNodeBlock {
             if (typeof prevBindContent === "undefined") {
                 // 入れ替えるBindContentがない場合は再描画
                 const bindContent = targetBindContents[index];
-                bindContent.render();
+                bindContent.render(readonlyState);
                 bindContent.mountAfter(parentNode, lastNode);
             }
             else {
@@ -949,7 +950,7 @@ class BindingNodeFor extends BindingNodeBlock {
             }
         }
         this.#bindContentsSet = new Set(currentBindContents);
-        engine.saveList(this.binding.bindingState.info, this.binding.bindingState.listIndex, this.binding.bindingState.value.slice(0));
+        engine.saveList(this.binding.bindingState.info, this.binding.bindingState.listIndex, this.binding.bindingState.getValue(readonlyState).slice(0));
     }
 }
 const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, filters) => {
@@ -1030,7 +1031,8 @@ class BindingNodeProperty extends BindingNode {
         if (eventName === "readonly" || eventName === "ro")
             return;
         this.node.addEventListener(eventName, () => {
-            this.binding.updateStateValue(this.filteredValue);
+            const writableState = this.binding.engine.createWritableStateProxy();
+            this.binding.updateStateValue(writableState, this.filteredValue);
         });
     }
     init() {
@@ -1049,7 +1051,7 @@ const createBindingNodeProperty = (name, filterTexts, decorates) => (binding, no
 };
 
 class BindingNodeRadio extends BindingNode {
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (value === null || value === undefined || Number.isNaN(value)) {
             value = "";
         }
@@ -1072,7 +1074,7 @@ class BindingNodeStyle extends BindingNode {
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (value === null || value === undefined || Number.isNaN(value)) {
             value = "";
         }
@@ -1108,7 +1110,7 @@ class BindingNodeComponent extends BindingNode {
         }
         bindings.add(this.binding);
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         const component = this.node;
         component.state[RenderSymbol](this.subName, value);
     }
@@ -1325,11 +1327,11 @@ class BindingState {
         this.#state = state;
         this.#filters = filters;
     }
-    get value() {
-        return this.#state[GetByRefSymbol](this.info, this.listIndex);
+    getValue(readonyState) {
+        return readonyState[GetByRefSymbol](this.info, this.listIndex);
     }
-    get filteredValue() {
-        let value = this.value;
+    getFilteredValue(readonyState) {
+        let value = this.getValue(readonyState);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -1345,20 +1347,19 @@ class BindingState {
         }
         this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
     }
-    assignValue(value) {
+    assignValue(writableState, value) {
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const engine = this.binding.engine;
-        const stateProxy = engine.stateProxy;
         const bindingState = this.binding.bindingState;
         if (loopContext) {
             engine.setLoopContext(loopContext, async () => {
                 // @ts-ignore
-                stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+                writableState[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
             });
         }
         else {
             // @ts-ignore
-            stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
+            writableState[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
         }
     }
 }
@@ -1403,11 +1404,11 @@ class BindingStateIndex {
         this.#state = state;
         this.#filters = filters;
     }
-    get value() {
+    getValue(readonlyState) {
         return this.listIndex?.index ?? raiseError("listIndex is null");
     }
-    get filteredValue() {
-        let value = this.value;
+    getFilteredValue(readonlyState) {
+        let value = this.getValue(readonlyState);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -1428,7 +1429,7 @@ class BindingStateIndex {
             bindings.add(this.binding);
         }
     }
-    assignValue(value) {
+    assignValue(writableState, value) {
         raiseError("BindingStateIndex: assignValue is not implemented");
     }
 }
@@ -1709,21 +1710,21 @@ class Binding {
         this.bindingNode.init();
         this.bindingState.init();
     }
-    render() {
-        if (this.version !== this.engine.updater.version) {
-            try {
-                this.bindingNode.update();
-            }
-            finally {
-                this.version = this.engine.updater.version;
-            }
+    render(readonlyState) {
+        if (this.version === this.engine.updater.version)
+            return;
+        try {
+            this.bindingNode.update(readonlyState);
+        }
+        finally {
+            this.version = this.engine.updater.version;
         }
     }
-    updateStateValue(value) {
+    updateStateValue(writableState, value) {
         const engine = this.engine;
         const bindingState = this.bindingState;
         engine.updater.addProcess(() => {
-            return bindingState.assignValue(value);
+            return bindingState.assignValue(writableState, value);
         });
     }
 }
@@ -1815,7 +1816,7 @@ function createLoopContext(pattern, listIndex, bindContent) {
     return new LoopContext(pattern, listIndex, bindContent);
 }
 
-function render(bindings) {
+function render(readonlyState, bindings) {
     const bindingsWithSelectElement = [];
     for (let i = 0; i < bindings.length; i++) {
         const binding = bindings[i];
@@ -1823,11 +1824,11 @@ function render(bindings) {
             bindingsWithSelectElement.push(binding);
         }
         else {
-            binding.render();
+            binding.render(readonlyState);
         }
     }
     for (let i = 0; i < bindingsWithSelectElement.length; i++) {
-        bindingsWithSelectElement[i].render();
+        bindingsWithSelectElement[i].render(readonlyState);
     }
 }
 
@@ -1949,8 +1950,8 @@ class BindContent {
         }
     }
     bindings = [];
-    render() {
-        render(this.bindings);
+    render(readonlyState) {
+        render(readonlyState, this.bindings);
     }
     init() {
         this.bindings.forEach(binding => binding.init());
@@ -2082,11 +2083,11 @@ function setByRef(target, prop, receiver, handler) {
     return (pattern, listIndex, value) => setByRef$1(target, pattern, listIndex, value, receiver, handler);
 }
 
-async function setCacheable$1(handler, callback) {
+function setCacheable$1(handler, callback) {
     handler.cacheable = true;
     handler.cache = {};
     try {
-        await callback();
+        callback();
     }
     finally {
         handler.cacheable = false;
@@ -2530,7 +2531,7 @@ function buildListIndexTree$1(engine, info, listIndex, value) {
     engine.saveListIndexesSet(info, listIndex, newListIndexesSet);
     engine.saveList(info, listIndex, value.slice(0)); // コピーを保存
 }
-function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
+function restructListIndexes(infos, readonlyState, engine, updateValues, refKeys, cache) {
     for (const { info, listIndex } of infos) {
         if (config$2.optimizeListElements && engine.elementInfoSet.has(info)) {
             // スワップ処理のためスキップ
@@ -2563,7 +2564,7 @@ function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
                 cacheListIndexSet.add(_listIndex);
                 refKeys.add(refKey);
                 if (engine.listInfoSet.has(_info)) {
-                    const values = updateValues[refKey] ?? engine.stateProxy[GetByRefSymbol](_info, _listIndex);
+                    const values = updateValues[refKey] ?? readonlyState[GetByRefSymbol](_info, _listIndex);
                     buildListIndexTree$1(engine, _info, _listIndex, values);
                 }
             });
@@ -2571,171 +2572,126 @@ function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
     }
 }
 
+function rebuild(updater) {
+    const retArrayElementBindings = [];
+    const retBindings = [];
+    const engine = updater.engine;
+    const updatedPropertiesSet = updater.getUpdatedProperties();
+    const updatedProiperties = Array.from(updatedPropertiesSet.values());
+    const bindingsByListIndex = [];
+    const updatedRefs = []; // 更新されたプロパティ参照のリスト
+    const arrayElementBindingByParentRefKey = new Map();
+    for (let i = 0; i < updatedProiperties.length; i++) {
+        const item = updatedProiperties[i];
+        if ("index" in item) {
+            const bindings = engine.bindingsByListIndex.get(item) ?? [];
+            bindingsByListIndex.push(...bindings);
+        }
+        else {
+            updatedRefs.push(item);
+            if (engine.elementInfoSet.has(item.info)) {
+                const parentInfo = item.info.parentInfo ?? raiseError("info is null"); // リストのパス情報
+                const parentListIndex = item.listIndex?.at(-2) ?? null; // リストのインデックス
+                const parentRef = { info: parentInfo, listIndex: parentListIndex };
+                const parentRefKey = createRefKey(parentInfo, parentListIndex);
+                let info = arrayElementBindingByParentRefKey.get(parentRefKey);
+                if (!info) {
+                    info = {
+                        parentRef,
+                        listIndexes: [],
+                        values: []
+                    };
+                    arrayElementBindingByParentRefKey.set(parentRefKey, info);
+                }
+                const refKey = createRefKey(item.info, item.listIndex);
+                const value = updater.updatedValues[refKey] ?? null;
+                info.values?.push(value);
+                info.listIndexes?.push(item.listIndex);
+            }
+        }
+    }
+    // リストインデックスの構築
+    const builtStatePropertyRefKeySet = new Set();
+    const affectedRefs = new Map();
+    restructListIndexes(updatedRefs, updater.readonlyState, engine, updater.updatedValues, builtStatePropertyRefKeySet, affectedRefs);
+    // スワップの場合の情報を構築する
+    for (const [parentRefKey, info] of arrayElementBindingByParentRefKey) {
+        const parentInfo = info.parentRef?.info ?? raiseError("parentInfo is null");
+        const parentListIndex = info.parentRef?.listIndex ?? null;
+        const bindings = engine.getBindings(parentInfo, parentListIndex);
+        for (const binding of bindings) {
+            if (!binding.bindingNode.isFor) {
+                continue;
+            }
+            const bindingInfo = Object.assign({}, info, { binding });
+            retArrayElementBindings.push(bindingInfo);
+        }
+    }
+    // 影響する全てのバインド情報を取得する
+    for (const [info, listIndexes] of affectedRefs.entries()) {
+        for (const listIndex of listIndexes) {
+            const bindings = engine.getBindings(info, listIndex);
+            retBindings.push(...bindings ?? []);
+        }
+    }
+    retBindings.push(...bindingsByListIndex);
+    return { bindings: retBindings, arrayElementBindings: retArrayElementBindings };
+}
+
+const updaters = new Set();
+function registerRender(updater) {
+    if (updaters.has(updater)) {
+        return;
+    }
+    updaters.add(updater);
+    setTimeout(() => {
+        try {
+            const { bindings, arrayElementBindings } = rebuild(updater);
+            for (const arrayElementBinding of arrayElementBindings) {
+                arrayElementBinding.binding.bindingNode.updateElements(updater.readonlyState, arrayElementBinding.listIndexes, arrayElementBinding.values);
+            }
+            updater.version++;
+            updater.readonlyState[SetCacheableSymbol](() => {
+                render(updater.readonlyState, bindings);
+            });
+        }
+        finally {
+            updaters.delete(updater);
+        }
+    }, 0);
+}
+
 class Updater {
     processList = [];
     updatedProperties = new Set;
     updatedValues = {};
     engine;
-    #version = 0;
+    version = 0;
+    #readonlyState;
     constructor(engine) {
         this.engine = engine;
+        this.#readonlyState = engine.createReadonlyStateProxy();
     }
-    get version() {
-        return this.#version;
+    get readonlyState() {
+        return this.#readonlyState;
     }
     addProcess(process) {
-        this.processList.push(process);
-        this.waitForQueueEntry.resolve();
+        queueMicrotask(process);
     }
     addUpdatedStatePropertyRefValue(info, listIndex, value) {
         const refKey = createRefKey(info, listIndex);
         this.updatedProperties.add({ info, listIndex });
         this.updatedValues[refKey] = value;
-        this.waitForQueueEntry.resolve();
+        registerRender(this);
     }
     addUpdatedListIndex(listIndex) {
         this.updatedProperties.add(listIndex);
-        this.waitForQueueEntry.resolve();
+        registerRender(this);
     }
-    terminate() {
-        const waitForMainLoopTerminate = Promise.withResolvers();
-        this.waitForQueueEntry.resolve(waitForMainLoopTerminate);
-        return waitForMainLoopTerminate;
-    }
-    waitForQueueEntry = Promise.withResolvers();
-    async main(waitForComponentInit) {
-        await waitForComponentInit.promise;
-        const config = getGlobalConfig();
-        while (true) {
-            try {
-                const waitForMainLoopTerminate = await this.waitForQueueEntry.promise;
-                config.debug && performance.mark(`start`);
-                Updater.updatingCount++;
-                try {
-                    await this.exec();
-                    if (config.debug) {
-                        performance.mark(`end`);
-                        performance.measure(`exec`, `start`, `end`);
-                        console.log(performance.getEntriesByType("measure"));
-                        performance.clearMeasures(`exec`);
-                        performance.clearMarks(`start`);
-                        performance.clearMarks(`end`);
-                    }
-                }
-                finally {
-                    Updater.updatingCount--;
-                    if (waitForMainLoopTerminate) {
-                        waitForMainLoopTerminate.resolve();
-                        break;
-                    }
-                }
-            }
-            catch (e) {
-                console.error(e);
-            }
-            finally {
-                this.waitForQueueEntry = Promise.withResolvers();
-            }
-        }
-    }
-    async updateState() {
-        while (this.processList.length > 0) {
-            const processList = this.processList;
-            this.processList = [];
-            for (let i = 0; i < processList.length; i++) {
-                const process = processList[i];
-                await process();
-            }
-        }
-    }
-    async rebuild() {
-        const retArrayElementBindings = [];
-        const retBindings = [];
-        const engine = this.engine;
-        while (this.updatedProperties.size > 0) {
-            const updatedProiperties = Array.from(this.updatedProperties.values());
-            this.updatedProperties.clear();
-            const bindingsByListIndex = [];
-            const updatedRefs = []; // 更新されたプロパティ参照のリスト
-            const arrayElementBindingByParentRefKey = new Map();
-            for (let i = 0; i < updatedProiperties.length; i++) {
-                const item = updatedProiperties[i];
-                if ("index" in item) {
-                    const bindings = engine.bindingsByListIndex.get(item) ?? [];
-                    bindingsByListIndex.push(...bindings);
-                }
-                else {
-                    updatedRefs.push(item);
-                    if (engine.elementInfoSet.has(item.info)) {
-                        const parentInfo = item.info.parentInfo ?? raiseError("info is null"); // リストのパス情報
-                        const parentListIndex = item.listIndex?.at(-2) ?? null; // リストのインデックス
-                        const parentRef = { info: parentInfo, listIndex: parentListIndex };
-                        const parentRefKey = createRefKey(parentInfo, parentListIndex);
-                        let info = arrayElementBindingByParentRefKey.get(parentRefKey);
-                        if (!info) {
-                            info = {
-                                parentRef,
-                                listIndexes: [],
-                                values: []
-                            };
-                            arrayElementBindingByParentRefKey.set(parentRefKey, info);
-                        }
-                        const refKey = createRefKey(item.info, item.listIndex);
-                        const value = this.updatedValues[refKey] ?? null;
-                        info.values?.push(value);
-                        info.listIndexes?.push(item.listIndex);
-                    }
-                }
-            }
-            // リストインデックスの構築
-            const builtStatePropertyRefKeySet = new Set();
-            const affectedRefs = new Map();
-            restructListIndexes(updatedRefs, engine, this.updatedValues, builtStatePropertyRefKeySet, affectedRefs);
-            // スワップの場合の情報を構築する
-            for (const [parentRefKey, info] of arrayElementBindingByParentRefKey) {
-                const parentInfo = info.parentRef?.info ?? raiseError("parentInfo is null");
-                const parentListIndex = info.parentRef?.listIndex ?? null;
-                const bindings = engine.getBindings(parentInfo, parentListIndex);
-                for (const binding of bindings) {
-                    if (!binding.bindingNode.isFor) {
-                        continue;
-                    }
-                    const bindingInfo = Object.assign({}, info, { binding });
-                    retArrayElementBindings.push(bindingInfo);
-                }
-            }
-            // 影響する全てのバインド情報を取得する
-            for (const [info, listIndexes] of affectedRefs.entries()) {
-                for (const listIndex of listIndexes) {
-                    const bindings = engine.getBindings(info, listIndex);
-                    retBindings.push(...bindings ?? []);
-                }
-            }
-            retBindings.push(...bindingsByListIndex);
-        }
-        this.updatedValues = {};
-        return { bindings: retBindings, arrayElementBindings: retArrayElementBindings };
-    }
-    async render(bindings) {
-        this.#version++;
-        await this.engine.stateProxy[SetCacheableSymbol](async () => {
-            return render(bindings);
-        });
-    }
-    async exec() {
-        while (this.processList.length !== 0 || this.updatedProperties.size !== 0) {
-            // update state
-            await this.updateState();
-            // rebuild
-            const { bindings, arrayElementBindings } = await this.rebuild();
-            // render
-            for (const arrayElementBinding of arrayElementBindings) {
-                arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
-            }
-            if (bindings.length > 0) {
-                await this.render(bindings);
-            }
-        }
+    getUpdatedProperties() {
+        const updatedProperties = this.updatedProperties;
+        this.updatedProperties = new Set();
+        return updatedProperties;
     }
     static updatingCount = 0;
 }
@@ -2830,6 +2786,64 @@ function buildListIndexTree(engine, info, listIndex, value) {
     buildListIndexTreeSub(engine, engine.listInfoSet, info, listIndex, values);
 }
 
+class WritableStateHandler {
+    engine;
+    cache = {};
+    cacheable = false;
+    lastTrackingStack = null;
+    trackingStack = [];
+    constructor(engine) {
+        this.engine = engine;
+    }
+    callableApi = {
+        [GetByRefSymbol]: getByRef,
+        [SetByRefSymbol]: setByRef,
+        //    [SetCacheableSymbol]: apiSetCacheable, 
+        [ConnectedCallbackSymbol]: connectedCallback,
+        [DisconnectedCallbackSymbol]: disconnectedCallback,
+        [ResolveSymbol]: resolve,
+        [GetAllSymbol]: getAll,
+    };
+    get(target, prop, receiver) {
+        return get(target, prop, receiver, this);
+    }
+    set(target, prop, value, receiver) {
+        return set(target, prop, value, receiver, this);
+    }
+}
+function createWritableStateProxy(engine, state) {
+    return new Proxy(state, new WritableStateHandler(engine));
+}
+
+class ReadonlyStateHandler {
+    engine;
+    cacheable = true;
+    cache = {};
+    lastTrackingStack = null;
+    trackingStack = [];
+    constructor(engine) {
+        this.engine = engine;
+    }
+    callableApi = {
+        [GetByRefSymbol]: getByRef,
+        //    [SetByRefSymbol]: apiSetByRef, 
+        [SetCacheableSymbol]: setCacheable,
+        [ConnectedCallbackSymbol]: connectedCallback,
+        [DisconnectedCallbackSymbol]: disconnectedCallback,
+        [ResolveSymbol]: resolve,
+        [GetAllSymbol]: getAll,
+    };
+    get(target, prop, receiver) {
+        return get(target, prop, receiver, this);
+    }
+    set(target, prop, value, receiver) {
+        raiseError('readonly state proxy');
+    }
+}
+function createReadonlyStateProxy(engine, state) {
+    return new Proxy(state, new ReadonlyStateHandler(engine));
+}
+
 class ComponentEngine {
     type = 'autonomous';
     config;
@@ -2888,23 +2902,24 @@ class ComponentEngine {
             this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
         }
         this.bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+        const readonlyState = this.createReadonlyStateProxy();
         for (const info of this.listInfoSet) {
             if (info.wildcardCount > 0)
                 continue;
-            const value = this.stateProxy[GetByRefSymbol](info, null);
+            const value = readonlyState[GetByRefSymbol](info, null);
             buildListIndexTree(this, info, null, value);
         }
-        this.updater.main(this.#waitForInitialize);
     }
     async connectedCallback() {
         if (this.owner.dataset.state) {
+            const writableState = this.createWritableStateProxy();
             try {
                 const json = JSON.parse(this.owner.dataset.state);
                 for (const [key, value] of Object.entries(json)) {
                     const info = getStructuredPathInfo(key);
                     if (info.wildcardCount > 0)
                         continue;
-                    this.stateProxy[SetByRefSymbol](info, null, value);
+                    writableState[SetByRefSymbol](info, null, value);
                 }
             }
             catch (e) {
@@ -2913,15 +2928,17 @@ class ComponentEngine {
         }
         this.owner.state[BindParentComponentSymbol]();
         attachShadow(this.owner, this.config, this.styleSheet);
-        await this.stateProxy[ConnectedCallbackSymbol]();
-        await this.stateProxy[SetCacheableSymbol](async () => {
-            this.bindContent.render();
+        const readonlyState = this.createReadonlyStateProxy();
+        await readonlyState[ConnectedCallbackSymbol]();
+        readonlyState[SetCacheableSymbol](() => {
+            this.bindContent.render(readonlyState);
         });
         this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
         this.#waitForInitialize.resolve();
     }
     async disconnectedCallback() {
-        await this.stateProxy[DisconnectedCallbackSymbol]();
+        const readonlyState = this.createReadonlyStateProxy();
+        await readonlyState[DisconnectedCallbackSymbol]();
     }
     async setLoopContext(loopContext, callback) {
         try {
@@ -3075,6 +3092,12 @@ class ComponentEngine {
             this.stateProxy[SetByRefSymbol](info, listIndex, value);
         });
     }
+    createWritableStateProxy() {
+        return createWritableStateProxy(this, this.state);
+    }
+    createReadonlyStateProxy() {
+        return createReadonlyStateProxy(this, this.state);
+    }
 }
 function createComponentEngine(config, component) {
     return new ComponentEngine(config, component);
@@ -3195,12 +3218,15 @@ class ComponentState {
     }
     bindParentProperty(binding) {
         const propName = binding.bindingNode.subName;
+        const engine = this.engine;
         Object.defineProperty(this.engine.state, propName, {
             get: () => {
-                return binding.bindingState.filteredValue;
+                const readonlyState = engine.createReadonlyStateProxy();
+                return binding.bindingState.getFilteredValue(readonlyState);
             },
             set: (value) => {
-                return binding.updateStateValue(value);
+                const writableState = engine.createWritableStateProxy();
+                return binding.updateStateValue(writableState, value);
             },
         });
     }

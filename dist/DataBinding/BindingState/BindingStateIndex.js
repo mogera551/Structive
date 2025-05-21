@@ -36,11 +36,11 @@ class BindingStateIndex {
         this.#state = state;
         this.#filters = filters;
     }
-    get value() {
+    getValue(readonlyState) {
         return this.listIndex?.index ?? raiseError("listIndex is null");
     }
-    get filteredValue() {
-        let value = this.value;
+    getFilteredValue(readonlyState) {
+        let value = this.getValue(readonlyState);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -61,7 +61,7 @@ class BindingStateIndex {
             bindings.add(this.binding);
         }
     }
-    assignValue(value) {
+    assignValue(writableState, value) {
         raiseError("BindingStateIndex: assignValue is not implemented");
     }
 }

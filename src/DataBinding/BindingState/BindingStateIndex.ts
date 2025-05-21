@@ -47,11 +47,11 @@ class BindingStateIndex implements IBindingState {
     this.#state = state;
     this.#filters = filters;
   }
-  get value(): any {
+  getValue(readonlyState: IStateProxy): any {
     return this.listIndex?.index ?? raiseError("listIndex is null");
   }
-  get filteredValue(): any {
-    let value = this.value;
+  getFilteredValue(readonlyState: IStateProxy): any {
+    let value = this.getValue(readonlyState);
     for(let i = 0; i < this.#filters.length; i++) {
       value = this.#filters[i](value);
     }
@@ -71,7 +71,7 @@ class BindingStateIndex implements IBindingState {
       bindings.add(this.binding);
     }
   }
-  assignValue(value:any): void {
+  assignValue(writableState: IStateProxy, value:any): void {
     raiseError("BindingStateIndex: assignValue is not implemented");
   }
 }

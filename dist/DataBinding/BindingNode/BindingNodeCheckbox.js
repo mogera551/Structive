@@ -2,7 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 class BindingNodeCheckbox extends BindingNode {
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (!Array.isArray(value)) {
             raiseError(`BindingNodeCheckbox.update: value is not array`);
         }

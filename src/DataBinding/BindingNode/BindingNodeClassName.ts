@@ -1,6 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { IStateProxy } from "../../StateClass/types.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
@@ -23,7 +24,7 @@ class BindingNodeClassName extends BindingNode {
     this.#subName = subName;
   }
 
-  assignValue(value:any) {
+  assignValue(readonlyState: IStateProxy, value:any) {
     if (typeof value !== "boolean") {
       raiseError(`BindingNodeClassName.update: value is not boolean`);
     }

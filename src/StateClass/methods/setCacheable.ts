@@ -1,10 +1,10 @@
 import { IStateHandler } from "../types";
 
-export async function setCacheable(handler: IStateHandler, callback: () => Promise<void>): Promise<void> {
+export function setCacheable(handler: IStateHandler, callback: () => void): void {
   handler.cacheable = true;
   handler.cache = {}
   try {
-    await callback();
+    callback();
   } finally {
     handler.cacheable = false;
   }

@@ -11,7 +11,7 @@ class BindingNodeClassName extends BindingNode {
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (typeof value !== "boolean") {
             raiseError(`BindingNodeClassName.update: value is not boolean`);
         }

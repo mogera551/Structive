@@ -2,6 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { RenderSymbol } from "../../ComponentState/symbols.js";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { IStateProxy } from "../../StateClass/types.js";
 import { StructiveComponent } from "../../WebComponents/types";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
@@ -34,7 +35,7 @@ class BindingNodeComponent extends BindingNode {
     bindings.add(this.binding);
   }
 
-  assignValue(value: any): void {
+  assignValue(readonlyState: IStateProxy, value: any): void {
     const component = this.node as StructiveComponent;
     component.state[RenderSymbol](this.subName, value);
   }

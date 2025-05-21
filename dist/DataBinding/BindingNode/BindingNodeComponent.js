@@ -20,7 +20,7 @@ class BindingNodeComponent extends BindingNode {
         }
         bindings.add(this.binding);
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         const component = this.node;
         component.state[RenderSymbol](this.subName, value);
     }

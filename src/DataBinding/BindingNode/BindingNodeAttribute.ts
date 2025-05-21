@@ -1,6 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { IStateProxy } from "../../StateClass/types.js";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
@@ -21,7 +22,7 @@ class BindingNodeAttribute extends BindingNode {
     const [, subName] = this.name.split(".");
     this.#subName = subName;
   }
-  assignValue(value:any) {
+  assignValue(readonlyState: IStateProxy, value:any) {
     if (value === null || value === undefined || Number.isNaN(value)) {
       value = "";
     }

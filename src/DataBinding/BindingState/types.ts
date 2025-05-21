@@ -11,10 +11,10 @@ export interface IBindingState {
   readonly listIndex    : IListIndex | null;
   readonly state        : IStateProxy;
   readonly filters      : Filters;
-  readonly value        : any;
-  readonly filteredValue: any;
   init(): void;
-  assignValue(value:any): void;
+  assignValue(writableState: IStateProxy, value:any): void;
+  getValue(readonlyState:IStateProxy): any;
+  getFilteredValue(readonlyState:IStateProxy): any;
 }
 export type CreateBindingStateByStateFn = (binding:IBinding, state: IStateProxy, filters: FilterWithOptions) => IBindingState;
 export type CreateBindingStateFn = (name: string, filterTexts: IFilterText[]) => CreateBindingStateByStateFn;

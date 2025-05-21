@@ -8,6 +8,8 @@ import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js
 import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
 import { raiseError } from "../utils.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
+import { createWritableStateProxy } from "../StateClass/createWritableStateProxy.js";
+import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
 export class ComponentEngine {
     type = 'autonomous';
     config;
@@ -66,23 +68,24 @@ export class ComponentEngine {
             this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
         }
         this.bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+        const readonlyState = this.createReadonlyStateProxy();
         for (const info of this.listInfoSet) {
             if (info.wildcardCount > 0)
                 continue;
-            const value = this.stateProxy[GetByRefSymbol](info, null);
+            const value = readonlyState[GetByRefSymbol](info, null);
             buildListIndexTree(this, info, null, value);
         }
-        this.updater.main(this.#waitForInitialize);
     }
     async connectedCallback() {
         if (this.owner.dataset.state) {
+            const writableState = this.createWritableStateProxy();
             try {
                 const json = JSON.parse(this.owner.dataset.state);
                 for (const [key, value] of Object.entries(json)) {
                     const info = getStructuredPathInfo(key);
                     if (info.wildcardCount > 0)
                         continue;
-                    this.stateProxy[SetByRefSymbol](info, null, value);
+                    writableState[SetByRefSymbol](info, null, value);
                 }
             }
             catch (e) {
@@ -91,15 +94,17 @@ export class ComponentEngine {
         }
         this.owner.state[BindParentComponentSymbol]();
         attachShadow(this.owner, this.config, this.styleSheet);
-        await this.stateProxy[ConnectedCallbackSymbol]();
-        await this.stateProxy[SetCacheableSymbol](async () => {
-            this.bindContent.render();
+        const readonlyState = this.createReadonlyStateProxy();
+        await readonlyState[ConnectedCallbackSymbol]();
+        readonlyState[SetCacheableSymbol](() => {
+            this.bindContent.render(readonlyState);
         });
         this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
         this.#waitForInitialize.resolve();
     }
     async disconnectedCallback() {
-        await this.stateProxy[DisconnectedCallbackSymbol]();
+        const readonlyState = this.createReadonlyStateProxy();
+        await readonlyState[DisconnectedCallbackSymbol]();
     }
     async setLoopContext(loopContext, callback) {
         try {
@@ -252,6 +257,12 @@ export class ComponentEngine {
         this.updater.addProcess(() => {
             this.stateProxy[SetByRefSymbol](info, listIndex, value);
         });
+    }
+    createWritableStateProxy() {
+        return createWritableStateProxy(this, this.state);
+    }
+    createReadonlyStateProxy() {
+        return createReadonlyStateProxy(this, this.state);
     }
 }
 export function createComponentEngine(config, component) {

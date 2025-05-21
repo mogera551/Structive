@@ -1,5 +1,6 @@
 import { Filters } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
+import { IStateProxy } from "../../StateClass/types";
 import { raiseError } from "../../utils.js";
 import { IBindContent, IBinding } from "../types";
 import { IBindingNode } from "./types";
@@ -47,13 +48,13 @@ export class BindingNode implements IBindingNode {
   }
   init():void {
   }
-  update(): void {
-    this.assignValue(this.binding.bindingState.filteredValue);
+  update(readonlyState: IStateProxy): void {
+    this.assignValue(readonlyState, this.binding.bindingState.getFilteredValue(readonlyState));
   }
-  assignValue(value: any): void {
+  assignValue(readonlyState: IStateProxy, value: any): void {
     raiseError(`BindingNode: assignValue not implemented`);
   }
-  updateElements(listIndexes: IListIndex[], values: any[]) {
+  updateElements(readonlyState:IStateProxy, listIndexes: IListIndex[], values: any[]) {
     raiseError(`BindingNode: updateElements not implemented`);
   }
   get isSelectElement(): boolean {

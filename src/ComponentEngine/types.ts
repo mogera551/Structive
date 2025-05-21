@@ -57,6 +57,9 @@ export interface IComponentEngine {
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する
+
+  createWritableStateProxy(): IStateProxy; // 書き込み可能なステートプロキシを作成する
+  createReadonlyStateProxy(): IStateProxy; // 読み取り専用のステートプロキシを作成する
 }
 
 export interface ISaveInfoByResolvedPathInfo {

@@ -7,8 +7,9 @@ import { raiseError } from "../utils.js";
 import { createBinding } from "./Binding.js";
 import { IBindContent, IBinding } from "./types";
 import { createLoopContext } from "../LoopContext/createLoopContext.js";
-import { render } from "../Render/render.js";
+import { render } from "../Updater/render.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
+import { IStateProxy } from "../StateClass/types.js";
 
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 
@@ -148,8 +149,8 @@ class BindContent implements IBindContent {
     }
   }
   bindings: IBinding[] = [];
-  render() {
-    render(this.bindings);
+  render(readonlyState: IStateProxy) {
+    render(readonlyState, this.bindings);
   }
   init() {
     this.bindings.forEach(binding => binding.init());

@@ -2,6 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
+import { IStateProxy } from "../../StateClass/types.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
 import { IBindContent, IBinding } from "../types";
@@ -70,7 +71,7 @@ class BindingNodeFor extends BindingNodeBlock {
     this.#bindContentPool.length = length;
   }
 
-  assignValue(value:any) {
+  assignValue(readonlyState: IStateProxy,  value:any) {
     if (!Array.isArray(value)) {
       raiseError(`BindingNodeFor.assignValue: value is not array`);
     }
@@ -104,7 +105,7 @@ class BindingNodeFor extends BindingNodeBlock {
       let bindContent = this.#bindContentByListIndex.get(listIndex);
       if (typeof bindContent === "undefined") {
         bindContent = this.createBindContent(listIndex);
-        bindContent.render();
+        bindContent.render(readonlyState);
         bindContent.mountAfter(parentNode, lastNode);
       } else {
         if (lastNode?.nextSibling !== bindContent.firstChildNode) {
@@ -128,7 +129,7 @@ class BindingNodeFor extends BindingNodeBlock {
    * @param values 
    * @returns 
    */
-  updateElements(listIndexes: IListIndex[], values: any[]) {
+  updateElements(readonlyState:IStateProxy, listIndexes: IListIndex[], values: any[]) {
     if (typeof values[0] !== "object") return;
     const engine = this.binding.engine;
     const oldListValues = 
@@ -163,7 +164,7 @@ class BindingNodeFor extends BindingNodeBlock {
       if (typeof prevBindContent === "undefined") {
         // 入れ替えるBindContentがない場合は再描画
         const bindContent = targetBindContents[index];
-        bindContent.render();
+        bindContent.render(readonlyState);
         bindContent.mountAfter(parentNode, lastNode);
       } else {
         prevBindContent.assignListIndex(listIndex);
@@ -179,7 +180,7 @@ class BindingNodeFor extends BindingNodeBlock {
     engine.saveList(
       this.binding.bindingState.info, 
       this.binding.bindingState.listIndex, 
-      this.binding.bindingState.value.slice(0)
+      this.binding.bindingState.getValue(readonlyState).slice(0)
     );
   }
 }

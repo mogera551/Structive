@@ -4,6 +4,7 @@ import { createListIndex } from "../ListIndex/createListIndex";
 import { IListIndex } from "../ListIndex/types";
 import { listWalker } from "../ListWalker/listWalker";
 import { GetByRefSymbol } from "../StateClass/symbols";
+import { IStateProxy } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
@@ -44,6 +45,7 @@ function buildListIndexTree(
 
 export function restructListIndexes(
   infos: IStatePropertyRef[],
+  readonlyState: IStateProxy,
   engine: IComponentEngine,
   updateValues: {[key:string]: any[]},
   refKeys: Set<string>,
@@ -81,7 +83,7 @@ export function restructListIndexes(
         cacheListIndexSet.add(_listIndex);
         refKeys.add(refKey);
         if (engine.listInfoSet.has(_info)) {
-          const values = updateValues[refKey] ?? engine.stateProxy[GetByRefSymbol](_info, _listIndex);
+          const values = updateValues[refKey] ?? readonlyState[GetByRefSymbol](_info, _listIndex);
           buildListIndexTree(engine, _info, _listIndex, values);
         }
       });

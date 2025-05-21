@@ -36,13 +36,13 @@ export class BindingNode {
     }
     init() {
     }
-    update() {
-        this.assignValue(this.binding.bindingState.filteredValue);
+    update(readonlyState) {
+        this.assignValue(readonlyState, this.binding.bindingState.getFilteredValue(readonlyState));
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         raiseError(`BindingNode: assignValue not implemented`);
     }
-    updateElements(listIndexes, values) {
+    updateElements(readonlyState, listIndexes, values) {
         raiseError(`BindingNode: updateElements not implemented`);
     }
     get isSelectElement() {

@@ -19,21 +19,21 @@ class Binding {
         this.bindingNode.init();
         this.bindingState.init();
     }
-    render() {
-        if (this.version !== this.engine.updater.version) {
-            try {
-                this.bindingNode.update();
-            }
-            finally {
-                this.version = this.engine.updater.version;
-            }
+    render(readonlyState) {
+        if (this.version === this.engine.updater.version)
+            return;
+        try {
+            this.bindingNode.update(readonlyState);
+        }
+        finally {
+            this.version = this.engine.updater.version;
         }
     }
-    updateStateValue(value) {
+    updateStateValue(writableState, value) {
         const engine = this.engine;
         const bindingState = this.bindingState;
         engine.updater.addProcess(() => {
-            return bindingState.assignValue(value);
+            return bindingState.assignValue(writableState, value);
         });
     }
 }

@@ -52,7 +52,7 @@ class BindingNodeFor extends BindingNodeBlock {
         }
         this.#bindContentPool.length = length;
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (!Array.isArray(value)) {
             raiseError(`BindingNodeFor.assignValue: value is not array`);
         }
@@ -81,7 +81,7 @@ class BindingNodeFor extends BindingNodeBlock {
             let bindContent = this.#bindContentByListIndex.get(listIndex);
             if (typeof bindContent === "undefined") {
                 bindContent = this.createBindContent(listIndex);
-                bindContent.render();
+                bindContent.render(readonlyState);
                 bindContent.mountAfter(parentNode, lastNode);
             }
             else {
@@ -105,7 +105,7 @@ class BindingNodeFor extends BindingNodeBlock {
      * @param values
      * @returns
      */
-    updateElements(listIndexes, values) {
+    updateElements(readonlyState, listIndexes, values) {
         if (typeof values[0] !== "object")
             return;
         const engine = this.binding.engine;
@@ -132,7 +132,7 @@ class BindingNodeFor extends BindingNodeBlock {
             if (typeof prevBindContent === "undefined") {
                 // 入れ替えるBindContentがない場合は再描画
                 const bindContent = targetBindContents[index];
-                bindContent.render();
+                bindContent.render(readonlyState);
                 bindContent.mountAfter(parentNode, lastNode);
             }
             else {
@@ -146,7 +146,7 @@ class BindingNodeFor extends BindingNodeBlock {
             }
         }
         this.#bindContentsSet = new Set(currentBindContents);
-        engine.saveList(this.binding.bindingState.info, this.binding.bindingState.listIndex, this.binding.bindingState.value.slice(0));
+        engine.saveList(this.binding.bindingState.info, this.binding.bindingState.listIndex, this.binding.bindingState.getValue(readonlyState).slice(0));
     }
 }
 export const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, filters) => {

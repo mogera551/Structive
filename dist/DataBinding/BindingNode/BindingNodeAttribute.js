@@ -10,7 +10,7 @@ class BindingNodeAttribute extends BindingNode {
         const [, subName] = this.name.split(".");
         this.#subName = subName;
     }
-    assignValue(value) {
+    assignValue(readonlyState, value) {
         if (value === null || value === undefined || Number.isNaN(value)) {
             value = "";
         }

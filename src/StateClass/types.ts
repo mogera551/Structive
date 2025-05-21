@@ -21,7 +21,7 @@ export interface IState {
 export interface IStateProxy extends IState {
   [GetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null): any;
   [SetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void;
-  [SetCacheableSymbol](callback: () => Promise<void>): Promise<void>;
+  [SetCacheableSymbol](callback: () => void): void;
   [ConnectedCallbackSymbol](): Promise<void>;
   [DisconnectedCallbackSymbol](): Promise<void>;
   [ResolveSymbol](path: string, indexes: number[]): any
@@ -43,5 +43,4 @@ export interface IStateHandler {
   callableApi      : { [key:symbol]: Function };
   get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
-
 }
