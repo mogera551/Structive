@@ -2,7 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
+import { GetByRefSymbol, SetByRefSymbol, SetLoopContextSymbol } from "../../StateClass/symbols.js";
 import { IStateProxy } from "../../StateClass/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
@@ -71,17 +71,12 @@ class BindingState implements IBindingState {
   assignValue(value: any) {
     const loopContext = this.binding.parentBindContent.currentLoopContext;
     const engine = this.binding.engine;
-    const stateProxy = engine.createWritableStateProxy();
     const bindingState = this.binding.bindingState;
-    if (loopContext) {
-      engine.setLoopContext(loopContext, async () => {
-        // @ts-ignore
-        stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-      });
-    } else {
-      // @ts-ignore
+    // ToDo: stateProxyは上位から取得した方が良いよね
+    const stateProxy = engine.createWritableStateProxy();
+    stateProxy[SetLoopContextSymbol](loopContext, async () => {
       stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-    }
+    });
   }
 }
 

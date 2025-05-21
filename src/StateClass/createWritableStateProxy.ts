@@ -1,6 +1,6 @@
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol } from "./symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols.js";
 import { IState, IStateHandler, IStateProxy, IWritableStateHandler } from "./types";
 import { getByRef as apiGetByRef } from "./apis/getByRef.js";
 import { setByRef as apiSetByRef } from "./apis/setByRef.js";
@@ -14,6 +14,8 @@ import { set as trapSet } from "./traps/set.js";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
+import { setStatePropertyRef } from "./apis/setStatePropertyRef";
+import { setLoopContext } from "./apis/setLoopContext";
 
 class StateHandler implements IWritableStateHandler {
   engine   : IComponentEngine;
@@ -36,6 +38,8 @@ class StateHandler implements IWritableStateHandler {
     [DisconnectedCallbackSymbol]: disconnectedCallback, 
     [ResolveSymbol]: resolve, 
     [GetAllSymbol]: getAll,
+    [SetStatePropertyRefSymbol]: setStatePropertyRef,
+    [SetLoopContextSymbol]: setLoopContext
   };
 
   get(

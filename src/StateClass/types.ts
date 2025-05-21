@@ -1,9 +1,10 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
+import { ILoopContext } from "../LoopContext/types";
 import { Router } from "../Router/Router";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { Constructor, IComponentConfig, IUserConfig } from "../WebComponents/types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols";
 
 export interface IDependentProps {
   [propName: string]: string[];
@@ -24,7 +25,9 @@ export interface IStateProxy extends IState {
   [SetCacheableSymbol](callback: () => void): void;
   [ConnectedCallbackSymbol](): Promise<void>;
   [DisconnectedCallbackSymbol](): Promise<void>;
-  [ResolveSymbol](path: string, indexes: number[]): any
+  [ResolveSymbol](path: string, indexes: number[]): any;
+  [SetLoopContextSymbol](loopContext: ILoopContext | null, callback: () => Promise<void>): Promise<void>;
+  [SetStatePropertyRefSymbol](info: IStructuredPathInfo, listIndex: IListIndex | null, callback: () => void): void;
 }
 
 export interface IStructiveStaticState {
@@ -41,6 +44,9 @@ export interface IStateHandler {
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
   callableApi      : { [key:symbol]: Function };
+  structuredPathInfoStack: (IStructuredPathInfo | null)[];
+  listIndexStack: (IListIndex | null)[];
+  loopContext: ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
 }
@@ -52,6 +58,9 @@ export interface IReadonlyStateHandler {
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
   callableApi      : { [key:symbol]: Function };
+  structuredPathInfoStack: (IStructuredPathInfo | null)[];
+  listIndexStack: (IListIndex | null)[];
+  loopContext: ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
 }
@@ -63,6 +72,9 @@ export interface IWritableStateHandler {
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
   callableApi      : { [key:symbol]: Function };
+  structuredPathInfoStack: (IStructuredPathInfo | null)[];
+  listIndexStack: (IListIndex | null)[];
+  loopContext: ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
 }

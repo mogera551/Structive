@@ -9,7 +9,7 @@ import { attachShadow } from "./attachShadow.js";
 import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol } from "../StateClass/symbols.js";
 import { ILoopContext } from "../LoopContext/types";
 import { IListIndex } from "../ListIndex/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
@@ -93,13 +93,16 @@ export class ComponentEngine implements IComponentEngine {
   async connectedCallback(): Promise<void> {
     if (this.owner.dataset.state) {
       try {
-        const writableState = createWritableStateProxy(this, this.state);
         const json = JSON.parse(this.owner.dataset.state);
-        for(const [key, value] of Object.entries(json)) {
-          const info = getStructuredPathInfo(key);
-          if (info.wildcardCount > 0) continue;
-          writableState[SetByRefSymbol](info, null, value);
-        }
+        const writableState = createWritableStateProxy(this, this.state);
+        await writableState[SetLoopContextSymbol](null, async () => {
+          for(const [key, value] of Object.entries(json)) {
+            const info = getStructuredPathInfo(key);
+            if (info.wildcardCount > 0) continue;
+            writableState[SetByRefSymbol](info, null, value);
+          }
+
+        });
       } catch(e) {
         raiseError("Failed to parse state from dataset");
       }

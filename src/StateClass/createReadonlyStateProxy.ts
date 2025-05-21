@@ -1,6 +1,6 @@
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols.js";
 import { IReadonlyStateHandler, IState, IStateHandler, IStateProxy, IWritableStateHandler } from "./types";
 import { getByRef as apiGetByRef } from "./apis/getByRef.js";
 import { setByRef as apiSetByRef } from "./apis/setByRef.js";
@@ -14,6 +14,9 @@ import { set as trapSet } from "./traps/set.js";
 import { raiseError } from "../utils";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { IListIndex } from "../ListIndex/types";
+import { ILoopContext } from "../LoopContext/types";
+import { setStatePropertyRef } from "./apis/setStatePropertyRef";
+import { setLoopContext } from "./apis/setLoopContext";
 
 class StateHandler implements IReadonlyStateHandler {
   engine   : IComponentEngine;
@@ -23,6 +26,7 @@ class StateHandler implements IReadonlyStateHandler {
   trackingStack: IStructuredPathInfo[] = [];
   structuredPathInfoStack: (IStructuredPathInfo | null)[] = [];
   listIndexStack: (IListIndex | null)[] = [];
+  loopContext: ILoopContext | null = null;
   
   constructor(engine: IComponentEngine) {
     this.engine = engine;
@@ -35,6 +39,8 @@ class StateHandler implements IReadonlyStateHandler {
     [DisconnectedCallbackSymbol]: disconnectedCallback, 
     [ResolveSymbol]: resolve, 
     [GetAllSymbol]: getAll,
+    [SetStatePropertyRefSymbol]: setStatePropertyRef,
+    [SetLoopContextSymbol]: setLoopContext
   };
 
   get(
