@@ -1,5 +1,4 @@
 import { createBindContent } from "../DataBinding/BindContent.js";
-import { createStateProxy } from "../StateClass/createStateProxy.js";
 import { createUpdater } from "../Updater/updater.js";
 import { attachShadow } from "./attachShadow.js";
 import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
@@ -8,6 +7,8 @@ import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js
 import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
 import { raiseError } from "../utils.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
+import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
+import { createWritableStateProxy } from "../StateClass/createWritableStateProxy.js";
 export class ComponentEngine {
     type = 'autonomous';
     config;
@@ -15,7 +16,7 @@ export class ComponentEngine {
     styleSheet;
     stateClass;
     state;
-    stateProxy;
+    readonlyState;
     updater;
     inputFilters;
     outputFilters;
@@ -42,7 +43,7 @@ export class ComponentEngine {
         this.styleSheet = componentClass.styleSheet;
         this.stateClass = componentClass.stateClass;
         this.state = new this.stateClass();
-        this.stateProxy = createStateProxy(this, this.state);
+        this.readonlyState = createReadonlyStateProxy(this, this.state);
         this.updater = createUpdater(this);
         this.inputFilters = componentClass.inputFilters;
         this.outputFilters = componentClass.outputFilters;
@@ -69,7 +70,7 @@ export class ComponentEngine {
         for (const info of this.listInfoSet) {
             if (info.wildcardCount > 0)
                 continue;
-            const value = this.stateProxy[GetByRefSymbol](info, null);
+            const value = this.readonlyState[GetByRefSymbol](info, null);
             buildListIndexTree(this, info, null, value);
         }
         this.updater.main(this.#waitForInitialize);
@@ -77,12 +78,13 @@ export class ComponentEngine {
     async connectedCallback() {
         if (this.owner.dataset.state) {
             try {
+                const writableState = createWritableStateProxy(this, this.state);
                 const json = JSON.parse(this.owner.dataset.state);
                 for (const [key, value] of Object.entries(json)) {
                     const info = getStructuredPathInfo(key);
                     if (info.wildcardCount > 0)
                         continue;
-                    this.stateProxy[SetByRefSymbol](info, null, value);
+                    writableState[SetByRefSymbol](info, null, value);
                 }
             }
             catch (e) {
@@ -91,15 +93,15 @@ export class ComponentEngine {
         }
         this.owner.state[BindParentComponentSymbol]();
         attachShadow(this.owner, this.config, this.styleSheet);
-        await this.stateProxy[ConnectedCallbackSymbol]();
-        await this.stateProxy[SetCacheableSymbol](async () => {
+        await this.readonlyState[ConnectedCallbackSymbol]();
+        await this.readonlyState[SetCacheableSymbol](async () => {
             this.bindContent.render();
         });
         this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
         this.#waitForInitialize.resolve();
     }
     async disconnectedCallback() {
-        await this.stateProxy[DisconnectedCallbackSymbol]();
+        await this.readonlyState[DisconnectedCallbackSymbol]();
     }
     async setLoopContext(loopContext, callback) {
         try {
@@ -245,13 +247,24 @@ export class ComponentEngine {
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する
-        return this.stateProxy[GetByRefSymbol](info, listIndex);
+        const readonlyState = createReadonlyStateProxy(this, this.state);
+        return readonlyState[GetByRefSymbol](info, listIndex);
     }
     setPropertyValue(info, listIndex, value) {
         // プロパティの値を設定する
         this.updater.addProcess(() => {
-            this.stateProxy[SetByRefSymbol](info, listIndex, value);
+            // ToDo: ここよく検討すること
+            const writableState = createWritableStateProxy(this, this.state);
+            writableState[SetByRefSymbol](info, listIndex, value);
         });
+    }
+    // 読み取り専用の状態プロキシを作成する
+    createReadonlyStateProxy() {
+        return createReadonlyStateProxy(this, this.state);
+    }
+    // 書き込み可能な状態プロキシを作成する
+    createWritableStateProxy() {
+        return createWritableStateProxy(this, this.state);
     }
 }
 export function createComponentEngine(config, component) {

@@ -31,7 +31,7 @@ function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
             continue;
         }
         for (const subListIndex of newListIndexesSet) {
-            const subValue = engine.stateProxy[GetByRefSymbol](info, subListIndex);
+            const subValue = engine.readonlyState[GetByRefSymbol](info, subListIndex);
             buildListIndexTreeSub(engine, listInfos, info, subListIndex, subValue ?? []);
         }
     }

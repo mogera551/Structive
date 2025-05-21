@@ -17,7 +17,7 @@ class BindingNodeEvent extends BindingNode {
     handler(e) {
         const bindingState = this.binding.bindingState;
         const engine = this.binding.engine;
-        const stateProxy = engine.stateProxy;
+        const stateProxy = engine.createWritableStateProxy();
         const updater = engine.updater;
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const indexes = loopContext?.serialize().map((context) => context.listIndex.index) ?? [];

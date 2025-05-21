@@ -62,7 +62,7 @@ export function restructListIndexes(infos, engine, updateValues, refKeys, cache)
                 cacheListIndexSet.add(_listIndex);
                 refKeys.add(refKey);
                 if (engine.listInfoSet.has(_info)) {
-                    const values = updateValues[refKey] ?? engine.stateProxy[GetByRefSymbol](_info, _listIndex);
+                    const values = updateValues[refKey] ?? engine.readonlyState[GetByRefSymbol](_info, _listIndex);
                     buildListIndexTree(engine, _info, _listIndex, values);
                 }
             });

@@ -10,7 +10,7 @@ class Binding {
         this.node = node;
         this.engine = engine;
         this.bindingNode = createBindingNode(this, node, engine.inputFilters);
-        this.bindingState = createBindingState(this, engine.stateProxy, engine.outputFilters);
+        this.bindingState = createBindingState(this, engine.readonlyState, engine.outputFilters);
     }
     get bindContents() {
         return this.bindingNode.bindContents;

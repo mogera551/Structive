@@ -59,7 +59,7 @@ class BindingState {
     assignValue(value) {
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const engine = this.binding.engine;
-        const stateProxy = engine.stateProxy;
+        const stateProxy = engine.createWritableStateProxy();
         const bindingState = this.binding.bindingState;
         if (loopContext) {
             engine.setLoopContext(loopContext, async () => {

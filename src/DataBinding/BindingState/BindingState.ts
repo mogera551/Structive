@@ -68,10 +68,10 @@ class BindingState implements IBindingState {
     }
     this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
   }
-  assignValue(value:any) {
+  assignValue(value: any) {
     const loopContext = this.binding.parentBindContent.currentLoopContext;
     const engine = this.binding.engine;
-    const stateProxy = engine.stateProxy;
+    const stateProxy = engine.createWritableStateProxy();
     const bindingState = this.binding.bindingState;
     if (loopContext) {
       engine.setLoopContext(loopContext, async () => {

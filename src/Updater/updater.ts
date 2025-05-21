@@ -178,7 +178,7 @@ class Updater implements IUpdater {
 
   async render(bindings: IBinding[]) {
     this.#version++;
-    await this.engine.stateProxy[SetCacheableSymbol](async () => {
+    await this.engine.readonlyState[SetCacheableSymbol](async () => {
       return render(bindings);
     });
   }
