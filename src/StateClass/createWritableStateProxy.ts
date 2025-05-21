@@ -26,7 +26,6 @@ class StateHandler implements IWritableStateHandler {
   callableApi: { [key:symbol]: Function } = {
     [GetByRefSymbol]: apiGetByRef, 
     [SetByRefSymbol]: apiSetByRef, 
-    [SetCacheableSymbol]: apiSetCacheable, 
     [ConnectedCallbackSymbol]: connectedCallback, 
     [DisconnectedCallbackSymbol]: disconnectedCallback, 
     [ResolveSymbol]: resolve, 

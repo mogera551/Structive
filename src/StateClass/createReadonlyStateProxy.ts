@@ -11,6 +11,7 @@ import { resolve } from "./apis/resolve.js";
 import { getAll } from "./apis/getAll.js";
 import { get as trapGet } from "./traps/get.js";
 import { set as trapSet } from "./traps/set.js";
+import { raiseError } from "../utils";
 
 class StateHandler implements IReadonlyStateHandler {
   engine   : IComponentEngine;
@@ -25,7 +26,6 @@ class StateHandler implements IReadonlyStateHandler {
 
   callableApi: { [key:symbol]: Function } = {
     [GetByRefSymbol]: apiGetByRef, 
-    [SetByRefSymbol]: apiSetByRef, 
     [SetCacheableSymbol]: apiSetCacheable, 
     [ConnectedCallbackSymbol]: connectedCallback, 
     [DisconnectedCallbackSymbol]: disconnectedCallback, 
@@ -47,7 +47,7 @@ class StateHandler implements IReadonlyStateHandler {
     value   : any, 
     receiver: IStateProxy
   ): boolean {
-    return trapSet(target, prop, value, receiver, this);
+    raiseError(`Cannot set property ${String(prop)} of readonly state.`);
   }
 }
 

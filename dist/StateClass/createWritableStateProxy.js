@@ -1,7 +1,6 @@
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol } from "./symbols.js";
 import { getByRef as apiGetByRef } from "./apis/getByRef.js";
 import { setByRef as apiSetByRef } from "./apis/setByRef.js";
-import { setCacheable as apiSetCacheable } from "./apis/setCacheable.js";
 import { connectedCallback } from "./apis/connectedCallback.js";
 import { disconnectedCallback } from "./apis/disconnectedCallback.js";
 import { resolve } from "./apis/resolve.js";
@@ -20,7 +19,6 @@ class StateHandler {
     callableApi = {
         [GetByRefSymbol]: apiGetByRef,
         [SetByRefSymbol]: apiSetByRef,
-        [SetCacheableSymbol]: apiSetCacheable,
         [ConnectedCallbackSymbol]: connectedCallback,
         [DisconnectedCallbackSymbol]: disconnectedCallback,
         [ResolveSymbol]: resolve,

@@ -2505,44 +2505,6 @@ function getByRef(target, prop, receiver, handler) {
     return (pattern, listIndex) => getByRef$1(target, pattern, listIndex, receiver, handler);
 }
 
-function setByRef$1(target, info, listIndex, value, receiver, handler) {
-    try {
-        if (info.pattern in target) {
-            if (info.wildcardCount > 0) {
-                if (listIndex === null) {
-                    raiseError(`propRef.listIndex is null`);
-                }
-                return handler.engine.setStatePropertyRef(info, listIndex, () => {
-                    return Reflect.set(target, info.pattern, value, receiver);
-                });
-            }
-            else {
-                return Reflect.set(target, info.pattern, value, receiver);
-            }
-        }
-        else {
-            const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-            const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-            const parentValue = getByRef$1(target, parentInfo, parentListIndex, receiver, handler);
-            const lastSegment = info.lastSegment;
-            if (lastSegment === "*") {
-                const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
-                return Reflect.set(parentValue, index, value);
-            }
-            else {
-                return Reflect.set(parentValue, lastSegment, value);
-            }
-        }
-    }
-    finally {
-        handler.engine.updater.addUpdatedStatePropertyRefValue(info, listIndex, value);
-    }
-}
-
-function setByRef(target, prop, receiver, handler) {
-    return (pattern, listIndex, value) => setByRef$1(target, pattern, listIndex, value, receiver, handler);
-}
-
 async function setCacheable$1(handler, callback) {
     handler.cacheable = true;
     handler.cache = {};
@@ -2578,6 +2540,40 @@ function disconnectedCallback(target, prop, receiver, handler) {
             await callback.call(target, receiver);
         }
     };
+}
+
+function setByRef$1(target, info, listIndex, value, receiver, handler) {
+    try {
+        if (info.pattern in target) {
+            if (info.wildcardCount > 0) {
+                if (listIndex === null) {
+                    raiseError(`propRef.listIndex is null`);
+                }
+                return handler.engine.setStatePropertyRef(info, listIndex, () => {
+                    return Reflect.set(target, info.pattern, value, receiver);
+                });
+            }
+            else {
+                return Reflect.set(target, info.pattern, value, receiver);
+            }
+        }
+        else {
+            const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+            const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
+            const parentValue = getByRef$1(target, parentInfo, parentListIndex, receiver, handler);
+            const lastSegment = info.lastSegment;
+            if (lastSegment === "*") {
+                const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+                return Reflect.set(parentValue, index, value);
+            }
+            else {
+                return Reflect.set(parentValue, lastSegment, value);
+            }
+        }
+    }
+    finally {
+        handler.engine.updater.addUpdatedStatePropertyRefValue(info, listIndex, value);
+    }
 }
 
 function resolve(target, prop, receiver, handler) {
@@ -2790,17 +2786,6 @@ function get(target, prop, receiver, handler) {
     return value;
 }
 
-function set(target, prop, value, receiver, handler) {
-    if (typeof prop === "string") {
-        const resolvedInfo = getResolvedPathInfo(prop);
-        const listIndex = getListIndex(resolvedInfo, handler.engine);
-        return setByRef$1(target, resolvedInfo.info, listIndex, value, receiver, handler);
-    }
-    else {
-        return Reflect.set(target, prop, value, receiver);
-    }
-}
-
 let StateHandler$1 = class StateHandler {
     engine;
     cacheable = false;
@@ -2812,7 +2797,6 @@ let StateHandler$1 = class StateHandler {
     }
     callableApi = {
         [GetByRefSymbol]: getByRef,
-        [SetByRefSymbol]: setByRef,
         [SetCacheableSymbol]: setCacheable,
         [ConnectedCallbackSymbol]: connectedCallback,
         [DisconnectedCallbackSymbol]: disconnectedCallback,
@@ -2823,11 +2807,26 @@ let StateHandler$1 = class StateHandler {
         return get(target, prop, receiver, this);
     }
     set(target, prop, value, receiver) {
-        return set(target, prop, value, receiver, this);
+        raiseError(`Cannot set property ${String(prop)} of readonly state.`);
     }
 };
 function createReadonlyStateProxy(engine, state) {
     return new Proxy(state, new StateHandler$1(engine));
+}
+
+function setByRef(target, prop, receiver, handler) {
+    return (pattern, listIndex, value) => setByRef$1(target, pattern, listIndex, value, receiver, handler);
+}
+
+function set(target, prop, value, receiver, handler) {
+    if (typeof prop === "string") {
+        const resolvedInfo = getResolvedPathInfo(prop);
+        const listIndex = getListIndex(resolvedInfo, handler.engine);
+        return setByRef$1(target, resolvedInfo.info, listIndex, value, receiver, handler);
+    }
+    else {
+        return Reflect.set(target, prop, value, receiver);
+    }
 }
 
 class StateHandler {
@@ -2842,7 +2841,6 @@ class StateHandler {
     callableApi = {
         [GetByRefSymbol]: getByRef,
         [SetByRefSymbol]: setByRef,
-        [SetCacheableSymbol]: setCacheable,
         [ConnectedCallbackSymbol]: connectedCallback,
         [DisconnectedCallbackSymbol]: disconnectedCallback,
         [ResolveSymbol]: resolve,
