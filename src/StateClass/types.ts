@@ -43,5 +43,26 @@ export interface IStateHandler {
   callableApi      : { [key:symbol]: Function };
   get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
+}
 
+export interface IReadonlyStateHandler {
+  engine           : IComponentEngine;
+  cacheable        : boolean;
+  cache            : {[key:string]:any};
+  lastTrackingStack: IStructuredPathInfo | null;
+  trackingStack    : IStructuredPathInfo[];
+  callableApi      : { [key:symbol]: Function };
+  get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
+  set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
+}
+
+export interface IWritableStateHandler {
+  engine           : IComponentEngine;
+  cacheable        : boolean;
+  cache            : {[key:string]:any};
+  lastTrackingStack: IStructuredPathInfo | null;
+  trackingStack    : IStructuredPathInfo[];
+  callableApi      : { [key:symbol]: Function };
+  get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
+  set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
 }
