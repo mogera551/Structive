@@ -107,7 +107,7 @@ export class ComponentEngine implements IComponentEngine {
     this.owner.state[BindParentComponentSymbol]();
     attachShadow(this.owner, this.config, this.styleSheet);
     await this.readonlyState[ConnectedCallbackSymbol]();
-    await this.readonlyState[SetCacheableSymbol](async () => {
+    this.readonlyState[SetCacheableSymbol](() => {
       this.bindContent.render();
     });
     this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
