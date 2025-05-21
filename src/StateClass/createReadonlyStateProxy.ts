@@ -12,6 +12,8 @@ import { getAll } from "./apis/getAll.js";
 import { get as trapGet } from "./traps/get.js";
 import { set as trapSet } from "./traps/set.js";
 import { raiseError } from "../utils";
+import { IStatePropertyRef } from "../StatePropertyRef/types";
+import { IListIndex } from "../ListIndex/types";
 
 class StateHandler implements IReadonlyStateHandler {
   engine   : IComponentEngine;
@@ -19,6 +21,8 @@ class StateHandler implements IReadonlyStateHandler {
   cache    : {[key:number]:any} = {};
   lastTrackingStack: IStructuredPathInfo | null = null;
   trackingStack: IStructuredPathInfo[] = [];
+  structuredPathInfoStack: (IStructuredPathInfo | null)[] = [];
+  listIndexStack: (IListIndex | null)[] = [];
   
   constructor(engine: IComponentEngine) {
     this.engine = engine;
