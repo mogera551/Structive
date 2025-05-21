@@ -7,7 +7,7 @@ export function setCacheable(
   receiver: IStateProxy,
   handler: IStateHandler
 ):Function {
-  return async (callback: () => Promise<void>) => {
-    await methodSetChargeable(handler, callback);
+  return (callback: () => void) => {
+    methodSetChargeable(handler, callback);
   }
 }
