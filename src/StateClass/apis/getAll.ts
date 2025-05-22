@@ -2,6 +2,7 @@ import { IListIndex } from "../../ListIndex/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
+import { GetContextListIndexSymbol } from "../symbols";
 import { IStateHandler, IStateProxy } from "../types";
 import { resolve as _resolve } from "./resolve.js";
 
@@ -24,7 +25,7 @@ export function getAll(
       if (typeof indexes === "undefined") {
         for(let i = 0; i < info.wildcardInfos.length; i++) {
           const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
-          const listIndex = handler.engine.getContextListIndex(wildcardPattern.pattern);
+          const listIndex = handler.callableApi[GetContextListIndexSymbol](wildcardPattern.pattern);
           if (listIndex) {
             indexes = listIndex.indexes;
             break;

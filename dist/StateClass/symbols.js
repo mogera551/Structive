@@ -8,3 +8,5 @@ export const ResolveSymbol = Symbol.for(`${symbolName}.Resolve`);
 export const GetAllSymbol = Symbol.for(`${symbolName}.GetAll`);
 export const SetStatePropertyRefSymbol = Symbol.for(`${symbolName}.SetStatePropertyRef`);
 export const SetLoopContextSymbol = Symbol.for(`${symbolName}.SetLoopContext`);
+export const GetLastStatePropertyRefSymbol = Symbol.for(`${symbolName}.GetLastStatePropertyRef`);
+export const GetContextListIndexSymbol = Symbol.for(`${symbolName}.GetContextListIndex`);

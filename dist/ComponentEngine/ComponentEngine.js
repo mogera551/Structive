@@ -30,9 +30,6 @@ export class ComponentEngine {
     dependentTree = new Map();
     bindingsByComponent = new WeakMap();
     #waitForInitialize = Promise.withResolvers();
-    #loopContext = null;
-    #stackStructuredPathInfo = [];
-    #stackListIndex = [];
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {
@@ -104,38 +101,6 @@ export class ComponentEngine {
     }
     async disconnectedCallback() {
         await this.readonlyState[DisconnectedCallbackSymbol]();
-    }
-    getLastStatePropertyRef() {
-        if (this.#stackStructuredPathInfo.length === 0) {
-            return null;
-        }
-        const info = this.#stackStructuredPathInfo[this.#stackStructuredPathInfo.length - 1];
-        if (typeof info === "undefined") {
-            return null;
-        }
-        const listIndex = this.#stackListIndex[this.#stackListIndex.length - 1];
-        if (typeof listIndex === "undefined") {
-            return null;
-        }
-        return { info, listIndex };
-    }
-    getContextListIndex(structuredPath) {
-        const lastRef = this.getLastStatePropertyRef();
-        if (lastRef === null) {
-            return null;
-        }
-        const info = lastRef.info;
-        const index = info.wildcardPaths.indexOf(structuredPath);
-        if (index >= 0) {
-            return lastRef.listIndex?.at(index) ?? null;
-        }
-        return null;
-    }
-    getLoopContexts() {
-        if (this.#loopContext === null) {
-            throw new Error("loopContext is null");
-        }
-        return this.#loopContext.serialize();
     }
     #saveInfoByListIndexByResolvedPathInfoId = {};
     #saveInfoByStructuredPathId = {};

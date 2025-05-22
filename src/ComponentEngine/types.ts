@@ -24,10 +24,6 @@ export interface IComponentEngine {
   owner         : StructiveComponent;
   trackedGetters: Set<string>;
 
-  getContextListIndex(patternName: string): IListIndex | null;               // パターン名からリストインデックスを取得する(ワイルドカード探索用)
-  getLoopContexts():ILoopContext[];               // ループコンテキストを取得する
-  getLastStatePropertyRef(): {info:IStructuredPathInfo, listIndex:IListIndex | null} | null; // 最後に取得したプロパティ参照を取得する
-
   listInfoSet        : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列を持つもの
   elementInfoSet     : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列の要素を持つもの
   bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する

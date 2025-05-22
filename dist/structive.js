@@ -708,6 +708,8 @@ const ResolveSymbol = Symbol.for(`${symbolName$1}.Resolve`);
 const GetAllSymbol = Symbol.for(`${symbolName$1}.GetAll`);
 const SetStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.SetStatePropertyRef`);
 const SetLoopContextSymbol = Symbol.for(`${symbolName$1}.SetLoopContext`);
+const GetLastStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.GetLastStatePropertyRef`);
+const GetContextListIndexSymbol = Symbol.for(`${symbolName$1}.GetContextListIndex`);
 
 class BindingNodeEvent extends BindingNode {
     #subName;
@@ -2591,7 +2593,7 @@ function getAll(target, prop, receiver, handler) {
         if (typeof indexes === "undefined") {
             for (let i = 0; i < info.wildcardInfos.length; i++) {
                 const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
-                const listIndex = handler.engine.getContextListIndex(wildcardPattern.pattern);
+                const listIndex = handler.callableApi[GetContextListIndexSymbol](wildcardPattern.pattern);
                 if (listIndex) {
                     indexes = listIndex.indexes;
                     break;
@@ -2708,7 +2710,7 @@ function getResolvedPathInfo(name) {
     return _cache[name] ?? (_cache[name] = new ResolvedPathInfo(name));
 }
 
-function getListIndex(info, engine) {
+function getListIndex(info, handler) {
     if (info.info.wildcardCount === 0) {
         return null;
     }
@@ -2716,14 +2718,14 @@ function getListIndex(info, engine) {
     const lastWildcardPath = info.info.lastWildcardPath ??
         raiseError(`lastWildcardPath is null`);
     if (info.wildcardType === "context") {
-        listIndex = engine.getContextListIndex(lastWildcardPath) ??
+        listIndex = handler.callableApi[GetContextListIndexSymbol](lastWildcardPath) ??
             raiseError(`ListIndex not found: ${info.info.pattern}`);
     }
     else if (info.wildcardType === "all") {
         let parentListIndex = null;
         for (let i = 0; i < info.info.wildcardCount; i++) {
             const wildcardParentPattern = info.info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPattern is null`);
-            const listIndexes = Array.from(engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
+            const listIndexes = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
             const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
             parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }
@@ -2741,8 +2743,8 @@ function get(target, prop, receiver, handler) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const ref = handler.engine.getLastStatePropertyRef() ??
-                        raiseError(`get: this.engine.getLastStatePropertyRef() is null`);
+                    const ref = handler.callableApi[GetLastStatePropertyRefSymbol]() ??
+                        raiseError(`get: handler.callableApi[GetLastStatePropertyRefSymbol]() is null`);
                     return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
             }
@@ -2757,7 +2759,7 @@ function get(target, prop, receiver, handler) {
             }
         }
         const resolvedInfo = getResolvedPathInfo(prop);
-        const listIndex = getListIndex(resolvedInfo, handler.engine);
+        const listIndex = getListIndex(resolvedInfo, handler);
         value = getByRef$1(target, resolvedInfo.info, listIndex, receiver, handler);
     }
     else if (typeof prop === "symbol") {
@@ -2819,6 +2821,42 @@ function setLoopContext(target, prop, receiver, handler) {
     return (loopContext, callback) => setLoopContext$1(handler, loopContext, callback);
 }
 
+function getLastStatePropertyRef$1(handler) {
+    if (handler.structuredPathInfoStack.length === 0) {
+        return null;
+    }
+    const info = handler.structuredPathInfoStack[handler.structuredPathInfoStack.length - 1];
+    if (typeof info === "undefined") {
+        return null;
+    }
+    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+    if (typeof listIndex === "undefined") {
+        return null;
+    }
+    return { info, listIndex };
+}
+
+function getLastStatePropertyRef(target, prop, receiver, handler) {
+    return () => getLastStatePropertyRef$1(handler);
+}
+
+function getContextListIndex$1(handler, structuredPath) {
+    const lastRef = getLastStatePropertyRef$1(handler);
+    if (lastRef === null) {
+        return null;
+    }
+    const info = lastRef.info;
+    const index = info.wildcardPaths.indexOf(structuredPath);
+    if (index >= 0) {
+        return lastRef.listIndex?.at(index) ?? null;
+    }
+    return null;
+}
+
+function getContextListIndex(target, prop, receiver, handler) {
+    return (structuredPath) => getContextListIndex$1(handler, structuredPath);
+}
+
 let StateHandler$1 = class StateHandler {
     engine;
     cacheable = false;
@@ -2839,7 +2877,9 @@ let StateHandler$1 = class StateHandler {
         [ResolveSymbol]: resolve,
         [GetAllSymbol]: getAll,
         [SetStatePropertyRefSymbol]: setStatePropertyRef,
-        [SetLoopContextSymbol]: setLoopContext
+        [SetLoopContextSymbol]: setLoopContext,
+        [GetLastStatePropertyRefSymbol]: getLastStatePropertyRef,
+        [GetContextListIndexSymbol]: getContextListIndex
     };
     get(target, prop, receiver) {
         return get(target, prop, receiver, this);
@@ -2859,7 +2899,7 @@ function setByRef(target, prop, receiver, handler) {
 function set(target, prop, value, receiver, handler) {
     if (typeof prop === "string") {
         const resolvedInfo = getResolvedPathInfo(prop);
-        const listIndex = getListIndex(resolvedInfo, handler.engine);
+        const listIndex = getListIndex(resolvedInfo, handler);
         return setByRef$1(target, resolvedInfo.info, listIndex, value, receiver, handler);
     }
     else {
@@ -2887,7 +2927,9 @@ class StateHandler {
         [ResolveSymbol]: resolve,
         [GetAllSymbol]: getAll,
         [SetStatePropertyRefSymbol]: setStatePropertyRef,
-        [SetLoopContextSymbol]: setLoopContext
+        [SetLoopContextSymbol]: setLoopContext,
+        [GetLastStatePropertyRefSymbol]: getLastStatePropertyRef,
+        [GetContextListIndexSymbol]: getContextListIndex
     };
     get(target, prop, receiver) {
         return get(target, prop, receiver, this);
@@ -2921,9 +2963,6 @@ class ComponentEngine {
     dependentTree = new Map();
     bindingsByComponent = new WeakMap();
     #waitForInitialize = Promise.withResolvers();
-    #loopContext = null;
-    #stackStructuredPathInfo = [];
-    #stackListIndex = [];
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {
@@ -2995,38 +3034,6 @@ class ComponentEngine {
     }
     async disconnectedCallback() {
         await this.readonlyState[DisconnectedCallbackSymbol]();
-    }
-    getLastStatePropertyRef() {
-        if (this.#stackStructuredPathInfo.length === 0) {
-            return null;
-        }
-        const info = this.#stackStructuredPathInfo[this.#stackStructuredPathInfo.length - 1];
-        if (typeof info === "undefined") {
-            return null;
-        }
-        const listIndex = this.#stackListIndex[this.#stackListIndex.length - 1];
-        if (typeof listIndex === "undefined") {
-            return null;
-        }
-        return { info, listIndex };
-    }
-    getContextListIndex(structuredPath) {
-        const lastRef = this.getLastStatePropertyRef();
-        if (lastRef === null) {
-            return null;
-        }
-        const info = lastRef.info;
-        const index = info.wildcardPaths.indexOf(structuredPath);
-        if (index >= 0) {
-            return lastRef.listIndex?.at(index) ?? null;
-        }
-        return null;
-    }
-    getLoopContexts() {
-        if (this.#loopContext === null) {
-            throw new Error("loopContext is null");
-        }
-        return this.#loopContext.serialize();
     }
     #saveInfoByListIndexByResolvedPathInfoId = {};
     #saveInfoByStructuredPathId = {};

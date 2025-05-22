@@ -2,10 +2,12 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
 import { IResolvedPathInfo } from "../StateProperty/types";
 import { raiseError } from "../utils.js";
+import { GetContextListIndexSymbol } from "./symbols";
+import { IStateHandler } from "./types";
 
 export function getListIndex(
   info: IResolvedPathInfo, 
-  engine: IComponentEngine
+  handler: IStateHandler
 ): IListIndex | null {
   if (info.info.wildcardCount === 0) {
     return null;
@@ -14,13 +16,13 @@ export function getListIndex(
   const lastWildcardPath = info.info.lastWildcardPath ?? 
     raiseError(`lastWildcardPath is null`);
   if (info.wildcardType === "context") {
-    listIndex = engine.getContextListIndex(lastWildcardPath) ?? 
+    listIndex = handler.callableApi[GetContextListIndexSymbol](lastWildcardPath) ?? 
       raiseError(`ListIndex not found: ${info.info.pattern}`);
   } else if (info.wildcardType === "all") {
     let parentListIndex = null;
     for(let i = 0; i < info.info.wildcardCount; i++) {
       const wildcardParentPattern = info.info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPattern is null`);
-      const listIndexes: IListIndex[] = Array.from(engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
+      const listIndexes: IListIndex[] = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
       const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
       parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
     }

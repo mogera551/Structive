@@ -5,6 +5,7 @@ import { getAll } from "../apis/getAll.js";
 import { resolve } from "../apis/resolve.js";
 import { getListIndex } from "../getListIndex.js";
 import { getByRef } from "../methods/getByRef.js";
+import { GetLastStatePropertyRefSymbol } from "../symbols.js";
 import { IStateHandler, IStateProxy } from "../types";
 
 export function get(
@@ -19,8 +20,8 @@ export function get(
       if (prop.length === 2) {
         const d = prop.charCodeAt(1) - 48;
         if (d >= 1 && d <= 9) {
-          const ref = handler.engine.getLastStatePropertyRef() ?? 
-            raiseError(`get: this.engine.getLastStatePropertyRef() is null`);
+          const ref = handler.callableApi[GetLastStatePropertyRefSymbol]() ?? 
+            raiseError(`get: handler.callableApi[GetLastStatePropertyRefSymbol]() is null`);
           return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
         }
       }
@@ -33,7 +34,7 @@ export function get(
       }
     }
     const resolvedInfo = getResolvedPathInfo(prop);
-    const listIndex = getListIndex(resolvedInfo, handler.engine);
+    const listIndex = getListIndex(resolvedInfo, handler);
     value = getByRef(
       target, 
       resolvedInfo.info, 

@@ -1,5 +1,6 @@
 import { raiseError } from "../utils.js";
-export function getListIndex(info, engine) {
+import { GetContextListIndexSymbol } from "./symbols";
+export function getListIndex(info, handler) {
     if (info.info.wildcardCount === 0) {
         return null;
     }
@@ -7,14 +8,14 @@ export function getListIndex(info, engine) {
     const lastWildcardPath = info.info.lastWildcardPath ??
         raiseError(`lastWildcardPath is null`);
     if (info.wildcardType === "context") {
-        listIndex = engine.getContextListIndex(lastWildcardPath) ??
+        listIndex = handler.callableApi[GetContextListIndexSymbol](lastWildcardPath) ??
             raiseError(`ListIndex not found: ${info.info.pattern}`);
     }
     else if (info.wildcardType === "all") {
         let parentListIndex = null;
         for (let i = 0; i < info.info.wildcardCount; i++) {
             const wildcardParentPattern = info.info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPattern is null`);
-            const listIndexes = Array.from(engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
+            const listIndexes = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
             const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
             parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }

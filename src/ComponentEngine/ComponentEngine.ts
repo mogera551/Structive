@@ -44,9 +44,6 @@ export class ComponentEngine implements IComponentEngine {
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
 
   #waitForInitialize : PromiseWithResolvers<void> = Promise.withResolvers<void>();
-  #loopContext       : ILoopContext | null = null;
-  #stackStructuredPathInfo  : IStructuredPathInfo[] = [];
-  #stackListIndex    : (IListIndex | null)[] = [];
 
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
@@ -119,40 +116,6 @@ export class ComponentEngine implements IComponentEngine {
 
   async disconnectedCallback(): Promise<void> {
     await this.readonlyState[DisconnectedCallbackSymbol]();
-  }
-
-  getLastStatePropertyRef(): {info:IStructuredPathInfo, listIndex:IListIndex | null} | null {
-    if (this.#stackStructuredPathInfo.length === 0) {
-      return null;
-    }
-    const info = this.#stackStructuredPathInfo[this.#stackStructuredPathInfo.length - 1];
-    if (typeof info === "undefined") {
-      return null;
-    }
-    const listIndex = this.#stackListIndex[this.#stackListIndex.length - 1];
-    if (typeof listIndex === "undefined") {
-      return null;
-    }
-    return {info, listIndex};
-  }
-
-  getContextListIndex(structuredPath: string): IListIndex | null{
-    const lastRef = this.getLastStatePropertyRef();
-    if (lastRef === null) {
-      return null;
-    }
-    const info = lastRef.info;
-    const index = info.wildcardPaths.indexOf(structuredPath);
-    if (index >= 0) {
-      return lastRef.listIndex?.at(index) ?? null;
-    }
-    return null;
-  }
-  getLoopContexts():ILoopContext[] {
-    if (this.#loopContext === null) {
-      throw new Error("loopContext is null");
-    }
-    return this.#loopContext.serialize();
   }
 
   #saveInfoByListIndexByResolvedPathInfoId: { [id:number]: WeakMap<IListIndex,ISaveInfoByResolvedPathInfo> } = {};

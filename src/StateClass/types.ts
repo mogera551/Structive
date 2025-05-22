@@ -44,7 +44,7 @@ export interface IStateHandler {
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
   callableApi      : { [key:symbol]: Function };
-  structuredPathInfoStack: (IStructuredPathInfo | null)[];
+  structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
   loopContext: ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
@@ -58,7 +58,7 @@ export interface IReadonlyStateHandler {
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
   callableApi      : { [key:symbol]: Function };
-  structuredPathInfoStack: (IStructuredPathInfo | null)[];
+  structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
   loopContext: ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
