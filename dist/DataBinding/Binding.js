@@ -29,12 +29,8 @@ class Binding {
             }
         }
     }
-    updateStateValue(value) {
-        const engine = this.engine;
-        const bindingState = this.bindingState;
-        engine.updater.addProcess(() => {
-            return bindingState.assignValue(value);
-        });
+    updateStateValue(writeState, value) {
+        return this.bindingState.assignValue(writeState, value);
     }
 }
 export function createBinding(parentBindContent, node, engine, createBindingNode, createBindingState) {

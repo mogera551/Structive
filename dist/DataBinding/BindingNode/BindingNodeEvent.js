@@ -1,4 +1,6 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { SetLoopContextSymbol } from "../../StateClass/symbols.js";
+import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 class BindingNodeEvent extends BindingNode {
     #subName;
@@ -15,13 +17,15 @@ class BindingNodeEvent extends BindingNode {
         // 何もしない
     }
     handler(e) {
-        const bindingState = this.binding.bindingState;
         const engine = this.binding.engine;
-        const stateProxy = engine.createWritableStateProxy();
-        const updater = engine.updater;
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const indexes = loopContext?.serialize().map((context) => context.listIndex.index) ?? [];
         const options = this.decorates;
+        const value = this.binding.bindingState.value;
+        const typeOfValue = typeof value;
+        if (typeOfValue !== "function") {
+            raiseError(`BindingNodeEvent: ${this.name} is not a function.`);
+        }
         if (options.includes("preventDefault")) {
             e.preventDefault();
         }
@@ -29,27 +33,9 @@ class BindingNodeEvent extends BindingNode {
             e.stopPropagation();
         }
         this.binding.engine.updater.addProcess(async () => {
-            const value = bindingState.value;
-            const typeOfValue = typeof value;
-            updater.addProcess(async () => {
-                if (loopContext) {
-                    await engine.setLoopContext(loopContext, async () => {
-                        if (typeOfValue === "function") {
-                            await Reflect.apply(value, stateProxy, [e, ...indexes]);
-                        }
-                        else {
-                            // ToDo:error
-                        }
-                    });
-                }
-                else {
-                    if (typeOfValue === "function") {
-                        await Reflect.apply(value, stateProxy, [e, ...indexes]);
-                    }
-                    else {
-                        // ToDo:error
-                    }
-                }
+            const stateProxy = engine.createWritableStateProxy();
+            await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+                await Reflect.apply(value, stateProxy, [e, ...indexes]);
             });
         });
     }

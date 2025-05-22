@@ -1,3 +1,4 @@
+import { SetLoopContextSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
 class ComponentState {
@@ -12,8 +13,15 @@ class ComponentState {
                 return binding.bindingState.filteredValue;
             },
             set: (value) => {
-                return binding.updateStateValue(value);
-            },
+                const engine = binding.engine;
+                const loopContext = binding.parentBindContent.currentLoopContext;
+                engine.updater.addProcess(async () => {
+                    const stateProxy = engine.createWritableStateProxy();
+                    await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+                        return binding.updateStateValue(stateProxy, value);
+                    });
+                });
+            }
         });
     }
     unbindParentProperty(binding) {

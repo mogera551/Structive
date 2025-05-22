@@ -14,7 +14,7 @@ export interface IBindingState {
   readonly value        : any;
   readonly filteredValue: any;
   init(): void;
-  assignValue(value:any): void;
+  assignValue(writeState:IStateProxy, value:any): void;
 }
 export type CreateBindingStateByStateFn = (binding:IBinding, state: IStateProxy, filters: FilterWithOptions) => IBindingState;
 export type CreateBindingStateFn = (name: string, filterTexts: IFilterText[]) => CreateBindingStateByStateFn;

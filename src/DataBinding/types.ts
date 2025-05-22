@@ -3,6 +3,7 @@ import { IListIndex } from "../ListIndex/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
+import { IStateProxy } from "../StateClass/types";
 
 export interface IBindContent {
   loopContext  : ILoopContext | null;
@@ -45,7 +46,7 @@ export interface IBinding {
   bindContents     : Set<IBindContent>;
   render(): void;
   init(): void;
-  updateStateValue(value: any): void;
+  updateStateValue(writeState: IStateProxy, value: any): void;
 }
 
 export type StateBindSummary = Map<string, WeakMap<ILoopContext, IBindContent>>;

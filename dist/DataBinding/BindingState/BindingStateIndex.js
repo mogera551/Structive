@@ -61,7 +61,7 @@ class BindingStateIndex {
             bindings.add(this.binding);
         }
     }
-    assignValue(value) {
+    assignValue(writeState, value) {
         raiseError("BindingStateIndex: assignValue is not implemented");
     }
 }

@@ -1,5 +1,6 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
+import { SetLoopContextSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
 import { IComponentState, IComponentStateHandler, IComponentStateProxy } from "./types";
@@ -17,8 +18,15 @@ class ComponentState implements IComponentState {
         return binding.bindingState.filteredValue;
       },
       set: (value: any) => {
-        return binding.updateStateValue(value);
-      },
+        const engine = binding.engine;
+        const loopContext = binding.parentBindContent.currentLoopContext;
+        engine.updater.addProcess(async () => {
+          const stateProxy = engine.createWritableStateProxy();
+          await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+            return binding.updateStateValue(stateProxy, value);
+          });
+        });
+      }
     });
   }
 

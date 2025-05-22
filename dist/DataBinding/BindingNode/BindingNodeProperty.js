@@ -1,5 +1,6 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
+import { SetLoopContextSymbol } from "../../StateClass/symbols.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 function isTwoWayBindable(element) {
@@ -40,8 +41,16 @@ class BindingNodeProperty extends BindingNode {
         const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
         if (eventName === "readonly" || eventName === "ro")
             return;
-        this.node.addEventListener(eventName, () => {
-            this.binding.updateStateValue(this.filteredValue);
+        const engine = this.binding.engine;
+        const loopContext = this.binding.parentBindContent.currentLoopContext;
+        const value = this.filteredValue;
+        this.node.addEventListener(eventName, async () => {
+            engine.updater.addProcess(async () => {
+                const stateProxy = engine.createWritableStateProxy();
+                await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+                    binding.updateStateValue(stateProxy, value);
+                });
+            });
         });
     }
     init() {

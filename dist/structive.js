@@ -698,6 +698,17 @@ const createBindingNodeClassName = (name, filterTexts, decorates) => (binding, n
     return new BindingNodeClassName(binding, node, name, filterFns, decorates);
 };
 
+const symbolName$1 = "state";
+const GetByRefSymbol = Symbol.for(`${symbolName$1}.GetByRef`);
+const SetByRefSymbol = Symbol.for(`${symbolName$1}.SetByRef`);
+const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
+const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
+const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
+const ResolveSymbol = Symbol.for(`${symbolName$1}.Resolve`);
+const GetAllSymbol = Symbol.for(`${symbolName$1}.GetAll`);
+const SetStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.SetStatePropertyRef`);
+const SetLoopContextSymbol = Symbol.for(`${symbolName$1}.SetLoopContext`);
+
 class BindingNodeEvent extends BindingNode {
     #subName;
     constructor(binding, node, name, filters, decorates) {
@@ -713,13 +724,15 @@ class BindingNodeEvent extends BindingNode {
         // 何もしない
     }
     handler(e) {
-        const bindingState = this.binding.bindingState;
         const engine = this.binding.engine;
-        const stateProxy = engine.createWritableStateProxy();
-        const updater = engine.updater;
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const indexes = loopContext?.serialize().map((context) => context.listIndex.index) ?? [];
         const options = this.decorates;
+        const value = this.binding.bindingState.value;
+        const typeOfValue = typeof value;
+        if (typeOfValue !== "function") {
+            raiseError(`BindingNodeEvent: ${this.name} is not a function.`);
+        }
         if (options.includes("preventDefault")) {
             e.preventDefault();
         }
@@ -727,21 +740,9 @@ class BindingNodeEvent extends BindingNode {
             e.stopPropagation();
         }
         this.binding.engine.updater.addProcess(async () => {
-            const value = bindingState.value;
-            const typeOfValue = typeof value;
-            updater.addProcess(async () => {
-                if (loopContext) {
-                    await engine.setLoopContext(loopContext, async () => {
-                        if (typeOfValue === "function") {
-                            await Reflect.apply(value, stateProxy, [e, ...indexes]);
-                        }
-                    });
-                }
-                else {
-                    if (typeOfValue === "function") {
-                        await Reflect.apply(value, stateProxy, [e, ...indexes]);
-                    }
-                }
+            const stateProxy = engine.createWritableStateProxy();
+            await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+                await Reflect.apply(value, stateProxy, [e, ...indexes]);
             });
         });
     }
@@ -1029,8 +1030,16 @@ class BindingNodeProperty extends BindingNode {
         const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
         if (eventName === "readonly" || eventName === "ro")
             return;
-        this.node.addEventListener(eventName, () => {
-            this.binding.updateStateValue(this.filteredValue);
+        const engine = this.binding.engine;
+        const loopContext = this.binding.parentBindContent.currentLoopContext;
+        const value = this.filteredValue;
+        this.node.addEventListener(eventName, async () => {
+            engine.updater.addProcess(async () => {
+                const stateProxy = engine.createWritableStateProxy();
+                await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+                    binding.updateStateValue(stateProxy, value);
+                });
+            });
         });
     }
     init() {
@@ -1085,9 +1094,9 @@ const createBindingNodeStyle = (name, filterTexts, decorates) => (binding, node,
     return new BindingNodeStyle(binding, node, name, filterFns, decorates);
 };
 
-const symbolName$1 = "componentState";
-const RenderSymbol = Symbol.for(`${symbolName$1}.render`);
-const BindParentComponentSymbol = Symbol.for(`${symbolName$1}.bindParentComponent`);
+const symbolName = "componentState";
+const RenderSymbol = Symbol.for(`${symbolName}.render`);
+const BindParentComponentSymbol = Symbol.for(`${symbolName}.bindParentComponent`);
 
 class BindingNodeComponent extends BindingNode {
     #subName;
@@ -1178,15 +1187,6 @@ function getBindingNodeCreator(node, propertyName, filterTexts, decorates) {
     const fn = _cache$2[key] ?? (_cache$2[key] = _getBindingNodeCreator(isComment, isElement, propertyName));
     return fn(propertyName, filterTexts, decorates);
 }
-
-const symbolName = "state";
-const GetByRefSymbol = Symbol.for(`${symbolName}.GetByRef`);
-const SetByRefSymbol = Symbol.for(`${symbolName}.SetByRef`);
-const SetCacheableSymbol = Symbol.for(`${symbolName}.SetCacheable`);
-const ConnectedCallbackSymbol = Symbol.for(`${symbolName}.ConnectedCallback`);
-const DisconnectedCallbackSymbol = Symbol.for(`${symbolName}.DisconnectedCallback`);
-const ResolveSymbol = Symbol.for(`${symbolName}.Resolve`);
-const GetAllSymbol = Symbol.for(`${symbolName}.GetAll`);
 
 /**
  * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
@@ -1345,21 +1345,8 @@ class BindingState {
         }
         this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
     }
-    assignValue(value) {
-        const loopContext = this.binding.parentBindContent.currentLoopContext;
-        const engine = this.binding.engine;
-        const stateProxy = engine.createWritableStateProxy();
-        const bindingState = this.binding.bindingState;
-        if (loopContext) {
-            engine.setLoopContext(loopContext, async () => {
-                // @ts-ignore
-                stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-            });
-        }
-        else {
-            // @ts-ignore
-            stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-        }
+    assignValue(writeState, value) {
+        writeState[SetByRefSymbol](this.info, this.listIndex, value);
     }
 }
 const createBindingState = (name, filterTexts) => (binding, state, filters) => {
@@ -1428,7 +1415,7 @@ class BindingStateIndex {
             bindings.add(this.binding);
         }
     }
-    assignValue(value) {
+    assignValue(writeState, value) {
         raiseError("BindingStateIndex: assignValue is not implemented");
     }
 }
@@ -1719,12 +1706,8 @@ class Binding {
             }
         }
     }
-    updateStateValue(value) {
-        const engine = this.engine;
-        const bindingState = this.bindingState;
-        engine.updater.addProcess(() => {
-            return bindingState.assignValue(value);
-        });
+    updateStateValue(writeState, value) {
+        return this.bindingState.assignValue(writeState, value);
     }
 }
 function createBinding(parentBindContent, node, engine, createBindingNode, createBindingState) {
@@ -2319,9 +2302,9 @@ class Updater {
         this.updatedValues = {};
         return { bindings: retBindings, arrayElementBindings: retArrayElementBindings };
     }
-    async render(bindings) {
+    render(bindings) {
         this.#version++;
-        await this.engine.readonlyState[SetCacheableSymbol](async () => {
+        this.engine.readonlyState[SetCacheableSymbol](() => {
             return render(bindings);
         });
     }
@@ -2336,7 +2319,7 @@ class Updater {
                 arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
             }
             if (bindings.length > 0) {
-                await this.render(bindings);
+                this.render(bindings);
             }
         }
     }
@@ -2505,11 +2488,11 @@ function getByRef(target, prop, receiver, handler) {
     return (pattern, listIndex) => getByRef$1(target, pattern, listIndex, receiver, handler);
 }
 
-async function setCacheable$1(handler, callback) {
+function setCacheable$1(handler, callback) {
     handler.cacheable = true;
     handler.cache = {};
     try {
-        await callback();
+        callback();
     }
     finally {
         handler.cacheable = false;
@@ -2517,8 +2500,8 @@ async function setCacheable$1(handler, callback) {
 }
 
 function setCacheable(target, prop, receiver, handler) {
-    return async (callback) => {
-        await setCacheable$1(handler, callback);
+    return (callback) => {
+        setCacheable$1(handler, callback);
     };
 }
 
@@ -2786,12 +2769,65 @@ function get(target, prop, receiver, handler) {
     return value;
 }
 
+function setStatePropertyRef$1(handler, info, listIndex, callback) {
+    handler.structuredPathInfoStack.push(info);
+    handler.listIndexStack.push(listIndex);
+    try {
+        callback();
+    }
+    finally {
+        handler.structuredPathInfoStack.pop();
+        handler.listIndexStack.pop();
+    }
+}
+
+function setStatePropertyRef(target, prop, receiver, handler) {
+    return (info, listIndex, callback) => setStatePropertyRef$1(handler, info, listIndex, callback);
+}
+
+async function asyncSetStatePropertyRef(handler, info, listIndex, callback) {
+    handler.structuredPathInfoStack.push(info);
+    handler.listIndexStack.push(listIndex);
+    try {
+        await callback();
+    }
+    finally {
+        handler.structuredPathInfoStack.pop();
+        handler.listIndexStack.pop();
+    }
+}
+
+async function setLoopContext$1(handler, loopContext, callback) {
+    if (handler.loopContext) {
+        raiseError('already in loop context');
+    }
+    handler.loopContext = loopContext;
+    try {
+        if (loopContext) {
+            await asyncSetStatePropertyRef(handler, loopContext.info, loopContext.listIndex, callback);
+        }
+        else {
+            await callback();
+        }
+    }
+    finally {
+        handler.loopContext = null;
+    }
+}
+
+function setLoopContext(target, prop, receiver, handler) {
+    return (loopContext, callback) => setLoopContext$1(handler, loopContext, callback);
+}
+
 let StateHandler$1 = class StateHandler {
     engine;
     cacheable = false;
     cache = {};
     lastTrackingStack = null;
     trackingStack = [];
+    structuredPathInfoStack = [];
+    listIndexStack = [];
+    loopContext = null;
     constructor(engine) {
         this.engine = engine;
     }
@@ -2802,6 +2838,8 @@ let StateHandler$1 = class StateHandler {
         [DisconnectedCallbackSymbol]: disconnectedCallback,
         [ResolveSymbol]: resolve,
         [GetAllSymbol]: getAll,
+        [SetStatePropertyRefSymbol]: setStatePropertyRef,
+        [SetLoopContextSymbol]: setLoopContext
     };
     get(target, prop, receiver) {
         return get(target, prop, receiver, this);
@@ -2835,6 +2873,9 @@ class StateHandler {
     cache = {};
     lastTrackingStack = null;
     trackingStack = [];
+    structuredPathInfoStack = [];
+    listIndexStack = [];
+    loopContext = null;
     constructor(engine) {
         this.engine = engine;
     }
@@ -2845,6 +2886,8 @@ class StateHandler {
         [DisconnectedCallbackSymbol]: disconnectedCallback,
         [ResolveSymbol]: resolve,
         [GetAllSymbol]: getAll,
+        [SetStatePropertyRefSymbol]: setStatePropertyRef,
+        [SetLoopContextSymbol]: setLoopContext
     };
     get(target, prop, receiver) {
         return get(target, prop, receiver, this);
@@ -2926,14 +2969,16 @@ class ComponentEngine {
     async connectedCallback() {
         if (this.owner.dataset.state) {
             try {
-                const writableState = createWritableStateProxy(this, this.state);
                 const json = JSON.parse(this.owner.dataset.state);
-                for (const [key, value] of Object.entries(json)) {
-                    const info = getStructuredPathInfo(key);
-                    if (info.wildcardCount > 0)
-                        continue;
-                    writableState[SetByRefSymbol](info, null, value);
-                }
+                const writableState = createWritableStateProxy(this, this.state);
+                await writableState[SetLoopContextSymbol](null, async () => {
+                    for (const [key, value] of Object.entries(json)) {
+                        const info = getStructuredPathInfo(key);
+                        if (info.wildcardCount > 0)
+                            continue;
+                        writableState[SetByRefSymbol](info, null, value);
+                    }
+                });
             }
             catch (e) {
                 raiseError("Failed to parse state from dataset");
@@ -2942,7 +2987,7 @@ class ComponentEngine {
         this.owner.state[BindParentComponentSymbol]();
         attachShadow(this.owner, this.config, this.styleSheet);
         await this.readonlyState[ConnectedCallbackSymbol]();
-        await this.readonlyState[SetCacheableSymbol](async () => {
+        this.readonlyState[SetCacheableSymbol](() => {
             this.bindContent.render();
         });
         this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
@@ -3239,8 +3284,15 @@ class ComponentState {
                 return binding.bindingState.filteredValue;
             },
             set: (value) => {
-                return binding.updateStateValue(value);
-            },
+                const engine = binding.engine;
+                const loopContext = binding.parentBindContent.currentLoopContext;
+                engine.updater.addProcess(async () => {
+                    const stateProxy = engine.createWritableStateProxy();
+                    await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+                        return binding.updateStateValue(stateProxy, value);
+                    });
+                });
+            }
         });
     }
     unbindParentProperty(binding) {

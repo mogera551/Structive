@@ -149,9 +149,9 @@ class Updater {
         this.updatedValues = {};
         return { bindings: retBindings, arrayElementBindings: retArrayElementBindings };
     }
-    async render(bindings) {
+    render(bindings) {
         this.#version++;
-        await this.engine.readonlyState[SetCacheableSymbol](async () => {
+        this.engine.readonlyState[SetCacheableSymbol](() => {
             return render(bindings);
         });
     }
@@ -166,7 +166,7 @@ class Updater {
                 arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
             }
             if (bindings.length > 0) {
-                await this.render(bindings);
+                this.render(bindings);
             }
         }
     }

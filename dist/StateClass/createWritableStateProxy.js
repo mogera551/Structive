@@ -1,4 +1,4 @@
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol } from "./symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols.js";
 import { getByRef as apiGetByRef } from "./apis/getByRef.js";
 import { setByRef as apiSetByRef } from "./apis/setByRef.js";
 import { connectedCallback } from "./apis/connectedCallback.js";
@@ -7,12 +7,17 @@ import { resolve } from "./apis/resolve.js";
 import { getAll } from "./apis/getAll.js";
 import { get as trapGet } from "./traps/get.js";
 import { set as trapSet } from "./traps/set.js";
+import { setStatePropertyRef } from "./apis/setStatePropertyRef";
+import { setLoopContext } from "./apis/setLoopContext";
 class StateHandler {
     engine;
     cacheable = false;
     cache = {};
     lastTrackingStack = null;
     trackingStack = [];
+    structuredPathInfoStack = [];
+    listIndexStack = [];
+    loopContext = null;
     constructor(engine) {
         this.engine = engine;
     }
@@ -23,6 +28,8 @@ class StateHandler {
         [DisconnectedCallbackSymbol]: disconnectedCallback,
         [ResolveSymbol]: resolve,
         [GetAllSymbol]: getAll,
+        [SetStatePropertyRefSymbol]: setStatePropertyRef,
+        [SetLoopContextSymbol]: setLoopContext
     };
     get(target, prop, receiver) {
         return trapGet(target, prop, receiver, this);

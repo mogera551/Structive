@@ -68,15 +68,8 @@ class BindingState implements IBindingState {
     }
     this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
   }
-  assignValue(value: any) {
-    const loopContext = this.binding.parentBindContent.currentLoopContext;
-    const engine = this.binding.engine;
-    const bindingState = this.binding.bindingState;
-    // ToDo: stateProxyは上位から取得した方が良いよね
-    const stateProxy = engine.createWritableStateProxy();
-    stateProxy[SetLoopContextSymbol](loopContext, async () => {
-      stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-    });
+  assignValue(writeState: IStateProxy, value: any) {
+    writeState[SetByRefSymbol](this.info, this.listIndex, value);
   }
 }
 

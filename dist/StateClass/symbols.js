@@ -6,3 +6,5 @@ export const ConnectedCallbackSymbol = Symbol.for(`${symbolName}.ConnectedCallba
 export const DisconnectedCallbackSymbol = Symbol.for(`${symbolName}.DisconnectedCallback`);
 export const ResolveSymbol = Symbol.for(`${symbolName}.Resolve`);
 export const GetAllSymbol = Symbol.for(`${symbolName}.GetAll`);
+export const SetStatePropertyRefSymbol = Symbol.for(`${symbolName}.SetStatePropertyRef`);
+export const SetLoopContextSymbol = Symbol.for(`${symbolName}.SetLoopContext`);

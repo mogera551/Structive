@@ -71,7 +71,7 @@ class BindingStateIndex implements IBindingState {
       bindings.add(this.binding);
     }
   }
-  assignValue(value:any): void {
+  assignValue(writeState:IStateProxy, value:any): void {
     raiseError("BindingStateIndex: assignValue is not implemented");
   }
 }

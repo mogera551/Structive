@@ -2,7 +2,7 @@ import { createBindContent } from "../DataBinding/BindContent.js";
 import { createUpdater } from "../Updater/updater.js";
 import { attachShadow } from "./attachShadow.js";
 import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
 import { raiseError } from "../utils.js";
@@ -78,14 +78,16 @@ export class ComponentEngine {
     async connectedCallback() {
         if (this.owner.dataset.state) {
             try {
-                const writableState = createWritableStateProxy(this, this.state);
                 const json = JSON.parse(this.owner.dataset.state);
-                for (const [key, value] of Object.entries(json)) {
-                    const info = getStructuredPathInfo(key);
-                    if (info.wildcardCount > 0)
-                        continue;
-                    writableState[SetByRefSymbol](info, null, value);
-                }
+                const writableState = createWritableStateProxy(this, this.state);
+                await writableState[SetLoopContextSymbol](null, async () => {
+                    for (const [key, value] of Object.entries(json)) {
+                        const info = getStructuredPathInfo(key);
+                        if (info.wildcardCount > 0)
+                            continue;
+                        writableState[SetByRefSymbol](info, null, value);
+                    }
+                });
             }
             catch (e) {
                 raiseError("Failed to parse state from dataset");
@@ -94,7 +96,7 @@ export class ComponentEngine {
         this.owner.state[BindParentComponentSymbol]();
         attachShadow(this.owner, this.config, this.styleSheet);
         await this.readonlyState[ConnectedCallbackSymbol]();
-        await this.readonlyState[SetCacheableSymbol](async () => {
+        this.readonlyState[SetCacheableSymbol](() => {
             this.bindContent.render();
         });
         this.bindContent.mount(this.owner.shadowRoot ?? this.owner);

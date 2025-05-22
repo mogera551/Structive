@@ -2,6 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { SetLoopContextSymbol } from "../../StateClass/symbols.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
@@ -49,8 +50,17 @@ class BindingNodeProperty extends BindingNode {
     const event = (decorates[0]?.startsWith("on") ? decorates[0]?.slice(2) : decorates[0]) ?? null;
     const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
     if (eventName === "readonly" || eventName === "ro") return;
-    this.node.addEventListener(eventName, () => {
-      this.binding.updateStateValue(this.filteredValue);
+
+    const engine = this.binding.engine;
+    const loopContext = this.binding.parentBindContent.currentLoopContext;
+    const value = this.filteredValue;
+    this.node.addEventListener(eventName, async () => {
+      engine.updater.addProcess(async () => {
+        const stateProxy = engine.createWritableStateProxy();
+        await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+          binding.updateStateValue(stateProxy, value);
+        });
+      });
     });
 
   }

@@ -56,21 +56,8 @@ class BindingState {
         }
         this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
     }
-    assignValue(value) {
-        const loopContext = this.binding.parentBindContent.currentLoopContext;
-        const engine = this.binding.engine;
-        const stateProxy = engine.createWritableStateProxy();
-        const bindingState = this.binding.bindingState;
-        if (loopContext) {
-            engine.setLoopContext(loopContext, async () => {
-                // @ts-ignore
-                stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-            });
-        }
-        else {
-            // @ts-ignore
-            stateProxy[SetByRefSymbol](bindingState.info, bindingState.listIndex, value);
-        }
+    assignValue(writeState, value) {
+        writeState[SetByRefSymbol](this.info, this.listIndex, value);
     }
 }
 export const createBindingState = (name, filterTexts) => (binding, state, filters) => {
