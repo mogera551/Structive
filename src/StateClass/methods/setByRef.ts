@@ -1,6 +1,7 @@
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
+import { SetStatePropertyRefSymbol } from "../symbols";
 import { IStateHandler, IStateProxy } from "../types";
 import { getByRef } from "./getByRef.js";
 
@@ -18,7 +19,7 @@ export function setByRef(
         if (listIndex === null) {
           raiseError(`propRef.listIndex is null`);
         }
-        return handler.engine.setStatePropertyRef(info, listIndex, () => {
+        return handler.callableApi[SetStatePropertyRefSymbol](info, listIndex, () => {
           return Reflect.set(target, info.pattern, value, receiver);
         });
       } else {

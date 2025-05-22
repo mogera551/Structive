@@ -121,50 +121,6 @@ export class ComponentEngine implements IComponentEngine {
     await this.readonlyState[DisconnectedCallbackSymbol]();
   }
 
-  async setLoopContext(loopContext: ILoopContext, callback: ()=>Promise<void>): Promise<void> {
-    try {
-      if (this.#loopContext !== null) {
-        throw new Error("loopContext is already set");
-      }
-      this.#loopContext = loopContext;
-      await this.asyncSetStatePropertyRef(loopContext.info, loopContext.listIndex, async () => {
-        await callback();
-      });
-    } finally {
-      this.#loopContext = null;
-    }
-  }
-
-  async asyncSetStatePropertyRef(
-    info     : IStructuredPathInfo, 
-    listIndex: IListIndex | null, 
-    callback : ()=>Promise<any>
-  ): Promise<any> {
-    this.#stackStructuredPathInfo.push(info);
-    this.#stackListIndex.push(listIndex);
-    try {
-      return await callback();
-    } finally {
-      this.#stackStructuredPathInfo.pop();
-      this.#stackListIndex.pop();
-    }
-  }
-
-  setStatePropertyRef(
-    info     : IStructuredPathInfo, 
-    listIndex: IListIndex | null, 
-    callback : ()=>any
-  ): any {
-    this.#stackStructuredPathInfo.push(info);
-    this.#stackListIndex.push(listIndex);
-    try {
-      return callback();
-    } finally {
-      this.#stackStructuredPathInfo.pop();
-      this.#stackListIndex.pop();
-    }
-  }
-
   getLastStatePropertyRef(): {info:IStructuredPathInfo, listIndex:IListIndex | null} | null {
     if (this.#stackStructuredPathInfo.length === 0) {
       return null;

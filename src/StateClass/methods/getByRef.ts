@@ -2,6 +2,7 @@ import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
+import { SetStatePropertyRefSymbol } from "../symbols";
 import { IStateHandler, IStateProxy } from "../types";
 import { setTracking } from "./setTracking.js";
 
@@ -34,7 +35,7 @@ function _getByRef(
   let value;
   try {
     if (info.pattern in target) {
-      return (value = handler.engine.setStatePropertyRef(info, listIndex, () => {
+      return (value = handler.callableApi[SetStatePropertyRefSymbol](info, listIndex, () => {
         return Reflect.get(target, info.pattern, receiver);
       }));
     } else {

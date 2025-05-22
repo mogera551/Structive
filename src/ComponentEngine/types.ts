@@ -35,14 +35,6 @@ export interface IComponentEngine {
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // コンポーネントからバインディングを取得する
 
-  setLoopContext(loopContext: ILoopContext, callback: ()=>Promise<void>): Promise<void>;
-  asyncSetStatePropertyRef(
-    info: IStructuredPathInfo, 
-    listIndex  : IListIndex | null, 
-    callback: ()=>Promise<any>
-  ): Promise<any>;
-  setStatePropertyRef(info:IStructuredPathInfo, listIndex:IListIndex | null, callback: ()=>any): any;
-
   connectedCallback(): Promise<void>;
   disconnectedCallback(): Promise<void>;
 

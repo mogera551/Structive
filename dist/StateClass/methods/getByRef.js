@@ -1,5 +1,6 @@
 import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
+import { SetStatePropertyRefSymbol } from "../symbols";
 import { setTracking } from "./setTracking.js";
 function _getByRef(target, info, listIndex, receiver, handler) {
     if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
@@ -22,7 +23,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     let value;
     try {
         if (info.pattern in target) {
-            return (value = handler.engine.setStatePropertyRef(info, listIndex, () => {
+            return (value = handler.callableApi[SetStatePropertyRefSymbol](info, listIndex, () => {
                 return Reflect.get(target, info.pattern, receiver);
             }));
         }

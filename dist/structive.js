@@ -2449,7 +2449,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     let value;
     try {
         if (info.pattern in target) {
-            return (value = handler.engine.setStatePropertyRef(info, listIndex, () => {
+            return (value = handler.callableApi[SetStatePropertyRefSymbol](info, listIndex, () => {
                 return Reflect.get(target, info.pattern, receiver);
             }));
         }
@@ -2532,7 +2532,7 @@ function setByRef$1(target, info, listIndex, value, receiver, handler) {
                 if (listIndex === null) {
                     raiseError(`propRef.listIndex is null`);
                 }
-                return handler.engine.setStatePropertyRef(info, listIndex, () => {
+                return handler.callableApi[SetStatePropertyRefSymbol](info, listIndex, () => {
                     return Reflect.set(target, info.pattern, value, receiver);
                 });
             }
@@ -2995,42 +2995,6 @@ class ComponentEngine {
     }
     async disconnectedCallback() {
         await this.readonlyState[DisconnectedCallbackSymbol]();
-    }
-    async setLoopContext(loopContext, callback) {
-        try {
-            if (this.#loopContext !== null) {
-                throw new Error("loopContext is already set");
-            }
-            this.#loopContext = loopContext;
-            await this.asyncSetStatePropertyRef(loopContext.info, loopContext.listIndex, async () => {
-                await callback();
-            });
-        }
-        finally {
-            this.#loopContext = null;
-        }
-    }
-    async asyncSetStatePropertyRef(info, listIndex, callback) {
-        this.#stackStructuredPathInfo.push(info);
-        this.#stackListIndex.push(listIndex);
-        try {
-            return await callback();
-        }
-        finally {
-            this.#stackStructuredPathInfo.pop();
-            this.#stackListIndex.pop();
-        }
-    }
-    setStatePropertyRef(info, listIndex, callback) {
-        this.#stackStructuredPathInfo.push(info);
-        this.#stackListIndex.push(listIndex);
-        try {
-            return callback();
-        }
-        finally {
-            this.#stackStructuredPathInfo.pop();
-            this.#stackListIndex.pop();
-        }
     }
     getLastStatePropertyRef() {
         if (this.#stackStructuredPathInfo.length === 0) {
