@@ -3,10 +3,11 @@ import { IListIndex } from "../ListIndex/types";
 import { IResolvedPathInfo } from "../StateProperty/types";
 import { raiseError } from "../utils.js";
 import { GetContextListIndexSymbol } from "./symbols";
-import { IStateHandler } from "./types";
+import { IStateHandler, IStateProxy } from "./types";
 
 export function getListIndex(
   info: IResolvedPathInfo, 
+  receiver: IStateProxy,
   handler: IStateHandler
 ): IListIndex | null {
   if (info.info.wildcardCount === 0) {
@@ -16,7 +17,7 @@ export function getListIndex(
   const lastWildcardPath = info.info.lastWildcardPath ?? 
     raiseError(`lastWildcardPath is null`);
   if (info.wildcardType === "context") {
-    listIndex = handler.callableApi[GetContextListIndexSymbol](lastWildcardPath) ?? 
+    listIndex = receiver[GetContextListIndexSymbol](lastWildcardPath) ?? 
       raiseError(`ListIndex not found: ${info.info.pattern}`);
   } else if (info.wildcardType === "all") {
     let parentListIndex = null;

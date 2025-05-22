@@ -2451,7 +2451,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     let value;
     try {
         if (info.pattern in target) {
-            return (value = handler.callableApi[SetStatePropertyRefSymbol](info, listIndex, () => {
+            return (value = receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
                 return Reflect.get(target, info.pattern, receiver);
             }));
         }
@@ -2534,7 +2534,7 @@ function setByRef$1(target, info, listIndex, value, receiver, handler) {
                 if (listIndex === null) {
                     raiseError(`propRef.listIndex is null`);
                 }
-                return handler.callableApi[SetStatePropertyRefSymbol](info, listIndex, () => {
+                return receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
                     return Reflect.set(target, info.pattern, value, receiver);
                 });
             }
@@ -2593,7 +2593,7 @@ function getAll(target, prop, receiver, handler) {
         if (typeof indexes === "undefined") {
             for (let i = 0; i < info.wildcardInfos.length; i++) {
                 const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
-                const listIndex = handler.callableApi[GetContextListIndexSymbol](wildcardPattern.pattern);
+                const listIndex = receiver[GetContextListIndexSymbol](wildcardPattern.pattern);
                 if (listIndex) {
                     indexes = listIndex.indexes;
                     break;
@@ -2710,7 +2710,7 @@ function getResolvedPathInfo(name) {
     return _cache[name] ?? (_cache[name] = new ResolvedPathInfo(name));
 }
 
-function getListIndex(info, handler) {
+function getListIndex(info, receiver, handler) {
     if (info.info.wildcardCount === 0) {
         return null;
     }
@@ -2718,7 +2718,7 @@ function getListIndex(info, handler) {
     const lastWildcardPath = info.info.lastWildcardPath ??
         raiseError(`lastWildcardPath is null`);
     if (info.wildcardType === "context") {
-        listIndex = handler.callableApi[GetContextListIndexSymbol](lastWildcardPath) ??
+        listIndex = receiver[GetContextListIndexSymbol](lastWildcardPath) ??
             raiseError(`ListIndex not found: ${info.info.pattern}`);
     }
     else if (info.wildcardType === "all") {
@@ -2743,8 +2743,8 @@ function get(target, prop, receiver, handler) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const ref = handler.callableApi[GetLastStatePropertyRefSymbol]() ??
-                        raiseError(`get: handler.callableApi[GetLastStatePropertyRefSymbol]() is null`);
+                    const ref = receiver[GetLastStatePropertyRefSymbol]() ??
+                        raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
                     return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
             }
@@ -2759,7 +2759,7 @@ function get(target, prop, receiver, handler) {
             }
         }
         const resolvedInfo = getResolvedPathInfo(prop);
-        const listIndex = getListIndex(resolvedInfo, handler);
+        const listIndex = getListIndex(resolvedInfo, receiver, handler);
         value = getByRef$1(target, resolvedInfo.info, listIndex, receiver, handler);
     }
     else if (typeof prop === "symbol") {
@@ -2775,7 +2775,7 @@ function setStatePropertyRef$1(handler, info, listIndex, callback) {
     handler.structuredPathInfoStack.push(info);
     handler.listIndexStack.push(listIndex);
     try {
-        callback();
+        return callback();
     }
     finally {
         handler.structuredPathInfoStack.pop();
@@ -2899,7 +2899,7 @@ function setByRef(target, prop, receiver, handler) {
 function set(target, prop, value, receiver, handler) {
     if (typeof prop === "string") {
         const resolvedInfo = getResolvedPathInfo(prop);
-        const listIndex = getListIndex(resolvedInfo, handler);
+        const listIndex = getListIndex(resolvedInfo, receiver, handler);
         return setByRef$1(target, resolvedInfo.info, listIndex, value, receiver, handler);
     }
     else {

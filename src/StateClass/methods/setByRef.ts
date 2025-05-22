@@ -19,7 +19,7 @@ export function setByRef(
         if (listIndex === null) {
           raiseError(`propRef.listIndex is null`);
         }
-        return handler.callableApi[SetStatePropertyRefSymbol](info, listIndex, () => {
+        return receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
           return Reflect.set(target, info.pattern, value, receiver);
         });
       } else {

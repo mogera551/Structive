@@ -3,8 +3,9 @@ import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { Router } from "../Router/Router";
 import { IStructuredPathInfo } from "../StateProperty/types";
+import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { Constructor, IComponentConfig, IUserConfig } from "../WebComponents/types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetContextListIndexSymbol, GetLastStatePropertyRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols";
 
 export interface IDependentProps {
   [propName: string]: string[];
@@ -28,6 +29,8 @@ export interface IStateProxy extends IState {
   [ResolveSymbol](path: string, indexes: number[]): any;
   [SetLoopContextSymbol](loopContext: ILoopContext | null, callback: () => Promise<void>): Promise<void>;
   [SetStatePropertyRefSymbol](info: IStructuredPathInfo, listIndex: IListIndex | null, callback: () => void): void;
+  [GetContextListIndexSymbol](structuredPath: string): IListIndex | null;
+  [GetLastStatePropertyRefSymbol](): IStatePropertyRef | null
 }
 
 export interface IStructiveStaticState {

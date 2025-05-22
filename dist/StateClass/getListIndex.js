@@ -1,6 +1,6 @@
 import { raiseError } from "../utils.js";
 import { GetContextListIndexSymbol } from "./symbols";
-export function getListIndex(info, handler) {
+export function getListIndex(info, receiver, handler) {
     if (info.info.wildcardCount === 0) {
         return null;
     }
@@ -8,7 +8,7 @@ export function getListIndex(info, handler) {
     const lastWildcardPath = info.info.lastWildcardPath ??
         raiseError(`lastWildcardPath is null`);
     if (info.wildcardType === "context") {
-        listIndex = handler.callableApi[GetContextListIndexSymbol](lastWildcardPath) ??
+        listIndex = receiver[GetContextListIndexSymbol](lastWildcardPath) ??
             raiseError(`ListIndex not found: ${info.info.pattern}`);
     }
     else if (info.wildcardType === "all") {

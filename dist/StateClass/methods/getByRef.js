@@ -23,7 +23,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     let value;
     try {
         if (info.pattern in target) {
-            return (value = handler.callableApi[SetStatePropertyRefSymbol](info, listIndex, () => {
+            return (value = receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
                 return Reflect.get(target, info.pattern, receiver);
             }));
         }

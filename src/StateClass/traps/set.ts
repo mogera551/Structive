@@ -12,7 +12,7 @@ export function set(
 ): boolean {
   if (typeof prop === "string") {
     const resolvedInfo = getResolvedPathInfo(prop);
-    const listIndex = getListIndex(resolvedInfo, handler);
+    const listIndex = getListIndex(resolvedInfo, receiver, handler);
     return setByRef(
       target, 
       resolvedInfo.info, 

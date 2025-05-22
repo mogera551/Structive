@@ -15,7 +15,7 @@ export function getAll(target, prop, receiver, handler) {
         if (typeof indexes === "undefined") {
             for (let i = 0; i < info.wildcardInfos.length; i++) {
                 const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
-                const listIndex = handler.callableApi[GetContextListIndexSymbol](wildcardPattern.pattern);
+                const listIndex = receiver[GetContextListIndexSymbol](wildcardPattern.pattern);
                 if (listIndex) {
                     indexes = listIndex.indexes;
                     break;

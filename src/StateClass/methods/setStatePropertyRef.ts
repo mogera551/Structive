@@ -11,7 +11,7 @@ export function setStatePropertyRef(
   handler.structuredPathInfoStack.push(info);
   handler.listIndexStack.push(listIndex);
   try {
-    callback();
+    return callback();
   } finally {
     handler.structuredPathInfoStack.pop();
     handler.listIndexStack.pop();
