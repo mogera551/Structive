@@ -70,7 +70,6 @@ export class ComponentEngine {
             const value = this.readonlyState[GetByRefSymbol](info, null);
             buildListIndexTree(this, info, null, value);
         }
-        this.updater.main(this.#waitForInitialize);
     }
     async connectedCallback() {
         if (this.owner.dataset.state) {

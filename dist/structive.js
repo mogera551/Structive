@@ -2160,7 +2160,6 @@ function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
 }
 
 class Updater {
-    processList = [];
     updatedProperties = new Set;
     updatedValues = {};
     engine;
@@ -2172,71 +2171,40 @@ class Updater {
         return this.#version;
     }
     addProcess(process) {
-        this.processList.push(process);
-        this.waitForQueueEntry.resolve();
+        queueMicrotask(process);
     }
     addUpdatedStatePropertyRefValue(info, listIndex, value) {
         const refKey = createRefKey(info, listIndex);
         this.updatedProperties.add({ info, listIndex });
         this.updatedValues[refKey] = value;
-        this.waitForQueueEntry.resolve();
+        this.entryRender();
     }
     addUpdatedListIndex(listIndex) {
         this.updatedProperties.add(listIndex);
-        this.waitForQueueEntry.resolve();
+        this.entryRender();
     }
-    terminate() {
-        const waitForMainLoopTerminate = Promise.withResolvers();
-        this.waitForQueueEntry.resolve(waitForMainLoopTerminate);
-        return waitForMainLoopTerminate;
-    }
-    waitForQueueEntry = Promise.withResolvers();
-    async main(waitForComponentInit) {
-        await waitForComponentInit.promise;
-        const config = getGlobalConfig();
-        while (true) {
+    #isEntryRender = false;
+    entryRender() {
+        if (this.#isEntryRender)
+            return;
+        this.#isEntryRender = true;
+        setTimeout(() => {
             try {
-                const waitForMainLoopTerminate = await this.waitForQueueEntry.promise;
-                config.debug && performance.mark(`start`);
-                Updater.updatingCount++;
-                try {
-                    await this.exec();
-                    if (config.debug) {
-                        performance.mark(`end`);
-                        performance.measure(`exec`, `start`, `end`);
-                        console.log(performance.getEntriesByType("measure"));
-                        performance.clearMeasures(`exec`);
-                        performance.clearMarks(`start`);
-                        performance.clearMarks(`end`);
-                    }
+                const { bindings, arrayElementBindings } = this.rebuild();
+                // render
+                for (const arrayElementBinding of arrayElementBindings) {
+                    arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
                 }
-                finally {
-                    Updater.updatingCount--;
-                    if (waitForMainLoopTerminate) {
-                        waitForMainLoopTerminate.resolve();
-                        break;
-                    }
+                if (bindings.length > 0) {
+                    this.render(bindings);
                 }
-            }
-            catch (e) {
-                console.error(e);
             }
             finally {
-                this.waitForQueueEntry = Promise.withResolvers();
+                this.#isEntryRender = false;
             }
-        }
+        }, 0);
     }
-    async updateState() {
-        while (this.processList.length > 0) {
-            const processList = this.processList;
-            this.processList = [];
-            for (let i = 0; i < processList.length; i++) {
-                const process = processList[i];
-                await process();
-            }
-        }
-    }
-    async rebuild() {
+    rebuild() {
         const retArrayElementBindings = [];
         const retBindings = [];
         const engine = this.engine;
@@ -2310,22 +2278,6 @@ class Updater {
             return render(bindings);
         });
     }
-    async exec() {
-        while (this.processList.length !== 0 || this.updatedProperties.size !== 0) {
-            // update state
-            await this.updateState();
-            // rebuild
-            const { bindings, arrayElementBindings } = await this.rebuild();
-            // render
-            for (const arrayElementBinding of arrayElementBindings) {
-                arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
-            }
-            if (bindings.length > 0) {
-                this.render(bindings);
-            }
-        }
-    }
-    static updatingCount = 0;
 }
 function createUpdater(engine) {
     return new Updater(engine);
@@ -3003,7 +2955,6 @@ class ComponentEngine {
             const value = this.readonlyState[GetByRefSymbol](info, null);
             buildListIndexTree(this, info, null, value);
         }
-        this.updater.main(this.#waitForInitialize);
     }
     async connectedCallback() {
         if (this.owner.dataset.state) {

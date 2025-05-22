@@ -7,7 +7,7 @@ import { raiseError } from "../utils.js";
 import { createBinding } from "./Binding.js";
 import { IBindContent, IBinding } from "./types";
 import { createLoopContext } from "../LoopContext/createLoopContext.js";
-import { render } from "../Render/render.js";
+import { render } from "../Updater/render.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 
 function createContent(id: number): DocumentFragment {

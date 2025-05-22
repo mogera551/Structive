@@ -1,6 +1,6 @@
 import { IBinding } from "../DataBinding/types";
 import { IListIndex } from "../ListIndex/types";
-import { render } from "../Render/render.js";
+import { render } from "./render.js";
 import { SetCacheableSymbol } from "../StateClass/symbols.js";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
@@ -19,7 +19,6 @@ type UpdatedArrayElementBinding = {
 };
 
 class Updater implements IUpdater {
-  processList      : (() => Promise<void> | void)[] = [];
   updatedProperties: Set<IStatePropertyRef | IListIndex> = new Set;
   updatedValues    : {[key:string]: any} = {};
   engine           : IComponentEngine;
@@ -34,8 +33,7 @@ class Updater implements IUpdater {
   }
 
   addProcess(process: () => Promise<void> | void): void {
-    this.processList.push(process);
-    this.waitForQueueEntry.resolve();
+    queueMicrotask(process);
   }
 
   addUpdatedStatePropertyRefValue(
@@ -46,68 +44,35 @@ class Updater implements IUpdater {
     const refKey = createRefKey(info, listIndex);
     this.updatedProperties.add({info, listIndex});
     this.updatedValues[refKey] = value;
-    this.waitForQueueEntry.resolve();
+    this.entryRender();
   }
 
   addUpdatedListIndex(listIndex: IListIndex): void {
     this.updatedProperties.add(listIndex);
-    this.waitForQueueEntry.resolve();
+    this.entryRender();
   }
 
-  terminate(): PromiseWithResolvers<void> {
-    const waitForMainLoopTerminate = Promise.withResolvers<void>();
-    this.waitForQueueEntry.resolve(waitForMainLoopTerminate);
-    return waitForMainLoopTerminate;
-  }
-
-  waitForQueueEntry: PromiseWithResolvers<PromiseWithResolvers<void> | void> = 
-    Promise.withResolvers<PromiseWithResolvers<void> | void>();
-  async main(waitForComponentInit: PromiseWithResolvers<void>) {
-    await waitForComponentInit.promise;
-    const config = getGlobalConfig();
-    while (true) {
+  #isEntryRender = false;
+  entryRender() {
+    if (this.#isEntryRender) return;
+    this.#isEntryRender = true;
+    setTimeout(() => {
       try {
-        const waitForMainLoopTerminate: (PromiseWithResolvers<void> | void) = 
-          await this.waitForQueueEntry.promise;
-          config.debug && performance.mark(`start`);
-        Updater.updatingCount++;
-        try {
-          await this.exec();
-          if (config.debug) {
-            performance.mark(`end`);
-            performance.measure(`exec`, `start`, `end`);
-            console.log(performance.getEntriesByType("measure"));    
-            performance.clearMeasures(`exec`);
-            performance.clearMarks(`start`);
-            performance.clearMarks(`end`);
-          }
-        } finally {
-          Updater.updatingCount--;
-          if (waitForMainLoopTerminate) {
-            waitForMainLoopTerminate.resolve();
-            break;
-          }
+        const { bindings, arrayElementBindings } = this.rebuild();
+        // render
+        for(const arrayElementBinding of arrayElementBindings) {
+          arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
         }
-      } catch(e) {
-        console.error(e);
+        if (bindings.length > 0) {
+          this.render(bindings);
+        }
       } finally {
-        this.waitForQueueEntry = Promise.withResolvers<PromiseWithResolvers<void> | void>();
+        this.#isEntryRender = false;
       }
-    }
+    }, 0);
   }
 
-  async updateState() {
-    while(this.processList.length > 0) {
-      const processList = this.processList;
-      this.processList = [];
-      for(let i = 0; i < processList.length; i++) {
-        const process = processList[i];
-        await process();
-      }
-    }
-  }
-
-  async rebuild(): Promise<{bindings: IBinding[], arrayElementBindings: UpdatedArrayElementBinding[]}> {
+  rebuild(): {bindings: IBinding[], arrayElementBindings: UpdatedArrayElementBinding[]} {
     const retArrayElementBindings: UpdatedArrayElementBinding[] = [];
     const retBindings: IBinding[] = [];
     const engine = this.engine;
@@ -182,30 +147,9 @@ class Updater implements IUpdater {
       return render(bindings);
     });
   }
-
-  async exec() {
-    while(this.processList.length !== 0 || this.updatedProperties.size !== 0) {
-      // update state
-      await this.updateState();
-      // rebuild
-      const { bindings, arrayElementBindings } = await this.rebuild();
-      // render
-      for(const arrayElementBinding of arrayElementBindings) {
-        arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
-      }
-      if (bindings.length > 0) {
-        this.render(bindings);
-      }
-    }
-  }
-
-  static updatingCount = 0;
 }
 
 export function createUpdater(engine: IComponentEngine): IUpdater {
   return new Updater(engine);
 }
 
-export function getUpdatingCount(): number {
-  return Updater.updatingCount;
-}

@@ -83,8 +83,6 @@ export class ComponentEngine implements IComponentEngine {
       const value = this.readonlyState[GetByRefSymbol](info, null)
       buildListIndexTree(this, info, null, value);
     }
-  
-    this.updater.main(this.#waitForInitialize);
   }
 
   async connectedCallback(): Promise<void> {

@@ -3,7 +3,7 @@ import { getTemplateById } from "../Template/registerTemplate.js";
 import { raiseError } from "../utils.js";
 import { createBinding } from "./Binding.js";
 import { createLoopContext } from "../LoopContext/createLoopContext.js";
-import { render } from "../Render/render.js";
+import { render } from "../Updater/render.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 function createContent(id) {
     const template = getTemplateById(id) ??
