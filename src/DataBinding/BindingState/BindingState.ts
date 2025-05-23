@@ -10,6 +10,21 @@ import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
 
+/**
+ * BindingStateクラスは、バインディング対象の状態（State）プロパティへのアクセス・更新・フィルタ適用を担当する実装です。
+ *
+ * 主な役割:
+ * - バインディング対象の状態プロパティ（pattern, info）やリストインデックス（listIndex）を管理
+ * - get valueで現在の値を取得し、get filteredValueでフィルタ適用後の値を取得
+ * - initでリストバインディング時のループコンテキストやインデックス参照を初期化
+ * - assignValueで状態プロキシに値を書き込む（双方向バインディング対応）
+ * - バインディング情報をエンジンに登録し、依存解決や再描画を効率化
+ *
+ * 設計ポイント:
+ * - ワイルドカードパス（配列バインディング等）にも対応し、ループごとのインデックス管理が可能
+ * - フィルタ適用は配列で柔軟に対応
+ * - createBindingStateファクトリでフィルタ適用済みインスタンスを生成
+ */
 class BindingState implements IBindingState {
   #binding     : IBinding;
   #pattern     : string;

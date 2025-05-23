@@ -7,6 +7,21 @@ import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
 
+/**
+ * BindingStateIndexクラスは、forバインディング等のループ内で利用される
+ * インデックス値（$1, $2, ...）のバインディング状態を管理する実装です。
+ *
+ * 主な役割:
+ * - ループコンテキストからインデックス値を取得し、value/filteredValueで参照可能にする
+ * - バインディング時にbindingsByListIndexへ自身を登録し、依存解決や再描画を効率化
+ * - フィルタ適用にも対応
+ *
+ * 設計ポイント:
+ * - pattern（例: "$1"）からインデックス番号を抽出し、ループコンテキストから該当インデックスを取得
+ * - initでループコンテキストやlistIndexRefを初期化し、バインディング情報をエンジンに登録
+ * - assignValueは未実装（インデックスは書き換え不可のため）
+ * - createBindingStateIndexファクトリでフィルタ適用済みインスタンスを生成
+ */
 class BindingStateIndex implements IBindingState {
   #binding     : IBinding;
   #indexNumber : number;
