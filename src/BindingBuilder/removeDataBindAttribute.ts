@@ -19,10 +19,14 @@ const removeAttributeByNodeType:RemoveAttributeByNodeType = {
 }
 
 /**
- * ノードからdata-bind属性を削除
- * @param node ノード
- * @param nodeType ノードタイプ
- * @returns {Node} ノード
+ * 指定ノードから data-bind 属性を削除するユーティリティ関数。
+ *
+ * - ノードタイプ（HTMLElement, SVGElement）の場合のみ data-bind 属性を削除
+ * - Text, Template ノードは対象外
+ *
+ * @param node     対象ノード
+ * @param nodeType ノードタイプ（"HTMLElement" | "SVGElement" | "Text" | "Template"）
+ * @returns        なし
  */
 export function removeDataBindAttribute(
   node    : Node, 

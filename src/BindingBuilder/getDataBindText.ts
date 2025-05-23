@@ -23,9 +23,22 @@ const getTextByNodeType = {
   "SVGElement":  getTextFromSVGElement
 };
 
+/**
+ * ノード種別ごとにdata-bindテキスト（バインディング定義文字列）を取得するユーティリティ関数。
+ *
+ * - Textノード: コメントマーク以降のテキストを取得し、"textContent:"を付与
+ * - HTMLElement: data-bind属性値を取得
+ * - Templateノード: コメントマーク以降のIDからテンプレートを取得し、そのdata-bind属性値を取得
+ * - SVGElement: data-bind属性値を取得
+ *
+ * @param nodeType ノード種別（"Text" | "HTMLElement" | "Template" | "SVGElement"）
+ * @param node     対象ノード
+ * @returns        バインディング定義文字列
+ */
 export function getDataBindText(nodeType: NodeType, node: Node): string {
   const bindText = getTextByNodeType[nodeType](node as any) ?? "";
   if (nodeType === "Text") {
+    // Textノードの場合は"textContent:"を付与
     return "textContent:" + bindText;
   } else {
     return bindText;

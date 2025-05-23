@@ -13,6 +13,19 @@ function getDataBindAttributesFromTemplate(content: DocumentFragment): IDataBind
   return nodes.map(node => createDataBindAttributes(node));
 }
 
+/**
+ * テンプレート（DocumentFragment）内のバインディング情報（data-bind属性やコメント）を解析・登録し、
+ * 各テンプレートIDごとにバインディング属性情報・状態パス集合を管理するユーティリティ。
+ *
+ * - getNodesHavingDataBindで対象ノードを抽出し、createDataBindAttributesで解析
+ * - 各テンプレートIDごとにバインディング属性リスト・状態パス集合・リストパス集合をキャッシュ
+ * - forバインディング（ループ）のstatePropertyはlistPathsにも登録
+ *
+ * @param id      テンプレートID
+ * @param content テンプレートのDocumentFragment
+ * @param rootId  ルートテンプレートID（省略時はidと同じ）
+ * @returns       解析済みバインディング属性リスト
+ */
 export function registerDataBindAttributes(
   id     : number, 
   content: DocumentFragment,
@@ -34,14 +47,23 @@ export function registerDataBindAttributes(
   return listDataBindAttributesById[id] = dataBindAttributes;
 }
 
+/**
+ * テンプレートIDからバインディング属性リストを取得
+ */
 export const getDataBindAttributesById = (id: number): IDataBindAttributes[] => {
   return listDataBindAttributesById[id];
 }
 
+/**
+ * テンプレートIDからforバインディングのstateProperty集合を取得
+ */
 export const getListPathsSetById = (id: number): Set<string> => {
   return listPathsSetById[id] ?? [];
 };
 
+/**
+ * テンプレートIDから全バインディングのstateProperty集合を取得
+ */
 export const getPathsSetById = (id: number): Set<string> => {
   return pathsSetById[id] ?? [];
 };

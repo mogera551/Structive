@@ -38,22 +38,38 @@ const nodePropertyConstructorByFirstName:NodePropertyConstructorByFirstName = {
 //  "commandfor": CommandForTarget,
 };
 
+/**
+ * バインディング対象ノードのプロパティ名やノード種別（Element/Comment）に応じて、
+ * 適切なバインディングノード生成関数（CreateBindingNodeFn）を返すユーティリティ。
+ *
+ * - ノード種別やプロパティ名ごとに専用の生成関数をマッピング
+ * - コメントノードや特殊プロパティ（for/if等）にも対応
+ * - プロパティ名の先頭や"on"でイベントバインディングも判別
+ * - 一度判定した組み合わせはキャッシュし、パフォーマンス向上
+ *
+ * これにより、テンプレートのdata-bindやコメントバインディングの各種ケースに柔軟に対応できる。
+ */
 function _getBindingNodeCreator(isComment:boolean, isElement: boolean, propertyName: string): CreateBindingNodeFn {
+  // コメント/エレメント種別とプロパティ名で専用の生成関数を優先的に取得
   const bindingNodeCreatorByName = nodePropertyConstructorByNameByIsComment[isComment ? 1 : 0][propertyName];
   if (typeof bindingNodeCreatorByName !== "undefined") {
     return bindingNodeCreatorByName;
   }
+  // コメントノードでforの場合は専用関数
   if (isComment && propertyName === "for") {
     return createBindingNodeFor;
   }
+  // コメントノードで未対応プロパティはエラー
   if (isComment) {
     raiseError(`getBindingNodeCreator: unknown node property ${propertyName}`);
   }
+  // プロパティ名の先頭で判別（class.attr.style.state等）
   const nameElements = propertyName.split(".");
   const bindingNodeCreatorByFirstName = nodePropertyConstructorByFirstName[nameElements[0]];
   if (typeof bindingNodeCreatorByFirstName !== "undefined") {
     return bindingNodeCreatorByFirstName;
   }
+  // エレメントノードでonから始まる場合はイベントバインディング
   if (isElement) {
     if (propertyName.startsWith("on")) {
       return createBindingNodeEvent;
@@ -61,6 +77,7 @@ function _getBindingNodeCreator(isComment:boolean, isElement: boolean, propertyN
       return createBindingNodeProperty;
     }
   } else {
+    // それ以外は汎用プロパティバインディング
     return createBindingNodeProperty;
   }
 }
@@ -68,10 +85,14 @@ function _getBindingNodeCreator(isComment:boolean, isElement: boolean, propertyN
 const _cache: {[key:string]:CreateBindingNodeFn} = {};
 
 /**
- * バインドのノードプロパティの生成関数を取得する
- * @param node ノード
- * @param propertyName プロパティ名
- * @returns {CreateBindingNodeFn} ノードプロパティのコンストラクタ
+ * ノード・プロパティ名・フィルタ・デコレータ情報から
+ * 適切なバインディングノード生成関数を取得し、呼び出すファクトリ関数。
+ * 
+ * @param node         バインディング対象ノード
+ * @param propertyName バインディングプロパティ名
+ * @param filterTexts  フィルタ情報
+ * @param decorates    デコレータ情報
+ * @returns            バインディングノード生成関数の実行結果
  */
 export function getBindingNodeCreator(
   node        : Node, 
@@ -82,6 +103,7 @@ export function getBindingNodeCreator(
   const isComment = node instanceof Comment;
   const isElement = node instanceof Element;
   const key = isComment + "\t" + isElement + "\t" + propertyName;
+  // キャッシュを利用して生成関数を取得
   const fn = _cache[key] ?? (_cache[key] = _getBindingNodeCreator(isComment, isElement, propertyName));
   return fn(propertyName, filterTexts, decorates);
 }

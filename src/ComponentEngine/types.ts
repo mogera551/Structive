@@ -8,6 +8,20 @@ import { IStructuredPathInfo } from "../StateProperty/types";
 import { IUpdater } from "../Updater/types";
 import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";
 
+/**
+ * IComponentEngineインターフェースは、Structiveコンポーネントエンジンの主要な機能・状態・依存関係・
+ * バインディング管理などを定義するための型です。
+ *
+ * 主な役割・設計ポイント:
+ * - コンポーネントの状態・テンプレート・スタイル・フィルター・バインディングなどの管理
+ * - 依存関係グラフやリスト構造の管理
+ * - バインディングやリスト情報の保存・取得・存在判定
+ * - Web Componentsのライフサイクル（connectedCallback/disconnectedCallback）対応
+ * - 状態プロパティの取得・設定、プロキシ生成
+ * - 各種キャッシュやマップを活用した効率的な管理
+ *
+ * Structiveのリアクティブな状態管理・バインディング・依存解決の基盤となるインターフェースです。
+ */
 export interface IComponentEngine {
   type          : ComponentType;
   config        : IComponentConfig;
@@ -49,6 +63,9 @@ export interface IComponentEngine {
   createWritableStateProxy(): IStateProxy; // 書き込み可能な状態プロキシを作成する
 }
 
+/**
+ * パス解決済みのバインディング情報をまとめて管理する型
+ */
 export interface ISaveInfoByResolvedPathInfo {
   list          : any[] | null;
   listIndexesSet: Set<IListIndex> | null;

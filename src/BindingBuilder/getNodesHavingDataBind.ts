@@ -9,6 +9,17 @@ function isCommentNode(node: Node): boolean {
   );
 } 
 
+/**
+ * 指定ノード以下のツリーから「data-bind属性を持つ要素」または
+ * 「特定のマーク（@@: または @@|）で始まるコメントノード」をすべて取得するユーティリティ関数。
+ *
+ * - Elementノードの場合: data-bind属性があるものだけを抽出
+ * - Commentノードの場合: COMMENT_EMBED_MARK または COMMENT_TEMPLATE_MARK で始まるものだけを抽出
+ * - DOMツリー全体をTreeWalkerで効率的に走査
+ *
+ * @param root 探索の起点となるノード
+ * @returns    条件に合致したノードの配列
+ */
 export function getNodesHavingDataBind(root: Node): Node[] {
   const nodes: Node[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT, {
