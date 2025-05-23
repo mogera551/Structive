@@ -7,6 +7,21 @@ import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
 
+/**
+ * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
+ * バインディング処理を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - バインディング対象のコンポーネントのstateプロパティ（subName）に値を反映
+ * - バインディング情報をコンポーネント単位で管理（bindingsByComponentに登録）
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - nameからstateプロパティ名（subName）を抽出（例: "state.foo" → "foo"）
+ * - assignValueでコンポーネントのstateに値をセット（RenderSymbol経由で反映）
+ * - 初期化時にbindingsByComponentへバインディング情報を登録
+ * - 柔軟なバインディング記法・フィルタ適用に対応
+ */
 class BindingNodeComponent extends BindingNode {
   #subName: string;
   get subName():string {
@@ -41,6 +56,10 @@ class BindingNodeComponent extends BindingNode {
 
 }
 
+/**
+ * コンポーネント用バインディングノード生成ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeComponentインスタンスを生成
+ */
 export const createBindingNodeComponent: CreateBindingNodeFn = 
 (name: string, filterTexts: IFilterText[], decorates: string[]) => 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => {

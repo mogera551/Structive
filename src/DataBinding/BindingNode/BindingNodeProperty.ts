@@ -20,6 +20,21 @@ const defaultEventByName: {[key:string]: string} = {
   "selected": "change",
 };
 
+/**
+ * BindingNodePropertyクラスは、ノードのプロパティ（value, checked, selected など）への
+ * バインディング処理を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - ノードプロパティへの値の割り当て・取得
+ * - 双方向バインディング（input, changeイベント等）に対応
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - デフォルトプロパティ名と一致し、かつ双方向バインディング可能な要素の場合のみイベントリスナーを登録
+ * - デコレータでイベント名を指定可能（onInput, onChangeなど）
+ * - イベント発火時はUpdater経由でstateを非同期的に更新
+ * - assignValueでnull/undefined/NaNは空文字列に変換してセット
+ */
 class BindingNodeProperty extends BindingNode {
   get value(): any {
     // @ts-ignore
@@ -51,10 +66,11 @@ class BindingNodeProperty extends BindingNode {
     const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
     if (eventName === "readonly" || eventName === "ro") return;
 
+    // 双方向バインディング: イベント発火時にstateを更新
     const engine = this.binding.engine;
     const loopContext = this.binding.parentBindContent.currentLoopContext;
-    const value = this.filteredValue;
-    this.node.addEventListener(eventName, async () => {
+      const value = this.filteredValue;
+      this.node.addEventListener(eventName, async () => {
       engine.updater.addProcess(async () => {
         const stateProxy = engine.createWritableStateProxy();
         await stateProxy[SetLoopContextSymbol](loopContext, async () => {
@@ -66,6 +82,7 @@ class BindingNodeProperty extends BindingNode {
   }
 
   init() {
+    // サブクラスで初期化処理を実装可能
   }
 
   assignValue(value:any) {
@@ -77,6 +94,10 @@ class BindingNodeProperty extends BindingNode {
   }
 }
 
+/**
+ * プロパティバインディングノード生成用ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodePropertyインスタンスを生成
+ */
 export const createBindingNodeProperty: CreateBindingNodeFn = 
 (name: string, filterTexts: IFilterText[], decorates: string[]) => 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => {

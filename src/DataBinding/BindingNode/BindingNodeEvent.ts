@@ -7,6 +7,21 @@ import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
 
+/**
+ * BindingNodeEventクラスは、イベントバインディング（onClick, onInputなど）を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - 指定イベント（on～）に対して、バインディングされた関数をイベントリスナーとして登録
+ * - デコレータ（preventDefault, stopPropagation）によるイベント制御に対応
+ * - ループコンテキストやリストインデックスも引数としてイベントハンドラに渡す
+ * - ハンドラ実行時はstateProxyを生成し、Updater経由で非同期的に状態を更新
+ *
+ * 設計ポイント:
+ * - nameからイベント名（subName）を抽出し、addEventListenerで登録
+ * - バインディング値が関数でない場合はエラー
+ * - デコレータでpreventDefault/stopPropagationを柔軟に制御
+ * - ループ内イベントにも対応し、リストインデックスを引数展開
+ */
 class BindingNodeEvent extends BindingNode {
   #subName    : string;
   constructor(
@@ -25,7 +40,7 @@ class BindingNodeEvent extends BindingNode {
     return this.#subName;
   }
   update() {
-    // 何もしない
+    // 何もしない（イベントバインディングは初期化時のみ）
   }
 
   handler(e: Event) {
@@ -53,6 +68,10 @@ class BindingNodeEvent extends BindingNode {
   } 
 }
 
+/**
+ * イベントバインディングノード生成用ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeEventインスタンスを生成
+ */
 export const createBindingNodeEvent: CreateBindingNodeFn = 
 (name: string, filterTexts: IFilterText[], decorates: string[]) => 
   (binding:IBinding, node: Node, filters: FilterWithOptions) => {

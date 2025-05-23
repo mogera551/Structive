@@ -8,6 +8,23 @@ import { IBindContent, IBinding } from "../types";
 import { BindingNodeBlock } from "./BindingNodeBlock.js";
 import { CreateBindingNodeFn } from "./types";
 
+/**
+ * BindingNodeForクラスは、forバインディング（配列やリストの繰り返し描画）を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - リストデータの各要素ごとにBindContent（バインディングコンテキスト）を生成・管理
+ * - 配列の差分検出により、必要なBindContentの生成・再利用・削除・再描画を最適化
+ * - DOM上での要素の並び替えや再利用、アンマウント・マウント処理を効率的に行う
+ * - プール機構によりBindContentの再利用を促進し、パフォーマンスを向上
+ *
+ * 設計ポイント:
+ * - assignValueでリストの差分を検出し、BindContentの生成・削除・再利用を管理
+ * - updateElementsでリストの並び替えやSWAP処理にも対応
+ * - BindContentのプール・インデックス管理でGCやDOM操作の最小化を図る
+ * - バインディング状態やリストインデックス情報をエンジンに保存し、再描画や依存解決を容易にする
+ *
+ * ファクトリ関数 createBindingNodeFor でフィルタ・デコレータ適用済みインスタンスを生成
+ */
 class BindingNodeFor extends BindingNodeBlock {
   #bindContentsSet       : Set<IBindContent> = new Set<IBindContent>();
   #bindContentByListIndex: WeakMap<IListIndex, IBindContent> = new WeakMap();
