@@ -4,6 +4,29 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
 import { IStateProxy } from "../StateClass/types";
+/**
+ * DataBinding/types.ts
+ *
+ * バインディング処理に関する主要な型定義ファイルです。
+ *
+ * - IBindContent: テンプレートから生成されたDOM断片とバインディング情報を管理するインターフェース
+ *   - mount/mountBefore/mountAfter/unmountでDOMへの挿入・削除を制御
+ *   - childNodes, fragment, bindingsなどでDOMノードやバインディング情報を一元管理
+ *   - ループや条件分岐などの複雑なバインディングにも対応
+ *   - assignListIndexでループ内インデックスの再割り当て、getLastNodeで末尾ノード取得なども提供
+ *
+ * - IBinding: 1つのバインディング（ノードと状態の対応）を管理するインターフェース
+ *   - bindingNode, bindingStateでノード・状態のバインディング情報を保持
+ *   - render, init, updateStateValueで再描画・初期化・状態更新を制御
+ *   - bindContentsで関連するBindContent集合を取得可能
+ *
+ * - StateBindSummary: 状態プロパティごとにループコンテキストとBindContentを紐付けるマップ型
+ *
+ * 設計ポイント:
+ * - テンプレート・ループ・条件分岐など複雑なバインディング構造を型安全に管理
+ * - DOMノードと状態プロパティの紐付け・再描画・状態更新を効率的に実現
+ * - 柔軟な拡張や最適化にも対応できる設計
+ */
 
 export interface IBindContent {
   loopContext  : ILoopContext | null;
@@ -19,16 +42,7 @@ export interface IBindContent {
   unmount():void;
   fragment: DocumentFragment; // unmount時にchildNodesをfragmentに移動する
   childNodes: Node[];
-  // 考察：
-  // テンプレートのコンテントが得られれば、boundNodesを計算で求めることができる。
-  // コンテントが変わらない場合、boundNodesも変えなくてよい。
-  // boundNodes: Node[]; // 特に処理の必要がないので削除
-  // ToDo: boundNodeと紐づくバインドプロパティ情報の持たせ方
-  //       nodeのプロパティを更新し、stateのプロパティを更新するために必要
-  //       と考えたが、イベントハンドラの中にバインドプロパティ情報を持たせることで対応
   bindings: IBinding[];
-  // ToDo: statePropと紐づくバインドプロパティ情報の持たせ方
-  //       コンポーネントに持たせるが、再構築時のコストを考える
   render(): void;
   init(): void;
   assignListIndex(listIndex: IListIndex): void;
