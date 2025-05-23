@@ -1,3 +1,20 @@
+/**
+ * createLoopContext.ts
+ *
+ * ループバインディング（for等）で利用するLoopContext（ループコンテキスト）管理クラスとファクトリ関数の実装です。
+ *
+ * 主な役割:
+ * - ループごとのプロパティパス・インデックス・BindContentを紐付けて管理
+ * - 親ループコンテキストの探索やキャッシュ、インデックスの再割り当て・クリアなどを提供
+ * - ループ階層をたどるwalk/serializeや、名前でのfind検索も可能
+ *
+ * 設計ポイント:
+ * - WeakRefでlistIndexを保持し、GCフレンドリーな設計
+ * - parentLoopContextで親ループを遅延探索・キャッシュし、効率的な親子関係管理を実現
+ * - findで名前からループコンテキストを高速検索（キャッシュ付き）
+ * - walk/serializeでループ階層をたどる処理を簡潔に記述可能
+ * - createLoopContextファクトリで一貫した生成・管理が可能
+ */
 import { IBindContent } from "../DataBinding/types";
 import { IListIndex } from "../ListIndex/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";

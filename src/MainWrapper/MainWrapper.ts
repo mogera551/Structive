@@ -1,3 +1,20 @@
+/**
+ * MainWrapper.ts
+ *
+ * アプリ全体のレイアウトやルーティングを管理するカスタムエレメント MainWrapper の実装です。
+ *
+ * 主な役割:
+ * - Shadow DOMの有効化やレイアウトテンプレートの動的読み込み
+ * - レイアウトテンプレートやスタイルの適用
+ * - ルーター要素（routerTagName）の動的追加
+ *
+ * 設計ポイント:
+ * - config.enableShadowDom でShadow DOMの有効/無効を切り替え
+ * - config.layoutPath が指定されていればfetchでレイアウトHTMLを取得し、テンプレート・スタイルを適用
+ * - スタイルはadoptedStyleSheetsでShadowRootまたはdocumentに適用
+ * - レイアウトが指定されていない場合はデフォルトのslotを挿入
+ * - config.enableRouter が有効な場合はrouter要素をslotに追加
+ */
 import { raiseError } from "../utils";
 import { config } from "../WebComponents/getGlobalConfig";
 
