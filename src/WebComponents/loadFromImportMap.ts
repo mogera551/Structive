@@ -34,7 +34,7 @@ export async function loadFromImportMap(): Promise<void> {
         tagName = "routes" + pathWithoutParams.replace(/\//g, "-"); // replace '/' with '-'
         entryRoute(tagName, path === "/root" ? "/" : path); // routing
       } if (alias.startsWith(COMPONENTS_KEY)) {
-        tagName = alias.slice(COMPONENTS_KEY.length - 1); // remove the prefix '@components'
+        tagName = alias.slice(COMPONENTS_KEY.length); // remove the prefix '@components/'
       }
       if (!tagName) {
         continue;
