@@ -5,6 +5,25 @@ import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js
 import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
 import { IComponentState, IComponentStateHandler, IComponentStateProxy } from "./types";
 
+/**
+ * createComponentState.ts
+ * 
+ * Structiveコンポーネントの状態管理を担う「ComponentState」クラスと、そのプロキシ生成関数の実装。
+ *
+ * 主な役割:
+ * - 親コンポーネントとのバインディング（親プロパティのgetter/setterを動的に定義）
+ * - 親コンポーネントからのバインディング一括登録（bindParentComponent）
+ * - 状態プロパティの取得・設定・レンダリング（getPropertyValue, setPropertyValue, render）
+ * - Proxyハンドラで、プロパティアクセスを自動的にget/set/特殊メソッドに振り分け
+ *
+ * 構造・設計ポイント:
+ * - 親子コンポーネント間のデータ連携を柔軟に実現
+ * - ループコンテキストや非同期更新にも対応
+ * - Proxyによる柔軟なAPI（state.xxxで直接アクセス可能）
+ *
+ * @param engine IComponentEngineインスタンス
+ * @returns      IComponentStateProxy（Proxyラップされた状態オブジェクト）
+ */
 class ComponentState implements IComponentState {
   engine: IComponentEngine;
   constructor(engine: IComponentEngine) {
