@@ -1,3 +1,22 @@
+/**
+ * createListIndex.ts
+ *
+ * リストバインディングやループ処理で利用する「リストインデックス」管理クラスとファクトリ関数の実装です。
+ *
+ * 主な役割:
+ * - ListIndexクラスで多重ループやネスト構造のインデックス情報をツリー状に管理
+ * - indexes, position, lengthなどで階層的なインデックス情報を取得可能
+ * - iterator/reverseIteratorで親子関係を辿るイテレータを提供
+ * - atメソッドで指定位置のListIndexをキャッシュ付きで取得（WeakRefによるメモリ効率化）
+ * - truncateで指定長さまでの親ListIndexを取得
+ * - addで新たな子ListIndexを生成
+ *
+ * 設計ポイント:
+ * - ListIndexは親子関係を持つことで多重ループやforバインディングに柔軟に対応
+ * - atメソッドはキャッシュとWeakRefを活用し、GCフレンドリーかつ高速なインデックス参照を実現
+ * - createListIndexファクトリで一貫した生成・管理が可能
+ * - getMaxListIndexIdで現在の最大IDを取得可能（デバッグや管理用途）
+ */
 import { IListIndex } from "./types";
 
 class ListIndex implements IListIndex {

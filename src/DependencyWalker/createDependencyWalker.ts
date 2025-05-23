@@ -1,3 +1,19 @@
+/**
+ * createDependencyWalker.ts
+ *
+ * 依存関係グラフを辿るためのDependencyWalkerクラスと、その生成ファクトリです。
+ *
+ * 主な役割:
+ * - 依存関係グラフ（dependentTree）を深さ優先で再帰的に探索し、各依存ノードに対してコールバックを実行
+ * - ループ検出のためにtracedセットで訪問済みノードを管理し、無限ループを防止
+ * - 依存種別（DependencyType）に応じて探索方法を柔軟に切り替え
+ *
+ * 設計ポイント:
+ * - walkSubで再帰的に依存ノードを探索し、structured依存の場合は親のtypeを引き継ぐ
+ * - tracedセットで一度訪れたノードは再訪しない
+ * - walkでエントリポイントから探索を開始し、コールバックを全ノードに適用
+ * - createDependencyWalkerファクトリで一貫した生成・利用が可能
+ */
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
