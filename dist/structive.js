@@ -103,6 +103,22 @@ function getGlobalConfig() {
 }
 const config$2 = getGlobalConfig();
 
+/**
+ * errorMessages.ts
+ *
+ * フィルタ関数などで利用するエラーメッセージ生成ユーティリティです。
+ *
+ * 主な役割:
+ * - フィルタのオプションや値の型チェックで条件を満たさない場合に、分かりやすいエラーメッセージを投げる
+ * - 関数名を引数に取り、どのフィルタでエラーが発生したかを明示
+ *
+ * 設計ポイント:
+ * - optionsRequired: オプションが必須なフィルタで未指定時にエラー
+ * - optionMustBeNumber: オプション値が数値でない場合にエラー
+ * - valueMustBeNumber: 値が数値でない場合にエラー
+ * - valueMustBeBoolean: 値がbooleanでない場合にエラー
+ * - valueMustBeDate: 値がDateでない場合にエラー
+ */
 function optionsRequired(fnName) {
     throw new Error(`${fnName} requires at least one option`);
 }
@@ -119,6 +135,22 @@ function valueMustBeDate(fnName) {
     throw new Error(`${fnName} requires a date value`);
 }
 
+/**
+ * builtinFilters.ts
+ *
+ * Structiveで利用可能な組み込みフィルタ関数群の実装ファイルです。
+ *
+ * 主な役割:
+ * - 数値・文字列・日付・真偽値などの変換・比較・整形・判定用フィルタを提供
+ * - フィルタ名ごとにオプション付きの関数を定義し、バインディング時に柔軟に利用可能
+ * - input/output両方のフィルタとして共通利用できる設計
+ *
+ * 設計ポイント:
+ * - eq, ne, lt, gt, inc, fix, locale, uc, lc, cap, trim, slice, pad, int, float, round, date, time, ymd, falsy, truthy, defaults, boolean, number, string, null など多彩なフィルタを網羅
+ * - オプション値の型チェックやエラーハンドリングも充実
+ * - FilterWithOptions型でフィルタ関数群を一元管理し、拡張も容易
+ * - builtinFilterFnでフィルタ名・オプションからフィルタ関数を動的に取得可能
+ */
 const config$1 = getGlobalConfig();
 const eq = (options) => {
     const opt = options?.[0] ?? optionsRequired('eq');
@@ -504,6 +536,20 @@ function raiseError(message) {
     throw new Error(message);
 }
 
+/**
+ * registerStateClass.ts
+ *
+ * StateClassインスタンスをIDで登録・取得するための管理モジュールです。
+ *
+ * 主な役割:
+ * - stateClassById: IDをキーにStateClassインスタンスを管理するレコード
+ * - registerStateClass: 指定IDでStateClassインスタンスを登録
+ * - getStateClassById: 指定IDのStateClassインスタンスを取得（未登録時はエラーを投げる）
+ *
+ * 設計ポイント:
+ * - グローバルにStateClassインスタンスを一元管理し、ID経由で高速にアクセス可能
+ * - 存在しないIDアクセス時はraiseErrorで明確な例外を発生
+ */
 const stateClassById = {};
 function registerStateClass(id, stateClass) {
     stateClassById[id] = stateClass;
@@ -512,6 +558,20 @@ function getStateClassById(id) {
     return stateClassById[id] ?? raiseError(`getStateClassById: stateClass not found: ${id}`);
 }
 
+/**
+ * registerStyleSheet.ts
+ *
+ * CSSStyleSheetインスタンスをIDで登録・取得するための管理モジュールです。
+ *
+ * 主な役割:
+ * - styleSheetById: IDをキーにCSSStyleSheetインスタンスを管理するレコード
+ * - registerStyleSheet: 指定IDでCSSStyleSheetインスタンスを登録
+ * - getStyleSheetById: 指定IDのCSSStyleSheetインスタンスを取得（未登録時はエラーを投げる）
+ *
+ * 設計ポイント:
+ * - グローバルにCSSStyleSheetインスタンスを一元管理し、ID経由で高速にアクセス可能
+ * - 存在しないIDアクセス時はraiseErrorで明確な例外を発生
+ */
 const styleSheetById = {};
 function registerStyleSheet(id, css) {
     styleSheetById[id] = css;
@@ -520,16 +580,49 @@ function getStyleSheetById(id) {
     return styleSheetById[id] ?? raiseError(`getStyleSheetById: stylesheet not found: ${id}`);
 }
 
+/**
+ * regsiterCss.ts
+ *
+ * CSS文字列をCSSStyleSheetとして生成し、IDで登録するユーティリティ関数です。
+ *
+ * 主な役割:
+ * - CSS文字列からCSSStyleSheetインスタンスを生成
+ * - registerStyleSheetを利用して、指定IDでCSSStyleSheetを登録
+ *
+ * 設計ポイント:
+ * - styleSheet.replaceSyncで同期的にCSSを適用
+ * - グローバルなスタイル管理や動的スタイル適用に利用可能
+ */
 function registerCss(id, css) {
     const styleSheet = new CSSStyleSheet();
     styleSheet.replaceSync(css);
     registerStyleSheet(id, styleSheet);
 }
 
+/**
+ * ルートノードとノードパス（インデックス配列）から、該当するノードを辿って取得するユーティリティ関数。
+ *
+ * - NodePathは各階層でのchildNodesのインデックスを表す配列
+ * - ルートから順にchildNodes[index]を辿り、該当ノードを返す
+ * - パスが不正な場合やノードが存在しない場合はnullを返す
+ *
+ * @param root  探索の起点となるルートノード
+ * @param path  各階層のインデックス配列（NodePath）
+ * @returns     パスで指定されたノード、またはnull
+ */
 function resolveNodeFromPath(root, path) {
     return path.reduce((node, index) => node?.childNodes[index] ?? null, root);
 }
 
+/**
+ * 指定ノードの「親からのインデックス」をルートまで辿り、絶対パス（NodePath）として返すユーティリティ関数。
+ *
+ * 例: ルートから見て [0, 2, 1] のような配列を返す。
+ *     これは「親→子→孫…」とたどったときの各階層でのインデックスを表す。
+ *
+ * @param node 対象のDOMノード
+ * @returns    ルートからこのノードまでのインデックス配列（NodePath）
+ */
 function getAbsoluteNodePath(node) {
     let routeIndexes = [];
     while (node.parentNode !== null) {
@@ -540,6 +633,12 @@ function getAbsoluteNodePath(node) {
     return routeIndexes;
 }
 
+/**
+ * フィルターテキスト（nameとoptionsを持つ）から、実際のフィルター関数（FilterFn）を生成する。
+ *
+ * - textToFilter: フィルターテキストから対応するフィルター関数を取得し、オプションを適用して返す。
+ * - createFilters: フィルターテキスト配列からフィルター関数配列を生成し、同じ入力にはキャッシュを利用する。
+ */
 function textToFilter(filters, text) {
     const filter = filters[text.name];
     if (!filter)
@@ -547,6 +646,14 @@ function textToFilter(filters, text) {
     return filter(text.options);
 }
 const cache$2 = new Map();
+/**
+ * フィルターテキスト配列（texts）からフィルター関数配列（Filters）を生成する。
+ * すでに同じtextsがキャッシュされていればそれを返す。
+ *
+ * @param filters フィルター名→関数の辞書
+ * @param texts   フィルターテキスト配列
+ * @returns       フィルター関数配列
+ */
 function createFilters(filters, texts) {
     let result = cache$2.get(texts);
     if (typeof result === "undefined") {
@@ -559,6 +666,21 @@ function createFilters(filters, texts) {
     return result;
 }
 
+/**
+ * BindingNodeクラスは、1つのバインディング対象ノード（ElementやTextなど）に対する
+ * バインディング処理の基底クラスです。
+ *
+ * 主な役割:
+ * - ノード・プロパティ名・フィルタ・デコレータ・バインディング情報の保持
+ * - バインディング値の更新（update）、値の割り当て（assignValue）のインターフェース提供
+ * - 複数バインド内容（bindContents）の管理
+ * - サブクラスでassignValueやupdateElementsを実装し、各種ノード・プロパティごとのバインディング処理を拡張
+ *
+ * 設計ポイント:
+ * - assignValue, updateElementsは未実装（サブクラスでオーバーライド必須）
+ * - isSelectElement, value, filteredValue, isForなどはサブクラスで用途に応じて拡張
+ * - フィルタやデコレータ、バインド内容の管理も柔軟に対応
+ */
 class BindingNode {
     #binding;
     #node;
@@ -595,6 +717,7 @@ class BindingNode {
         this.#decorates = decorates;
     }
     init() {
+        // サブクラスで初期化処理を実装可能
     }
     update() {
         this.assignValue(this.binding.bindingState.filteredValue);
@@ -619,6 +742,19 @@ class BindingNode {
     }
 }
 
+/**
+ * BindingNodeAttributeクラスは、属性バインディング（例: attr.src, attr.alt など）を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - ノード属性名（subName）を抽出し、値を属性としてElementにセット
+ * - null/undefined/NaNの場合は空文字列に変換してセット
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - nameから属性名（subName）を抽出（例: "attr.src" → "src"）
+ * - assignValueで属性値を常に文字列として設定
+ * - createBindingNodeAttributeファクトリでフィルタ適用済みインスタンスを生成
+ */
 class BindingNodeAttribute extends BindingNode {
     #subName;
     get subName() {
@@ -637,11 +773,28 @@ class BindingNodeAttribute extends BindingNode {
         element.setAttribute(this.subName, value.toString());
     }
 }
+/**
+ * 属性バインディングノード生成用ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeAttributeインスタンスを生成
+ */
 const createBindingNodeAttribute = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeAttribute(binding, node, name, filterFns, decorates);
 };
 
+/**
+ * BindingNodeCheckboxクラスは、チェックボックス（input[type="checkbox"]）の
+ * バインディング処理を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - バインディング値（配列）に現在のvalueが含まれているかどうかでchecked状態を制御
+ * - 値が配列でない場合はエラーを投げる
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - assignValueで配列内にvalueが含まれていればchecked=true
+ * - 柔軟なバインディング記法・フィルタ適用に対応
+ */
 class BindingNodeCheckbox extends BindingNode {
     assignValue(value) {
         if (!Array.isArray(value)) {
@@ -651,11 +804,27 @@ class BindingNodeCheckbox extends BindingNode {
         element.checked = value.map(_val => _val.toString()).includes(element.value);
     }
 }
+/**
+ * チェックボックス用バインディングノード生成ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeCheckboxインスタンスを生成
+ */
 const createBindingNodeCheckbox = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeCheckbox(binding, node, name, filterFns, decorates);
 };
 
+/**
+ * BindingNodeClassListクラスは、class属性（classList）のバインディング処理を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - バインディング値（配列）を空白区切りのclass属性値としてElementにセット
+ * - 値が配列でない場合はエラーを投げる
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - assignValueで配列を受け取り、join(" ")でclassNameに反映
+ * - 柔軟なバインディング記法・フィルタ適用に対応
+ */
 class BindingNodeClassList extends BindingNode {
     assignValue(value) {
         if (!Array.isArray(value)) {
@@ -665,11 +834,29 @@ class BindingNodeClassList extends BindingNode {
         element.className = value.join(" ");
     }
 }
+/**
+ * classList用バインディングノード生成ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeClassListインスタンスを生成
+ */
 const createBindingNodeClassList = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeClassList(binding, node, name, filterFns, decorates);
 };
 
+/**
+ * BindingNodeClassNameクラスは、class属性の個別クラス名（例: class.active など）の
+ * バインディング処理を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - バインディング値（boolean）に応じて、指定クラス名（subName）をElementに追加・削除
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - nameからクラス名（subName）を抽出（例: "class.active" → "active"）
+ * - assignValueでboolean値のみ許容し、型が異なる場合はエラー
+ * - trueならclassList.add、falseならclassList.removeでクラス操作
+ * - ファクトリ関数でフィルタ適用済みインスタンスを生成
+ */
 class BindingNodeClassName extends BindingNode {
     #subName;
     get subName() {
@@ -693,6 +880,10 @@ class BindingNodeClassName extends BindingNode {
         }
     }
 }
+/**
+ * class名バインディングノード生成用ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeClassNameインスタンスを生成
+ */
 const createBindingNodeClassName = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeClassName(binding, node, name, filterFns, decorates);
@@ -711,6 +902,21 @@ const SetLoopContextSymbol = Symbol.for(`${symbolName$1}.SetLoopContext`);
 const GetLastStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.GetLastStatePropertyRef`);
 const GetContextListIndexSymbol = Symbol.for(`${symbolName$1}.GetContextListIndex`);
 
+/**
+ * BindingNodeEventクラスは、イベントバインディング（onClick, onInputなど）を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - 指定イベント（on～）に対して、バインディングされた関数をイベントリスナーとして登録
+ * - デコレータ（preventDefault, stopPropagation）によるイベント制御に対応
+ * - ループコンテキストやリストインデックスも引数としてイベントハンドラに渡す
+ * - ハンドラ実行時はstateProxyを生成し、Updater経由で非同期的に状態を更新
+ *
+ * 設計ポイント:
+ * - nameからイベント名（subName）を抽出し、addEventListenerで登録
+ * - バインディング値が関数でない場合はエラー
+ * - デコレータでpreventDefault/stopPropagationを柔軟に制御
+ * - ループ内イベントにも対応し、リストインデックスを引数展開
+ */
 class BindingNodeEvent extends BindingNode {
     #subName;
     constructor(binding, node, name, filters, decorates) {
@@ -723,7 +929,7 @@ class BindingNodeEvent extends BindingNode {
         return this.#subName;
     }
     update() {
-        // 何もしない
+        // 何もしない（イベントバインディングは初期化時のみ）
     }
     handler(e) {
         const engine = this.binding.engine;
@@ -749,6 +955,10 @@ class BindingNodeEvent extends BindingNode {
         });
     }
 }
+/**
+ * イベントバインディングノード生成用ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeEventインスタンスを生成
+ */
 const createBindingNodeEvent = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeEvent(binding, node, name, filterFns, decorates);
@@ -759,6 +969,19 @@ const COMMENT_EMBED_MARK = "@@:"; // 埋め込み変数のマーク
 const COMMENT_TEMPLATE_MARK = "@@|"; // テンプレートのマーク
 
 const COMMENT_TEMPLATE_MARK_LEN$1 = COMMENT_TEMPLATE_MARK.length;
+/**
+ * BindingNodeBlockクラスは、テンプレートブロック（コメントノードによるテンプレート挿入部）を
+ * バインディング対象とするためのバインディングノード実装です。
+ *
+ * 主な役割:
+ * - コメントノード内のテンプレートIDを抽出し、idプロパティとして保持
+ * - テンプレートブロックのバインディング処理の基盤となる
+ *
+ * 設計ポイント:
+ * - コメントノードのテキストからテンプレートIDを抽出（COMMENT_TEMPLATE_MARK以降を数値変換）
+ * - IDが取得できない場合はエラーを投げる
+ * - 他のBindingNode系クラスと同様、フィルタやデコレータにも対応
+ */
 class BindingNodeBlock extends BindingNode {
     #id;
     get id() {
@@ -771,6 +994,18 @@ class BindingNodeBlock extends BindingNode {
     }
 }
 
+/**
+ * BindingNodeIfクラスは、ifバインディング（条件付き描画）を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - バインディング値（boolean）に応じて、BindContent（描画内容）のマウント・アンマウントを制御
+ * - true/false時のBindContent集合を管理し、現在の描画状態をbindContentsで取得可能
+ *
+ * 設計ポイント:
+ * - assignValueでboolean型以外が渡された場合はエラー
+ * - trueならBindContentをrender・mount、falseならunmount
+ * - 柔軟なバインディング記法・フィルタ適用に対応
+ */
 class BindingNodeIf extends BindingNodeBlock {
     #bindContent;
     #trueBindContents;
@@ -803,11 +1038,32 @@ class BindingNodeIf extends BindingNodeBlock {
         }
     }
 }
+/**
+ * ifバインディングノード生成用ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeIfインスタンスを生成
+ */
 const createBindingNodeIf = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeIf(binding, node, name, filterFns, decorates);
 };
 
+/**
+ * BindingNodeForクラスは、forバインディング（配列やリストの繰り返し描画）を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - リストデータの各要素ごとにBindContent（バインディングコンテキスト）を生成・管理
+ * - 配列の差分検出により、必要なBindContentの生成・再利用・削除・再描画を最適化
+ * - DOM上での要素の並び替えや再利用、アンマウント・マウント処理を効率的に行う
+ * - プール機構によりBindContentの再利用を促進し、パフォーマンスを向上
+ *
+ * 設計ポイント:
+ * - assignValueでリストの差分を検出し、BindContentの生成・削除・再利用を管理
+ * - updateElementsでリストの並び替えやSWAP処理にも対応
+ * - BindContentのプール・インデックス管理でGCやDOM操作の最小化を図る
+ * - バインディング状態やリストインデックス情報をエンジンに保存し、再描画や依存解決を容易にする
+ *
+ * ファクトリ関数 createBindingNodeFor でフィルタ・デコレータ適用済みインスタンスを生成
+ */
 class BindingNodeFor extends BindingNodeBlock {
     #bindContentsSet = new Set();
     #bindContentByListIndex = new WeakMap();
@@ -984,10 +1240,16 @@ const getDefaultPropertyByNodeType = {
     Template: undefined,
 };
 /**
- * バインド情報でノードプロパティを省略された場合のデフォルトのプロパティ名を取得
- * @param node ノード
- * @param nodeType ノードタイプ
- * @returns {string | undefined} デフォルトのプロパティ名
+ * バインド情報でノードプロパティが省略された場合に、ノード種別・要素タイプごとに
+ * 適切なデフォルトプロパティ名（例: textContent, value, checked, onclick など）を返すユーティリティ関数。
+ *
+ * - HTMLInputElementやHTMLSelectElementなど、要素ごとに最適なプロパティを判定
+ * - input要素はtype属性（radio, checkboxなど）も考慮
+ * - 一度判定した組み合わせはキャッシュし、パフォーマンス向上
+ *
+ * @param node     対象ノード
+ * @param nodeType ノードタイプ（"HTMLElement" | "SVGElement" | "Text" | "Template"）
+ * @returns        デフォルトのプロパティ名（例: "value", "checked", "textContent" など）
  */
 function getDefaultName(node, nodeType) {
     const key = node.constructor.name + "\t" + (node.type ?? ""); // type attribute
@@ -1004,6 +1266,21 @@ const defaultEventByName = {
     "checked": "change",
     "selected": "change",
 };
+/**
+ * BindingNodePropertyクラスは、ノードのプロパティ（value, checked, selected など）への
+ * バインディング処理を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - ノードプロパティへの値の割り当て・取得
+ * - 双方向バインディング（input, changeイベント等）に対応
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - デフォルトプロパティ名と一致し、かつ双方向バインディング可能な要素の場合のみイベントリスナーを登録
+ * - デコレータでイベント名を指定可能（onInput, onChangeなど）
+ * - イベント発火時はUpdater経由でstateを非同期的に更新
+ * - assignValueでnull/undefined/NaNは空文字列に変換してセット
+ */
 class BindingNodeProperty extends BindingNode {
     get value() {
         // @ts-ignore
@@ -1032,6 +1309,7 @@ class BindingNodeProperty extends BindingNode {
         const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
         if (eventName === "readonly" || eventName === "ro")
             return;
+        // 双方向バインディング: イベント発火時にstateを更新
         const engine = this.binding.engine;
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const value = this.filteredValue;
@@ -1045,6 +1323,7 @@ class BindingNodeProperty extends BindingNode {
         });
     }
     init() {
+        // サブクラスで初期化処理を実装可能
     }
     assignValue(value) {
         if (value === null || value === undefined || Number.isNaN(value)) {
@@ -1054,11 +1333,28 @@ class BindingNodeProperty extends BindingNode {
         this.node[this.name] = value;
     }
 }
+/**
+ * プロパティバインディングノード生成用ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodePropertyインスタンスを生成
+ */
 const createBindingNodeProperty = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeProperty(binding, node, name, filterFns, decorates);
 };
 
+/**
+ * BindingNodeRadioクラスは、ラジオボタン（input[type="radio"]）の
+ * バインディング処理を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - バインディング値とinput要素のvalueが一致していればchecked=trueにする
+ * - null/undefined/NaNの場合は空文字列に変換して比較
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - assignValueで値を文字列化し、input要素のvalueと比較してcheckedを制御
+ * - 柔軟なバインディング記法・フィルタ適用に対応
+ */
 class BindingNodeRadio extends BindingNode {
     assignValue(value) {
         if (value === null || value === undefined || Number.isNaN(value)) {
@@ -1068,11 +1364,28 @@ class BindingNodeRadio extends BindingNode {
         element.checked = value.toString() === element.value.toString();
     }
 }
+/**
+ * ラジオボタン用バインディングノード生成ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeRadioインスタンスを生成
+ */
 const createBindingNodeRadio = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeRadio(binding, node, name, filterFns, decorates);
 };
 
+/**
+ * BindingNodeStyleクラスは、style属性（インラインスタイル）のバインディング処理を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - バインディング値を指定のCSSプロパティ（subName）としてHTMLElementにセット
+ * - null/undefined/NaNの場合は空文字列に変換してセット
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - nameからCSSプロパティ名（subName）を抽出（例: "style.color" → "color"）
+ * - assignValueで値を文字列化し、style.setPropertyで反映
+ * - 柔軟なバインディング記法・フィルタ適用に対応
+ */
 class BindingNodeStyle extends BindingNode {
     #subName;
     get subName() {
@@ -1091,6 +1404,10 @@ class BindingNodeStyle extends BindingNode {
         element.style.setProperty(this.subName, value.toString());
     }
 }
+/**
+ * style属性バインディングノード生成用ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeStyleインスタンスを生成
+ */
 const createBindingNodeStyle = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeStyle(binding, node, name, filterFns, decorates);
@@ -1100,6 +1417,21 @@ const symbolName = "componentState";
 const RenderSymbol = Symbol.for(`${symbolName}.render`);
 const BindParentComponentSymbol = Symbol.for(`${symbolName}.bindParentComponent`);
 
+/**
+ * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
+ * バインディング処理を担当するバインディングノードの実装です。
+ *
+ * 主な役割:
+ * - バインディング対象のコンポーネントのstateプロパティ（subName）に値を反映
+ * - バインディング情報をコンポーネント単位で管理（bindingsByComponentに登録）
+ * - フィルタやデコレータにも対応
+ *
+ * 設計ポイント:
+ * - nameからstateプロパティ名（subName）を抽出（例: "state.foo" → "foo"）
+ * - assignValueでコンポーネントのstateに値をセット（RenderSymbol経由で反映）
+ * - 初期化時にbindingsByComponentへバインディング情報を登録
+ * - 柔軟なバインディング記法・フィルタ適用に対応
+ */
 class BindingNodeComponent extends BindingNode {
     #subName;
     get subName() {
@@ -1124,6 +1456,10 @@ class BindingNodeComponent extends BindingNode {
         component.state[RenderSymbol](this.subName, value);
     }
 }
+/**
+ * コンポーネント用バインディングノード生成ファクトリ関数
+ * - name, フィルタ、デコレータ情報からBindingNodeComponentインスタンスを生成
+ */
 const createBindingNodeComponent = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
     return new BindingNodeComponent(binding, node, name, filterFns, decorates);
@@ -1147,22 +1483,38 @@ const nodePropertyConstructorByFirstName = {
     //  "popover": PopoverTarget,
     //  "commandfor": CommandForTarget,
 };
+/**
+ * バインディング対象ノードのプロパティ名やノード種別（Element/Comment）に応じて、
+ * 適切なバインディングノード生成関数（CreateBindingNodeFn）を返すユーティリティ。
+ *
+ * - ノード種別やプロパティ名ごとに専用の生成関数をマッピング
+ * - コメントノードや特殊プロパティ（for/if等）にも対応
+ * - プロパティ名の先頭や"on"でイベントバインディングも判別
+ * - 一度判定した組み合わせはキャッシュし、パフォーマンス向上
+ *
+ * これにより、テンプレートのdata-bindやコメントバインディングの各種ケースに柔軟に対応できる。
+ */
 function _getBindingNodeCreator(isComment, isElement, propertyName) {
+    // コメント/エレメント種別とプロパティ名で専用の生成関数を優先的に取得
     const bindingNodeCreatorByName = nodePropertyConstructorByNameByIsComment[isComment ? 1 : 0][propertyName];
     if (typeof bindingNodeCreatorByName !== "undefined") {
         return bindingNodeCreatorByName;
     }
+    // コメントノードでforの場合は専用関数
     if (isComment && propertyName === "for") {
         return createBindingNodeFor;
     }
+    // コメントノードで未対応プロパティはエラー
     if (isComment) {
         raiseError(`getBindingNodeCreator: unknown node property ${propertyName}`);
     }
+    // プロパティ名の先頭で判別（class.attr.style.state等）
     const nameElements = propertyName.split(".");
     const bindingNodeCreatorByFirstName = nodePropertyConstructorByFirstName[nameElements[0]];
     if (typeof bindingNodeCreatorByFirstName !== "undefined") {
         return bindingNodeCreatorByFirstName;
     }
+    // エレメントノードでonから始まる場合はイベントバインディング
     if (isElement) {
         if (propertyName.startsWith("on")) {
             return createBindingNodeEvent;
@@ -1172,24 +1524,47 @@ function _getBindingNodeCreator(isComment, isElement, propertyName) {
         }
     }
     else {
+        // それ以外は汎用プロパティバインディング
         return createBindingNodeProperty;
     }
 }
 const _cache$2 = {};
 /**
- * バインドのノードプロパティの生成関数を取得する
- * @param node ノード
- * @param propertyName プロパティ名
- * @returns {CreateBindingNodeFn} ノードプロパティのコンストラクタ
+ * ノード・プロパティ名・フィルタ・デコレータ情報から
+ * 適切なバインディングノード生成関数を取得し、呼び出すファクトリ関数。
+ *
+ * @param node         バインディング対象ノード
+ * @param propertyName バインディングプロパティ名
+ * @param filterTexts  フィルタ情報
+ * @param decorates    デコレータ情報
+ * @returns            バインディングノード生成関数の実行結果
  */
 function getBindingNodeCreator(node, propertyName, filterTexts, decorates) {
     const isComment = node instanceof Comment;
     const isElement = node instanceof Element;
     const key = isComment + "\t" + isElement + "\t" + propertyName;
+    // キャッシュを利用して生成関数を取得
     const fn = _cache$2[key] ?? (_cache$2[key] = _getBindingNodeCreator(isComment, isElement, propertyName));
     return fn(propertyName, filterTexts, decorates);
 }
 
+/**
+ * getStructuredPathInfo.ts
+ *
+ * Stateプロパティのパス文字列から、詳細な構造化パス情報（IStructuredPathInfo）を生成・キャッシュするユーティリティです。
+ *
+ * 主な役割:
+ * - パス文字列を分割し、各セグメントやワイルドカード（*）の位置・親子関係などを解析
+ * - cumulativePaths/wildcardPaths/parentPathなど、パス階層やワイルドカード階層の情報を構造化
+ * - 解析結果をIStructuredPathInfoとしてキャッシュし、再利用性とパフォーマンスを両立
+ * - reservedWords（予約語）チェックで安全性を担保
+ *
+ * 設計ポイント:
+ * - パスごとにキャッシュし、同じパスへの複数回アクセスでも高速に取得可能
+ * - ワイルドカードや親子関係、階層構造を厳密に解析し、バインディングや多重ループに最適化
+ * - childrenプロパティでパス階層のツリー構造も構築
+ * - 予約語や危険なパスはraiseErrorで例外を発生
+ */
 /**
  * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
  * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
@@ -1293,6 +1668,21 @@ function getStructuredPathInfo(structuredPath) {
     return (_cache$1[structuredPath] = new StructuredPathInfo(structuredPath));
 }
 
+/**
+ * BindingStateクラスは、バインディング対象の状態（State）プロパティへのアクセス・更新・フィルタ適用を担当する実装です。
+ *
+ * 主な役割:
+ * - バインディング対象の状態プロパティ（pattern, info）やリストインデックス（listIndex）を管理
+ * - get valueで現在の値を取得し、get filteredValueでフィルタ適用後の値を取得
+ * - initでリストバインディング時のループコンテキストやインデックス参照を初期化
+ * - assignValueで状態プロキシに値を書き込む（双方向バインディング対応）
+ * - バインディング情報をエンジンに登録し、依存解決や再描画を効率化
+ *
+ * 設計ポイント:
+ * - ワイルドカードパス（配列バインディング等）にも対応し、ループごとのインデックス管理が可能
+ * - フィルタ適用は配列で柔軟に対応
+ * - createBindingStateファクトリでフィルタ適用済みインスタンスを生成
+ */
 class BindingState {
     #binding;
     #pattern;
@@ -1356,6 +1746,21 @@ const createBindingState = (name, filterTexts) => (binding, state, filters) => {
     return new BindingState(binding, state, name, filterFns);
 };
 
+/**
+ * BindingStateIndexクラスは、forバインディング等のループ内で利用される
+ * インデックス値（$1, $2, ...）のバインディング状態を管理する実装です。
+ *
+ * 主な役割:
+ * - ループコンテキストからインデックス値を取得し、value/filteredValueで参照可能にする
+ * - バインディング時にbindingsByListIndexへ自身を登録し、依存解決や再描画を効率化
+ * - フィルタ適用にも対応
+ *
+ * 設計ポイント:
+ * - pattern（例: "$1"）からインデックス番号を抽出し、ループコンテキストから該当インデックスを取得
+ * - initでループコンテキストやlistIndexRefを初期化し、バインディング情報をエンジンに登録
+ * - assignValueは未実装（インデックスは書き換え不可のため）
+ * - createBindingStateIndexファクトリでフィルタ適用済みインスタンスを生成
+ */
 class BindingStateIndex {
     #binding;
     #indexNumber;
@@ -1427,11 +1832,24 @@ const createBindingStateIndex = (name, filterTexts) => (binding, state, filters)
 };
 
 const ereg = new RegExp(/^\$\d+$/);
+/**
+ * バインディング対象の状態プロパティ名とフィルタ情報から、
+ * 適切なバインディング状態生成関数（CreateBindingStateByStateFn）を返すユーティリティ。
+ *
+ * - プロパティ名が "$数字"（例: "$1"）の場合は createBindingStateIndex を使用（インデックスバインディング用）
+ * - それ以外は通常の createBindingState を使用
+ *
+ * @param name        バインディング対象の状態プロパティ名
+ * @param filterTexts フィルタ情報
+ * @returns           バインディング状態生成関数
+ */
 function getBindingStateCreator(name, filterTexts) {
     if (ereg.test(name)) {
+        // "$数字"形式の場合はインデックスバインディング用の生成関数を返す
         return createBindingStateIndex(name, filterTexts);
     }
     else {
+        // 通常のプロパティ名の場合は標準の生成関数を返す
         return createBindingState(name, filterTexts);
     }
 }
@@ -1453,9 +1871,22 @@ const getTextByNodeType = {
     "Template": getTextFromTemplate,
     "SVGElement": getTextFromSVGElement
 };
+/**
+ * ノード種別ごとにdata-bindテキスト（バインディング定義文字列）を取得するユーティリティ関数。
+ *
+ * - Textノード: コメントマーク以降のテキストを取得し、"textContent:"を付与
+ * - HTMLElement: data-bind属性値を取得
+ * - Templateノード: コメントマーク以降のIDからテンプレートを取得し、そのdata-bind属性値を取得
+ * - SVGElement: data-bind属性値を取得
+ *
+ * @param nodeType ノード種別（"Text" | "HTMLElement" | "Template" | "SVGElement"）
+ * @param node     対象ノード
+ * @returns        バインディング定義文字列
+ */
 function getDataBindText(nodeType, node) {
     const bindText = getTextByNodeType[nodeType](node) ?? "";
     if (nodeType === "Text") {
+        // Textノードの場合は"textContent:"を付与
         return "textContent:" + bindText;
     }
     else {
@@ -1470,10 +1901,16 @@ const getNodeTypeByNode = (node) => (node instanceof Comment && node.textContent
         (node instanceof Comment && node.textContent?.[2] === "|") ? "Template" :
             (node instanceof SVGElement) ? "SVGElement" : raiseError(`Unknown NodeType: ${node.nodeType}`);
 /**
- * ノードのタイプを取得
- * @param node ノード
- * @param nodeKey ノードキー
- * @returns {NodeType} ノードタイプ
+ * ノードのタイプ（"Text" | "HTMLElement" | "Template" | "SVGElement"）を判定・キャッシュするユーティリティ関数。
+ *
+ * - コメントノードの場合、3文字目が ":" なら "Text"、"|" なら "Template" と判定
+ * - HTMLElement, SVGElement もそれぞれ判定
+ * - 未知のノード型はエラー
+ * - ノードごとに一意なキー（constructor名＋コメント種別）でキャッシュし、再判定を省略
+ *
+ * @param node    判定対象のノード
+ * @param nodeKey キャッシュ用のノードキー（省略時は自動生成）
+ * @returns       ノードタイプ（NodeType）
  */
 function getNodeType(node, nodeKey = createNodeKey(node)) {
     return nodeTypeByNodeKey[nodeKey] ?? (nodeTypeByNodeKey[nodeKey] = getNodeTypeByNode(node));
@@ -1522,10 +1959,16 @@ const parseExpressions = (text) => {
 };
 const cache$1 = {};
 /**
- * 取得したバインドテキスト(getBindTextByNodeType)を解析して、バインド情報を取得する
+ * バインドテキスト（data-bind属性やコメント等から取得した文字列）を解析し、
+ * バインディング情報（IBindText[]）に変換するユーティリティ関数群。
+ *
+ * - フィルターやデコレータ、プロパティ名などをパースし、構造化データとして返す
+ * - "textContent:value|eq,100|falsey@decorate1,decorate2" のような複雑な記法にも対応
+ * - セミコロン区切りで複数バインドもサポート
+ * - パース結果はキャッシュし、同じ入力の再解析を防止
+ *
  * @param text バインドテキスト
- * @param defaultName デフォルト名
- * @returns {IBindText[]} バインド情報
+ * @returns    解析済みバインディング情報（IBindText[]）
  */
 function parseBindText(text) {
     if (text.trim() === "") {
@@ -1546,10 +1989,14 @@ const removeAttributeByNodeType = {
     Template: undefined,
 };
 /**
- * ノードからdata-bind属性を削除
- * @param node ノード
- * @param nodeType ノードタイプ
- * @returns {Node} ノード
+ * 指定ノードから data-bind 属性を削除するユーティリティ関数。
+ *
+ * - ノードタイプ（HTMLElement, SVGElement）の場合のみ data-bind 属性を削除
+ * - Text, Template ノードは対象外
+ *
+ * @param node     対象ノード
+ * @param nodeType ノードタイプ（"HTMLElement" | "SVGElement" | "Text" | "Template"）
+ * @returns        なし
  */
 function removeDataBindAttribute(node, nodeType) {
     return removeAttributeByNodeType[nodeType]?.(node);
@@ -1567,15 +2014,30 @@ const replaceTextNodeFn = {
     SVGElement: undefined
 };
 /**
- * コメントノードをテキストノードに置き換える
- * @param node ノード
- * @param nodeType ノードタイプ
- * @returns {Node} ノード
+ * コメントノードをテキストノードに置き換えるユーティリティ関数。
+ *
+ * - ノードタイプが "Text" の場合のみ、コメントノードを空のテキストノードに置換する
+ * - それ以外のノードタイプ（HTMLElement, Template, SVGElement）は何もしない
+ *
+ * @param node     対象ノード
+ * @param nodeType ノードタイプ（"Text" | "HTMLElement" | "Template" | "SVGElement"）
+ * @returns        置換後のノード（または元のノード）
  */
 function replaceTextNodeFromComment(node, nodeType) {
     return replaceTextNodeFn[nodeType]?.(node) ?? node;
 }
 
+/**
+ * DataBindAttributesクラスは、DOMノードからバインディング情報を抽出・解析し、
+ * バインディング生成に必要な情報（ノード種別・パス・バインドテキスト・クリエイター）を管理します。
+ *
+ * - ノード種別やパスを特定
+ * - data-bind属性やコメントノードからバインドテキストを取得・解析
+ * - バインドテキストごとにバインディング生成関数（ノード用・状態用）を用意
+ * - data-bind属性やコメントノードはパース後に削除・置換
+ *
+ * これにより、テンプレート内のバインディング定義を一元的に管理し、後続のバインディング構築処理を効率化します。
+ */
 class DataBindAttributes {
     nodeType; // ノードの種別
     nodePath; // ノードのルート
@@ -1584,12 +2046,13 @@ class DataBindAttributes {
     constructor(node) {
         this.nodeType = getNodeType(node);
         const text = getDataBindText(this.nodeType, node);
-        // CommentNodeをTextに置換、template.contentの内容が書き換わることに注意
+        // コメントノードの場合はTextノードに置換（template.contentが書き換わる点に注意）
         node = replaceTextNodeFromComment(node, this.nodeType);
-        // data-bind属性を削除する
+        // data-bind属性を削除（パース後は不要なため）
         removeDataBindAttribute(node, this.nodeType);
         this.nodePath = getAbsoluteNodePath(node);
         this.bindTexts = parseBindText(text);
+        // 各バインドテキストごとにバインディング生成関数を用意
         for (let i = 0; i < this.bindTexts.length; i++) {
             const bindText = this.bindTexts[i];
             const creator = {
@@ -1600,6 +2063,9 @@ class DataBindAttributes {
         }
     }
 }
+/**
+ * 指定ノードからDataBindAttributesインスタンスを生成するファクトリ関数。
+ */
 function createDataBindAttributes(node) {
     return new DataBindAttributes(node);
 }
@@ -1610,6 +2076,17 @@ function createDataBindAttributes(node) {
 function isCommentNode(node) {
     return node instanceof Comment && ((node.textContent?.indexOf(COMMENT_EMBED_MARK) === 0) || (node.textContent?.indexOf(COMMENT_TEMPLATE_MARK) === 0));
 }
+/**
+ * 指定ノード以下のツリーから「data-bind属性を持つ要素」または
+ * 「特定のマーク（@@: または @@|）で始まるコメントノード」をすべて取得するユーティリティ関数。
+ *
+ * - Elementノードの場合: data-bind属性があるものだけを抽出
+ * - Commentノードの場合: COMMENT_EMBED_MARK または COMMENT_TEMPLATE_MARK で始まるものだけを抽出
+ * - DOMツリー全体をTreeWalkerで効率的に走査
+ *
+ * @param root 探索の起点となるノード
+ * @returns    条件に合致したノードの配列
+ */
 function getNodesHavingDataBind(root) {
     const nodes = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT, {
@@ -1632,6 +2109,19 @@ function getDataBindAttributesFromTemplate(content) {
     const nodes = getNodesHavingDataBind(content);
     return nodes.map(node => createDataBindAttributes(node));
 }
+/**
+ * テンプレート（DocumentFragment）内のバインディング情報（data-bind属性やコメント）を解析・登録し、
+ * 各テンプレートIDごとにバインディング属性情報・状態パス集合を管理するユーティリティ。
+ *
+ * - getNodesHavingDataBindで対象ノードを抽出し、createDataBindAttributesで解析
+ * - 各テンプレートIDごとにバインディング属性リスト・状態パス集合・リストパス集合をキャッシュ
+ * - forバインディング（ループ）のstatePropertyはlistPathsにも登録
+ *
+ * @param id      テンプレートID
+ * @param content テンプレートのDocumentFragment
+ * @param rootId  ルートテンプレートID（省略時はidと同じ）
+ * @returns       解析済みバインディング属性リスト
+ */
 function registerDataBindAttributes(id, content, rootId = id) {
     const dataBindAttributes = getDataBindAttributesFromTemplate(content);
     const paths = pathsSetById[rootId] ?? (pathsSetById[rootId] = new Set());
@@ -1648,16 +2138,38 @@ function registerDataBindAttributes(id, content, rootId = id) {
     }
     return listDataBindAttributesById[id] = dataBindAttributes;
 }
+/**
+ * テンプレートIDからバインディング属性リストを取得
+ */
 const getDataBindAttributesById = (id) => {
     return listDataBindAttributesById[id];
 };
+/**
+ * テンプレートIDからforバインディングのstateProperty集合を取得
+ */
 const getListPathsSetById = (id) => {
     return listPathsSetById[id] ?? [];
 };
+/**
+ * テンプレートIDから全バインディングのstateProperty集合を取得
+ */
 const getPathsSetById = (id) => {
     return pathsSetById[id] ?? [];
 };
 
+/**
+ * removeEmptyTextNodes.ts
+ *
+ * DocumentFragment内の空テキストノードを削除するユーティリティ関数です。
+ *
+ * 主な役割:
+ * - content（DocumentFragment）の直下にある空白のみのテキストノードを検出し、削除する
+ *
+ * 設計ポイント:
+ * - childNodesをArray.fromで配列化し、forEachで全ノードを走査
+ * - nodeTypeがTEXT_NODEかつ、nodeValueが空白のみの場合にremoveChildで削除
+ * - テンプレート処理やクリーンなDOM生成時に利用
+ */
 function removeEmptyTextNodes(content) {
     Array.from(content.childNodes).forEach(node => {
         if (node.nodeType === Node.TEXT_NODE && !(node.nodeValue ?? "").trim()) {
@@ -1666,6 +2178,22 @@ function removeEmptyTextNodes(content) {
     });
 }
 
+/**
+ * registerTemplate.ts
+ *
+ * HTMLTemplateElementをIDで登録・取得するための管理モジュールです。
+ *
+ * 主な役割:
+ * - templateById: IDをキーにHTMLTemplateElementを管理するレコード
+ * - registerTemplate: 指定IDでテンプレートを登録し、空テキストノード除去やデータバインド属性の登録も実行
+ * - getTemplateById: 指定IDのテンプレートを取得（未登録時はエラーを投げる）
+ *
+ * 設計ポイント:
+ * - テンプレート登録時にremoveEmptyTextNodesで空テキストノードを除去し、クリーンなDOMを維持
+ * - registerDataBindAttributesでデータバインド属性を自動付与
+ * - グローバルにテンプレートを一元管理し、ID経由で高速にアクセス可能
+ * - 存在しないIDアクセス時はraiseErrorで明確な例外を発生
+ */
 const templateById = {};
 function registerTemplate(id, template, rootId) {
     removeEmptyTextNodes(template.content);
@@ -1677,6 +2205,20 @@ function getTemplateById(id) {
     return templateById[id] ?? raiseError(`getTemplateById: template not found: ${id}`);
 }
 
+/**
+ * Bindingクラスは、1つのバインディング（ノードと状態の対応）を管理する中核的な実装です。
+ *
+ * 主な役割:
+ * - DOMノードと状態（State）を結びつけるバインディングノード（bindingNode）とバインディング状態（bindingState）の生成・管理
+ * - バインディングの初期化（init）、再描画（render）、状態値の更新（updateStateValue）などの処理を提供
+ * - バージョン管理により、不要な再描画を防止
+ *
+ * 設計ポイント:
+ * - createBindingNode, createBindingStateファクトリで柔軟なバインディング構造に対応
+ * - renderでバージョン差分がある場合のみバインディングノードを更新
+ * - 双方向バインディング時はupdateStateValueで状態プロキシに値を反映
+ * - createBinding関数で一貫したバインディング生成を提供
+ */
 class Binding {
     parentBindContent;
     node;
@@ -1712,6 +2254,10 @@ class Binding {
         return this.bindingState.assignValue(writeState, value);
     }
 }
+/**
+ * バインディング生成用ファクトリ関数
+ * - 各種ファクトリ・エンジン・ノード情報からBindingインスタンスを生成
+ */
 function createBinding(parentBindContent, node, engine, createBindingNode, createBindingState) {
     return new Binding(parentBindContent, node, engine, createBindingNode, createBindingState);
 }
@@ -1839,6 +2385,24 @@ function createBindings(bindContent, id, engine, content) {
     }
     return bindings;
 }
+/**
+ * BindContentクラスは、テンプレートから生成されたDOM断片（DocumentFragment）と
+ * そのバインディング情報（IBinding配列）を管理するための実装です。
+ *
+ * 主な役割:
+ * - テンプレートIDからDOM断片を生成し、バインディング情報を構築
+ * - mount/mountBefore/mountAfter/unmountでDOMへの挿入・削除を制御
+ * - renderでバインディングの再描画、initで初期化処理を実行
+ * - ループバインディング時のLoopContextやリストインデックス管理にも対応
+ * - getLastNodeで再帰的に最後のノードを取得し、リスト描画や差し替えに利用
+ * - assignListIndexでループ内のリストインデックスを再割り当てし、再初期化
+ *
+ * 設計ポイント:
+ * - fragmentとchildNodesの両方を管理し、効率的なDOM操作を実現
+ * - バインディング情報はテンプレートごとに動的に生成され、各ノードに紐付く
+ * - ループや条件分岐など複雑なバインディング構造にも柔軟に対応
+ * - createBindContentファクトリ関数で一貫した生成・初期化を提供
+ */
 class BindContent {
     loopContext;
     parentBinding;
@@ -1953,10 +2517,16 @@ function createBindContent(parentBinding, id, engine, loopContext, listIndex) {
     return bindContent;
 }
 
+/**
+ * infoとtypeから依存関係エッジの一意キーを生成
+ */
 function createDependencyKey(info, type) {
     return `${info.pattern}@${type}`;
 }
 const cache = {};
+/**
+ * 依存関係エッジ（IDependencyEdge）を生成・キャッシュして返す
+ */
 function createDependencyEdge(info, type) {
     const key = createDependencyKey(info, type);
     return cache[key] ?? (cache[key] = { info, type });
@@ -2283,6 +2853,15 @@ function createUpdater(engine) {
     return new Updater(engine);
 }
 
+/**
+ * 指定したタグ名の要素がShadowRootを持てるかどうかを判定するユーティリティ関数。
+ *
+ * - 指定タグ名で要素を生成し、attachShadowメソッドが存在するかどうかで判定
+ * - 無効なタグ名やattachShadow未対応の場合はfalseを返す
+ *
+ * @param tagName 判定したい要素のタグ名（例: "div", "span", "input" など）
+ * @returns       ShadowRootを持てる場合はtrue、持てない場合はfalse
+ */
 function canHaveShadowRoot(tagName) {
     try {
         // 一時的に要素を作成
@@ -2305,6 +2884,19 @@ function getParentShadowRoot(parentNode) {
         node = node.parentNode;
     }
 }
+/**
+ * 指定したHTMLElementにShadow DOMをアタッチし、スタイルシートを適用するユーティリティ関数。
+ *
+ * - config.enableShadowDomがtrueの場合は、ShadowRootを生成し、adoptedStyleSheetsでスタイルを適用
+ * - extends指定がある場合はcanHaveShadowRootで拡張可能かチェック
+ * - Shadow DOMを使わない場合は、親のShadowRootまたはdocumentにスタイルシートを追加
+ * - すでに同じスタイルシートが含まれていれば重複追加しない
+ *
+ * @param element    対象のHTMLElement
+ * @param config     コンポーネント設定
+ * @param styleSheet 適用するCSSStyleSheet
+ * @throws           Shadow DOM非対応の組み込み要素を拡張しようとした場合はエラー
+ */
 function attachShadow(element, config, styleSheet) {
     if (config.enableShadowDom) {
         if (config.extends === null || canHaveShadowRoot(config.extends)) {
@@ -2382,13 +2974,30 @@ function setTracking(info, handler, callback) {
     }
 }
 
+/**
+ * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
+ *
+ * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
+ * - キャッシュ機構（handler.cacheable時はrefKeyでキャッシュ）
+ * - ネスト・ワイルドカード対応（親infoやlistIndexを辿って再帰的に値を取得）
+ * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
+ *
+ * @param target    状態オブジェクト
+ * @param info      構造化パス情報
+ * @param listIndex リストインデックス（多重ループ対応）
+ * @param receiver  プロキシ
+ * @param handler   状態ハンドラ
+ * @returns         対象プロパティの値
+ */
 function _getByRef(target, info, listIndex, receiver, handler) {
+    // 依存関係の自動登録
     if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
         const lastPattern = handler.lastTrackingStack;
         if (lastPattern.parentInfo !== info) {
             handler.engine.addDependentProp(lastPattern, info, "reference");
         }
     }
+    // キャッシュが有効な場合はrefKeyで値をキャッシュ
     let refKey = '';
     if (handler.cacheable) {
         refKey = createRefKey(info, listIndex);
@@ -2402,31 +3011,40 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     }
     let value;
     try {
+        // パターンがtargetに存在する場合はgetter経由で取得
         if (info.pattern in target) {
             return (value = receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
                 return Reflect.get(target, info.pattern, receiver);
             }));
         }
         else {
+            // 存在しない場合は親infoを辿って再帰的に取得
             const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
             const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
             const parentValue = getByRef$1(target, parentInfo, parentListIndex, receiver, handler);
             const lastSegment = info.lastSegment;
             if (lastSegment === "*") {
+                // ワイルドカードの場合はlistIndexのindexでアクセス
                 const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
                 return (value = Reflect.get(parentValue, index));
             }
             else {
+                // 通常のプロパティアクセス
                 return (value = Reflect.get(parentValue, lastSegment));
             }
         }
     }
     finally {
+        // キャッシュが有効な場合は取得値をキャッシュ
         if (handler.cacheable && !(refKey in handler.cache)) {
             handler.cache[refKey] = value;
         }
     }
 }
+/**
+ * trackedGettersに含まれる場合は依存追跡(setTracking)を有効化し、値取得を行う。
+ * それ以外は通常の_getByRefで取得。
+ */
 function getByRef$1(target, info, listIndex, receiver, handler) {
     if (handler.engine.trackedGetters.has(info.pattern)) {
         return setTracking(info, handler, () => {
@@ -2688,6 +3306,24 @@ function getListIndex(info, receiver, handler) {
     return listIndex;
 }
 
+/**
+ * get.ts
+ *
+ * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
+ *
+ * 主な役割:
+ * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $router）に応じた値やAPIを返却
+ * - 通常のプロパティはgetResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
+ * - getByRefで構造化パス・リストインデックスに対応した値を取得
+ * - シンボルプロパティの場合はhandler.callableApi経由でAPIを呼び出し
+ * - それ以外はReflect.getで通常のプロパティアクセスを実行
+ *
+ * 設計ポイント:
+ * - $1〜$9は直近のStatePropertyRefのリストインデックス値を返す特殊プロパティ
+ * - $resolve, $getAll, $routerはAPI関数やルーターインスタンスを返す
+ * - 通常のプロパティアクセスもバインディングや多重ループに対応
+ * - シンボルAPIやReflect.getで拡張性・互換性も確保
+ */
 function get(target, prop, receiver, handler) {
     let value;
     if (typeof prop === "string") {
@@ -2739,6 +3375,17 @@ function setStatePropertyRef(target, prop, receiver, handler) {
     return (info, listIndex, callback) => setStatePropertyRef$1(handler, info, listIndex, callback);
 }
 
+/**
+ * 状態プロパティ参照のスコープを一時的に設定し、非同期コールバックを実行します。
+ *
+ * @param handler   スコープ管理用のハンドラ
+ * @param info      現在の構造化パス情報
+ * @param listIndex 現在のリストインデックス（ネスト対応用）
+ * @param callback  スコープ内で実行する非同期処理
+ *
+ * スタックに info と listIndex をpushし、callback実行後に必ずpopします。
+ * これにより、非同期処理中も正しいスコープ情報が維持されます。
+ */
 async function asyncSetStatePropertyRef(handler, info, listIndex, callback) {
     handler.structuredPathInfoStack.push(info);
     handler.listIndexStack.push(listIndex);
@@ -2848,6 +3495,21 @@ function setByRef(target, prop, receiver, handler) {
     return (pattern, listIndex, value) => setByRef$1(target, pattern, listIndex, value, receiver, handler);
 }
 
+/**
+ * set.ts
+ *
+ * StateClassのProxyトラップとして、プロパティ設定時の値セット処理を担う関数（set）の実装です。
+ *
+ * 主な役割:
+ * - 文字列プロパティの場合、getResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
+ * - setByRefで構造化パス・リストインデックスに対応した値設定を実行
+ * - それ以外（シンボル等）の場合はReflect.setで通常のプロパティ設定を実行
+ *
+ * 設計ポイント:
+ * - バインディングや多重ループ、ワイルドカードを含むパスにも柔軟に対応
+ * - setByRefを利用することで、依存解決や再描画などの副作用も一元管理
+ * - Reflect.setで標準的なプロパティ設定の互換性も確保
+ */
 function set(target, prop, value, receiver, handler) {
     if (typeof prop === "string") {
         const resolvedInfo = getResolvedPathInfo(prop);
@@ -2894,6 +3556,28 @@ function createWritableStateProxy(engine, state) {
     return new Proxy(state, new StateHandler(engine));
 }
 
+/**
+ * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
+ * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
+ *
+ * 主な役割:
+ * - 状態インスタンスやプロキシの生成・管理
+ * - テンプレート・スタイルシート・フィルター・バインディング情報の管理
+ * - 依存関係グラフ（dependentTree）の構築と管理
+ * - バインディング情報やリスト情報の保存・取得
+ * - ライフサイクル（connectedCallback/disconnectedCallback）処理
+ * - Shadow DOMやスタイルシートの適用
+ * - 状態プロパティの取得・設定
+ * - バインディングの追加・存在判定・リスト管理
+ *
+ * 構造・設計上の特徴:
+ * - 状態や依存関係、バインディング情報を効率的に管理するためのキャッシュやマップを多用
+ * - テンプレートやリスト構造の多重管理に対応
+ * - 非同期初期化やUpdaterによるバッチ的な状態更新設計
+ * - 疎結合な設計で、各種ユーティリティやファクトリ関数と連携
+ *
+ * 典型的なWeb Componentsのライフサイクルやリアクティブな状態管理を、Structive独自の構造で実現しています。
+ */
 class ComponentEngine {
     type = 'autonomous';
     config;
@@ -3086,6 +3770,23 @@ function createComponentEngine(config, component) {
     return new ComponentEngine(config, component);
 }
 
+/**
+ * replaceMustacheWithTemplateTag.ts
+ *
+ * Mustache構文（{{if:条件}}, {{for:式}}, {{endif}}, {{endfor}}, {{elseif:条件}}, {{else}} など）を
+ * <template>タグやコメントノードに変換するユーティリティ関数です。
+ *
+ * 主な役割:
+ * - HTML文字列内のMustache構文を正規表現で検出し、<template data-bind="...">やコメントノードに変換
+ * - if/for/endif/endfor/elseif/elseなどの制御構文をネスト対応で<template>タグに変換
+ * - 通常の埋め込み式（{{expr}}）はコメントノード（<!--embed:expr-->）に変換
+ *
+ * 設計ポイント:
+ * - stackでネスト構造を管理し、endif/endfor/elseif/elseの対応関係を厳密にチェック
+ * - 不正なネストや対応しない構文にはraiseErrorで例外を発生
+ * - elseif/elseはnot条件のtemplateを自動生成し、条件分岐を表現
+ * - コメントノードへの変換で埋め込み式の安全なDOM挿入を実現
+ */
 const MUSTACHE_REGEXP = /\{\{([^\}]+)\}\}/g;
 const MUSTACHE_TYPES = new Set(['if', 'for', 'endif', 'endfor', 'elseif', 'else']);
 function replaceMustacheWithTemplateTag(html) {
@@ -3154,6 +3855,22 @@ function replaceMustacheWithTemplateTag(html) {
     });
 }
 
+/**
+ * replaceTemplateTagWithComment.ts
+ *
+ * <template>タグをコメントノードに置換し、テンプレートを再帰的に登録するユーティリティ関数です。
+ *
+ * 主な役割:
+ * - 指定したHTMLTemplateElementをコメントノード（<!--template:id-->）に置換
+ * - SVG内のtemplateタグは通常のtemplate要素に変換し、属性や子ノードを引き継ぐ
+ * - テンプレート内の入れ子templateも再帰的に置換・登録
+ * - registerTemplateでテンプレートをID付きで管理
+ *
+ * 設計ポイント:
+ * - テンプレートの階層構造を維持しつつ、DOM上はコメントノードでマーク
+ * - SVG対応や属性引き継ぎなど、汎用的なテンプレート処理に対応
+ * - generateIdでユニークIDを割り当て、テンプレート管理を一元化
+ */
 const SVG_NS = "http://www.w3.org/2000/svg";
 function replaceTemplateTagWithComment(id, template, rootId = id) {
     // テンプレートの親ノードが存在する場合は、テンプレートをコメントノードに置き換える
@@ -3175,6 +3892,20 @@ function replaceTemplateTagWithComment(id, template, rootId = id) {
     return id;
 }
 
+/**
+ * registerHtml.ts
+ *
+ * HTML文字列をテンプレートとして登録するユーティリティ関数です。
+ *
+ * 主な役割:
+ * - 指定IDでHTMLテンプレートを生成し、data-id属性を付与
+ * - Mustache構文（{{ }})をテンプレートタグに変換（replaceMustacheWithTemplateTagを利用）
+ * - テンプレートタグをコメントに置換（replaceTemplateTagWithCommentを利用）
+ *
+ * 設計ポイント:
+ * - テンプレートの動的生成・管理や、構文変換による柔軟なテンプレート処理に対応
+ * - テンプレートはdocument.createElement("template")で生成し、data-idで識別
+ */
 function registerHtml(id, html) {
     const template = document.createElement("template");
     template.dataset.id = id.toString();
@@ -3186,6 +3917,20 @@ function getBaseClass(extendTagName) {
     return extendTagName ? document.createElement(extendTagName).constructor : HTMLElement;
 }
 
+/**
+ * getComponentConfig.ts
+ *
+ * ユーザー設定（IUserConfig）とグローバル設定を統合し、コンポーネントの設定（IComponentConfig）を生成するユーティリティ関数です。
+ *
+ * 主な役割:
+ * - getGlobalConfigでグローバル設定を取得
+ * - ユーザー設定が優先され、未指定の場合はグローバル設定値を利用
+ * - enableShadowDomやextendsなどの設定値を一元的に返却
+ *
+ * 設計ポイント:
+ * - ユーザーごとの個別設定と全体のデフォルト設定を柔軟に統合
+ * - 設定値のデフォルト化や拡張性を考慮した設計
+ */
 function getComponentConfig(userConfig) {
     const globalConfig = getGlobalConfig();
     return {
@@ -3194,6 +3939,25 @@ function getComponentConfig(userConfig) {
     };
 }
 
+/**
+ * createComponentState.ts
+ *
+ * Structiveコンポーネントの状態管理を担う「ComponentState」クラスと、そのプロキシ生成関数の実装。
+ *
+ * 主な役割:
+ * - 親コンポーネントとのバインディング（親プロパティのgetter/setterを動的に定義）
+ * - 親コンポーネントからのバインディング一括登録（bindParentComponent）
+ * - 状態プロパティの取得・設定・レンダリング（getPropertyValue, setPropertyValue, render）
+ * - Proxyハンドラで、プロパティアクセスを自動的にget/set/特殊メソッドに振り分け
+ *
+ * 構造・設計ポイント:
+ * - 親子コンポーネント間のデータ連携を柔軟に実現
+ * - ループコンテキストや非同期更新にも対応
+ * - Proxyによる柔軟なAPI（state.xxxで直接アクセス可能）
+ *
+ * @param engine IComponentEngineインスタンス
+ * @returns      IComponentStateProxy（Proxyラップされた状態オブジェクト）
+ */
 class ComponentState {
     engine;
     constructor(engine) {
@@ -3277,6 +4041,22 @@ const createComponentState = (engine) => {
     return new Proxy(new ComponentState(engine), new ComponentStateHandler());
 };
 
+/**
+ * createAccessorFunctions.ts
+ *
+ * Stateプロパティのパス情報（IStructuredPathInfo）から、動的なgetter/setter関数を生成するユーティリティです。
+ *
+ * 主な役割:
+ * - パス情報とgetter集合から、最適なアクセサ関数（get/set）を動的に生成
+ * - ワイルドカード（*）やネストしたプロパティパスにも対応
+ * - パスやセグメントのバリデーションも実施
+ *
+ * 設計ポイント:
+ * - matchPathsから最長一致のgetterパスを探索し、そこからの相対パスでアクセサを構築
+ * - パスが一致しない場合はinfo.pathSegmentsから直接アクセサを生成
+ * - new Functionで高速なgetter/setterを動的生成
+ * - パスやセグメント名は正規表現で厳密にチェックし、安全性を担保
+ */
 const checkSegmentRegexp = /^[a-zA-Z_$][0-9a-zA-Z_$]*$/;
 const checkPathRegexp = /^[a-zA-Z_$][0-9a-zA-Z_$]*(\.[a-zA-Z_$][0-9a-zA-Z_$]*|\.\*)*$/;
 function createAccessorFunctions(info, getters) {
@@ -3342,6 +4122,24 @@ function createAccessorFunctions(info, getters) {
     }
 }
 
+/**
+ * createComponentClass.ts
+ *
+ * StructiveのWeb Components用カスタム要素クラスを動的に生成するユーティリティです。
+ *
+ * 主な役割:
+ * - ユーザー定義のcomponentData（stateClass, html, css等）からWeb Componentsクラスを生成
+ * - StateClass/テンプレート/CSS/バインディング情報などをIDで一元管理・登録
+ * - 独自のget/setトラップやバインディング、親子コンポーネント探索、フィルター拡張など多機能な基盤を提供
+ * - 静的プロパティでテンプレート・スタイル・StateClass・フィルター・getter情報などにアクセス可能
+ * - defineメソッドでカスタム要素として登録
+ *
+ * 設計ポイント:
+ * - findStructiveParentで親Structiveコンポーネントを探索し、階層的な状態管理を実現
+ * - getter/setter/バインディング最適化やアクセサ自動生成（optimizeAccessor）に対応
+ * - テンプレート・CSS・StateClass・バインディング情報をIDで一元管理し、再利用性・拡張性を確保
+ * - フィルターやバインディング情報も静的プロパティで柔軟に拡張可能
+ */
 function findStructiveParent(el) {
     let current = el.parentNode;
     while (current) {
@@ -3543,6 +4341,20 @@ async function createSingleFileComponent(text) {
     };
 }
 
+/**
+ * loadSingleFileComponent.ts
+ *
+ * 指定パスのシングルファイルコンポーネント（SFC）をfetchし、パースしてIUserComponentDataとして返すユーティリティ関数です。
+ *
+ * 主な役割:
+ * - fetchで指定パスのSFCファイルを取得
+ * - テキストとして読み込み、createSingleFileComponentでパース
+ * - パース結果（IUserComponentData）を返却
+ *
+ * 設計ポイント:
+ * - import.meta.resolveを利用し、パス解決の柔軟性を確保
+ * - 非同期処理で動的なコンポーネントロードに対応
+ */
 async function loadSingleFileComponent(path) {
     const response = await fetch(import.meta.resolve(path));
     const text = await response.text();
@@ -3553,6 +4365,21 @@ function registerComponentClass(tagName, componentClass) {
     componentClass.define(tagName);
 }
 
+/**
+ * registerSingleFileComponents.ts
+ *
+ * 複数のシングルファイルコンポーネント（SFC）をまとめてStructiveのWeb Componentsとして登録するユーティリティ関数です。
+ *
+ * 主な役割:
+ * - singleFileComponents（tagNameとパスのマップ）を走査し、各SFCを非同期で取得・パース
+ * - enableRouterが有効な場合はentryRouteでルーティング情報も登録
+ * - createComponentClassでWeb Componentsクラスを生成し、registerComponentClassでカスタム要素として登録
+ *
+ * 設計ポイント:
+ * - SFCのロードからWeb Components登録、ルーティング登録までを一括で自動化
+ * - 非同期処理で複数コンポーネントの動的登録に対応
+ * - ルートパス"/root"の正規化や、@routesプレフィックスの除去など柔軟なパス処理
+ */
 async function registerSingleFileComponents(singleFileComponents) {
     for (const [tagName, path] of Object.entries(singleFileComponents)) {
         let componentData = null;
@@ -3566,6 +4393,23 @@ async function registerSingleFileComponents(singleFileComponents) {
     }
 }
 
+/**
+ * MainWrapper.ts
+ *
+ * アプリ全体のレイアウトやルーティングを管理するカスタムエレメント MainWrapper の実装です。
+ *
+ * 主な役割:
+ * - Shadow DOMの有効化やレイアウトテンプレートの動的読み込み
+ * - レイアウトテンプレートやスタイルの適用
+ * - ルーター要素（routerTagName）の動的追加
+ *
+ * 設計ポイント:
+ * - config.enableShadowDom でShadow DOMの有効/無効を切り替え
+ * - config.layoutPath が指定されていればfetchでレイアウトHTMLを取得し、テンプレート・スタイルを適用
+ * - スタイルはadoptedStyleSheetsでShadowRootまたはdocumentに適用
+ * - レイアウトが指定されていない場合はデフォルトのslotを挿入
+ * - config.enableRouter が有効な場合はrouter要素をslotに追加
+ */
 const SLOT_KEY = "router";
 const DEFAULT_LAYOUT = `<slot name="${SLOT_KEY}"></slot>`;
 class MainWrapper extends HTMLElement {
@@ -3629,6 +4473,21 @@ function loadImportmap() {
     return importmap;
 }
 
+/**
+ * loadFromImportMap.ts
+ *
+ * importmapの情報をもとに、Structiveのルートやコンポーネントを動的にロード・登録するユーティリティです。
+ *
+ * 主な役割:
+ * - importmap.imports内のエイリアスを走査し、@routes/や@components/のプレフィックスで判定
+ * - @routes/の場合はルーティング情報をentryRouteで登録
+ * - @components/の場合はloadSingleFileComponentでSFCをロードし、createComponentClassでクラス化してregisterComponentClassで登録
+ *
+ * 設計ポイント:
+ * - importmapのエイリアスを利用して、ルーティングやコンポーネントの自動登録を実現
+ * - パスやタグ名の正規化、パラメータ除去なども自動で処理
+ * - 非同期でSFCをロードし、動的なWeb Components登録に対応
+ */
 const ROUTES_KEY = "@routes/";
 const COMPONENTS_KEY = "@components/";
 async function loadFromImportMap() {
@@ -3656,6 +4515,21 @@ async function loadFromImportMap() {
     }
 }
 
+/**
+ * bootstrap.ts
+ *
+ * Structiveアプリケーションの初期化処理を行うエントリーポイントです。
+ *
+ * 主な役割:
+ * - グローバル設定(config)に従い、必要なコンポーネントやルーター、メインラッパーを登録・初期化
+ * - autoLoadFromImportMapが有効な場合はimportmapからルートやコンポーネントを動的ロード
+ * - enableRouterが有効な場合はRouterコンポーネントをカスタム要素として登録
+ * - enableMainWrapperが有効な場合はMainWrapperをカスタム要素として登録し、autoInsertMainWrapperが有効ならbodyに自動挿入
+ *
+ * 設計ポイント:
+ * - 設定値に応じて初期化処理を柔軟に制御
+ * - importmapやカスタム要素の登録、DOMへの自動挿入など、Structiveの起動に必要な処理を一元化
+ */
 async function bootstrap() {
     if (config$2.autoLoadFromImportMap) {
         await loadFromImportMap();
@@ -3672,6 +4546,20 @@ async function bootstrap() {
     }
 }
 
+/**
+ * exports.ts
+ *
+ * Structiveの主要なエントリーポイント・APIを外部公開するモジュールです。
+ *
+ * 主な役割:
+ * - registerSingleFileComponents, bootstrap, config などの主要APIをエクスポート
+ * - defineComponents: SFC群をまとめて登録し、autoInitが有効なら自動で初期化
+ * - bootstrapStructive: 初期化処理を一度だけ実行
+ *
+ * 設計ポイント:
+ * - グローバル設定(config)を外部から参照・変更可能
+ * - 初期化処理の多重実行を防止し、安全な起動を保証
+ */
 const config = config$2;
 let initialized = false;
 async function defineComponents(singleFileComponents) {

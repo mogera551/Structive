@@ -1,3 +1,21 @@
+/**
+ * createComponentClass.ts
+ *
+ * StructiveのWeb Components用カスタム要素クラスを動的に生成するユーティリティです。
+ *
+ * 主な役割:
+ * - ユーザー定義のcomponentData（stateClass, html, css等）からWeb Componentsクラスを生成
+ * - StateClass/テンプレート/CSS/バインディング情報などをIDで一元管理・登録
+ * - 独自のget/setトラップやバインディング、親子コンポーネント探索、フィルター拡張など多機能な基盤を提供
+ * - 静的プロパティでテンプレート・スタイル・StateClass・フィルター・getter情報などにアクセス可能
+ * - defineメソッドでカスタム要素として登録
+ *
+ * 設計ポイント:
+ * - findStructiveParentで親Structiveコンポーネントを探索し、階層的な状態管理を実現
+ * - getter/setter/バインディング最適化やアクセサ自動生成（optimizeAccessor）に対応
+ * - テンプレート・CSS・StateClass・バインディング情報をIDで一元管理し、再利用性・拡張性を確保
+ * - フィルターやバインディング情報も静的プロパティで柔軟に拡張可能
+ */
 import { inputBuiltinFilters, outputBuiltinFilters } from "../Filter/builtinFilters.js";
 import { generateId } from "../GlobalId/generateId.js";
 import { getStateClassById, registerStateClass } from "../StateClass/registerStateClass.js";

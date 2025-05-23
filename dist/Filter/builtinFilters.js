@@ -1,3 +1,19 @@
+/**
+ * builtinFilters.ts
+ *
+ * Structiveで利用可能な組み込みフィルタ関数群の実装ファイルです。
+ *
+ * 主な役割:
+ * - 数値・文字列・日付・真偽値などの変換・比較・整形・判定用フィルタを提供
+ * - フィルタ名ごとにオプション付きの関数を定義し、バインディング時に柔軟に利用可能
+ * - input/output両方のフィルタとして共通利用できる設計
+ *
+ * 設計ポイント:
+ * - eq, ne, lt, gt, inc, fix, locale, uc, lc, cap, trim, slice, pad, int, float, round, date, time, ymd, falsy, truthy, defaults, boolean, number, string, null など多彩なフィルタを網羅
+ * - オプション値の型チェックやエラーハンドリングも充実
+ * - FilterWithOptions型でフィルタ関数群を一元管理し、拡張も容易
+ * - builtinFilterFnでフィルタ名・オプションからフィルタ関数を動的に取得可能
+ */
 import { getGlobalConfig } from "../WebComponents/getGlobalConfig.js";
 import { optionMustBeNumber, optionsRequired, valueMustBeBoolean, valueMustBeDate, valueMustBeNumber } from "./errorMessages.js";
 const config = getGlobalConfig();

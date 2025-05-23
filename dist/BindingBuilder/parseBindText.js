@@ -41,10 +41,16 @@ const parseExpressions = (text) => {
 };
 const cache = {};
 /**
- * 取得したバインドテキスト(getBindTextByNodeType)を解析して、バインド情報を取得する
+ * バインドテキスト（data-bind属性やコメント等から取得した文字列）を解析し、
+ * バインディング情報（IBindText[]）に変換するユーティリティ関数群。
+ *
+ * - フィルターやデコレータ、プロパティ名などをパースし、構造化データとして返す
+ * - "textContent:value|eq,100|falsey@decorate1,decorate2" のような複雑な記法にも対応
+ * - セミコロン区切りで複数バインドもサポート
+ * - パース結果はキャッシュし、同じ入力の再解析を防止
+ *
  * @param text バインドテキスト
- * @param defaultName デフォルト名
- * @returns {IBindText[]} バインド情報
+ * @returns    解析済みバインディング情報（IBindText[]）
  */
 export function parseBindText(text) {
     if (text.trim() === "") {

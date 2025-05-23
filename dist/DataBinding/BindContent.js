@@ -28,6 +28,24 @@ function createBindings(bindContent, id, engine, content) {
     }
     return bindings;
 }
+/**
+ * BindContentクラスは、テンプレートから生成されたDOM断片（DocumentFragment）と
+ * そのバインディング情報（IBinding配列）を管理するための実装です。
+ *
+ * 主な役割:
+ * - テンプレートIDからDOM断片を生成し、バインディング情報を構築
+ * - mount/mountBefore/mountAfter/unmountでDOMへの挿入・削除を制御
+ * - renderでバインディングの再描画、initで初期化処理を実行
+ * - ループバインディング時のLoopContextやリストインデックス管理にも対応
+ * - getLastNodeで再帰的に最後のノードを取得し、リスト描画や差し替えに利用
+ * - assignListIndexでループ内のリストインデックスを再割り当てし、再初期化
+ *
+ * 設計ポイント:
+ * - fragmentとchildNodesの両方を管理し、効率的なDOM操作を実現
+ * - バインディング情報はテンプレートごとに動的に生成され、各ノードに紐付く
+ * - ループや条件分岐など複雑なバインディング構造にも柔軟に対応
+ * - createBindContentファクトリ関数で一貫した生成・初期化を提供
+ */
 class BindContent {
     loopContext;
     parentBinding;

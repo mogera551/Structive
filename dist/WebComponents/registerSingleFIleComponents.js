@@ -1,3 +1,18 @@
+/**
+ * registerSingleFileComponents.ts
+ *
+ * 複数のシングルファイルコンポーネント（SFC）をまとめてStructiveのWeb Componentsとして登録するユーティリティ関数です。
+ *
+ * 主な役割:
+ * - singleFileComponents（tagNameとパスのマップ）を走査し、各SFCを非同期で取得・パース
+ * - enableRouterが有効な場合はentryRouteでルーティング情報も登録
+ * - createComponentClassでWeb Componentsクラスを生成し、registerComponentClassでカスタム要素として登録
+ *
+ * 設計ポイント:
+ * - SFCのロードからWeb Components登録、ルーティング登録までを一括で自動化
+ * - 非同期処理で複数コンポーネントの動的登録に対応
+ * - ルートパス"/root"の正規化や、@routesプレフィックスの除去など柔軟なパス処理
+ */
 import { entryRoute } from "../Router/Router.js";
 import { createComponentClass } from "./createComponentClass.js";
 import { config } from "./getGlobalConfig.js";

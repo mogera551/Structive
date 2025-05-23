@@ -22,10 +22,16 @@ const getDefaultPropertyByNodeType = {
     Template: undefined,
 };
 /**
- * バインド情報でノードプロパティを省略された場合のデフォルトのプロパティ名を取得
- * @param node ノード
- * @param nodeType ノードタイプ
- * @returns {string | undefined} デフォルトのプロパティ名
+ * バインド情報でノードプロパティが省略された場合に、ノード種別・要素タイプごとに
+ * 適切なデフォルトプロパティ名（例: textContent, value, checked, onclick など）を返すユーティリティ関数。
+ *
+ * - HTMLInputElementやHTMLSelectElementなど、要素ごとに最適なプロパティを判定
+ * - input要素はtype属性（radio, checkboxなど）も考慮
+ * - 一度判定した組み合わせはキャッシュし、パフォーマンス向上
+ *
+ * @param node     対象ノード
+ * @param nodeType ノードタイプ（"HTMLElement" | "SVGElement" | "Text" | "Template"）
+ * @returns        デフォルトのプロパティ名（例: "value", "checked", "textContent" など）
  */
 export function getDefaultName(node, nodeType) {
     const key = node.constructor.name + "\t" + (node.type ?? ""); // type attribute

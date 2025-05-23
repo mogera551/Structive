@@ -9,6 +9,28 @@ import { raiseError } from "../utils.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
 import { createWritableStateProxy } from "../StateClass/createWritableStateProxy.js";
+/**
+ * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
+ * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
+ *
+ * 主な役割:
+ * - 状態インスタンスやプロキシの生成・管理
+ * - テンプレート・スタイルシート・フィルター・バインディング情報の管理
+ * - 依存関係グラフ（dependentTree）の構築と管理
+ * - バインディング情報やリスト情報の保存・取得
+ * - ライフサイクル（connectedCallback/disconnectedCallback）処理
+ * - Shadow DOMやスタイルシートの適用
+ * - 状態プロパティの取得・設定
+ * - バインディングの追加・存在判定・リスト管理
+ *
+ * 構造・設計上の特徴:
+ * - 状態や依存関係、バインディング情報を効率的に管理するためのキャッシュやマップを多用
+ * - テンプレートやリスト構造の多重管理に対応
+ * - 非同期初期化やUpdaterによるバッチ的な状態更新設計
+ * - 疎結合な設計で、各種ユーティリティやファクトリ関数と連携
+ *
+ * 典型的なWeb Componentsのライフサイクルやリアクティブな状態管理を、Structive独自の構造で実現しています。
+ */
 export class ComponentEngine {
     type = 'autonomous';
     config;
