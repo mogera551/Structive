@@ -1,3 +1,23 @@
+/**
+ * restructListIndex.ts
+ *
+ * StateClassのリストインデックス構造を再構築するためのユーティリティです。
+ *
+ * 主な役割:
+ * - buildListIndexTree: 指定されたinfo/listIndex/valueに基づき、リストインデックスのツリー構造を再構築・更新
+ *   - 既存のリストインデックスと新しいリスト要素を比較し、必要に応じてインデックスを再割り当て
+ *   - インデックス変更時はengine.updater.addUpdatedListIndexで更新情報を登録
+ *   - 新しいリストインデックス集合をengine.saveListIndexesSetで保存
+ * - restructListIndexes: 依存関係を辿りながら、必要なリストインデックスの再構築を一括で実行
+ *   - 依存関係のある全てのinfo/listIndexに対してbuildListIndexTreeを呼び出し
+ *   - キャッシュやrefKeyを利用して重複処理や不要な再構築を防止
+ *   - config.optimizeListElementsやoptimizeListによる最適化にも対応
+ *
+ * 設計ポイント:
+ * - 依存関係の再帰的な探索と、リストインデックスの効率的な再利用・再構築を両立
+ * - スワップや最適化設定時のスキップ処理、キャッシュによる高速化
+ * - リストバインディングや多重ループ時のインデックス整合性を担保
+ */
 import { IComponentEngine } from "../ComponentEngine/types";
 import { createDependencyWalker } from "../DependencyWalker/createDependencyWalker";
 import { createListIndex } from "../ListIndex/createListIndex";

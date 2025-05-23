@@ -1,3 +1,19 @@
+/**
+ * updater.ts
+ *
+ * StateClassの更新処理・変更検知・再描画を一元管理するUpdaterクラスの実装ファイルです。
+ *
+ * 主な役割:
+ * - Stateプロパティやリストインデックスの変更を検知し、再描画や依存解決をトリガー
+ * - addUpdatedStatePropertyRefValue/addUpdatedListIndexで変更情報を登録し、entryRenderで描画処理をエントリーポイント化
+ * - rebuildで変更の影響範囲を再計算し、必要なバインディングやリストインデックスの再構築を実行
+ * - renderでバインディング配列をまとめて描画
+ *
+ * 設計ポイント:
+ * - 変更検知・再描画を非同期でバッチ処理し、パフォーマンスを最適化
+ * - リストバインディングや多重ループ、スワップ・最適化にも対応
+ * - StateClassエンジンとの連携やキャッシュ機構も考慮した設計
+ */
 import { IBinding } from "../DataBinding/types";
 import { IListIndex } from "../ListIndex/types";
 import { render } from "./render.js";
@@ -5,7 +21,6 @@ import { SetCacheableSymbol } from "../StateClass/symbols.js";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { raiseError } from "../utils.js";
-import { getGlobalConfig } from "../WebComponents/getGlobalConfig.js";
 import { IUpdater } from "./types";
 import { restructListIndexes } from "./restructListIndex";
 import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
