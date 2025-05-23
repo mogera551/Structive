@@ -1,10 +1,27 @@
+/**
+ * types.ts
+ *
+ * StateClass関連の型定義ファイルです。
+ *
+ * 主な役割:
+ * - StateClassやそのプロキシ、ハンドラ、依存プロパティなどのインターフェースを定義
+ * - IState/IStateProxy: StateオブジェクトおよびProxyの型（各種APIシンボルによる拡張含む）
+ * - IStateHandler/IReadonlyStateHandler/IWritableStateHandler: 状態管理やAPI呼び出し、スコープ管理を担うハンドラの型
+ * - IStructiveStaticState/IStructiveState: 静的プロパティやコンストラクタ型の定義
+ * - IDependentProps: 依存プロパティ情報の型
+ *
+ * 設計ポイント:
+ * - ProxyトラップやAPI呼び出しを型安全に扱うための設計
+ * - 依存解決、キャッシュ、ループ・プロパティ参照スコープ管理など多機能な状態管理に対応
+ * - StateClassの拡張やテスト、型安全な利用を支える基盤
+ */
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { Router } from "../Router/Router";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
-import { Constructor, IComponentConfig, IUserConfig } from "../WebComponents/types";
+import { Constructor, IUserConfig } from "../WebComponents/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetContextListIndexSymbol, GetLastStatePropertyRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols";
 
 export interface IDependentProps {
