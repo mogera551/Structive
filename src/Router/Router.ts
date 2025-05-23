@@ -1,4 +1,20 @@
-import { config } from "../WebComponents/getGlobalConfig";
+/**
+ * Router.ts
+ *
+ * シングルページアプリケーション（SPA）向けのカスタムエレメント Router の実装です。
+ *
+ * 主な役割:
+ * - ルート定義（entryRoute）に基づき、URLパスに応じてカスタム要素を動的に生成・表示
+ * - pushState/popstateイベントを利用した履歴管理とルーティング制御
+ * - ルートパラメータの抽出とカスタム要素への受け渡し
+ * - 404ページ（未定義ルート時）の表示
+ *
+ * 設計ポイント:
+ * - entryRouteでルートパスとカスタム要素タグ名のペアを登録
+ * - popstateイベントでURL変更時に自動で再描画
+ * - ルートパスのパラメータ（:id等）も正規表現で抽出し、data-state属性で渡す
+ * - getRouterでグローバルなRouterインスタンスを取得可能
+ */
 import { IRouter } from "./types";
 
 const DEFAULT_ROUTE_PATH = '/'; // Default route path
