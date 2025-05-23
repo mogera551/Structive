@@ -1,3 +1,20 @@
+/**
+ * replaceMustacheWithTemplateTag.ts
+ *
+ * Mustache構文（{{if:条件}}, {{for:式}}, {{endif}}, {{endfor}}, {{elseif:条件}}, {{else}} など）を
+ * <template>タグやコメントノードに変換するユーティリティ関数です。
+ *
+ * 主な役割:
+ * - HTML文字列内のMustache構文を正規表現で検出し、<template data-bind="...">やコメントノードに変換
+ * - if/for/endif/endfor/elseif/elseなどの制御構文をネスト対応で<template>タグに変換
+ * - 通常の埋め込み式（{{expr}}）はコメントノード（<!--embed:expr-->）に変換
+ *
+ * 設計ポイント:
+ * - stackでネスト構造を管理し、endif/endfor/elseif/elseの対応関係を厳密にチェック
+ * - 不正なネストや対応しない構文にはraiseErrorで例外を発生
+ * - elseif/elseはnot条件のtemplateを自動生成し、条件分岐を表現
+ * - コメントノードへの変換で埋め込み式の安全なDOM挿入を実現
+ */
 import { COMMENT_EMBED_MARK } from "../constants.js";
 import { raiseError } from "../utils.js";
 
