@@ -1,8 +1,23 @@
-import { Filters, FilterWithOptions } from "../Filter/types";
-import { IComponentEngine } from "../ComponentEngine/types";
-import { IState, IStructiveState } from "../StateClass/types";
+/**
+ * types.ts
+ *
+ * StructiveのWeb Components関連の型定義ファイルです。
+ *
+ * 主な役割:
+ * - IComponent/IComponentStatic: Structiveコンポーネントのインスタンス・クラスのインターフェースを定義
+ * - StructiveComponent/StructiveComponentClass: HTMLElementとStructive独自機能を組み合わせた型
+ * - IConfig/IUserConfig/IComponentConfig: グローバル・ユーザー・コンポーネントごとの設定型
+ * - IUserComponentData: シングルファイルコンポーネント（SFC）の構造データ型
+ * - StructiveComponentClasses/SingleFileComponents/IImportMap: 複数コンポーネントやimportmap管理用の型
+ *
+ * 設計ポイント:
+ * - Web Componentsの拡張性・型安全性を担保し、状態・テンプレート・スタイル・バインディング・フィルターなど多機能なStructive基盤を支える設計
+ * - SFCやimportmapなど動的なコンポーネント管理にも対応
+ */
+import { FilterWithOptions } from "../Filter/types";
+import { IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
-import { IComponentState, IComponentStateProxy } from "../ComponentState/types";
+import { IComponentStateProxy } from "../ComponentState/types";
 
 export type ComponentType = 'autonomous' | 'builtin';
 
