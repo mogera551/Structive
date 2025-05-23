@@ -1,3 +1,17 @@
+/**
+ * getGlobalConfig.ts
+ *
+ * Structive全体で利用するグローバル設定（IConfig）を定義・取得するユーティリティです。
+ *
+ * 主な役割:
+ * - globalConfig: デフォルトのグローバル設定値（debug, locale, enableShadowDom等）を定義
+ * - getGlobalConfig: グローバル設定オブジェクトを返す関数
+ * - config: getGlobalConfig()のエイリアスとして即時取得用にエクスポート
+ *
+ * 設計ポイント:
+ * - コンポーネント全体で共通利用する設定値を一元管理
+ * - デフォルト値を明示し、拡張やカスタマイズにも対応しやすい設計
+ */
 import { IConfig } from "./types";
 
 const globalConfig: IConfig = {

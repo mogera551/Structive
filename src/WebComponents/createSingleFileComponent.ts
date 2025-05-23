@@ -1,3 +1,19 @@
+/**
+ * createSingleFileComponent.ts
+ *
+ * Structive用のシングルファイルコンポーネント（SFC）をパースし、各要素（HTML, CSS, StateClass）を抽出・生成するユーティリティです。
+ *
+ * 主な役割:
+ * - テキストから<template>・<script type="module">・<style>を抽出し、それぞれを分離
+ * - <script type="module">はBase64エンコードして動的importし、StateClassとして利用
+ * - {{...}}埋め込み式は一時的にコメントノード化してHTMLパース時の消失を防止し、復元
+ * - 各要素（html, css, stateClass, text）をIUserComponentDataとして返却
+ *
+ * 設計ポイント:
+ * - escapeEmbed/unescapeEmbedでMustache構文の安全なパースを実現
+ * - scriptはdata:URL経由で安全に動的import
+ * - テンプレート・スクリプト・スタイルを柔軟に分離・管理できる設計
+ */
 import { IStructiveState } from "../StateClass/types";
 import { IUserComponentData } from "./types";
 
