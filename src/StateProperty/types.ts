@@ -1,5 +1,19 @@
-//import { IListIndexes, INamedLoopIndexes } from "../loopContext/types";
-
+/**
+ * types.ts
+ *
+ * StateProperty関連の型定義ファイルです。
+ *
+ * 主な役割:
+ * - Stateプロパティのパス情報やワイルドカード情報、アクセサ関数などの型を定義
+ * - IStructuredPathInfo: パスの階層・ワイルドカード・親子関係など詳細な構造化情報
+ * - IResolvedPathInfo: 実際のパス文字列や要素配列、ワイルドカード種別・インデックス情報
+ * - IAccessorFunctions: 動的に生成されるgetter/setter関数の型
+ *
+ * 設計ポイント:
+ * - パスの階層構造やワイルドカード階層を厳密に型で表現し、型安全なバインディングやアクセスを実現
+ * - context/all/partial/noneなどワイルドカード種別も型で明示
+ * - アクセサ関数の型定義で、動的なgetter/setter生成にも対応
+ */
 export interface IStructuredPathInfo {
   readonly id: number;
   /** 

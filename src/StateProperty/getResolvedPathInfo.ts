@@ -1,4 +1,21 @@
-
+/**
+ * getResolvedPathInfo.ts
+ *
+ * Stateプロパティ名（パス文字列）から、ワイルドカードやインデックス情報を含む
+ * 詳細なパス情報（IResolvedPathInfo）を解析・生成するユーティリティです。
+ *
+ * 主な役割:
+ * - プロパティ名を分解し、ワイルドカードやインデックスの有無・種別を判定
+ * - context/all/partial/none のワイルドカード種別を自動判定
+ * - パスごとにキャッシュし、再利用性とパフォーマンスを両立
+ * - getStructuredPathInfoで構造化パス情報も取得
+ *
+ * 設計ポイント:
+ * - "constructor"や"toString"などの予約語も扱えるよう、Mapではなくオブジェクトでキャッシュ
+ * - ワイルドカード（*）や数値インデックスを柔軟に判定し、wildcardIndexesに格納
+ * - context型は未確定インデックス、all型は全て確定インデックス、partial型は混在を示す
+ * - ResolvedPathInfoクラスでパス解析・情報保持を一元化
+ */
 import { IResolvedPathInfo, WildcardType } from './types';
 import { getStructuredPathInfo } from './getStructuredPathInfo.js';
 

@@ -1,3 +1,20 @@
+/**
+ * getStructuredPathInfo.ts
+ *
+ * Stateプロパティのパス文字列から、詳細な構造化パス情報（IStructuredPathInfo）を生成・キャッシュするユーティリティです。
+ *
+ * 主な役割:
+ * - パス文字列を分割し、各セグメントやワイルドカード（*）の位置・親子関係などを解析
+ * - cumulativePaths/wildcardPaths/parentPathなど、パス階層やワイルドカード階層の情報を構造化
+ * - 解析結果をIStructuredPathInfoとしてキャッシュし、再利用性とパフォーマンスを両立
+ * - reservedWords（予約語）チェックで安全性を担保
+ *
+ * 設計ポイント:
+ * - パスごとにキャッシュし、同じパスへの複数回アクセスでも高速に取得可能
+ * - ワイルドカードや親子関係、階層構造を厳密に解析し、バインディングや多重ループに最適化
+ * - childrenプロパティでパス階層のツリー構造も構築
+ * - 予約語や危険なパスはraiseErrorで例外を発生
+ */
 import { raiseError } from '../utils.js';
 import { IStructuredPathInfo } from './types';
 

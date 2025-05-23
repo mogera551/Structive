@@ -1,4 +1,19 @@
-import { IComponentEngine } from "../ComponentEngine/types";
+/**
+ * createAccessorFunctions.ts
+ *
+ * Stateプロパティのパス情報（IStructuredPathInfo）から、動的なgetter/setter関数を生成するユーティリティです。
+ *
+ * 主な役割:
+ * - パス情報とgetter集合から、最適なアクセサ関数（get/set）を動的に生成
+ * - ワイルドカード（*）やネストしたプロパティパスにも対応
+ * - パスやセグメントのバリデーションも実施
+ *
+ * 設計ポイント:
+ * - matchPathsから最長一致のgetterパスを探索し、そこからの相対パスでアクセサを構築
+ * - パスが一致しない場合はinfo.pathSegmentsから直接アクセサを生成
+ * - new Functionで高速なgetter/setterを動的生成
+ * - パスやセグメント名は正規表現で厳密にチェックし、安全性を担保
+ */
 import { getStructuredPathInfo } from "./getStructuredPathInfo";
 import { IAccessorFunctions, IStructuredPathInfo } from "./types";
 
