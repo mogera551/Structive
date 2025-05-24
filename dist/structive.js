@@ -154,24 +154,36 @@ function valueMustBeDate(fnName) {
 const config$1 = getGlobalConfig();
 const eq = (options) => {
     const opt = options?.[0] ?? optionsRequired('eq');
-    const optValue = Number(opt);
-    if (isNaN(optValue))
-        optionMustBeNumber('eq');
     return (value) => {
-        if (typeof value !== 'number')
-            valueMustBeNumber('eq');
-        return value === optValue;
+        // 型を揃えて比較
+        if (typeof value === 'number') {
+            const optValue = Number(opt);
+            if (isNaN(optValue))
+                optionMustBeNumber('eq');
+            return value === optValue;
+        }
+        if (typeof value === 'string') {
+            return value === opt;
+        }
+        // その他は厳密等価
+        return value === opt;
     };
 };
 const ne = (options) => {
     const opt = options?.[0] ?? optionsRequired('ne');
-    const optValue = Number(opt);
-    if (isNaN(optValue))
-        optionMustBeNumber('ne');
     return (value) => {
-        if (typeof value !== 'number')
-            valueMustBeNumber('ne');
-        return value !== optValue;
+        // 型を揃えて比較
+        if (typeof value === 'number') {
+            const optValue = Number(opt);
+            if (isNaN(optValue))
+                optionMustBeNumber('eq');
+            return value !== optValue;
+        }
+        if (typeof value === 'string') {
+            return value !== opt;
+        }
+        // その他は厳密等価
+        return value !== opt;
     };
 };
 const not = (options) => {
