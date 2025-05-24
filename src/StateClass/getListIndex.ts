@@ -18,8 +18,8 @@
 import { IListIndex } from "../ListIndex/types";
 import { IResolvedPathInfo } from "../StateProperty/types";
 import { raiseError } from "../utils.js";
-import { GetContextListIndexSymbol } from "./symbols";
 import { IStateHandler, IStateProxy } from "./types";
+import { getContextListIndex } from "./methods/getContextListIndex";
 
 export function getListIndex(
   info: IResolvedPathInfo, 
@@ -32,7 +32,7 @@ export function getListIndex(
     case "context":
       const lastWildcardPath = info.info.lastWildcardPath ?? 
         raiseError(`lastWildcardPath is null`);
-      return receiver[GetContextListIndexSymbol](lastWildcardPath) ?? 
+      return getContextListIndex(handler, lastWildcardPath) ?? 
         raiseError(`ListIndex not found: ${info.info.pattern}`);
     case "all":
       let parentListIndex = null;

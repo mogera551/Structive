@@ -31,8 +31,8 @@ import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { setStatePropertyRef } from "../apis/setStatePropertyRef";
 import { setLoopContext } from "../apis/setLoopContext";
 import { getLastStatePropertyRef } from "../apis/getLastStatePropertyRef";
-import { getContextListIndex } from "../apis/getContextListIndex";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, GetContextListIndexSymbol, GetLastStatePropertyRefSymbol, ResolveSymbol, SetByRefSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "../symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, GetLastStatePropertyRefSymbol, ResolveSymbol, SetByRefSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "../symbols.js";
+import { getLastStatePropertyRef as methodGetLastStatePropertyRef } from "../methods/getLastStatePropertyRef.js";
 
 export function getWritable(
   target  : Object, 
@@ -45,7 +45,7 @@ export function getWritable(
       if (prop.length === 2) {
         const d = prop.charCodeAt(1) - 48;
         if (d >= 1 && d <= 9) {
-          const ref = receiver[GetLastStatePropertyRefSymbol]() ?? 
+          const ref = methodGetLastStatePropertyRef(handler) ?? 
             raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
           return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
         }
@@ -80,7 +80,6 @@ export function getWritable(
       case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
       case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
       case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef(target, prop, receiver, handler);
-      case GetContextListIndexSymbol: return getContextListIndex(target, prop, receiver, handler);
       default:
         return Reflect.get(
           target, 

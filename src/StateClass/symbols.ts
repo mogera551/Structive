@@ -11,4 +11,3 @@ export const GetAllSymbol              : unique symbol = Symbol.for(`${symbolNam
 export const SetStatePropertyRefSymbol : unique symbol = Symbol.for(`${symbolName}.SetStatePropertyRef`);
 export const SetLoopContextSymbol      : unique symbol = Symbol.for(`${symbolName}.SetLoopContext`);
 export const GetLastStatePropertyRefSymbol: unique symbol = Symbol.for(`${symbolName}.GetLastStatePropertyRef`);
-export const GetContextListIndexSymbol : unique symbol = Symbol.for(`${symbolName}.GetContextListIndex`);

@@ -900,7 +900,6 @@ const GetAllSymbol = Symbol.for(`${symbolName$1}.GetAll`);
 const SetStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.SetStatePropertyRef`);
 const SetLoopContextSymbol = Symbol.for(`${symbolName$1}.SetLoopContext`);
 const GetLastStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.GetLastStatePropertyRef`);
-const GetContextListIndexSymbol = Symbol.for(`${symbolName$1}.GetContextListIndex`);
 
 /**
  * BindingNodeEventクラスは、イベントバインディング（onClick, onInputなど）を担当するバインディングノードの実装です。
@@ -3030,6 +3029,19 @@ function getResolvedPathInfo(name) {
     return _cache[name] ?? (_cache[name] = new ResolvedPathInfo(name));
 }
 
+function getContextListIndex(handler, structuredPath) {
+    const info = handler.structuredPathInfoStack[handler.structuredPathInfoStack.length - 1];
+    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+    if (typeof info === "undefined" || typeof listIndex === "undefined") {
+        return null;
+    }
+    const index = info.wildcardPaths.indexOf(structuredPath);
+    if (index >= 0) {
+        return listIndex?.at(index) ?? null;
+    }
+    return null;
+}
+
 function getListIndex(info, receiver, handler) {
     switch (info.wildcardType) {
         case "none":
@@ -3037,7 +3049,7 @@ function getListIndex(info, receiver, handler) {
         case "context":
             const lastWildcardPath = info.info.lastWildcardPath ??
                 raiseError(`lastWildcardPath is null`);
-            return receiver[GetContextListIndexSymbol](lastWildcardPath) ??
+            return getContextListIndex(handler, lastWildcardPath) ??
                 raiseError(`ListIndex not found: ${info.info.pattern}`);
         case "all":
             let parentListIndex = null;
@@ -3213,7 +3225,7 @@ function getAll(target, prop, receiver, handler) {
         if (typeof indexes === "undefined") {
             for (let i = 0; i < info.wildcardInfos.length; i++) {
                 const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
-                const listIndex = receiver[GetContextListIndexSymbol](wildcardPattern.pattern);
+                const listIndex = getContextListIndex(handler, wildcardPattern.pattern);
                 if (listIndex) {
                     indexes = listIndex.indexes;
                     break;
@@ -3376,23 +3388,6 @@ function getLastStatePropertyRef(target, prop, receiver, handler) {
     return () => getLastStatePropertyRef$1(handler);
 }
 
-function getContextListIndex$1(handler, structuredPath) {
-    const lastRef = getLastStatePropertyRef$1(handler);
-    if (lastRef === null) {
-        return null;
-    }
-    const info = lastRef.info;
-    const index = info.wildcardPaths.indexOf(structuredPath);
-    if (index >= 0) {
-        return lastRef.listIndex?.at(index) ?? null;
-    }
-    return null;
-}
-
-function getContextListIndex(target, prop, receiver, handler) {
-    return (structuredPath) => getContextListIndex$1(handler, structuredPath);
-}
-
 /**
  * get.ts
  *
@@ -3417,7 +3412,7 @@ function getReadonly(target, prop, receiver, handler) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const ref = receiver[GetLastStatePropertyRefSymbol]() ??
+                    const ref = getLastStatePropertyRef$1(handler) ??
                         raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
                     return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
@@ -3446,7 +3441,6 @@ function getReadonly(target, prop, receiver, handler) {
             case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
             case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef(target, prop, receiver, handler);
-            case GetContextListIndexSymbol: return getContextListIndex(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
         }
@@ -3504,7 +3498,7 @@ function getWritable(target, prop, receiver, handler) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const ref = receiver[GetLastStatePropertyRefSymbol]() ??
+                    const ref = getLastStatePropertyRef$1(handler) ??
                         raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
                     return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
@@ -3533,7 +3527,6 @@ function getWritable(target, prop, receiver, handler) {
             case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
             case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef(target, prop, receiver, handler);
-            case GetContextListIndexSymbol: return getContextListIndex(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
         }

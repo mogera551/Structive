@@ -13,16 +13,16 @@
  * - getStructuredPathInfoでパス情報を解析し、依存関係も自動で登録
  * - walkWildcardPatternでワイルドカード階層を再帰的に探索し、全インデックス組み合わせを列挙
  * - resolveで各インデックス組み合わせに対応する値を取得し、配列で返却
- * - GetContextListIndexSymbolで現在のループインデックスを取得
+ * - getContextListIndexで現在のループインデックスを取得
  * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
  */
 import { IListIndex } from "../../ListIndex/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
-import { GetContextListIndexSymbol } from "../symbols";
 import { IStateHandler, IStateProxy } from "../types";
 import { resolve as _resolve } from "./resolve.js";
+import { getContextListIndex } from "../methods/getContextListIndex";
 
 export function getAll(
   target: Object, 
@@ -43,7 +43,7 @@ export function getAll(
       if (typeof indexes === "undefined") {
         for(let i = 0; i < info.wildcardInfos.length; i++) {
           const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
-          const listIndex = receiver[GetContextListIndexSymbol](wildcardPattern.pattern);
+          const listIndex = getContextListIndex(handler, wildcardPattern.pattern);
           if (listIndex) {
             indexes = listIndex.indexes;
             break;

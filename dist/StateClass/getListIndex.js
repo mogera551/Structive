@@ -1,5 +1,5 @@
 import { raiseError } from "../utils.js";
-import { GetContextListIndexSymbol } from "./symbols";
+import { getContextListIndex } from "./methods/getContextListIndex";
 export function getListIndex(info, receiver, handler) {
     switch (info.wildcardType) {
         case "none":
@@ -7,7 +7,7 @@ export function getListIndex(info, receiver, handler) {
         case "context":
             const lastWildcardPath = info.info.lastWildcardPath ??
                 raiseError(`lastWildcardPath is null`);
-            return receiver[GetContextListIndexSymbol](lastWildcardPath) ??
+            return getContextListIndex(handler, lastWildcardPath) ??
                 raiseError(`ListIndex not found: ${info.info.pattern}`);
         case "all":
             let parentListIndex = null;

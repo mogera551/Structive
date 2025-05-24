@@ -1,7 +1,7 @@
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { GetContextListIndexSymbol } from "../symbols";
 import { resolve as _resolve } from "./resolve.js";
+import { getContextListIndex } from "../methods/getContextListIndex";
 export function getAll(target, prop, receiver, handler) {
     const resolve = _resolve(target, prop, receiver, handler);
     return (path, indexes) => {
@@ -15,7 +15,7 @@ export function getAll(target, prop, receiver, handler) {
         if (typeof indexes === "undefined") {
             for (let i = 0; i < info.wildcardInfos.length; i++) {
                 const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
-                const listIndex = receiver[GetContextListIndexSymbol](wildcardPattern.pattern);
+                const listIndex = getContextListIndex(handler, wildcardPattern.pattern);
                 if (listIndex) {
                     indexes = listIndex.indexes;
                     break;
