@@ -83,20 +83,20 @@ function getRouter() {
 }
 
 const globalConfig = {
-    debug: false,
-    locale: "en-US", // The locale of the component, ex. "en-US", default is "en-US"
-    enableShadowDom: true,
-    enableMainWrapper: true, // Whether to use the main wrapper or not
-    enableRouter: true, // Whether to use the router or not
-    autoInsertMainWrapper: false, // Whether to automatically insert the main wrapper or not
-    autoInit: true, // Whether to automatically initialize the component or not
-    mainTagName: "app-main", // The tag name of the main wrapper, default is "app-main"
-    routerTagName: "view-router", // The tag name of the router, default is "view-router"
-    layoutPath: "", // The path to the layout file, default is ""
-    autoLoadFromImportMap: false, // Whether to automatically load the component from the import map or not
-    optimizeList: true, // Whether to optimize the list or not
-    optimizeListElements: true, // Whether to optimize the list elements or not
-    optimizeAccessor: true, // Whether to optimize the accessors or not
+    "debug": false,
+    "locale": "en-US", // The locale of the component, ex. "en-US", default is "en-US"
+    "enableShadowDom": true,
+    "enableMainWrapper": true, // Whether to use the main wrapper or not
+    "enableRouter": true, // Whether to use the router or not
+    "autoInsertMainWrapper": false, // Whether to automatically insert the main wrapper or not
+    "autoInit": true, // Whether to automatically initialize the component or not
+    "mainTagName": "app-main", // The tag name of the main wrapper, default is "app-main"
+    "routerTagName": "view-router", // The tag name of the router, default is "view-router"
+    "layoutPath": "", // The path to the layout file, default is ""
+    "autoLoadFromImportMap": false, // Whether to automatically load the component from the import map or not
+    "optimizeList": true, // Whether to optimize the list or not
+    "optimizeListElements": true, // Whether to optimize the list elements or not
+    "optimizeAccessor": true, // Whether to optimize the accessors or not
 };
 function getGlobalConfig() {
     return globalConfig;
@@ -1852,21 +1852,6 @@ function getBindingStateCreator(name, filterTexts) {
 
 const COMMENT_EMBED_MARK_LEN = COMMENT_EMBED_MARK.length;
 const COMMENT_TEMPLATE_MARK_LEN = COMMENT_TEMPLATE_MARK.length;
-const getTextFromContent = (node) => node.textContent?.slice(COMMENT_EMBED_MARK_LEN).trim() ?? "";
-const getTextFromAttribute = (node) => node.getAttribute(DATA_BIND_ATTRIBUTE) ?? "";
-const getTextFromTemplate = (node) => {
-    const text = node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN).trim();
-    const id = Number(text);
-    const template = getTemplateById(id) ?? raiseError(`Template not found: ${text}`);
-    return template.getAttribute(DATA_BIND_ATTRIBUTE) ?? "";
-};
-const getTextFromSVGElement = (node) => node.getAttribute(DATA_BIND_ATTRIBUTE) ?? "";
-const getTextByNodeType = {
-    "Text": getTextFromContent,
-    "HTMLElement": getTextFromAttribute,
-    "Template": getTextFromTemplate,
-    "SVGElement": getTextFromSVGElement
-};
 /**
  * ノード種別ごとにdata-bindテキスト（バインディング定義文字列）を取得するユーティリティ関数。
  *
@@ -1880,13 +1865,25 @@ const getTextByNodeType = {
  * @returns        バインディング定義文字列
  */
 function getDataBindText(nodeType, node) {
-    const bindText = getTextByNodeType[nodeType](node) ?? "";
-    if (nodeType === "Text") {
-        // Textノードの場合は"textContent:"を付与
-        return "textContent:" + bindText;
-    }
-    else {
-        return bindText;
+    switch (nodeType) {
+        case "Text": {
+            const text = node.textContent?.slice(COMMENT_EMBED_MARK_LEN).trim() ?? "";
+            return "textContent:" + text;
+        }
+        case "HTMLElement": {
+            return node.getAttribute(DATA_BIND_ATTRIBUTE) ?? "";
+        }
+        case "Template": {
+            const text = node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN).trim();
+            const id = Number(text);
+            const template = getTemplateById(id) ?? raiseError(`Template not found: ${text}`);
+            return template.getAttribute(DATA_BIND_ATTRIBUTE) ?? "";
+        }
+        case "SVGElement": {
+            return node.getAttribute(DATA_BIND_ATTRIBUTE) ?? "";
+        }
+        default:
+            return "";
     }
 }
 
@@ -3332,14 +3329,13 @@ function get(target, prop, receiver, handler) {
                     return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
             }
-            if (prop === "$resolve") {
-                return resolve(target, prop, receiver, handler);
-            }
-            else if (prop === "$getAll") {
-                return getAll(target, prop, receiver, handler);
-            }
-            else if (prop === "$router") {
-                return getRouter();
+            switch (prop) {
+                case "$resolve":
+                    return resolve(target, prop, receiver, handler);
+                case "$getAll":
+                    return getAll(target, prop, receiver, handler);
+                case "$router":
+                    return getRouter();
             }
         }
         const resolvedInfo = getResolvedPathInfo(prop);

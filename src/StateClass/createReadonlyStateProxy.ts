@@ -18,7 +18,7 @@
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, GetContextListIndexSymbol, GetLastStatePropertyRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols.js";
-import { IReadonlyStateHandler, IState, IStateHandler, IStateProxy, IWritableStateHandler } from "./types";
+import { IReadonlyStateHandler, IState, IStateProxy } from "./types";
 import { getByRef as apiGetByRef } from "./apis/getByRef.js";
 import { setCacheable as apiSetCacheable } from "./apis/setCacheable.js";
 import { connectedCallback } from "./apis/connectedCallback.js";

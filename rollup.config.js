@@ -49,10 +49,12 @@ export default [
     plugins: [
       terser({
         mangle: {
-          properties: true,
+          properties: {
+            keep_quoted: true,
+          },
           module: true,
           keep_classnames: false,
-          keep_fnames: false
+          keep_fnames: false,
         }
       }),
       typescript({ tsconfig: './tsconfig.json' })

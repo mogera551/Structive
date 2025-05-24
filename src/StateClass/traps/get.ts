@@ -43,12 +43,13 @@ export function get(
           return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
         }
       }
-      if (prop === "$resolve") {
-        return resolve(target, prop, receiver, handler);
-      } else if (prop === "$getAll") {
-        return getAll(target, prop, receiver, handler);
-      } else if (prop === "$router") {
-        return getRouter();
+      switch (prop) {
+        case "$resolve":
+          return resolve(target, prop, receiver, handler);
+        case "$getAll":
+          return getAll(target, prop, receiver, handler);
+        case "$router":
+          return getRouter();
       }
     }
     const resolvedInfo = getResolvedPathInfo(prop);
