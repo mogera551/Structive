@@ -19,7 +19,7 @@
 import { getRouter } from "../../Router/Router.js";
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { getListIndex } from "../getListIndex.js";
+import { getListIndex } from "../methods/getListIndex.js";
 import { getByRef } from "../methods/getByRef.js";
 import { IStateProxy, IWritableStateHandler } from "../types.js";
 import { getAll } from "../apis/getAll.js";
@@ -30,7 +30,7 @@ import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { setStatePropertyRef } from "../apis/setStatePropertyRef";
 import { setLoopContext } from "../apis/setLoopContext";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "../symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "../symbols.js";
 
 export function getWritable(
   target  : Object, 
@@ -72,8 +72,6 @@ export function getWritable(
       case SetByRefSymbol: return apiSetByRef(target, prop, receiver, handler); 
       case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver, handler); 
       case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver, handler); 
-      case ResolveSymbol: return resolve(target, prop, receiver, handler); 
-      case GetAllSymbol: return getAll(target, prop, receiver, handler);
       case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
       case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
       default:

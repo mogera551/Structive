@@ -895,8 +895,6 @@ const SetByRefSymbol = Symbol.for(`${symbolName$1}.SetByRef`);
 const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
 const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
 const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
-const ResolveSymbol = Symbol.for(`${symbolName$1}.Resolve`);
-const GetAllSymbol = Symbol.for(`${symbolName$1}.GetAll`);
 const SetStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.SetStatePropertyRef`);
 const SetLoopContextSymbol = Symbol.for(`${symbolName$1}.SetLoopContext`);
 
@@ -3422,8 +3420,6 @@ function getReadonly(target, prop, receiver, handler) {
             case SetCacheableSymbol: return setCacheable(target, prop, receiver, handler);
             case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver);
             case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver);
-            case ResolveSymbol: return resolve(target, prop, receiver, handler);
-            case GetAllSymbol: return getAll(target, prop, receiver, handler);
             case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
             default:
@@ -3506,8 +3502,6 @@ function getWritable(target, prop, receiver, handler) {
             case SetByRefSymbol: return setByRef(target, prop, receiver, handler);
             case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver);
             case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver);
-            case ResolveSymbol: return resolve(target, prop, receiver, handler);
-            case GetAllSymbol: return getAll(target, prop, receiver, handler);
             case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
             default:

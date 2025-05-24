@@ -20,7 +20,7 @@ import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { Constructor, IUserConfig } from "../WebComponents/types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols";
 
 export interface IDependentProps {
   [propName: string]: string[];
@@ -41,7 +41,6 @@ export interface IStateProxy extends IState {
   [SetCacheableSymbol](callback: () => void): void;
   [ConnectedCallbackSymbol](): Promise<void>;
   [DisconnectedCallbackSymbol](): Promise<void>;
-  [ResolveSymbol](path: string, indexes: number[]): any;
   [SetLoopContextSymbol](loopContext: ILoopContext | null, callback: () => Promise<void>): Promise<void>;
   [SetStatePropertyRefSymbol](info: IStructuredPathInfo, listIndex: IListIndex | null, callback: () => void): void;
 }

@@ -15,11 +15,11 @@
  * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
  * - エラー時はraiseErrorで詳細な例外を投げる
  */
-import { IListIndex } from "../ListIndex/types";
-import { IResolvedPathInfo } from "../StateProperty/types";
-import { raiseError } from "../utils.js";
-import { IStateHandler, IStateProxy } from "./types";
-import { getContextListIndex } from "./methods/getContextListIndex";
+import { IListIndex } from "../../ListIndex/types";
+import { IResolvedPathInfo } from "../../StateProperty/types";
+import { raiseError } from "../../utils.js";
+import { IStateHandler, IStateProxy } from "../types";
+import { getContextListIndex } from "./getContextListIndex";
 
 export function getListIndex(
   info: IResolvedPathInfo, 
