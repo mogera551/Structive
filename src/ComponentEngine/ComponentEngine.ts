@@ -99,12 +99,12 @@ export class ComponentEngine implements IComponentEngine {
       this.listInfoSet.add(getStructuredPathInfo(listPath));
       this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
     }
-    this.bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
     for(const info of this.listInfoSet) {
       if (info.wildcardCount > 0) continue;
       const value = this.readonlyState[GetByRefSymbol](info, null)
       buildListIndexTree(this, info, null, value);
     }
+    this.bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
   }
 
   async connectedCallback(): Promise<void> {
@@ -125,12 +125,16 @@ export class ComponentEngine implements IComponentEngine {
     }
     this.owner.state[BindParentComponentSymbol]();
     attachShadow(this.owner, this.config, this.styleSheet);
-    await this.readonlyState[ConnectedCallbackSymbol]();
-    this.readonlyState[SetCacheableSymbol](() => {
-      this.bindContent.render();
+
+    this.bindContent.render();
+    await this.useWritableStateProxy(null, async (stateProxy) => {
+      await stateProxy[ConnectedCallbackSymbol]();
     });
-    this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
-    this.#waitForInitialize.resolve();
+    // レンダリングが終わってから実行する
+    queueMicrotask(() => {
+      this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
+      this.#waitForInitialize.resolve();
+    });
   }
 
   async disconnectedCallback(): Promise<void> {

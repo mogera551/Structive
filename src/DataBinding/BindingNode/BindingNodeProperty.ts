@@ -67,15 +67,14 @@ class BindingNodeProperty extends BindingNode {
 
     // 双方向バインディング: イベント発火時にstateを更新
     const engine = this.binding.engine;
-    const loopContext = this.binding.parentBindContent.currentLoopContext;
-    const value = this.filteredValue;
     this.node.addEventListener(eventName, async () => {
+      const loopContext = this.binding.parentBindContent.currentLoopContext;
+      const value = this.filteredValue;
       await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
         // stateProxyを生成し、バインディング値を更新
         binding.updateStateValue(stateProxy, value);
       });
     });
-
   }
 
   init() {
