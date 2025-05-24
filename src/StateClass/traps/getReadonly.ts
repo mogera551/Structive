@@ -4,7 +4,7 @@
  * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
  *
  * 主な役割:
- * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $router）に応じた値やAPIを返却
+ * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $navigate）に応じた値やAPIを返却
  * - 通常のプロパティはgetResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
  * - getByRefで構造化パス・リストインデックスに対応した値を取得
  * - シンボルプロパティの場合はhandler.callableApi経由でAPIを呼び出し
@@ -12,27 +12,34 @@
  *
  * 設計ポイント:
  * - $1〜$9は直近のStatePropertyRefのリストインデックス値を返す特殊プロパティ
- * - $resolve, $getAll, $routerはAPI関数やルーターインスタンスを返す
+ * - $resolve, $getAll, $navigateはAPI関数やルーターインスタンスを返す
  * - 通常のプロパティアクセスもバインディングや多重ループに対応
  * - シンボルAPIやReflect.getで拡張性・互換性も確保
  */
 import { getRouter } from "../../Router/Router.js";
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { getAll } from "../apis/getAll.js";
-import { resolve } from "../apis/resolve.js";
 import { getListIndex } from "../getListIndex.js";
 import { getByRef } from "../methods/getByRef.js";
-import { GetLastStatePropertyRefSymbol } from "../symbols.js";
-import { IStateHandler, IStateProxy } from "../types";
+import { IReadonlyStateHandler, IStateProxy } from "../types.js";
+import { getAll } from "../apis/getAll.js";
+import { resolve } from "../apis/resolve.js";
+import { getByRef as apiGetByRef } from "../apis/getByRef.js";
+import { setCacheable as apiSetCacheable } from "../apis/setCacheable.js";
+import { connectedCallback } from "../apis/connectedCallback.js";
+import { disconnectedCallback } from "../apis/disconnectedCallback.js";
+import { setStatePropertyRef } from "../apis/setStatePropertyRef";
+import { setLoopContext } from "../apis/setLoopContext";
+import { getLastStatePropertyRef } from "../apis/getLastStatePropertyRef";
+import { getContextListIndex } from "../apis/getContextListIndex";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, GetContextListIndexSymbol, GetLastStatePropertyRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "../symbols.js";
 
-export function get(
+export function getReadonly(
   target  : Object, 
   prop    : PropertyKey, 
   receiver: IStateProxy,
-  handler  : IStateHandler
+  handler  : IReadonlyStateHandler
 ): any {
-  let value;
   if (typeof prop === "string") {
     if (prop.charCodeAt(0) === 36) {
       if (prop.length === 2) {
@@ -48,13 +55,13 @@ export function get(
           return resolve(target, prop, receiver, handler);
         case "$getAll":
           return getAll(target, prop, receiver, handler);
-        case "$router":
-          return getRouter();
+        case "$navigate":
+          return (to:string) => getRouter()?.navigate(to);
       }
     }
     const resolvedInfo = getResolvedPathInfo(prop);
     const listIndex = getListIndex(resolvedInfo, receiver, handler);
-    value = getByRef(
+    return getByRef(
       target, 
       resolvedInfo.info, 
       listIndex, 
@@ -63,14 +70,23 @@ export function get(
     );
 
   } else if (typeof prop === "symbol") {
-    if (prop in handler.callableApi) {
-      return handler.callableApi[prop](target, prop, receiver, handler);
+    switch (prop) {
+      case GetByRefSymbol: return apiGetByRef;
+      case SetCacheableSymbol: return apiSetCacheable; 
+      case ConnectedCallbackSymbol: return connectedCallback;
+      case DisconnectedCallbackSymbol: return disconnectedCallback;
+      case ResolveSymbol: return resolve;
+      case GetAllSymbol: return getAll;
+      case SetStatePropertyRefSymbol: return setStatePropertyRef;
+      case SetLoopContextSymbol: return setLoopContext;
+      case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef;
+      case GetContextListIndexSymbol: return getContextListIndex;
+      default:
+        return Reflect.get(
+          target, 
+          prop, 
+          receiver
+        );
     }
-    value = Reflect.get(
-      target, 
-      prop, 
-      receiver
-    );
   }
-  return value;
 }

@@ -34,7 +34,7 @@ export interface IState {
   $disconnectedCallback?(): Promise<void> | void;
   $dependentProps?: IDependentProps;
   $component?: any;
-  $router?: Router;
+  $navigate?(to:string): void;
 }
 
 export interface IStateProxy extends IState {
@@ -57,27 +57,12 @@ export interface IStructiveStaticState {
 
 export type IStructiveState = Constructor<IState> & IStructiveStaticState;
 
-export interface IStateHandler {
-  engine           : IComponentEngine;
-  cacheable        : boolean;
-  cache            : {[key:string]:any};
-  lastTrackingStack: IStructuredPathInfo | null;
-  trackingStack    : IStructuredPathInfo[];
-  callableApi      : { [key:symbol]: Function };
-  structuredPathInfoStack: IStructuredPathInfo[];
-  listIndexStack: (IListIndex | null)[];
-  loopContext: ILoopContext | null;
-  get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
-  set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
-}
-
 export interface IReadonlyStateHandler {
   engine           : IComponentEngine;
   cacheable        : boolean;
   cache            : {[key:string]:any};
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
-  callableApi      : { [key:symbol]: Function };
   structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
   loopContext: ILoopContext | null;
@@ -91,10 +76,11 @@ export interface IWritableStateHandler {
   cache            : {[key:string]:any};
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
-  callableApi      : { [key:symbol]: Function };
-  structuredPathInfoStack: (IStructuredPathInfo | null)[];
+  structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
   loopContext: ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IStateProxy): boolean;
 }
+
+export type IStateHandler = IReadonlyStateHandler | IWritableStateHandler;

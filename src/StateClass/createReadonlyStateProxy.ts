@@ -17,22 +17,11 @@
  */
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, GetContextListIndexSymbol, GetLastStatePropertyRefSymbol, ResolveSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "./symbols.js";
 import { IReadonlyStateHandler, IState, IStateProxy } from "./types";
-import { getByRef as apiGetByRef } from "./apis/getByRef.js";
-import { setCacheable as apiSetCacheable } from "./apis/setCacheable.js";
-import { connectedCallback } from "./apis/connectedCallback.js";
-import { disconnectedCallback } from "./apis/disconnectedCallback.js";
-import { resolve } from "./apis/resolve.js";
-import { getAll } from "./apis/getAll.js";
-import { get as trapGet } from "./traps/get.js";
+import { getReadonly as trapGet } from "./traps/getReadonly.js";
 import { raiseError } from "../utils";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
-import { setStatePropertyRef } from "./apis/setStatePropertyRef";
-import { setLoopContext } from "./apis/setLoopContext";
-import { getLastStatePropertyRef } from "./apis/getLastStatePropertyRef";
-import { getContextListIndex } from "./apis/getContextListIndex";
 
 class StateHandler implements IReadonlyStateHandler {
   engine   : IComponentEngine;
@@ -47,19 +36,6 @@ class StateHandler implements IReadonlyStateHandler {
   constructor(engine: IComponentEngine) {
     this.engine = engine;
   }
-
-  callableApi: { [key:symbol]: Function } = {
-    [GetByRefSymbol]: apiGetByRef, 
-    [SetCacheableSymbol]: apiSetCacheable, 
-    [ConnectedCallbackSymbol]: connectedCallback, 
-    [DisconnectedCallbackSymbol]: disconnectedCallback, 
-    [ResolveSymbol]: resolve, 
-    [GetAllSymbol]: getAll,
-    [SetStatePropertyRefSymbol]: setStatePropertyRef,
-    [SetLoopContextSymbol]: setLoopContext,
-    [GetLastStatePropertyRefSymbol]: getLastStatePropertyRef,
-    [GetContextListIndexSymbol]: getContextListIndex
-  };
 
   get(
     target  : Object, 

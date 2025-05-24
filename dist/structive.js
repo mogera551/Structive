@@ -2955,6 +2955,107 @@ function buildListIndexTree(engine, info, listIndex, value) {
     buildListIndexTreeSub(engine, engine.listInfoSet, info, listIndex, values);
 }
 
+/**
+ * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
+ * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
+ * 指定することはないと考え、Mapを使わないことにした。
+ */
+const _cache = {};
+//const _cache: Map<string, IResolvedPathInfo> = new Map();
+class ResolvedPathInfo {
+    static id = 0;
+    id = ++ResolvedPathInfo.id;
+    name;
+    elements;
+    paths;
+    wildcardCount;
+    wildcardType;
+    wildcardIndexes;
+    info;
+    constructor(name) {
+        const elements = name.split(".");
+        const tmpPatternElements = elements.slice();
+        const paths = [];
+        let incompleteCount = 0;
+        let completeCount = 0;
+        let lastPath = "";
+        let wildcardCount = 0;
+        let wildcardType = "none";
+        let wildcardIndexes = [];
+        for (let i = 0; i < elements.length; i++) {
+            const element = elements[i];
+            if (element === "*") {
+                tmpPatternElements[i] = "*";
+                wildcardIndexes.push(null);
+                incompleteCount++;
+                wildcardCount++;
+            }
+            else {
+                const number = Number(element);
+                if (!Number.isNaN(number)) {
+                    tmpPatternElements[i] = "*";
+                    wildcardIndexes.push(number);
+                    completeCount++;
+                    wildcardCount++;
+                }
+            }
+            lastPath += element;
+            paths.push(lastPath);
+            lastPath += (i < elements.length - 1 ? "." : "");
+        }
+        const pattern = tmpPatternElements.join(".");
+        const info = getStructuredPathInfo(pattern);
+        if (incompleteCount > 0 || completeCount > 0) {
+            if (incompleteCount === wildcardCount) {
+                wildcardType = "context";
+            }
+            else if (completeCount === wildcardCount) {
+                wildcardType = "all";
+            }
+            else {
+                wildcardType = "partial";
+            }
+        }
+        this.name = name;
+        this.elements = elements;
+        this.paths = paths;
+        this.wildcardCount = wildcardCount;
+        this.wildcardType = wildcardType;
+        this.wildcardIndexes = wildcardIndexes;
+        this.info = info;
+    }
+}
+function getResolvedPathInfo(name) {
+    //  return _cache.get(name) ?? (_cache.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
+    return _cache[name] ?? (_cache[name] = new ResolvedPathInfo(name));
+}
+
+function getListIndex(info, receiver, handler) {
+    if (info.wildcardType === "none") {
+        return null;
+    }
+    else if (info.wildcardType === "context") {
+        const lastWildcardPath = info.info.lastWildcardPath ??
+            raiseError(`lastWildcardPath is null`);
+        return receiver[GetContextListIndexSymbol](lastWildcardPath) ??
+            raiseError(`ListIndex not found: ${info.info.pattern}`);
+    }
+    else if (info.wildcardType === "all") {
+        let parentListIndex = null;
+        for (let i = 0; i < info.info.wildcardCount; i++) {
+            const wildcardParentPattern = info.info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPattern is null`);
+            const listIndexes = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
+            const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
+            parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+        }
+        return parentListIndex;
+    }
+    else if (info.wildcardType === "partial") {
+        raiseError(`Partial wildcard type is not supported yet: ${info.info.pattern}`);
+    }
+    return null;
+}
+
 function setTracking(info, handler, callback) {
     handler.trackingStack.push(info);
     handler.lastTrackingStack = info;
@@ -3047,47 +3148,6 @@ function getByRef$1(target, info, listIndex, receiver, handler) {
     else {
         return _getByRef(target, info, listIndex, receiver, handler);
     }
-}
-
-function getByRef(target, prop, receiver, handler) {
-    return (pattern, listIndex) => getByRef$1(target, pattern, listIndex, receiver, handler);
-}
-
-function setCacheable$1(handler, callback) {
-    handler.cacheable = true;
-    handler.cache = {};
-    try {
-        callback();
-    }
-    finally {
-        handler.cacheable = false;
-    }
-}
-
-function setCacheable(target, prop, receiver, handler) {
-    return (callback) => {
-        setCacheable$1(handler, callback);
-    };
-}
-
-const CONNECTED_CALLBACK = "$connectedCallback";
-function connectedCallback(target, prop, receiver, handler) {
-    return async () => {
-        const callback = Reflect.get(target, CONNECTED_CALLBACK);
-        if (typeof callback === "function") {
-            await callback.call(target, receiver);
-        }
-    };
-}
-
-const DISCONNECTED_CALLBACK = "$disconnectedCallback";
-function disconnectedCallback(target, prop, receiver, handler) {
-    return async () => {
-        const callback = Reflect.get(target, DISCONNECTED_CALLBACK);
-        if (typeof callback === "function") {
-            await callback.call(target, receiver);
-        }
-    };
 }
 
 function setByRef$1(target, info, listIndex, value, receiver, handler) {
@@ -3198,157 +3258,45 @@ function getAll(target, prop, receiver, handler) {
     };
 }
 
-/**
- * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
- * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
- * 指定することはないと考え、Mapを使わないことにした。
- */
-const _cache = {};
-//const _cache: Map<string, IResolvedPathInfo> = new Map();
-class ResolvedPathInfo {
-    static id = 0;
-    id = ++ResolvedPathInfo.id;
-    name;
-    elements;
-    paths;
-    wildcardCount;
-    wildcardType;
-    wildcardIndexes;
-    info;
-    constructor(name) {
-        const elements = name.split(".");
-        const tmpPatternElements = elements.slice();
-        const paths = [];
-        let incompleteCount = 0;
-        let completeCount = 0;
-        let lastPath = "";
-        let wildcardCount = 0;
-        let wildcardType = "none";
-        let wildcardIndexes = [];
-        for (let i = 0; i < elements.length; i++) {
-            const element = elements[i];
-            if (element === "*") {
-                tmpPatternElements[i] = "*";
-                wildcardIndexes.push(null);
-                incompleteCount++;
-                wildcardCount++;
-            }
-            else {
-                const number = Number(element);
-                if (!Number.isNaN(number)) {
-                    tmpPatternElements[i] = "*";
-                    wildcardIndexes.push(number);
-                    completeCount++;
-                    wildcardCount++;
-                }
-            }
-            lastPath += element;
-            paths.push(lastPath);
-            lastPath += (i < elements.length - 1 ? "." : "");
-        }
-        const pattern = tmpPatternElements.join(".");
-        const info = getStructuredPathInfo(pattern);
-        if (incompleteCount > 0 || completeCount > 0) {
-            if (incompleteCount === wildcardCount) {
-                wildcardType = "context";
-            }
-            else if (completeCount === wildcardCount) {
-                wildcardType = "all";
-            }
-            else {
-                wildcardType = "partial";
-            }
-        }
-        this.name = name;
-        this.elements = elements;
-        this.paths = paths;
-        this.wildcardCount = wildcardCount;
-        this.wildcardType = wildcardType;
-        this.wildcardIndexes = wildcardIndexes;
-        this.info = info;
-    }
-}
-function getResolvedPathInfo(name) {
-    //  return _cache.get(name) ?? (_cache.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
-    return _cache[name] ?? (_cache[name] = new ResolvedPathInfo(name));
+function getByRef(target, prop, receiver, handler) {
+    return (pattern, listIndex) => getByRef$1(target, pattern, listIndex, receiver, handler);
 }
 
-function getListIndex(info, receiver, handler) {
-    if (info.wildcardType === "none") {
-        return null;
+function setCacheable$1(handler, callback) {
+    handler.cacheable = true;
+    handler.cache = {};
+    try {
+        callback();
     }
-    else if (info.wildcardType === "context") {
-        const lastWildcardPath = info.info.lastWildcardPath ??
-            raiseError(`lastWildcardPath is null`);
-        return receiver[GetContextListIndexSymbol](lastWildcardPath) ??
-            raiseError(`ListIndex not found: ${info.info.pattern}`);
+    finally {
+        handler.cacheable = false;
     }
-    else if (info.wildcardType === "all") {
-        let parentListIndex = null;
-        for (let i = 0; i < info.info.wildcardCount; i++) {
-            const wildcardParentPattern = info.info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPattern is null`);
-            const listIndexes = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
-            const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
-            parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
-        }
-        return parentListIndex;
-    }
-    else if (info.wildcardType === "partial") {
-        raiseError(`Partial wildcard type is not supported yet: ${info.info.pattern}`);
-    }
-    return null;
 }
 
-/**
- * get.ts
- *
- * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
- *
- * 主な役割:
- * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $router）に応じた値やAPIを返却
- * - 通常のプロパティはgetResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
- * - getByRefで構造化パス・リストインデックスに対応した値を取得
- * - シンボルプロパティの場合はhandler.callableApi経由でAPIを呼び出し
- * - それ以外はReflect.getで通常のプロパティアクセスを実行
- *
- * 設計ポイント:
- * - $1〜$9は直近のStatePropertyRefのリストインデックス値を返す特殊プロパティ
- * - $resolve, $getAll, $routerはAPI関数やルーターインスタンスを返す
- * - 通常のプロパティアクセスもバインディングや多重ループに対応
- * - シンボルAPIやReflect.getで拡張性・互換性も確保
- */
-function get(target, prop, receiver, handler) {
-    let value;
-    if (typeof prop === "string") {
-        if (prop.charCodeAt(0) === 36) {
-            if (prop.length === 2) {
-                const d = prop.charCodeAt(1) - 48;
-                if (d >= 1 && d <= 9) {
-                    const ref = receiver[GetLastStatePropertyRefSymbol]() ??
-                        raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
-                    return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-                }
-            }
-            switch (prop) {
-                case "$resolve":
-                    return resolve(target, prop, receiver, handler);
-                case "$getAll":
-                    return getAll(target, prop, receiver, handler);
-                case "$router":
-                    return getRouter();
-            }
+function setCacheable(target, prop, receiver, handler) {
+    return (callback) => {
+        setCacheable$1(handler, callback);
+    };
+}
+
+const CONNECTED_CALLBACK = "$connectedCallback";
+function connectedCallback(target, prop, receiver, handler) {
+    return async () => {
+        const callback = Reflect.get(target, CONNECTED_CALLBACK);
+        if (typeof callback === "function") {
+            await callback.call(target, receiver);
         }
-        const resolvedInfo = getResolvedPathInfo(prop);
-        const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        value = getByRef$1(target, resolvedInfo.info, listIndex, receiver, handler);
-    }
-    else if (typeof prop === "symbol") {
-        if (prop in handler.callableApi) {
-            return handler.callableApi[prop](target, prop, receiver, handler);
+    };
+}
+
+const DISCONNECTED_CALLBACK = "$disconnectedCallback";
+function disconnectedCallback(target, prop, receiver, handler) {
+    return async () => {
+        const callback = Reflect.get(target, DISCONNECTED_CALLBACK);
+        if (typeof callback === "function") {
+            await callback.call(target, receiver);
         }
-        value = Reflect.get(target, prop, receiver);
-    }
-    return value;
+    };
 }
 
 function setStatePropertyRef$1(handler, info, listIndex, callback) {
@@ -3448,6 +3396,66 @@ function getContextListIndex(target, prop, receiver, handler) {
     return (structuredPath) => getContextListIndex$1(handler, structuredPath);
 }
 
+/**
+ * get.ts
+ *
+ * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
+ *
+ * 主な役割:
+ * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $navigate）に応じた値やAPIを返却
+ * - 通常のプロパティはgetResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
+ * - getByRefで構造化パス・リストインデックスに対応した値を取得
+ * - シンボルプロパティの場合はhandler.callableApi経由でAPIを呼び出し
+ * - それ以外はReflect.getで通常のプロパティアクセスを実行
+ *
+ * 設計ポイント:
+ * - $1〜$9は直近のStatePropertyRefのリストインデックス値を返す特殊プロパティ
+ * - $resolve, $getAll, $navigateはAPI関数やルーターインスタンスを返す
+ * - 通常のプロパティアクセスもバインディングや多重ループに対応
+ * - シンボルAPIやReflect.getで拡張性・互換性も確保
+ */
+function getReadonly(target, prop, receiver, handler) {
+    if (typeof prop === "string") {
+        if (prop.charCodeAt(0) === 36) {
+            if (prop.length === 2) {
+                const d = prop.charCodeAt(1) - 48;
+                if (d >= 1 && d <= 9) {
+                    const ref = receiver[GetLastStatePropertyRefSymbol]() ??
+                        raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
+                    return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
+                }
+            }
+            switch (prop) {
+                case "$resolve":
+                    return resolve(target, prop, receiver, handler);
+                case "$getAll":
+                    return getAll(target, prop, receiver, handler);
+                case "$navigate":
+                    return (to) => getRouter()?.navigate(to);
+            }
+        }
+        const resolvedInfo = getResolvedPathInfo(prop);
+        const listIndex = getListIndex(resolvedInfo, receiver, handler);
+        return getByRef$1(target, resolvedInfo.info, listIndex, receiver, handler);
+    }
+    else if (typeof prop === "symbol") {
+        switch (prop) {
+            case GetByRefSymbol: return getByRef;
+            case SetCacheableSymbol: return setCacheable;
+            case ConnectedCallbackSymbol: return connectedCallback;
+            case DisconnectedCallbackSymbol: return disconnectedCallback;
+            case ResolveSymbol: return resolve;
+            case GetAllSymbol: return getAll;
+            case SetStatePropertyRefSymbol: return setStatePropertyRef;
+            case SetLoopContextSymbol: return setLoopContext;
+            case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef;
+            case GetContextListIndexSymbol: return getContextListIndex;
+            default:
+                return Reflect.get(target, prop, receiver);
+        }
+    }
+}
+
 let StateHandler$1 = class StateHandler {
     engine;
     cacheable = false;
@@ -3460,20 +3468,8 @@ let StateHandler$1 = class StateHandler {
     constructor(engine) {
         this.engine = engine;
     }
-    callableApi = {
-        [GetByRefSymbol]: getByRef,
-        [SetCacheableSymbol]: setCacheable,
-        [ConnectedCallbackSymbol]: connectedCallback,
-        [DisconnectedCallbackSymbol]: disconnectedCallback,
-        [ResolveSymbol]: resolve,
-        [GetAllSymbol]: getAll,
-        [SetStatePropertyRefSymbol]: setStatePropertyRef,
-        [SetLoopContextSymbol]: setLoopContext,
-        [GetLastStatePropertyRefSymbol]: getLastStatePropertyRef,
-        [GetContextListIndexSymbol]: getContextListIndex
-    };
     get(target, prop, receiver) {
-        return get(target, prop, receiver, this);
+        return getReadonly(target, prop, receiver, this);
     }
     set(target, prop, value, receiver) {
         raiseError(`Cannot set property ${String(prop)} of readonly state.`);
@@ -3485,6 +3481,66 @@ function createReadonlyStateProxy(engine, state) {
 
 function setByRef(target, prop, receiver, handler) {
     return (pattern, listIndex, value) => setByRef$1(target, pattern, listIndex, value, receiver, handler);
+}
+
+/**
+ * get.ts
+ *
+ * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
+ *
+ * 主な役割:
+ * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $navigate）に応じた値やAPIを返却
+ * - 通常のプロパティはgetResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
+ * - getByRefで構造化パス・リストインデックスに対応した値を取得
+ * - シンボルプロパティの場合はhandler.callableApi経由でAPIを呼び出し
+ * - それ以外はReflect.getで通常のプロパティアクセスを実行
+ *
+ * 設計ポイント:
+ * - $1〜$9は直近のStatePropertyRefのリストインデックス値を返す特殊プロパティ
+ * - $resolve, $getAll, $navigateはAPI関数やルーターインスタンスを返す
+ * - 通常のプロパティアクセスもバインディングや多重ループに対応
+ * - シンボルAPIやReflect.getで拡張性・互換性も確保
+ */
+function getWritable(target, prop, receiver, handler) {
+    if (typeof prop === "string") {
+        if (prop.charCodeAt(0) === 36) {
+            if (prop.length === 2) {
+                const d = prop.charCodeAt(1) - 48;
+                if (d >= 1 && d <= 9) {
+                    const ref = receiver[GetLastStatePropertyRefSymbol]() ??
+                        raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
+                    return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
+                }
+            }
+            switch (prop) {
+                case "$resolve":
+                    return resolve(target, prop, receiver, handler);
+                case "$getAll":
+                    return getAll(target, prop, receiver, handler);
+                case "$navigate":
+                    return (to) => getRouter()?.navigate(to);
+            }
+        }
+        const resolvedInfo = getResolvedPathInfo(prop);
+        const listIndex = getListIndex(resolvedInfo, receiver, handler);
+        return getByRef$1(target, resolvedInfo.info, listIndex, receiver, handler);
+    }
+    else if (typeof prop === "symbol") {
+        switch (prop) {
+            case GetByRefSymbol: return getByRef;
+            case SetByRefSymbol: return setByRef;
+            case ConnectedCallbackSymbol: return connectedCallback;
+            case DisconnectedCallbackSymbol: return disconnectedCallback;
+            case ResolveSymbol: return resolve;
+            case GetAllSymbol: return getAll;
+            case SetStatePropertyRefSymbol: return setStatePropertyRef;
+            case SetLoopContextSymbol: return setLoopContext;
+            case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef;
+            case GetContextListIndexSymbol: return getContextListIndex;
+            default:
+                return Reflect.get(target, prop, receiver);
+        }
+    }
 }
 
 /**
@@ -3525,20 +3581,8 @@ class StateHandler {
     constructor(engine) {
         this.engine = engine;
     }
-    callableApi = {
-        [GetByRefSymbol]: getByRef,
-        [SetByRefSymbol]: setByRef,
-        [ConnectedCallbackSymbol]: connectedCallback,
-        [DisconnectedCallbackSymbol]: disconnectedCallback,
-        [ResolveSymbol]: resolve,
-        [GetAllSymbol]: getAll,
-        [SetStatePropertyRefSymbol]: setStatePropertyRef,
-        [SetLoopContextSymbol]: setLoopContext,
-        [GetLastStatePropertyRefSymbol]: getLastStatePropertyRef,
-        [GetContextListIndexSymbol]: getContextListIndex
-    };
     get(target, prop, receiver) {
-        return get(target, prop, receiver, this);
+        return getWritable(target, prop, receiver, this);
     }
     set(target, prop, value, receiver) {
         return set(target, prop, value, receiver, this);
