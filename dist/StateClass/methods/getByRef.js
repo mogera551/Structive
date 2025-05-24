@@ -1,6 +1,6 @@
 import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
-import { SetStatePropertyRefSymbol } from "../symbols";
+import { setStatePropertyRef } from "./setStatePropertyRef";
 import { setTracking } from "./setTracking.js";
 /**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
@@ -41,7 +41,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     try {
         // パターンがtargetに存在する場合はgetter経由で取得
         if (info.pattern in target) {
-            return (value = receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
+            return (value = setStatePropertyRef(handler, info, listIndex, () => {
                 return Reflect.get(target, info.pattern, receiver);
             }));
         }

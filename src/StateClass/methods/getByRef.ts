@@ -21,8 +21,8 @@ import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
-import { SetStatePropertyRefSymbol } from "../symbols";
 import { IStateHandler, IStateProxy } from "../types";
+import { setStatePropertyRef } from "./setStatePropertyRef";
 import { setTracking } from "./setTracking.js";
 
 /**
@@ -72,7 +72,7 @@ function _getByRef(
   try {
     // パターンがtargetに存在する場合はgetter経由で取得
     if (info.pattern in target) {
-      return (value = receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
+      return (value = setStatePropertyRef(handler, info, listIndex, () => {
         return Reflect.get(target, info.pattern, receiver);
       }));
     } else {

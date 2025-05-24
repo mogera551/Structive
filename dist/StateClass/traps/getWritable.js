@@ -27,9 +27,8 @@ import { getByRef as apiGetByRef } from "../apis/getByRef.js";
 import { setByRef as apiSetByRef } from "../apis/setByRef.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
-import { setStatePropertyRef } from "../apis/setStatePropertyRef";
 import { setLoopContext } from "../apis/setLoopContext";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "../symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetLoopContextSymbol } from "../symbols.js";
 export function getWritable(target, prop, receiver, handler) {
     if (typeof prop === "string") {
         if (prop.charCodeAt(0) === 36) {
@@ -59,7 +58,6 @@ export function getWritable(target, prop, receiver, handler) {
             case SetByRefSymbol: return apiSetByRef(target, prop, receiver, handler);
             case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver, handler);
             case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver, handler);
-            case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);

@@ -1,20 +1,12 @@
 import { raiseError } from "../../utils.js";
-import { SetStatePropertyRefSymbol } from "../symbols";
 import { getByRef } from "./getByRef.js";
+import { setStatePropertyRef } from "./setStatePropertyRef";
 export function setByRef(target, info, listIndex, value, receiver, handler) {
     try {
         if (info.pattern in target) {
-            if (info.wildcardCount > 0) {
-                if (listIndex === null) {
-                    raiseError(`propRef.listIndex is null`);
-                }
-                return receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
-                    return Reflect.set(target, info.pattern, value, receiver);
-                });
-            }
-            else {
+            return setStatePropertyRef(handler, info, listIndex, () => {
                 return Reflect.set(target, info.pattern, value, receiver);
-            }
+            });
         }
         else {
             const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);

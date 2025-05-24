@@ -895,7 +895,6 @@ const SetByRefSymbol = Symbol.for(`${symbolName$1}.SetByRef`);
 const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
 const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
 const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
-const SetStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.SetStatePropertyRef`);
 const SetLoopContextSymbol = Symbol.for(`${symbolName$1}.SetLoopContext`);
 
 /**
@@ -3069,6 +3068,18 @@ function getListIndex(info, receiver, handler) {
     }
 }
 
+function setStatePropertyRef(handler, info, listIndex, callback) {
+    handler.structuredPathInfoStack.push(info);
+    handler.listIndexStack.push(listIndex);
+    try {
+        return callback();
+    }
+    finally {
+        handler.structuredPathInfoStack.pop();
+        handler.listIndexStack.pop();
+    }
+}
+
 function setTracking(info, handler, callback) {
     handler.trackingStack.push(info);
     handler.lastTrackingStack = info;
@@ -3120,7 +3131,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     try {
         // パターンがtargetに存在する場合はgetter経由で取得
         if (info.pattern in target) {
-            return (value = receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
+            return (value = setStatePropertyRef(handler, info, listIndex, () => {
                 return Reflect.get(target, info.pattern, receiver);
             }));
         }
@@ -3166,17 +3177,9 @@ function getByRef$1(target, info, listIndex, receiver, handler) {
 function setByRef$1(target, info, listIndex, value, receiver, handler) {
     try {
         if (info.pattern in target) {
-            if (info.wildcardCount > 0) {
-                if (listIndex === null) {
-                    raiseError(`propRef.listIndex is null`);
-                }
-                return receiver[SetStatePropertyRefSymbol](info, listIndex, () => {
-                    return Reflect.set(target, info.pattern, value, receiver);
-                });
-            }
-            else {
+            return setStatePropertyRef(handler, info, listIndex, () => {
                 return Reflect.set(target, info.pattern, value, receiver);
-            }
+            });
         }
         else {
             const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
@@ -3312,22 +3315,6 @@ function disconnectedCallback(target, prop, receiver, handler) {
     };
 }
 
-function setStatePropertyRef$1(handler, info, listIndex, callback) {
-    handler.structuredPathInfoStack.push(info);
-    handler.listIndexStack.push(listIndex);
-    try {
-        return callback();
-    }
-    finally {
-        handler.structuredPathInfoStack.pop();
-        handler.listIndexStack.pop();
-    }
-}
-
-function setStatePropertyRef(target, prop, receiver, handler) {
-    return (info, listIndex, callback) => setStatePropertyRef$1(handler, info, listIndex, callback);
-}
-
 /**
  * 状態プロパティ参照のスコープを一時的に設定し、非同期コールバックを実行します。
  *
@@ -3420,7 +3407,6 @@ function getReadonly(target, prop, receiver, handler) {
             case SetCacheableSymbol: return setCacheable(target, prop, receiver, handler);
             case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver);
             case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver);
-            case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
@@ -3502,7 +3488,6 @@ function getWritable(target, prop, receiver, handler) {
             case SetByRefSymbol: return setByRef(target, prop, receiver, handler);
             case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver);
             case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver);
-            case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
