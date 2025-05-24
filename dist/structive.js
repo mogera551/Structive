@@ -931,7 +931,7 @@ class BindingNodeEvent extends BindingNode {
     update() {
         // 何もしない（イベントバインディングは初期化時のみ）
     }
-    handler(e) {
+    async handler(e) {
         const engine = this.binding.engine;
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const indexes = loopContext?.serialize().map((context) => context.listIndex.index) ?? [];
@@ -947,11 +947,9 @@ class BindingNodeEvent extends BindingNode {
         if (options.includes("stopPropagation")) {
             e.stopPropagation();
         }
-        this.binding.engine.updater.addProcess(async () => {
-            const stateProxy = engine.createWritableStateProxy();
-            await stateProxy[SetLoopContextSymbol](loopContext, async () => {
-                await Reflect.apply(value, stateProxy, [e, ...indexes]);
-            });
+        const stateProxy = engine.createWritableStateProxy();
+        await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+            await Reflect.apply(value, stateProxy, [e, ...indexes]);
         });
     }
 }
@@ -1314,11 +1312,9 @@ class BindingNodeProperty extends BindingNode {
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const value = this.filteredValue;
         this.node.addEventListener(eventName, async () => {
-            engine.updater.addProcess(async () => {
-                const stateProxy = engine.createWritableStateProxy();
-                await stateProxy[SetLoopContextSymbol](loopContext, async () => {
-                    binding.updateStateValue(stateProxy, value);
-                });
+            const stateProxy = engine.createWritableStateProxy();
+            await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+                binding.updateStateValue(stateProxy, value);
             });
         });
     }
@@ -2758,7 +2754,7 @@ class Updater {
         if (this.#isEntryRender)
             return;
         this.#isEntryRender = true;
-        setTimeout(() => {
+        queueMicrotask(() => {
             try {
                 const { bindings, arrayElementBindings } = this.rebuild();
                 // render
@@ -2772,7 +2768,7 @@ class Updater {
             finally {
                 this.#isEntryRender = false;
             }
-        }, 0);
+        });
     }
     rebuild() {
         const retArrayElementBindings = [];
@@ -3281,14 +3277,13 @@ function getResolvedPathInfo(name) {
 }
 
 function getListIndex(info, receiver, handler) {
-    if (info.info.wildcardCount === 0) {
+    if (info.wildcardType === "none") {
         return null;
     }
-    let listIndex = null;
-    const lastWildcardPath = info.info.lastWildcardPath ??
-        raiseError(`lastWildcardPath is null`);
-    if (info.wildcardType === "context") {
-        listIndex = receiver[GetContextListIndexSymbol](lastWildcardPath) ??
+    else if (info.wildcardType === "context") {
+        const lastWildcardPath = info.info.lastWildcardPath ??
+            raiseError(`lastWildcardPath is null`);
+        return receiver[GetContextListIndexSymbol](lastWildcardPath) ??
             raiseError(`ListIndex not found: ${info.info.pattern}`);
     }
     else if (info.wildcardType === "all") {
@@ -3299,11 +3294,12 @@ function getListIndex(info, receiver, handler) {
             const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
             parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }
-        listIndex = parentListIndex;
+        return parentListIndex;
     }
-    else if (info.wildcardType === "partial") ;
-    else if (info.wildcardType === "none") ;
-    return listIndex;
+    else if (info.wildcardType === "partial") {
+        raiseError(`Partial wildcard type is not supported yet: ${info.info.pattern}`);
+    }
+    return null;
 }
 
 /**

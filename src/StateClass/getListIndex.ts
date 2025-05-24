@@ -26,14 +26,12 @@ export function getListIndex(
   receiver: IStateProxy,
   handler: IStateHandler
 ): IListIndex | null {
-  if (info.info.wildcardCount === 0) {
+  if (info.wildcardType === "none") {
     return null;
-  }
-  let listIndex: IListIndex | null = null;
-  const lastWildcardPath = info.info.lastWildcardPath ?? 
-    raiseError(`lastWildcardPath is null`);
-  if (info.wildcardType === "context") {
-    listIndex = receiver[GetContextListIndexSymbol](lastWildcardPath) ?? 
+  } else if (info.wildcardType === "context") {
+    const lastWildcardPath = info.info.lastWildcardPath ?? 
+      raiseError(`lastWildcardPath is null`);
+    return receiver[GetContextListIndexSymbol](lastWildcardPath) ?? 
       raiseError(`ListIndex not found: ${info.info.pattern}`);
   } else if (info.wildcardType === "all") {
     let parentListIndex = null;
@@ -43,10 +41,9 @@ export function getListIndex(
       const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
       parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
     }
-    listIndex = parentListIndex;
+    return parentListIndex;
   } else if (info.wildcardType === "partial") {
-    // ToDo:listIndexを取得する必要がある
-  } else if (info.wildcardType === "none") {
+    raiseError(`Partial wildcard type is not supported yet: ${info.info.pattern}`);
   }
-  return listIndex;
+  return null;
 }

@@ -71,7 +71,7 @@ class Updater implements IUpdater {
   entryRender() {
     if (this.#isEntryRender) return;
     this.#isEntryRender = true;
-    setTimeout(() => {
+    queueMicrotask(() => {
       try {
         const { bindings, arrayElementBindings } = this.rebuild();
         // render
@@ -84,7 +84,7 @@ class Updater implements IUpdater {
       } finally {
         this.#isEntryRender = false;
       }
-    }, 0);
+    });
   }
 
   rebuild(): {bindings: IBinding[], arrayElementBindings: UpdatedArrayElementBinding[]} {

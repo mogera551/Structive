@@ -31,7 +31,7 @@ class BindingNodeEvent extends BindingNode {
     update() {
         // 何もしない（イベントバインディングは初期化時のみ）
     }
-    handler(e) {
+    async handler(e) {
         const engine = this.binding.engine;
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const indexes = loopContext?.serialize().map((context) => context.listIndex.index) ?? [];
@@ -47,11 +47,9 @@ class BindingNodeEvent extends BindingNode {
         if (options.includes("stopPropagation")) {
             e.stopPropagation();
         }
-        this.binding.engine.updater.addProcess(async () => {
-            const stateProxy = engine.createWritableStateProxy();
-            await stateProxy[SetLoopContextSymbol](loopContext, async () => {
-                await Reflect.apply(value, stateProxy, [e, ...indexes]);
-            });
+        const stateProxy = engine.createWritableStateProxy();
+        await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+            await Reflect.apply(value, stateProxy, [e, ...indexes]);
         });
     }
 }

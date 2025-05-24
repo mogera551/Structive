@@ -71,11 +71,9 @@ class BindingNodeProperty extends BindingNode {
     const loopContext = this.binding.parentBindContent.currentLoopContext;
       const value = this.filteredValue;
       this.node.addEventListener(eventName, async () => {
-      engine.updater.addProcess(async () => {
-        const stateProxy = engine.createWritableStateProxy();
-        await stateProxy[SetLoopContextSymbol](loopContext, async () => {
-          binding.updateStateValue(stateProxy, value);
-        });
+      const stateProxy = engine.createWritableStateProxy();
+      await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+        binding.updateStateValue(stateProxy, value);
       });
     });
 
