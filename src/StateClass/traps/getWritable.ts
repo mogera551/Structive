@@ -21,7 +21,7 @@ import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js"
 import { raiseError } from "../../utils.js";
 import { getListIndex } from "../methods/getListIndex.js";
 import { getByRef } from "../methods/getByRef.js";
-import { IStateProxy, IWritableStateHandler } from "../types.js";
+import { IReadonlyStateProxy, IWritableStateHandler } from "../types.js";
 import { getAll } from "../apis/getAll.js";
 import { resolve } from "../apis/resolve.js";
 import { getByRef as apiGetByRef } from "../apis/getByRef.js";
@@ -33,7 +33,7 @@ import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, Se
 export function getWritable(
   target  : Object, 
   prop    : PropertyKey, 
-  receiver: IStateProxy,
+  receiver: IReadonlyStateProxy,
   handler  : IWritableStateHandler
 ): any {
   if (typeof prop === "string") {

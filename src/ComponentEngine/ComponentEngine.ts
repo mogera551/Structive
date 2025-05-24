@@ -1,7 +1,7 @@
 import { createBindContent } from "../DataBinding/BindContent.js";
 import { IBindContent, IBinding } from "../DataBinding/types";
 import { FilterWithOptions } from "../Filter/types";
-import { IState, IStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
+import { IState, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IUpdater } from "../Updater/types";
 import { createUpdater } from "../Updater/updater.js";
 import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
@@ -49,7 +49,7 @@ export class ComponentEngine implements IComponentEngine {
   styleSheet    : CSSStyleSheet;
   stateClass    : IStructiveState;
   state         : IState;
-  readonlyState : IStateProxy;
+  readonlyState : IReadonlyStateProxy;
   updater       : IUpdater;
   inputFilters  : FilterWithOptions;
   outputFilters : FilterWithOptions;
@@ -257,7 +257,7 @@ export class ComponentEngine implements IComponentEngine {
     });
   }
   // 読み取り専用の状態プロキシを作成する
-  createReadonlyStateProxy(): IStateProxy {
+  createReadonlyStateProxy(): IReadonlyStateProxy {
     return createReadonlyStateProxy(this, this.state);
   }
   // 書き込み可能な状態プロキシを作成する

@@ -12,13 +12,13 @@
  * - コールバック関数を引数に取り、キャッシュ可能な処理として登録
  * - バインディングやAPI経由での柔軟な利用が可能
  */
-import { IStateHandler, IStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy } from "../types";
 import { setCacheable as methodSetChargeable } from "../methods/setCacheable.js";
 
 export function setCacheable(
   target: Object, 
   prop: PropertyKey, 
-  receiver: IStateProxy,
+  receiver: IReadonlyStateProxy,
   handler: IStateHandler
 ):Function {
   return (callback: () => void) => {

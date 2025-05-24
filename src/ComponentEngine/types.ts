@@ -3,7 +3,7 @@ import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
-import { IState, IStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
+import { IState, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IUpdater } from "../Updater/types";
 import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";
@@ -29,7 +29,7 @@ export interface IComponentEngine {
   styleSheet    : CSSStyleSheet;
   stateClass    : IStructiveState;
   state         : IState;
-  readonlyState : IStateProxy;
+  readonlyState : IReadonlyStateProxy;
   updater       : IUpdater;
   inputFilters  : FilterWithOptions;
   outputFilters : FilterWithOptions;
@@ -59,7 +59,7 @@ export interface IComponentEngine {
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する
-  createReadonlyStateProxy(): IStateProxy; // 読み取り専用の状態プロキシを作成する
+  createReadonlyStateProxy(): IReadonlyStateProxy; // 読み取り専用の状態プロキシを作成する
   useWritableStateProxy(
     loopContext: ILoopContext | null,
     callback: (stateProxy: IWritableStateProxy) => Promise<void>

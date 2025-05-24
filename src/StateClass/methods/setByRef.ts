@@ -18,7 +18,7 @@
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
-import { IStateHandler, IStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy } from "../types";
 import { getByRef } from "./getByRef.js";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 
@@ -27,7 +27,7 @@ export function setByRef(
     info     : IStructuredPathInfo, 
     listIndex: IListIndex | null, 
     value    : any, 
-    receiver : IStateProxy,
+    receiver : IReadonlyStateProxy,
     handler  : IStateHandler
 ): any {
   try {

@@ -3,7 +3,7 @@ import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
 import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
-import { IStateProxy, IWritableStateProxy } from "../../StateClass/types";
+import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
@@ -30,7 +30,7 @@ class BindingState implements IBindingState {
   #pattern     : string;
   #info        : IStructuredPathInfo;
   #listIndexRef: WeakRef<IListIndex> | null = null;
-  #state       : IStateProxy;
+  #state       : IReadonlyStateProxy;
   #filters     : Filters;
   get pattern(): string {
     return this.#pattern;
@@ -53,7 +53,7 @@ class BindingState implements IBindingState {
   }
   constructor(
     binding: IBinding, 
-    state  : IStateProxy, 
+    state  : IReadonlyStateProxy, 
     pattern: string, 
     filters: Filters
   ) {
@@ -90,7 +90,7 @@ class BindingState implements IBindingState {
 
 export const createBindingState: CreateBindingStateFn = 
 (name: string, filterTexts: IFilterText[]) => 
-  (binding:IBinding, state: IStateProxy, filters:FilterWithOptions) => {
+  (binding:IBinding, state: IReadonlyStateProxy, filters:FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts); // ToDo:ここは、メモ化できる
     return new BindingState(binding, state, name, filterFns);
   }

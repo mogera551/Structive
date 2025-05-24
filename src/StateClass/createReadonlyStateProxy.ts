@@ -17,7 +17,7 @@
  */
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IReadonlyStateHandler, IState, IStateProxy } from "./types";
+import { IReadonlyStateHandler, IState, IReadonlyStateProxy } from "./types";
 import { getReadonly as trapGet } from "./traps/getReadonly.js";
 import { raiseError } from "../utils";
 import { IListIndex } from "../ListIndex/types";
@@ -40,7 +40,7 @@ class StateHandler implements IReadonlyStateHandler {
   get(
     target  : Object, 
     prop    : PropertyKey, 
-    receiver: IStateProxy
+    receiver: IReadonlyStateProxy
   ): any {
     return trapGet(target, prop, receiver, this);
   }
@@ -49,7 +49,7 @@ class StateHandler implements IReadonlyStateHandler {
     target  : Object, 
     prop    : PropertyKey, 
     value   : any, 
-    receiver: IStateProxy
+    receiver: IReadonlyStateProxy
   ): boolean {
     raiseError(`Cannot set property ${String(prop)} of readonly state.`);
   }
@@ -58,7 +58,7 @@ class StateHandler implements IReadonlyStateHandler {
 export function createReadonlyStateProxy(
   engine: IComponentEngine, 
   state: Object
-): IStateProxy {
-  return new Proxy<IState>(state, new StateHandler(engine)) as IStateProxy;
+): IReadonlyStateProxy {
+  return new Proxy<IState>(state, new StateHandler(engine)) as IReadonlyStateProxy;
 }
 

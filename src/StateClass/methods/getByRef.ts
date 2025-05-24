@@ -21,7 +21,7 @@ import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
-import { IStateHandler, IStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy } from "../types";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 import { setTracking } from "./setTracking.js";
 
@@ -44,7 +44,7 @@ function _getByRef(
   target   : Object, 
   info     : IStructuredPathInfo,
   listIndex: IListIndex | null,
-  receiver : IStateProxy,
+  receiver : IReadonlyStateProxy,
   handler  : IStateHandler
 ): any {
   // 依存関係の自動登録
@@ -106,7 +106,7 @@ export function getByRef(
   target   : Object, 
   info     : IStructuredPathInfo,
   listIndex: IListIndex | null,
-  receiver : IStateProxy,
+  receiver : IReadonlyStateProxy,
   handler  : IStateHandler
 ): any {
   if (handler.engine.trackedGetters.has(info.pattern)) {

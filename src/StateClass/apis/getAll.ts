@@ -20,14 +20,14 @@ import { IListIndex } from "../../ListIndex/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
-import { IStateHandler, IStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy } from "../types";
 import { resolve as _resolve } from "./resolve.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
 
 export function getAll(
   target: Object, 
   prop: PropertyKey, 
-  receiver: IStateProxy,
+  receiver: IReadonlyStateProxy,
   handler: IStateHandler
 ):Function {
     const resolve = _resolve(target, prop, receiver, handler);

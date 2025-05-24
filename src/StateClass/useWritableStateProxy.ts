@@ -17,7 +17,7 @@
  */
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IState, IStateProxy, IWritableStateHandler, IWritableStateProxy } from "./types";
+import { IState, IReadonlyStateProxy, IWritableStateHandler, IWritableStateProxy } from "./types";
 import { getWritable as trapGet } from "./traps/getWritable.js";
 import { set as trapSet } from "./traps/set.js";
 import { IListIndex } from "../ListIndex/types";
@@ -41,7 +41,7 @@ class StateHandler implements IWritableStateHandler {
   get(
     target  : Object, 
     prop    : PropertyKey, 
-    receiver: IStateProxy
+    receiver: IReadonlyStateProxy
   ): any {
     return trapGet(target, prop, receiver, this);
   }
@@ -50,7 +50,7 @@ class StateHandler implements IWritableStateHandler {
     target  : Object, 
     prop    : PropertyKey, 
     value   : any, 
-    receiver: IStateProxy
+    receiver: IReadonlyStateProxy
   ): boolean {
     return trapSet(target, prop, value, receiver, this);
   }

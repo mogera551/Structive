@@ -16,13 +16,13 @@
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
 import { getListIndex } from "../methods/getListIndex.js";
 import { setByRef } from "../methods/setByRef.js";
-import { IStateHandler, IStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy } from "../types";
 
 export function set(
   target  : Object, 
   prop    : PropertyKey, 
   value   : any, 
-  receiver: IStateProxy,
+  receiver: IReadonlyStateProxy,
   handler : IStateHandler
 ): boolean {
   if (typeof prop === "string") {

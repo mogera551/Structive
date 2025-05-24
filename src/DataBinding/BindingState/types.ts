@@ -1,7 +1,7 @@
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { IStateProxy, IWritableStateProxy } from "../../StateClass/types";
+import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { IBinding } from "../types";
 
@@ -21,7 +21,7 @@ export interface IBindingState {
   readonly pattern      : string | never;
   readonly info         : IStructuredPathInfo | never;
   readonly listIndex    : IListIndex | null;
-  readonly state        : IStateProxy;
+  readonly state        : IReadonlyStateProxy;
   readonly filters      : Filters;
   readonly value        : any;
   readonly filteredValue: any;
@@ -33,5 +33,5 @@ export interface IBindingState {
  * バインディング状態生成ファクトリ型
  * - バインディング名・フィルタ情報からBindingState生成関数を返す
  */
-export type CreateBindingStateByStateFn = (binding:IBinding, state: IStateProxy, filters: FilterWithOptions) => IBindingState;
+export type CreateBindingStateByStateFn = (binding:IBinding, state: IReadonlyStateProxy, filters: FilterWithOptions) => IBindingState;
 export type CreateBindingStateFn = (name: string, filterTexts: IFilterText[]) => CreateBindingStateByStateFn;

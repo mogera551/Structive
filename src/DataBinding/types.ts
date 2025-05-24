@@ -3,7 +3,7 @@ import { IListIndex } from "../ListIndex/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
-import { IStateProxy, IWritableStateProxy } from "../StateClass/types";
+import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 /**
  * DataBinding/types.ts
  *

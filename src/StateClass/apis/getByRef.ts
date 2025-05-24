@@ -15,13 +15,13 @@
  */
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
-import { IStateHandler, IStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy } from "../types";
 import { getByRef as methodGetByRef } from "../methods/getByRef.js";
 
 export function getByRef(
   target: Object, 
   prop: PropertyKey, 
-  receiver: IStateProxy,
+  receiver: IReadonlyStateProxy,
   handler: IStateHandler
 ):Function {
   return (pattern: IStructuredPathInfo, listIndex: IListIndex | null) => 

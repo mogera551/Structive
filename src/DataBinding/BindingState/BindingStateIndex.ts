@@ -2,7 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { IStateProxy, IWritableStateProxy } from "../../StateClass/types";
+import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
@@ -26,7 +26,7 @@ class BindingStateIndex implements IBindingState {
   #binding     : IBinding;
   #indexNumber : number;
   #listIndexRef: WeakRef<IListIndex> | null = null;
-  #state       : IStateProxy;
+  #state       : IReadonlyStateProxy;
   #filters     : Filters;
   get pattern(): string {
     return raiseError("Not implemented");
@@ -49,7 +49,7 @@ class BindingStateIndex implements IBindingState {
   }
   constructor(
     binding: IBinding, 
-    state  : IStateProxy, 
+    state  : IReadonlyStateProxy, 
     pattern: string, 
     filters: Filters
   ) {
@@ -93,7 +93,7 @@ class BindingStateIndex implements IBindingState {
 
 export const createBindingStateIndex: CreateBindingStateFn = 
 (name: string, filterTexts: IFilterText[]) => 
-  (binding:IBinding, state: IStateProxy, filters:FilterWithOptions) => {
+  (binding:IBinding, state: IReadonlyStateProxy, filters:FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts); // ToDo:ここは、メモ化できる
 
     return new BindingStateIndex(binding, state, name, filterFns);

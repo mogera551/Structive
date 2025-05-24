@@ -21,7 +21,7 @@ import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js"
 import { raiseError } from "../../utils.js";
 import { getListIndex } from "../methods/getListIndex.js";
 import { getByRef } from "../methods/getByRef.js";
-import { IReadonlyStateHandler, IStateProxy } from "../types.js";
+import { IReadonlyStateHandler, IReadonlyStateProxy } from "../types.js";
 import { getAll } from "../apis/getAll.js";
 import { resolve } from "../apis/resolve.js";
 import { getByRef as apiGetByRef } from "../apis/getByRef.js";
@@ -33,7 +33,7 @@ import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, Se
 export function getReadonly(
   target  : Object, 
   prop    : PropertyKey, 
-  receiver: IStateProxy,
+  receiver: IReadonlyStateProxy,
   handler  : IReadonlyStateHandler
 ): any {
   if (typeof prop === "string") {

@@ -18,14 +18,14 @@
 import { IListIndex } from "../../ListIndex/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { IStateHandler, IStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy } from "../types";
 import { getByRef } from "../methods/getByRef.js";
 import { setByRef } from "../methods/setByRef.js";
 
 export function resolve(
   target: Object, 
   prop: PropertyKey, 
-  receiver: IStateProxy,
+  receiver: IReadonlyStateProxy,
   handler: IStateHandler
 ):Function {
   return (path: string, indexes: number[], value?:any): any => {
