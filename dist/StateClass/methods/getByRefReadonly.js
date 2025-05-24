@@ -20,11 +20,9 @@ import { setTracking } from "./setTracking.js";
 function _getByRef(target, info, listIndex, receiver, handler) {
     // 依存関係の自動登録
     if (handler.lastTrackingStack != null) {
-        if (handler.lastTrackingStack !== info) {
+        // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+        if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
             handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
-        }
-        else if (handler.secondToLastTrackingStack != null && handler.secondToLastTrackingStack !== info) {
-            handler.engine.addDependentProp(handler.secondToLastTrackingStack, info, "reference");
         }
     }
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
@@ -76,12 +74,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
  * それ以外は通常の_getByRefで取得。
  */
 export function getByRefReadonly(target, info, listIndex, receiver, handler) {
-    if (handler.engine.trackedGetters.has(info.pattern)) {
-        return setTracking(info, handler, () => {
-            return _getByRef(target, info, listIndex, receiver, handler);
-        });
-    }
-    else {
+    return setTracking(info, handler, () => {
         return _getByRef(target, info, listIndex, receiver, handler);
-    }
+    });
 }

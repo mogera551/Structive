@@ -4,8 +4,8 @@ import { setLoopContext } from "./methods/setLoopContext";
 class StateHandler {
     engine;
     lastTrackingStack = null;
-    secondToLastTrackingStack = null;
-    trackingStack = [];
+    trackingStack = Array(16).fill(null);
+    trackingIndex = -1;
     structuredPathInfoStack = [];
     listIndexStack = [];
     loopContext = null;

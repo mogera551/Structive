@@ -61,8 +61,8 @@ export interface IReadonlyStateHandler {
   cacheable        : boolean;
   cache            : {[key:string]:any};
   lastTrackingStack: IStructuredPathInfo | null;
-  secondToLastTrackingStack: IStructuredPathInfo | null;
-  trackingStack    : IStructuredPathInfo[];
+  trackingStack    : (IStructuredPathInfo | null)[];
+  trackingIndex    : number;
   structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
   get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
@@ -72,8 +72,8 @@ export interface IReadonlyStateHandler {
 export interface IWritableStateHandler {
   engine           : IComponentEngine;
   lastTrackingStack: IStructuredPathInfo | null;
-  secondToLastTrackingStack: IStructuredPathInfo | null;
-  trackingStack    : IStructuredPathInfo[];
+  trackingStack    : (IStructuredPathInfo | null)[];
+  trackingIndex    : number;
   structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
   loopContext: ILoopContext | null;

@@ -3092,16 +3092,19 @@ function setStatePropertyRef(handler, info, listIndex, callback) {
 }
 
 function setTracking(info, handler, callback) {
-    handler.secondToLastTrackingStack = handler.lastTrackingStack;
-    handler.trackingStack.push(info);
-    handler.lastTrackingStack = info;
+    handler.trackingIndex++;
+    if (handler.trackingIndex >= handler.trackingStack.length) {
+        handler.trackingStack.push(null);
+    }
+    handler.trackingStack[handler.trackingIndex] = info;
+    handler.lastTrackingStack = handler.trackingStack[handler.trackingIndex - 1] ?? null;
     try {
         return callback();
     }
     finally {
-        handler.trackingStack.pop();
-        handler.lastTrackingStack = handler.trackingStack[handler.trackingStack.length - 1] ?? null;
-        handler.secondToLastTrackingStack = handler.trackingStack[handler.trackingStack.length - 2] ?? null;
+        handler.trackingIndex--;
+        handler.trackingStack[handler.trackingIndex + 1] = null;
+        handler.lastTrackingStack = handler.trackingStack[handler.trackingIndex - 1] ?? null;
     }
 }
 
@@ -3123,11 +3126,9 @@ function setTracking(info, handler, callback) {
 function _getByRef$1(target, info, listIndex, receiver, handler) {
     // 依存関係の自動登録
     if (handler.lastTrackingStack != null) {
-        if (handler.lastTrackingStack !== info) {
+        // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+        if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
             handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
-        }
-        else if (handler.secondToLastTrackingStack != null && handler.secondToLastTrackingStack !== info) {
-            handler.engine.addDependentProp(handler.secondToLastTrackingStack, info, "reference");
         }
     }
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
@@ -3179,14 +3180,9 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
  * それ以外は通常の_getByRefで取得。
  */
 function getByRefReadonly(target, info, listIndex, receiver, handler) {
-    if (handler.engine.trackedGetters.has(info.pattern)) {
-        return setTracking(info, handler, () => {
-            return _getByRef$1(target, info, listIndex, receiver, handler);
-        });
-    }
-    else {
+    return setTracking(info, handler, () => {
         return _getByRef$1(target, info, listIndex, receiver, handler);
-    }
+    });
 }
 
 function resolveReadonly(target, prop, receiver, handler) {
@@ -3332,8 +3328,8 @@ let StateHandler$1 = class StateHandler {
     cacheable = false;
     cache = {};
     lastTrackingStack = null;
-    secondToLastTrackingStack = null;
-    trackingStack = [];
+    trackingStack = Array(16).fill(null);
+    trackingIndex = -1;
     structuredPathInfoStack = [];
     listIndexStack = [];
     loopContext = null;
@@ -3368,10 +3364,10 @@ function createReadonlyStateProxy(engine, state) {
  */
 function _getByRef(target, info, listIndex, receiver, handler) {
     // 依存関係の自動登録
-    if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
-        const lastPattern = handler.lastTrackingStack;
-        if (lastPattern.parentInfo !== info) {
-            handler.engine.addDependentProp(lastPattern, info, "reference");
+    if (handler.lastTrackingStack != null) {
+        // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+        if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
+            handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
         }
     }
     // パターンがtargetに存在する場合はgetter経由で取得
@@ -3402,14 +3398,9 @@ function _getByRef(target, info, listIndex, receiver, handler) {
  * それ以外は通常の_getByRefで取得。
  */
 function getByRefWritable(target, info, listIndex, receiver, handler) {
-    if (handler.engine.trackedGetters.has(info.pattern)) {
-        return setTracking(info, handler, () => {
-            return _getByRef(target, info, listIndex, receiver, handler);
-        });
-    }
-    else {
+    return setTracking(info, handler, () => {
         return _getByRef(target, info, listIndex, receiver, handler);
-    }
+    });
 }
 
 function setByRef(target, info, listIndex, value, receiver, handler) {
@@ -3659,8 +3650,8 @@ async function setLoopContext(handler, loopContext, callback) {
 class StateHandler {
     engine;
     lastTrackingStack = null;
-    secondToLastTrackingStack = null;
-    trackingStack = [];
+    trackingStack = Array(16).fill(null);
+    trackingIndex = -1;
     structuredPathInfoStack = [];
     listIndexStack = [];
     loopContext = null;

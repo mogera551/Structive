@@ -49,10 +49,9 @@ function _getByRef(
 ): any {
   // 依存関係の自動登録
   if (handler.lastTrackingStack != null) {
-    if (handler.lastTrackingStack !== info) {
+    // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+    if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
       handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
-    } else if (handler.secondToLastTrackingStack != null && handler.secondToLastTrackingStack !== info) {
-      handler.engine.addDependentProp(handler.secondToLastTrackingStack, info, "reference");
     }
   }
 
@@ -110,12 +109,7 @@ export function getByRefReadonly(
   receiver : IReadonlyStateProxy,
   handler  : IReadonlyStateHandler
 ): any {
-  if (handler.engine.trackedGetters.has(info.pattern)) {
-    return setTracking(info, handler, () => {
-      return _getByRef(target, info, listIndex, receiver, handler);
-    });
-  } else {
+  return setTracking(info, handler, () => {
     return _getByRef(target, info, listIndex, receiver, handler);
-  }
-
+  });
 }

@@ -48,10 +48,10 @@ function _getByRef(
   handler  : IWritableStateHandler
 ): any {
   // 依存関係の自動登録
-  if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
-    const lastPattern = handler.lastTrackingStack;
-    if (lastPattern.parentInfo !== info) {
-      handler.engine.addDependentProp(lastPattern, info, "reference");
+  if (handler.lastTrackingStack != null) {
+    // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+    if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
+      handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
     }
   }
 
@@ -88,12 +88,7 @@ export function getByRefWritable(
   receiver : IWritableStateProxy,
   handler  : IWritableStateHandler
 ): any {
-  if (handler.engine.trackedGetters.has(info.pattern)) {
-    return setTracking(info, handler, () => {
-      return _getByRef(target, info, listIndex, receiver, handler);
-    });
-  } else {
+  return setTracking(info, handler, () => {
     return _getByRef(target, info, listIndex, receiver, handler);
-  }
-
+  });
 }

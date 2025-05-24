@@ -5,8 +5,8 @@ class StateHandler {
     cacheable = false;
     cache = {};
     lastTrackingStack = null;
-    secondToLastTrackingStack = null;
-    trackingStack = [];
+    trackingStack = Array(16).fill(null);
+    trackingIndex = -1;
     structuredPathInfoStack = [];
     listIndexStack = [];
     loopContext = null;

@@ -28,8 +28,8 @@ class StateHandler implements IReadonlyStateHandler {
   cacheable: boolean = false;
   cache    : {[key:number]:any} = {};
   lastTrackingStack: IStructuredPathInfo | null = null;
-  secondToLastTrackingStack: IStructuredPathInfo | null = null;
-  trackingStack: IStructuredPathInfo[] = [];
+  trackingStack: (IStructuredPathInfo | null)[] = Array(16).fill(null);
+  trackingIndex: number = -1;
   structuredPathInfoStack: IStructuredPathInfo[] = [];
   listIndexStack: (IListIndex | null)[] = [];
   loopContext: ILoopContext | null = null;
