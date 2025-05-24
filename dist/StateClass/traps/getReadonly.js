@@ -58,16 +58,16 @@ export function getReadonly(target, prop, receiver, handler) {
     }
     else if (typeof prop === "symbol") {
         switch (prop) {
-            case GetByRefSymbol: return apiGetByRef;
-            case SetCacheableSymbol: return apiSetCacheable;
-            case ConnectedCallbackSymbol: return connectedCallback;
-            case DisconnectedCallbackSymbol: return disconnectedCallback;
-            case ResolveSymbol: return resolve;
-            case GetAllSymbol: return getAll;
-            case SetStatePropertyRefSymbol: return setStatePropertyRef;
-            case SetLoopContextSymbol: return setLoopContext;
-            case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef;
-            case GetContextListIndexSymbol: return getContextListIndex;
+            case GetByRefSymbol: return apiGetByRef(target, prop, receiver, handler);
+            case SetCacheableSymbol: return apiSetCacheable(target, prop, receiver, handler);
+            case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver, handler);
+            case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver, handler);
+            case ResolveSymbol: return resolve(target, prop, receiver, handler);
+            case GetAllSymbol: return getAll(target, prop, receiver, handler);
+            case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
+            case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
+            case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef(target, prop, receiver, handler);
+            case GetContextListIndexSymbol: return getContextListIndex(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
         }
