@@ -48,10 +48,11 @@ function _getByRef(
   handler  : IReadonlyStateHandler
 ): any {
   // 依存関係の自動登録
-  if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
-    const lastPattern = handler.lastTrackingStack;
-    if (lastPattern.parentInfo !== info) {
-      handler.engine.addDependentProp(lastPattern, info, "reference");
+  if (handler.lastTrackingStack != null) {
+    if (handler.lastTrackingStack !== info) {
+      handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+    } else if (handler.secondToLastTrackingStack != null && handler.secondToLastTrackingStack !== info) {
+      handler.engine.addDependentProp(handler.secondToLastTrackingStack, info, "reference");
     }
   }
 

@@ -4,6 +4,7 @@ import { setLoopContext } from "./methods/setLoopContext";
 class StateHandler {
     engine;
     lastTrackingStack = null;
+    secondToLastTrackingStack = null;
     trackingStack = [];
     structuredPathInfoStack = [];
     listIndexStack = [];

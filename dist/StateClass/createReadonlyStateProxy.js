@@ -5,6 +5,7 @@ class StateHandler {
     cacheable = false;
     cache = {};
     lastTrackingStack = null;
+    secondToLastTrackingStack = null;
     trackingStack = [];
     structuredPathInfoStack = [];
     listIndexStack = [];

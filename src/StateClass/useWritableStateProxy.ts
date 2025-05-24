@@ -27,6 +27,7 @@ import { setLoopContext } from "./methods/setLoopContext";
 class StateHandler implements IWritableStateHandler {
   engine   : IComponentEngine;
   lastTrackingStack: IStructuredPathInfo | null = null;
+  secondToLastTrackingStack: IStructuredPathInfo | null = null;
   trackingStack: IStructuredPathInfo[] = [];
   structuredPathInfoStack: IStructuredPathInfo[] = [];
   listIndexStack: (IListIndex | null)[] = [];

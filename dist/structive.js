@@ -496,44 +496,44 @@ const _null = (options) => {
     };
 };
 const builtinFilters = {
-    eq,
-    ne,
-    not,
-    lt,
-    le,
-    gt,
-    ge,
-    inc,
-    dec,
-    mul,
-    div,
-    fix,
-    locale,
-    uc,
-    lc,
-    cap,
-    trim: trim$1,
-    slice,
-    substr,
-    pad,
-    rep,
-    rev,
-    int,
-    float,
-    round,
-    floor,
-    ceil,
-    percent,
-    date,
-    time,
-    datetime,
-    ymd,
-    falsy,
-    truthy,
-    defaults,
-    boolean,
-    number,
-    string,
+    "eq": eq,
+    "ne": ne,
+    "not": not,
+    "lt": lt,
+    "le": le,
+    "gt": gt,
+    "ge": ge,
+    "inc": inc,
+    "dec": dec,
+    "mul": mul,
+    "div": div,
+    "fix": fix,
+    "locale": locale,
+    "uc": uc,
+    "lc": lc,
+    "cap": cap,
+    "trim": trim$1,
+    "slice": slice,
+    "substr": substr,
+    "pad": pad,
+    "rep": rep,
+    "rev": rev,
+    "int": int,
+    "float": float,
+    "round": round,
+    "floor": floor,
+    "ceil": ceil,
+    "percent": percent,
+    "date": date,
+    "time": time,
+    "datetime": datetime,
+    "ymd": ymd,
+    "falsy": falsy,
+    "truthy": truthy,
+    "defaults": defaults,
+    "boolean": boolean,
+    "number": number,
+    "string": string,
     "null": _null,
 };
 const outputBuiltinFilters = builtinFilters;
@@ -3092,6 +3092,7 @@ function setStatePropertyRef(handler, info, listIndex, callback) {
 }
 
 function setTracking(info, handler, callback) {
+    handler.secondToLastTrackingStack = handler.lastTrackingStack;
     handler.trackingStack.push(info);
     handler.lastTrackingStack = info;
     try {
@@ -3100,6 +3101,7 @@ function setTracking(info, handler, callback) {
     finally {
         handler.trackingStack.pop();
         handler.lastTrackingStack = handler.trackingStack[handler.trackingStack.length - 1] ?? null;
+        handler.secondToLastTrackingStack = handler.trackingStack[handler.trackingStack.length - 2] ?? null;
     }
 }
 
@@ -3120,10 +3122,12 @@ function setTracking(info, handler, callback) {
  */
 function _getByRef$1(target, info, listIndex, receiver, handler) {
     // 依存関係の自動登録
-    if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
-        const lastPattern = handler.lastTrackingStack;
-        if (lastPattern.parentInfo !== info) {
-            handler.engine.addDependentProp(lastPattern, info, "reference");
+    if (handler.lastTrackingStack != null) {
+        if (handler.lastTrackingStack !== info) {
+            handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+        }
+        else if (handler.secondToLastTrackingStack != null && handler.secondToLastTrackingStack !== info) {
+            handler.engine.addDependentProp(handler.secondToLastTrackingStack, info, "reference");
         }
     }
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
@@ -3328,6 +3332,7 @@ let StateHandler$1 = class StateHandler {
     cacheable = false;
     cache = {};
     lastTrackingStack = null;
+    secondToLastTrackingStack = null;
     trackingStack = [];
     structuredPathInfoStack = [];
     listIndexStack = [];
@@ -3654,6 +3659,7 @@ async function setLoopContext(handler, loopContext, callback) {
 class StateHandler {
     engine;
     lastTrackingStack = null;
+    secondToLastTrackingStack = null;
     trackingStack = [];
     structuredPathInfoStack = [];
     listIndexStack = [];

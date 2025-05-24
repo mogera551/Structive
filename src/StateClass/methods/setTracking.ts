@@ -18,6 +18,7 @@ import { IStructuredPathInfo } from "../../StateProperty/types";
 import { IStateHandler } from "../types";
 
 export function setTracking(info: IStructuredPathInfo, handler: IStateHandler, callback: () => any): any {
+  handler.secondToLastTrackingStack = handler.lastTrackingStack;
   handler.trackingStack.push(info);
   handler.lastTrackingStack = info;
   try {
@@ -25,5 +26,6 @@ export function setTracking(info: IStructuredPathInfo, handler: IStateHandler, c
   } finally {
     handler.trackingStack.pop();
     handler.lastTrackingStack = handler.trackingStack[handler.trackingStack.length - 1] ?? null;
+    handler.secondToLastTrackingStack = handler.trackingStack[handler.trackingStack.length - 2] ?? null;
   }
 }

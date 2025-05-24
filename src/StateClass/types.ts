@@ -61,6 +61,7 @@ export interface IReadonlyStateHandler {
   cacheable        : boolean;
   cache            : {[key:string]:any};
   lastTrackingStack: IStructuredPathInfo | null;
+  secondToLastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
   structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
@@ -71,6 +72,7 @@ export interface IReadonlyStateHandler {
 export interface IWritableStateHandler {
   engine           : IComponentEngine;
   lastTrackingStack: IStructuredPathInfo | null;
+  secondToLastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
   structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
