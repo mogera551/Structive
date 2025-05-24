@@ -43,6 +43,13 @@ export interface IStateProxy extends IState {
   [DisconnectedCallbackSymbol](): Promise<void>;
 }
 
+export interface IWritableStateProxy extends IState {
+  [GetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null): any;
+  [SetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void;
+  [ConnectedCallbackSymbol](): Promise<void>;
+  [DisconnectedCallbackSymbol](): Promise<void>;
+}
+
 export interface IStructiveStaticState {
   $isStructive?: boolean; // Whether the state is structive or not
   $config?: IUserConfig; // The config of the component

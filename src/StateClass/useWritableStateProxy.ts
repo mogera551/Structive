@@ -17,7 +17,7 @@
  */
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IState, IStateProxy, IWritableStateHandler } from "./types";
+import { IState, IStateProxy, IWritableStateHandler, IWritableStateProxy } from "./types";
 import { getWritable as trapGet } from "./traps/getWritable.js";
 import { set as trapSet } from "./traps/set.js";
 import { IListIndex } from "../ListIndex/types";
@@ -60,10 +60,10 @@ export async function useWritableStateProxy(
   engine: IComponentEngine, 
   state: Object,
   loopContext: ILoopContext | null = null,
-  callback: (stateProxy: IStateProxy) => Promise<void>
+  callback: (stateProxy: IWritableStateProxy) => Promise<void>
 ): Promise<void> {
   const handler = new StateHandler(engine);
-  const stateProxy = new Proxy<IState>(state, handler) as IStateProxy;
+  const stateProxy = new Proxy<IState>(state, handler) as IWritableStateProxy;
   return setLoopContext(handler, loopContext, async () => {
     await callback(stateProxy);
   });

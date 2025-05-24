@@ -3,7 +3,7 @@ import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
 import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
-import { IStateProxy } from "../../StateClass/types";
+import { IStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
@@ -83,7 +83,7 @@ class BindingState implements IBindingState {
     }
     this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
   }
-  assignValue(writeState: IStateProxy, value: any) {
+  assignValue(writeState: IWritableStateProxy, value: any) {
     writeState[SetByRefSymbol](this.info, this.listIndex, value);
   }
 }

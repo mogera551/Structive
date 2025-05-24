@@ -1,7 +1,7 @@
 import { createBindContent } from "../DataBinding/BindContent.js";
 import { IBindContent, IBinding } from "../DataBinding/types";
 import { FilterWithOptions } from "../Filter/types";
-import { IState, IStateProxy, IStructiveState } from "../StateClass/types";
+import { IState, IStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IUpdater } from "../Updater/types";
 import { createUpdater } from "../Updater/updater.js";
 import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
@@ -259,7 +259,7 @@ export class ComponentEngine implements IComponentEngine {
   // 書き込み可能な状態プロキシを作成する
   async useWritableStateProxy(
     loopContext: ILoopContext | null,
-    callback: (stateProxy: IStateProxy) => Promise<void>
+    callback: (stateProxy: IWritableStateProxy) => Promise<void>
   ): Promise<void> {
     return useWritableStateProxy(this, this.state, loopContext, callback);
   }

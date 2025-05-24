@@ -2,7 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { IStateProxy } from "../../StateClass/types";
+import { IStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
@@ -86,7 +86,7 @@ class BindingStateIndex implements IBindingState {
       bindings.add(this.binding);
     }
   }
-  assignValue(writeState:IStateProxy, value:any): void {
+  assignValue(writeState:IWritableStateProxy, value:any): void {
     raiseError("BindingStateIndex: assignValue is not implemented");
   }
 }

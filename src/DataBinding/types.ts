@@ -3,7 +3,7 @@ import { IListIndex } from "../ListIndex/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
-import { IStateProxy } from "../StateClass/types";
+import { IStateProxy, IWritableStateProxy } from "../StateClass/types";
 /**
  * DataBinding/types.ts
  *
@@ -60,7 +60,7 @@ export interface IBinding {
   bindContents     : Set<IBindContent>;
   render(): void;
   init(): void;
-  updateStateValue(writeState: IStateProxy, value: any): void;
+  updateStateValue(writeState: IWritableStateProxy, value: any): void;
 }
 
 export type StateBindSummary = Map<string, WeakMap<ILoopContext, IBindContent>>;

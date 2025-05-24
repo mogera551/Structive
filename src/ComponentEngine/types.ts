@@ -3,7 +3,7 @@ import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
-import { IState, IStateProxy, IStructiveState } from "../StateClass/types";
+import { IState, IStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IUpdater } from "../Updater/types";
 import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";
@@ -62,7 +62,7 @@ export interface IComponentEngine {
   createReadonlyStateProxy(): IStateProxy; // 読み取り専用の状態プロキシを作成する
   useWritableStateProxy(
     loopContext: ILoopContext | null,
-    callback: (stateProxy: IStateProxy) => Promise<void>
+    callback: (stateProxy: IWritableStateProxy) => Promise<void>
   ): Promise<void>;
 }
 

@@ -1,5 +1,5 @@
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IStateProxy } from "../StateClass/types";
+import { IStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { CreateBindingNodeByNodeFn, IBindingNode } from "./BindingNode/types";
 import { CreateBindingStateByStateFn, IBindingState } from "./BindingState/types";
 import { IBindContent, IBinding } from "./types";
@@ -58,7 +58,7 @@ class Binding implements IBinding {
     }
   }
 
-  updateStateValue(writeState:IStateProxy, value: any) {
+  updateStateValue(writeState:IWritableStateProxy, value: any) {
     return this.bindingState.assignValue(writeState, value);
   }
 }
