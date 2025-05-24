@@ -899,7 +899,6 @@ const ResolveSymbol = Symbol.for(`${symbolName$1}.Resolve`);
 const GetAllSymbol = Symbol.for(`${symbolName$1}.GetAll`);
 const SetStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.SetStatePropertyRef`);
 const SetLoopContextSymbol = Symbol.for(`${symbolName$1}.SetLoopContext`);
-const GetLastStatePropertyRefSymbol = Symbol.for(`${symbolName$1}.GetLastStatePropertyRef`);
 
 /**
  * BindingNodeEventクラスは、イベントバインディング（onClick, onInputなど）を担当するバインディングノードの実装です。
@@ -3369,25 +3368,6 @@ function setLoopContext(target, prop, receiver, handler) {
     return (loopContext, callback) => setLoopContext$1(handler, loopContext, callback);
 }
 
-function getLastStatePropertyRef$1(handler) {
-    if (handler.structuredPathInfoStack.length === 0) {
-        return null;
-    }
-    const info = handler.structuredPathInfoStack[handler.structuredPathInfoStack.length - 1];
-    if (typeof info === "undefined") {
-        return null;
-    }
-    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
-    if (typeof listIndex === "undefined") {
-        return null;
-    }
-    return { info, listIndex };
-}
-
-function getLastStatePropertyRef(target, prop, receiver, handler) {
-    return () => getLastStatePropertyRef$1(handler);
-}
-
 /**
  * get.ts
  *
@@ -3412,9 +3392,8 @@ function getReadonly(target, prop, receiver, handler) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const ref = getLastStatePropertyRef$1(handler) ??
-                        raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
-                    return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
+                    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+                    return listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
             }
             switch (prop) {
@@ -3440,7 +3419,6 @@ function getReadonly(target, prop, receiver, handler) {
             case GetAllSymbol: return getAll(target, prop, receiver, handler);
             case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
-            case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
         }
@@ -3498,9 +3476,8 @@ function getWritable(target, prop, receiver, handler) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const ref = getLastStatePropertyRef$1(handler) ??
-                        raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
-                    return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
+                    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+                    return listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
             }
             switch (prop) {
@@ -3526,7 +3503,6 @@ function getWritable(target, prop, receiver, handler) {
             case GetAllSymbol: return getAll(target, prop, receiver, handler);
             case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
-            case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
         }

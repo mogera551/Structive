@@ -29,18 +29,15 @@ import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { setStatePropertyRef } from "../apis/setStatePropertyRef";
 import { setLoopContext } from "../apis/setLoopContext";
-import { getLastStatePropertyRef } from "../apis/getLastStatePropertyRef";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, GetLastStatePropertyRefSymbol, ResolveSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "../symbols.js";
-import { getLastStatePropertyRef as methodGetLastStatePropertyRef } from "../methods/getLastStatePropertyRef.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAllSymbol, GetByRefSymbol, ResolveSymbol, SetCacheableSymbol, SetLoopContextSymbol, SetStatePropertyRefSymbol } from "../symbols.js";
 export function getReadonly(target, prop, receiver, handler) {
     if (typeof prop === "string") {
         if (prop.charCodeAt(0) === 36) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const ref = methodGetLastStatePropertyRef(handler) ??
-                        raiseError(`get: receiver[GetLastStatePropertyRefSymbol]() is null`);
-                    return ref.listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
+                    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+                    return listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
             }
             switch (prop) {
@@ -66,7 +63,6 @@ export function getReadonly(target, prop, receiver, handler) {
             case GetAllSymbol: return getAll(target, prop, receiver, handler);
             case SetStatePropertyRefSymbol: return setStatePropertyRef(target, prop, receiver, handler);
             case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
-            case GetLastStatePropertyRefSymbol: return getLastStatePropertyRef(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
         }

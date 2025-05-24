@@ -10,4 +10,3 @@ export const ResolveSymbol             : unique symbol = Symbol.for(`${symbolNam
 export const GetAllSymbol              : unique symbol = Symbol.for(`${symbolName}.GetAll`);
 export const SetStatePropertyRefSymbol : unique symbol = Symbol.for(`${symbolName}.SetStatePropertyRef`);
 export const SetLoopContextSymbol      : unique symbol = Symbol.for(`${symbolName}.SetLoopContext`);
-export const GetLastStatePropertyRefSymbol: unique symbol = Symbol.for(`${symbolName}.GetLastStatePropertyRef`);
