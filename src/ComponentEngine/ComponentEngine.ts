@@ -138,7 +138,9 @@ export class ComponentEngine implements IComponentEngine {
   }
 
   async disconnectedCallback(): Promise<void> {
-    await this.readonlyState[DisconnectedCallbackSymbol]();
+    await this.useWritableStateProxy(null, async (stateProxy) => {
+      await stateProxy[DisconnectedCallbackSymbol]();
+    });
   }
 
   #saveInfoByListIndexByResolvedPathInfoId: { [id:number]: WeakMap<IListIndex,ISaveInfoByResolvedPathInfo> } = {};

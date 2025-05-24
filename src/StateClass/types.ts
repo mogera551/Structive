@@ -37,10 +37,7 @@ export interface IState {
 
 export interface IReadonlyStateProxy extends IState {
   [GetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null): any;
-  [SetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void;
   [SetCacheableSymbol](callback: () => void): void;
-  [ConnectedCallbackSymbol](): Promise<void>;
-  [DisconnectedCallbackSymbol](): Promise<void>;
 }
 
 export interface IWritableStateProxy extends IState {

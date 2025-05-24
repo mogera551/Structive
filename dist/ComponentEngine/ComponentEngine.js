@@ -124,7 +124,9 @@ export class ComponentEngine {
         });
     }
     async disconnectedCallback() {
-        await this.readonlyState[DisconnectedCallbackSymbol]();
+        await this.useWritableStateProxy(null, async (stateProxy) => {
+            await stateProxy[DisconnectedCallbackSymbol]();
+        });
     }
     #saveInfoByListIndexByResolvedPathInfoId = {};
     #saveInfoByStructuredPathId = {};
