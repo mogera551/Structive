@@ -45,6 +45,7 @@ export interface IStructuredPathInfo {
    * ]
    */
   readonly wildcardPaths: string[];
+  readonly indexByWildcardPath: Record<string, number>;
   readonly wildcardInfos: IStructuredPathInfo[];
   readonly wildcardInfoSet: Set<IStructuredPathInfo>;
   readonly wildcardParentPaths: string[];

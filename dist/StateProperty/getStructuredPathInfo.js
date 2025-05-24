@@ -39,6 +39,7 @@ class StructuredPathInfo {
     cumulativeInfoSet;
     wildcardPaths;
     wildcardInfos;
+    indexByWildcardPath;
     wildcardInfoSet;
     wildcardParentPaths;
     wildcardParentInfos;
@@ -57,6 +58,7 @@ class StructuredPathInfo {
         const cumulativePaths = [];
         const cumulativeInfos = [];
         const wildcardPaths = [];
+        const indexByWildcardPath = {};
         const wildcardInfos = [];
         const wildcardParentPaths = [];
         const wildcardParentInfos = [];
@@ -66,6 +68,7 @@ class StructuredPathInfo {
             currentPatternPath += pathSegments[i];
             if (pathSegments[i] === "*") {
                 wildcardPaths.push(currentPatternPath);
+                indexByWildcardPath[currentPatternPath] = wildcardCount;
                 wildcardInfos.push(getPattern(currentPatternPath));
                 wildcardParentPaths.push(prevPatternPath);
                 wildcardParentInfos.push(getPattern(prevPatternPath));
@@ -85,6 +88,7 @@ class StructuredPathInfo {
         this.cumulativeInfos = cumulativeInfos;
         this.cumulativeInfoSet = new Set(cumulativeInfos);
         this.wildcardPaths = wildcardPaths;
+        this.indexByWildcardPath = indexByWildcardPath;
         this.wildcardInfos = wildcardInfos;
         this.wildcardInfoSet = new Set(wildcardInfos);
         this.wildcardParentPaths = wildcardParentPaths;

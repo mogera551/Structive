@@ -42,6 +42,7 @@ class StructuredPathInfo implements IStructuredPathInfo {
   cumulativeInfoSet;
   wildcardPaths;
   wildcardInfos;
+  indexByWildcardPath;
   wildcardInfoSet;
   wildcardParentPaths;
   wildcardParentInfos;
@@ -61,6 +62,7 @@ class StructuredPathInfo implements IStructuredPathInfo {
     const cumulativePaths = [];
     const cumulativeInfos: IStructuredPathInfo[] = [];
     const wildcardPaths = [];
+    const indexByWildcardPath: Record<string, number> = {};
     const wildcardInfos = [];
     const wildcardParentPaths = [];
     const wildcardParentInfos = [];
@@ -70,6 +72,7 @@ class StructuredPathInfo implements IStructuredPathInfo {
       currentPatternPath += pathSegments[i];
       if (pathSegments[i] === "*") {
         wildcardPaths.push(currentPatternPath);
+        indexByWildcardPath[currentPatternPath] = wildcardCount;
         wildcardInfos.push(getPattern(currentPatternPath));
         wildcardParentPaths.push(prevPatternPath);
         wildcardParentInfos.push(getPattern(prevPatternPath));
@@ -89,6 +92,7 @@ class StructuredPathInfo implements IStructuredPathInfo {
     this.cumulativeInfos = cumulativeInfos;
     this.cumulativeInfoSet = new Set(cumulativeInfos);
     this.wildcardPaths = wildcardPaths;
+    this.indexByWildcardPath = indexByWildcardPath;
     this.wildcardInfos = wildcardInfos;
     this.wildcardInfoSet = new Set(wildcardInfos);
     this.wildcardParentPaths = wildcardParentPaths;
