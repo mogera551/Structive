@@ -1,6 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
-import { SetLoopContextSymbol } from "../../StateClass/symbols.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 function isTwoWayBindable(element) {
@@ -61,8 +60,8 @@ class BindingNodeProperty extends BindingNode {
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const value = this.filteredValue;
         this.node.addEventListener(eventName, async () => {
-            const stateProxy = engine.createWritableStateProxy();
-            await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+            await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+                // stateProxyを生成し、バインディング値を更新
                 binding.updateStateValue(stateProxy, value);
             });
         });

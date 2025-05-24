@@ -28,8 +28,7 @@ import { getByRef as apiGetByRef } from "../apis/getByRef.js";
 import { setCacheable as apiSetCacheable } from "../apis/setCacheable.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
-import { setLoopContext } from "../apis/setLoopContext";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol } from "../symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../symbols.js";
 
 export function getReadonly(
   target  : Object, 
@@ -71,7 +70,6 @@ export function getReadonly(
       case SetCacheableSymbol: return apiSetCacheable(target, prop, receiver, handler);
       case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver, handler);
       case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver, handler);
-      case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
       default:
         return Reflect.get(
           target, 

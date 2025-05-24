@@ -60,7 +60,10 @@ export interface IComponentEngine {
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する
   createReadonlyStateProxy(): IStateProxy; // 読み取り専用の状態プロキシを作成する
-  createWritableStateProxy(): IStateProxy; // 書き込み可能な状態プロキシを作成する
+  useWritableStateProxy(
+    loopContext: ILoopContext | null,
+    callback: (stateProxy: IStateProxy) => Promise<void>
+  ): Promise<void>;
 }
 
 /**

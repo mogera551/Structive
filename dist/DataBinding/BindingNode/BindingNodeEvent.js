@@ -1,5 +1,4 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
-import { SetLoopContextSymbol } from "../../StateClass/symbols.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 /**
@@ -47,8 +46,8 @@ class BindingNodeEvent extends BindingNode {
         if (options.includes("stopPropagation")) {
             e.stopPropagation();
         }
-        const stateProxy = engine.createWritableStateProxy();
-        await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+        await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+            // stateProxyを生成し、バインディング値を実行
             await Reflect.apply(value, stateProxy, [e, ...indexes]);
         });
     }

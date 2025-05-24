@@ -2,7 +2,6 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
-import { SetLoopContextSymbol } from "../../StateClass/symbols.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
@@ -69,10 +68,10 @@ class BindingNodeProperty extends BindingNode {
     // 双方向バインディング: イベント発火時にstateを更新
     const engine = this.binding.engine;
     const loopContext = this.binding.parentBindContent.currentLoopContext;
-      const value = this.filteredValue;
-      this.node.addEventListener(eventName, async () => {
-      const stateProxy = engine.createWritableStateProxy();
-      await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+    const value = this.filteredValue;
+    this.node.addEventListener(eventName, async () => {
+      await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+        // stateProxyを生成し、バインディング値を更新
         binding.updateStateValue(stateProxy, value);
       });
     });

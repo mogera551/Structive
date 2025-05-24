@@ -1,4 +1,3 @@
-import { SetLoopContextSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
 /**
@@ -35,8 +34,9 @@ class ComponentState {
                 const engine = binding.engine;
                 const loopContext = binding.parentBindContent.currentLoopContext;
                 engine.updater.addProcess(async () => {
-                    const stateProxy = engine.createWritableStateProxy();
-                    await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+                    engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+                        // Set the value in the writable state proxy
+                        // This will trigger the binding update logic
                         return binding.updateStateValue(stateProxy, value);
                     });
                 });

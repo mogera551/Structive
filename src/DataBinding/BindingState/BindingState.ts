@@ -2,7 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { GetByRefSymbol, SetByRefSymbol, SetLoopContextSymbol } from "../../StateClass/symbols.js";
+import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
 import { IStateProxy } from "../../StateClass/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";

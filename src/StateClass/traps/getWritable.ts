@@ -28,8 +28,7 @@ import { getByRef as apiGetByRef } from "../apis/getByRef.js";
 import { setByRef as apiSetByRef } from "../apis/setByRef.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
-import { setLoopContext } from "../apis/setLoopContext";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetLoopContextSymbol } from "../symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
 
 export function getWritable(
   target  : Object, 
@@ -71,7 +70,6 @@ export function getWritable(
       case SetByRefSymbol: return apiSetByRef(target, prop, receiver, handler); 
       case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver, handler); 
       case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver, handler); 
-      case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
       default:
         return Reflect.get(
           target, 

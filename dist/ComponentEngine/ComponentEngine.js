@@ -2,13 +2,13 @@ import { createBindContent } from "../DataBinding/BindContent.js";
 import { createUpdater } from "../Updater/updater.js";
 import { attachShadow } from "./attachShadow.js";
 import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol } from "../StateClass/symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
 import { raiseError } from "../utils.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
-import { createWritableStateProxy } from "../StateClass/createWritableStateProxy.js";
+import { useWritableStateProxy } from "../StateClass/useWritableStateProxy.js";
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
  * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
@@ -97,13 +97,13 @@ export class ComponentEngine {
         if (this.owner.dataset.state) {
             try {
                 const json = JSON.parse(this.owner.dataset.state);
-                const writableState = createWritableStateProxy(this, this.state);
-                await writableState[SetLoopContextSymbol](null, async () => {
+                await this.useWritableStateProxy(null, async (stateProxy) => {
+                    // JSONから状態を設定する
                     for (const [key, value] of Object.entries(json)) {
                         const info = getStructuredPathInfo(key);
                         if (info.wildcardCount > 0)
                             continue;
-                        writableState[SetByRefSymbol](info, null, value);
+                        stateProxy[SetByRefSymbol](info, null, value);
                     }
                 });
             }
@@ -205,9 +205,9 @@ export class ComponentEngine {
     setPropertyValue(info, listIndex, value) {
         // プロパティの値を設定する
         this.updater.addProcess(() => {
-            // ToDo: ここよく検討すること
-            const writableState = createWritableStateProxy(this, this.state);
-            writableState[SetByRefSymbol](info, listIndex, value);
+            this.useWritableStateProxy(null, async (stateProxy) => {
+                stateProxy[SetByRefSymbol](info, listIndex, value);
+            });
         });
     }
     // 読み取り専用の状態プロキシを作成する
@@ -215,8 +215,8 @@ export class ComponentEngine {
         return createReadonlyStateProxy(this, this.state);
     }
     // 書き込み可能な状態プロキシを作成する
-    createWritableStateProxy() {
-        return createWritableStateProxy(this, this.state);
+    async useWritableStateProxy(loopContext, callback) {
+        return useWritableStateProxy(this, this.state, loopContext, callback);
     }
 }
 export function createComponentEngine(config, component) {

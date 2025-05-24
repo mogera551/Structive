@@ -22,6 +22,7 @@ import { getWritable as trapGet } from "./traps/getWritable.js";
 import { set as trapSet } from "./traps/set.js";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
+import { setLoopContext } from "./methods/setLoopContext";
 
 class StateHandler implements IWritableStateHandler {
   engine   : IComponentEngine;
@@ -55,10 +56,16 @@ class StateHandler implements IWritableStateHandler {
   }
 }
 
-export function createWritableStateProxy(
+export async function useWritableStateProxy(
   engine: IComponentEngine, 
-  state: Object
-): IStateProxy {
-  return new Proxy<IState>(state, new StateHandler(engine)) as IStateProxy;
+  state: Object,
+  loopContext: ILoopContext | null = null,
+  callback: (stateProxy: IStateProxy) => Promise<void>
+): Promise<void> {
+  const handler = new StateHandler(engine);
+  const stateProxy = new Proxy<IState>(state, handler) as IStateProxy;
+  return setLoopContext(handler, loopContext, async () => {
+    await callback(stateProxy);
+  });
 }
 

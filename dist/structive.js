@@ -889,14 +889,6 @@ const createBindingNodeClassName = (name, filterTexts, decorates) => (binding, n
     return new BindingNodeClassName(binding, node, name, filterFns, decorates);
 };
 
-const symbolName$1 = "state";
-const GetByRefSymbol = Symbol.for(`${symbolName$1}.GetByRef`);
-const SetByRefSymbol = Symbol.for(`${symbolName$1}.SetByRef`);
-const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
-const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
-const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
-const SetLoopContextSymbol = Symbol.for(`${symbolName$1}.SetLoopContext`);
-
 /**
  * BindingNodeEventクラスは、イベントバインディング（onClick, onInputなど）を担当するバインディングノードの実装です。
  *
@@ -942,8 +934,8 @@ class BindingNodeEvent extends BindingNode {
         if (options.includes("stopPropagation")) {
             e.stopPropagation();
         }
-        const stateProxy = engine.createWritableStateProxy();
-        await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+        await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+            // stateProxyを生成し、バインディング値を実行
             await Reflect.apply(value, stateProxy, [e, ...indexes]);
         });
     }
@@ -1307,8 +1299,8 @@ class BindingNodeProperty extends BindingNode {
         const loopContext = this.binding.parentBindContent.currentLoopContext;
         const value = this.filteredValue;
         this.node.addEventListener(eventName, async () => {
-            const stateProxy = engine.createWritableStateProxy();
-            await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+            await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+                // stateProxyを生成し、バインディング値を更新
                 binding.updateStateValue(stateProxy, value);
             });
         });
@@ -1404,9 +1396,9 @@ const createBindingNodeStyle = (name, filterTexts, decorates) => (binding, node,
     return new BindingNodeStyle(binding, node, name, filterFns, decorates);
 };
 
-const symbolName = "componentState";
-const RenderSymbol = Symbol.for(`${symbolName}.render`);
-const BindParentComponentSymbol = Symbol.for(`${symbolName}.bindParentComponent`);
+const symbolName$1 = "componentState";
+const RenderSymbol = Symbol.for(`${symbolName$1}.render`);
+const BindParentComponentSymbol = Symbol.for(`${symbolName$1}.bindParentComponent`);
 
 /**
  * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
@@ -1538,6 +1530,13 @@ function getBindingNodeCreator(node, propertyName, filterTexts, decorates) {
     const fn = _cache$2[key] ?? (_cache$2[key] = _getBindingNodeCreator(isComment, isElement, propertyName));
     return fn(propertyName, filterTexts, decorates);
 }
+
+const symbolName = "state";
+const GetByRefSymbol = Symbol.for(`${symbolName}.GetByRef`);
+const SetByRefSymbol = Symbol.for(`${symbolName}.SetByRef`);
+const SetCacheableSymbol = Symbol.for(`${symbolName}.SetCacheable`);
+const ConnectedCallbackSymbol = Symbol.for(`${symbolName}.ConnectedCallback`);
+const DisconnectedCallbackSymbol = Symbol.for(`${symbolName}.DisconnectedCallback`);
 
 /**
  * getStructuredPathInfo.ts
@@ -3316,51 +3315,6 @@ function disconnectedCallback(target, prop, receiver, handler) {
 }
 
 /**
- * 状態プロパティ参照のスコープを一時的に設定し、非同期コールバックを実行します。
- *
- * @param handler   スコープ管理用のハンドラ
- * @param info      現在の構造化パス情報
- * @param listIndex 現在のリストインデックス（ネスト対応用）
- * @param callback  スコープ内で実行する非同期処理
- *
- * スタックに info と listIndex をpushし、callback実行後に必ずpopします。
- * これにより、非同期処理中も正しいスコープ情報が維持されます。
- */
-async function asyncSetStatePropertyRef(handler, info, listIndex, callback) {
-    handler.structuredPathInfoStack.push(info);
-    handler.listIndexStack.push(listIndex);
-    try {
-        await callback();
-    }
-    finally {
-        handler.structuredPathInfoStack.pop();
-        handler.listIndexStack.pop();
-    }
-}
-
-async function setLoopContext$1(handler, loopContext, callback) {
-    if (handler.loopContext) {
-        raiseError('already in loop context');
-    }
-    handler.loopContext = loopContext;
-    try {
-        if (loopContext) {
-            await asyncSetStatePropertyRef(handler, loopContext.info, loopContext.listIndex, callback);
-        }
-        else {
-            await callback();
-        }
-    }
-    finally {
-        handler.loopContext = null;
-    }
-}
-
-function setLoopContext(target, prop, receiver, handler) {
-    return (loopContext, callback) => setLoopContext$1(handler, loopContext, callback);
-}
-
-/**
  * get.ts
  *
  * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
@@ -3407,7 +3361,6 @@ function getReadonly(target, prop, receiver, handler) {
             case SetCacheableSymbol: return setCacheable(target, prop, receiver, handler);
             case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver);
             case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver);
-            case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
         }
@@ -3488,7 +3441,6 @@ function getWritable(target, prop, receiver, handler) {
             case SetByRefSymbol: return setByRef(target, prop, receiver, handler);
             case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver);
             case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver);
-            case SetLoopContextSymbol: return setLoopContext(target, prop, receiver, handler);
             default:
                 return Reflect.get(target, prop, receiver);
         }
@@ -3521,6 +3473,47 @@ function set(target, prop, value, receiver, handler) {
     }
 }
 
+/**
+ * 状態プロパティ参照のスコープを一時的に設定し、非同期コールバックを実行します。
+ *
+ * @param handler   スコープ管理用のハンドラ
+ * @param info      現在の構造化パス情報
+ * @param listIndex 現在のリストインデックス（ネスト対応用）
+ * @param callback  スコープ内で実行する非同期処理
+ *
+ * スタックに info と listIndex をpushし、callback実行後に必ずpopします。
+ * これにより、非同期処理中も正しいスコープ情報が維持されます。
+ */
+async function asyncSetStatePropertyRef(handler, info, listIndex, callback) {
+    handler.structuredPathInfoStack.push(info);
+    handler.listIndexStack.push(listIndex);
+    try {
+        await callback();
+    }
+    finally {
+        handler.structuredPathInfoStack.pop();
+        handler.listIndexStack.pop();
+    }
+}
+
+async function setLoopContext(handler, loopContext, callback) {
+    if (handler.loopContext) {
+        raiseError('already in loop context');
+    }
+    handler.loopContext = loopContext;
+    try {
+        if (loopContext) {
+            await asyncSetStatePropertyRef(handler, loopContext.info, loopContext.listIndex, callback);
+        }
+        else {
+            await callback();
+        }
+    }
+    finally {
+        handler.loopContext = null;
+    }
+}
+
 class StateHandler {
     engine;
     cacheable = false;
@@ -3540,8 +3533,12 @@ class StateHandler {
         return set(target, prop, value, receiver, this);
     }
 }
-function createWritableStateProxy(engine, state) {
-    return new Proxy(state, new StateHandler(engine));
+async function useWritableStateProxy(engine, state, loopContext = null, callback) {
+    const handler = new StateHandler(engine);
+    const stateProxy = new Proxy(state, handler);
+    return setLoopContext(handler, loopContext, async () => {
+        await callback(stateProxy);
+    });
 }
 
 /**
@@ -3632,13 +3629,13 @@ class ComponentEngine {
         if (this.owner.dataset.state) {
             try {
                 const json = JSON.parse(this.owner.dataset.state);
-                const writableState = createWritableStateProxy(this, this.state);
-                await writableState[SetLoopContextSymbol](null, async () => {
+                await this.useWritableStateProxy(null, async (stateProxy) => {
+                    // JSONから状態を設定する
                     for (const [key, value] of Object.entries(json)) {
                         const info = getStructuredPathInfo(key);
                         if (info.wildcardCount > 0)
                             continue;
-                        writableState[SetByRefSymbol](info, null, value);
+                        stateProxy[SetByRefSymbol](info, null, value);
                     }
                 });
             }
@@ -3740,9 +3737,9 @@ class ComponentEngine {
     setPropertyValue(info, listIndex, value) {
         // プロパティの値を設定する
         this.updater.addProcess(() => {
-            // ToDo: ここよく検討すること
-            const writableState = createWritableStateProxy(this, this.state);
-            writableState[SetByRefSymbol](info, listIndex, value);
+            this.useWritableStateProxy(null, async (stateProxy) => {
+                stateProxy[SetByRefSymbol](info, listIndex, value);
+            });
         });
     }
     // 読み取り専用の状態プロキシを作成する
@@ -3750,8 +3747,8 @@ class ComponentEngine {
         return createReadonlyStateProxy(this, this.state);
     }
     // 書き込み可能な状態プロキシを作成する
-    createWritableStateProxy() {
-        return createWritableStateProxy(this, this.state);
+    async useWritableStateProxy(loopContext, callback) {
+        return useWritableStateProxy(this, this.state, loopContext, callback);
     }
 }
 function createComponentEngine(config, component) {
@@ -3961,8 +3958,9 @@ class ComponentState {
                 const engine = binding.engine;
                 const loopContext = binding.parentBindContent.currentLoopContext;
                 engine.updater.addProcess(async () => {
-                    const stateProxy = engine.createWritableStateProxy();
-                    await stateProxy[SetLoopContextSymbol](loopContext, async () => {
+                    engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+                        // Set the value in the writable state proxy
+                        // This will trigger the binding update logic
                         return binding.updateStateValue(stateProxy, value);
                     });
                 });

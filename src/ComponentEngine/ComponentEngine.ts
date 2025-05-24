@@ -9,7 +9,7 @@ import { attachShadow } from "./attachShadow.js";
 import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol, SetLoopContextSymbol } from "../StateClass/symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { ILoopContext } from "../LoopContext/types";
 import { IListIndex } from "../ListIndex/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
@@ -18,7 +18,7 @@ import { raiseError } from "../utils.js";
 import { DependencyType, IDependencyEdge } from "../DependencyWalker/types.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
-import { createWritableStateProxy } from "../StateClass/createWritableStateProxy.js";
+import { useWritableStateProxy } from "../StateClass/useWritableStateProxy.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
@@ -111,14 +111,13 @@ export class ComponentEngine implements IComponentEngine {
     if (this.owner.dataset.state) {
       try {
         const json = JSON.parse(this.owner.dataset.state);
-        const writableState = createWritableStateProxy(this, this.state);
-        await writableState[SetLoopContextSymbol](null, async () => {
+        await this.useWritableStateProxy(null, async (stateProxy) => {
+          // JSONから状態を設定する
           for(const [key, value] of Object.entries(json)) {
             const info = getStructuredPathInfo(key);
             if (info.wildcardCount > 0) continue;
-            writableState[SetByRefSymbol](info, null, value);
+            stateProxy[SetByRefSymbol](info, null, value);
           }
-
         });
       } catch(e) {
         raiseError("Failed to parse state from dataset");
@@ -248,9 +247,9 @@ export class ComponentEngine implements IComponentEngine {
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void {
     // プロパティの値を設定する
     this.updater.addProcess(() => {
-      // ToDo: ここよく検討すること
-      const writableState = createWritableStateProxy(this, this.state);
-      writableState[SetByRefSymbol](info, listIndex, value);
+      this.useWritableStateProxy(null, async (stateProxy) => {
+        stateProxy[SetByRefSymbol](info, listIndex, value);
+      });
     });
   }
   // 読み取り専用の状態プロキシを作成する
@@ -258,10 +257,12 @@ export class ComponentEngine implements IComponentEngine {
     return createReadonlyStateProxy(this, this.state);
   }
   // 書き込み可能な状態プロキシを作成する
-  createWritableStateProxy(): IStateProxy {
-    return createWritableStateProxy(this, this.state);
+  async useWritableStateProxy(
+    loopContext: ILoopContext | null,
+    callback: (stateProxy: IStateProxy) => Promise<void>
+  ): Promise<void> {
+    return useWritableStateProxy(this, this.state, loopContext, callback);
   }
-
 }
 
 export function createComponentEngine(config: IComponentConfig, component: StructiveComponent): IComponentEngine {
