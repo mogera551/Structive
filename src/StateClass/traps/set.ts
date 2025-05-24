@@ -16,14 +16,14 @@
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
 import { getListIndex } from "../methods/getListIndex.js";
 import { setByRef } from "../methods/setByRef.js";
-import { IStateHandler, IReadonlyStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy, IWritableStateProxy, IWritableStateHandler } from "../types";
 
 export function set(
   target  : Object, 
   prop    : PropertyKey, 
   value   : any, 
-  receiver: IReadonlyStateProxy,
-  handler : IStateHandler
+  receiver: IWritableStateProxy,
+  handler : IWritableStateHandler
 ): boolean {
   if (typeof prop === "string") {
     const resolvedInfo = getResolvedPathInfo(prop);

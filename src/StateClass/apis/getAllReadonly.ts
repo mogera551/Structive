@@ -20,17 +20,17 @@ import { IListIndex } from "../../ListIndex/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
-import { IStateHandler, IReadonlyStateProxy } from "../types";
-import { resolve as _resolve } from "./resolve.js";
+import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
+import { resolveReadonly } from "./resolveReadonly.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
 
-export function getAll(
+export function getAllReadonly(
   target: Object, 
   prop: PropertyKey, 
   receiver: IReadonlyStateProxy,
-  handler: IStateHandler
+  handler: IReadonlyStateHandler
 ):Function {
-    const resolve = _resolve(target, prop, receiver, handler);
+    const resolve = resolveReadonly(target, prop, receiver, handler);
     return (path: string, indexes?: number[]): any[] => {
       const info = getStructuredPathInfo(path);
       if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {

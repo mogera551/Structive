@@ -18,8 +18,8 @@
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
-import { IStateHandler, IReadonlyStateProxy } from "../types";
-import { getByRef } from "./getByRef.js";
+import { IWritableStateProxy, IWritableStateHandler } from "../types";
+import { getByRefWritable } from "./getByRefWritable";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 
 export function setByRef(
@@ -27,8 +27,8 @@ export function setByRef(
     info     : IStructuredPathInfo, 
     listIndex: IListIndex | null, 
     value    : any, 
-    receiver : IReadonlyStateProxy,
-    handler  : IStateHandler
+    receiver : IWritableStateProxy,
+    handler  : IWritableStateHandler
 ): any {
   try {
     if (info.pattern in target) {
@@ -38,7 +38,7 @@ export function setByRef(
     } else {
       const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
       const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-      const parentValue = getByRef(target, parentInfo, parentListIndex, receiver, handler);
+      const parentValue = getByRefWritable(target, parentInfo, parentListIndex, receiver, handler);
       const lastSegment = info.lastSegment;
       if (lastSegment === "*") {
         const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);

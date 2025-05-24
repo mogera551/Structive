@@ -17,7 +17,7 @@
  */
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IState, IReadonlyStateProxy, IWritableStateHandler, IWritableStateProxy } from "./types";
+import { IState, IWritableStateHandler, IWritableStateProxy } from "./types";
 import { getWritable as trapGet } from "./traps/getWritable.js";
 import { set as trapSet } from "./traps/set.js";
 import { IListIndex } from "../ListIndex/types";
@@ -26,8 +26,6 @@ import { setLoopContext } from "./methods/setLoopContext";
 
 class StateHandler implements IWritableStateHandler {
   engine   : IComponentEngine;
-  cacheable: boolean = false;
-  cache    : {[key:number]:any} = {};
   lastTrackingStack: IStructuredPathInfo | null = null;
   trackingStack: IStructuredPathInfo[] = [];
   structuredPathInfoStack: IStructuredPathInfo[] = [];
@@ -41,7 +39,7 @@ class StateHandler implements IWritableStateHandler {
   get(
     target  : Object, 
     prop    : PropertyKey, 
-    receiver: IReadonlyStateProxy
+    receiver: IWritableStateProxy
   ): any {
     return trapGet(target, prop, receiver, this);
   }
@@ -50,7 +48,7 @@ class StateHandler implements IWritableStateHandler {
     target  : Object, 
     prop    : PropertyKey, 
     value   : any, 
-    receiver: IReadonlyStateProxy
+    receiver: IWritableStateProxy
   ): boolean {
     return trapSet(target, prop, value, receiver, this);
   }

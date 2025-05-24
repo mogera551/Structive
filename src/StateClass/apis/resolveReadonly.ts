@@ -18,17 +18,16 @@
 import { IListIndex } from "../../ListIndex/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { IStateHandler, IReadonlyStateProxy } from "../types";
-import { getByRef } from "../methods/getByRef.js";
-import { setByRef } from "../methods/setByRef.js";
+import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
+import { getByRefReadonly } from "../methods/getByRefReadonly";
 
-export function resolve(
+export function resolveReadonly(
   target: Object, 
   prop: PropertyKey, 
   receiver: IReadonlyStateProxy,
-  handler: IStateHandler
-):Function {
-  return (path: string, indexes: number[], value?:any): any => {
+  handler: IReadonlyStateHandler
+): Function {
+  return (path: string, indexes: number[], value?: any): any => {
     const info = getStructuredPathInfo(path);
     let listIndex: IListIndex | null = null;
     for(let i = 0; i < info.wildcardParentInfos.length; i++) {
@@ -38,9 +37,9 @@ export function resolve(
       listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
     }
     if (typeof value === "undefined") {
-      return getByRef(target, info, listIndex, receiver, handler);
+      return getByRefReadonly(target, info, listIndex, receiver, handler);
     } else {
-      return setByRef(target, info, listIndex, value, receiver, handler);
+      raiseError(`Cannot set value on a readonly proxy: ${path}`);
     }
   };
 } 

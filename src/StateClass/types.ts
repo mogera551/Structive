@@ -47,6 +47,8 @@ export interface IWritableStateProxy extends IState {
   [DisconnectedCallbackSymbol](): Promise<void>;
 }
 
+export type IStateProxy = IReadonlyStateProxy | IWritableStateProxy;
+
 export interface IStructiveStaticState {
   $isStructive?: boolean; // Whether the state is structive or not
   $config?: IUserConfig; // The config of the component
@@ -62,22 +64,19 @@ export interface IReadonlyStateHandler {
   trackingStack    : IStructuredPathInfo[];
   structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
-  loopContext: ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IReadonlyStateProxy): boolean;
 }
 
 export interface IWritableStateHandler {
   engine           : IComponentEngine;
-  cacheable        : boolean;
-  cache            : {[key:string]:any};
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : IStructuredPathInfo[];
   structuredPathInfoStack: IStructuredPathInfo[];
   listIndexStack: (IListIndex | null)[];
   loopContext: ILoopContext | null;
-  get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
-  set(target  : Object, prop: PropertyKey, value: any, receiver: IReadonlyStateProxy): boolean;
+  get(target  : Object, prop: PropertyKey, receiver: IWritableStateProxy): any;
+  set(target  : Object, prop: PropertyKey, value: any, receiver: IWritableStateProxy): boolean;
 }
 
 export type IStateHandler = IReadonlyStateHandler | IWritableStateHandler;

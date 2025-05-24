@@ -20,21 +20,22 @@ import { getRouter } from "../../Router/Router.js";
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { getListIndex } from "../methods/getListIndex.js";
-import { getByRef } from "../methods/getByRef.js";
-import { IReadonlyStateProxy, IWritableStateHandler } from "../types.js";
-import { getAll } from "../apis/getAll.js";
-import { resolve } from "../apis/resolve.js";
-import { getByRef as apiGetByRef } from "../apis/getByRef.js";
-import { setByRef as apiSetByRef } from "../apis/setByRef.js";
+import { IWritableStateHandler, IWritableStateProxy } from "../types.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
+import { getByRefWritable } from "../methods/getByRefWritable.js";
+import { IStructuredPathInfo } from "../../StateProperty/types.js";
+import { IListIndex } from "../../ListIndex/types.js";
+import { setByRef } from "../methods/setByRef.js";
+import { resolveWritable } from "../apis/resolveWritable.js";
+import { getAllWritable } from "../apis/getAllWritable.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
 
 export function getWritable(
   target  : Object, 
   prop    : PropertyKey, 
-  receiver: IReadonlyStateProxy,
-  handler  : IWritableStateHandler
+  receiver: IWritableStateProxy,
+  handler : IWritableStateHandler
 ): any {
   if (typeof prop === "string") {
     if (prop.charCodeAt(0) === 36) {
@@ -47,16 +48,16 @@ export function getWritable(
       }
       switch (prop) {
         case "$resolve":
-          return resolve(target, prop, receiver, handler);
+          return resolveWritable(target, prop, receiver, handler);
         case "$getAll":
-          return getAll(target, prop, receiver, handler);
+          return getAllWritable(target, prop, receiver, handler);
         case "$navigate":
           return (to:string) => getRouter()?.navigate(to);
       }
     }
     const resolvedInfo = getResolvedPathInfo(prop);
     const listIndex = getListIndex(resolvedInfo, receiver, handler);
-    return getByRef(
+    return getByRefWritable(
       target, 
       resolvedInfo.info, 
       listIndex, 
@@ -66,10 +67,16 @@ export function getWritable(
 
   } else if (typeof prop === "symbol") {
     switch (prop) {
-      case GetByRefSymbol: return apiGetByRef(target, prop, receiver, handler); 
-      case SetByRefSymbol: return apiSetByRef(target, prop, receiver, handler); 
-      case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver, handler); 
-      case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver, handler); 
+      case GetByRefSymbol: 
+        return (info: IStructuredPathInfo, listIndex: IListIndex | null) => 
+          getByRefWritable(target, info, listIndex, receiver, handler);
+      case SetByRefSymbol: 
+        return (info: IStructuredPathInfo, listIndex: IListIndex | null, value: any) => 
+          setByRef(target, info, listIndex, value, receiver, handler);
+      case ConnectedCallbackSymbol:
+        return () => connectedCallback(target, prop, receiver, handler);
+      case DisconnectedCallbackSymbol: 
+        return () => disconnectedCallback(target, prop, receiver, handler);
       default:
         return Reflect.get(
           target, 

@@ -13,15 +13,15 @@
  * - 存在しない場合は何もしない
  * - ライフサイクル管理やカスタム初期化処理に利用
  */
-import { IStateHandler, IReadonlyStateProxy } from "../types";
+import { IWritableStateProxy, IWritableStateHandler } from "../types";
 
 const CONNECTED_CALLBACK = "$connectedCallback";
 
 export function connectedCallback(
   target: Object, 
   prop: PropertyKey, 
-  receiver: IReadonlyStateProxy,
-  handler: IStateHandler
+  receiver: IWritableStateProxy,
+  handler: IWritableStateHandler
 ):Function {
   return async () => {
     const callback = Reflect.get(target, CONNECTED_CALLBACK);

@@ -3106,7 +3106,7 @@ function setTracking(info, handler, callback) {
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-function _getByRef(target, info, listIndex, receiver, handler) {
+function _getByRef$1(target, info, listIndex, receiver, handler) {
     // 依存関係の自動登録
     if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
         const lastPattern = handler.lastTrackingStack;
@@ -3138,7 +3138,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
             // 存在しない場合は親infoを辿って再帰的に取得
             const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
             const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-            const parentValue = getByRef$1(target, parentInfo, parentListIndex, receiver, handler);
+            const parentValue = getByRefReadonly(target, parentInfo, parentListIndex, receiver, handler);
             const lastSegment = info.lastSegment;
             if (lastSegment === "*") {
                 // ワイルドカードの場合はlistIndexのindexでアクセス
@@ -3162,44 +3162,18 @@ function _getByRef(target, info, listIndex, receiver, handler) {
  * trackedGettersに含まれる場合は依存追跡(setTracking)を有効化し、値取得を行う。
  * それ以外は通常の_getByRefで取得。
  */
-function getByRef$1(target, info, listIndex, receiver, handler) {
+function getByRefReadonly(target, info, listIndex, receiver, handler) {
     if (handler.engine.trackedGetters.has(info.pattern)) {
         return setTracking(info, handler, () => {
-            return _getByRef(target, info, listIndex, receiver, handler);
+            return _getByRef$1(target, info, listIndex, receiver, handler);
         });
     }
     else {
-        return _getByRef(target, info, listIndex, receiver, handler);
+        return _getByRef$1(target, info, listIndex, receiver, handler);
     }
 }
 
-function setByRef$1(target, info, listIndex, value, receiver, handler) {
-    try {
-        if (info.pattern in target) {
-            return setStatePropertyRef(handler, info, listIndex, () => {
-                return Reflect.set(target, info.pattern, value, receiver);
-            });
-        }
-        else {
-            const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-            const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-            const parentValue = getByRef$1(target, parentInfo, parentListIndex, receiver, handler);
-            const lastSegment = info.lastSegment;
-            if (lastSegment === "*") {
-                const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
-                return Reflect.set(parentValue, index, value);
-            }
-            else {
-                return Reflect.set(parentValue, lastSegment, value);
-            }
-        }
-    }
-    finally {
-        handler.engine.updater.addUpdatedStatePropertyRefValue(info, listIndex, value);
-    }
-}
-
-function resolve(target, prop, receiver, handler) {
+function resolveReadonly(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
         let listIndex = null;
@@ -3210,16 +3184,27 @@ function resolve(target, prop, receiver, handler) {
             listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }
         if (typeof value === "undefined") {
-            return getByRef$1(target, info, listIndex, receiver, handler);
+            return getByRefReadonly(target, info, listIndex, receiver, handler);
         }
         else {
-            return setByRef$1(target, info, listIndex, value, receiver, handler);
+            raiseError(`Cannot set value on a readonly proxy: ${path}`);
         }
     };
 }
 
-function getAll(target, prop, receiver, handler) {
-    const resolve$1 = resolve(target, prop, receiver, handler);
+function setCacheable(handler, callback) {
+    handler.cacheable = true;
+    handler.cache = {};
+    try {
+        callback();
+    }
+    finally {
+        handler.cacheable = false;
+    }
+}
+
+function getAllReadonly(target, prop, receiver, handler) {
+    const resolve = resolveReadonly(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
         if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
@@ -3267,30 +3252,246 @@ function getAll(target, prop, receiver, handler) {
         walkWildcardPattern(info.wildcardParentInfos, 0, null, indexes, 0, [], resultIndexes);
         const resultValues = [];
         for (let i = 0; i < resultIndexes.length; i++) {
-            resultValues.push(resolve$1(info.pattern, resultIndexes[i]));
+            resultValues.push(resolve(info.pattern, resultIndexes[i]));
         }
         return resultValues;
     };
 }
 
-function getByRef(target, prop, receiver, handler) {
-    return (pattern, listIndex) => getByRef$1(target, pattern, listIndex, receiver, handler);
+/**
+ * get.ts
+ *
+ * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
+ *
+ * 主な役割:
+ * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $navigate）に応じた値やAPIを返却
+ * - 通常のプロパティはgetResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
+ * - getByRefで構造化パス・リストインデックスに対応した値を取得
+ * - シンボルプロパティの場合はhandler.callableApi経由でAPIを呼び出し
+ * - それ以外はReflect.getで通常のプロパティアクセスを実行
+ *
+ * 設計ポイント:
+ * - $1〜$9は直近のStatePropertyRefのリストインデックス値を返す特殊プロパティ
+ * - $resolve, $getAll, $navigateはAPI関数やルーターインスタンスを返す
+ * - 通常のプロパティアクセスもバインディングや多重ループに対応
+ * - シンボルAPIやReflect.getで拡張性・互換性も確保
+ */
+function getReadonly(target, prop, receiver, handler) {
+    if (typeof prop === "string") {
+        if (prop.charCodeAt(0) === 36) {
+            if (prop.length === 2) {
+                const d = prop.charCodeAt(1) - 48;
+                if (d >= 1 && d <= 9) {
+                    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+                    return listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
+                }
+            }
+            switch (prop) {
+                case "$resolve":
+                    return resolveReadonly(target, prop, receiver, handler);
+                case "$getAll":
+                    return getAllReadonly(target, prop, receiver, handler);
+                case "$navigate":
+                    return (to) => getRouter()?.navigate(to);
+            }
+        }
+        const resolvedInfo = getResolvedPathInfo(prop);
+        const listIndex = getListIndex(resolvedInfo, receiver, handler);
+        return getByRefReadonly(target, resolvedInfo.info, listIndex, receiver, handler);
+    }
+    else if (typeof prop === "symbol") {
+        switch (prop) {
+            case GetByRefSymbol:
+                return (info, listIndex) => getByRefReadonly(target, info, listIndex, receiver, handler);
+            case SetCacheableSymbol:
+                return (callback) => setCacheable(handler, callback);
+            default:
+                return Reflect.get(target, prop, receiver);
+        }
+    }
 }
 
-function setCacheable$1(handler, callback) {
-    handler.cacheable = true;
-    handler.cache = {};
+let StateHandler$1 = class StateHandler {
+    engine;
+    cacheable = false;
+    cache = {};
+    lastTrackingStack = null;
+    trackingStack = [];
+    structuredPathInfoStack = [];
+    listIndexStack = [];
+    loopContext = null;
+    constructor(engine) {
+        this.engine = engine;
+    }
+    get(target, prop, receiver) {
+        return getReadonly(target, prop, receiver, this);
+    }
+    set(target, prop, value, receiver) {
+        raiseError(`Cannot set property ${String(prop)} of readonly state.`);
+    }
+};
+function createReadonlyStateProxy(engine, state) {
+    return new Proxy(state, new StateHandler$1(engine));
+}
+
+/**
+ * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
+ *
+ * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
+ * - キャッシュ機構（handler.cacheable時はrefKeyでキャッシュ）
+ * - ネスト・ワイルドカード対応（親infoやlistIndexを辿って再帰的に値を取得）
+ * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
+ *
+ * @param target    状態オブジェクト
+ * @param info      構造化パス情報
+ * @param listIndex リストインデックス（多重ループ対応）
+ * @param receiver  プロキシ
+ * @param handler   状態ハンドラ
+ * @returns         対象プロパティの値
+ */
+function _getByRef(target, info, listIndex, receiver, handler) {
+    // 依存関係の自動登録
+    if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
+        const lastPattern = handler.lastTrackingStack;
+        if (lastPattern.parentInfo !== info) {
+            handler.engine.addDependentProp(lastPattern, info, "reference");
+        }
+    }
+    // パターンがtargetに存在する場合はgetter経由で取得
+    if (info.pattern in target) {
+        return setStatePropertyRef(handler, info, listIndex, () => {
+            return Reflect.get(target, info.pattern, receiver);
+        });
+    }
+    else {
+        // 存在しない場合は親infoを辿って再帰的に取得
+        const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+        const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
+        const parentValue = getByRefWritable(target, parentInfo, parentListIndex, receiver, handler);
+        const lastSegment = info.lastSegment;
+        if (lastSegment === "*") {
+            // ワイルドカードの場合はlistIndexのindexでアクセス
+            const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+            return Reflect.get(parentValue, index);
+        }
+        else {
+            // 通常のプロパティアクセス
+            return Reflect.get(parentValue, lastSegment);
+        }
+    }
+}
+/**
+ * trackedGettersに含まれる場合は依存追跡(setTracking)を有効化し、値取得を行う。
+ * それ以外は通常の_getByRefで取得。
+ */
+function getByRefWritable(target, info, listIndex, receiver, handler) {
+    if (handler.engine.trackedGetters.has(info.pattern)) {
+        return setTracking(info, handler, () => {
+            return _getByRef(target, info, listIndex, receiver, handler);
+        });
+    }
+    else {
+        return _getByRef(target, info, listIndex, receiver, handler);
+    }
+}
+
+function setByRef(target, info, listIndex, value, receiver, handler) {
     try {
-        callback();
+        if (info.pattern in target) {
+            return setStatePropertyRef(handler, info, listIndex, () => {
+                return Reflect.set(target, info.pattern, value, receiver);
+            });
+        }
+        else {
+            const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+            const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
+            const parentValue = getByRefWritable(target, parentInfo, parentListIndex, receiver, handler);
+            const lastSegment = info.lastSegment;
+            if (lastSegment === "*") {
+                const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+                return Reflect.set(parentValue, index, value);
+            }
+            else {
+                return Reflect.set(parentValue, lastSegment, value);
+            }
+        }
     }
     finally {
-        handler.cacheable = false;
+        handler.engine.updater.addUpdatedStatePropertyRefValue(info, listIndex, value);
     }
 }
 
-function setCacheable(target, prop, receiver, handler) {
-    return (callback) => {
-        setCacheable$1(handler, callback);
+function resolveWritable(target, prop, receiver, handler) {
+    return (path, indexes, value) => {
+        const info = getStructuredPathInfo(path);
+        let listIndex = null;
+        for (let i = 0; i < info.wildcardParentInfos.length; i++) {
+            const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
+            const listIndexes = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? []);
+            const index = indexes[i] ?? raiseError(`index is null`);
+            listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+        }
+        if (typeof value === "undefined") {
+            return getByRefWritable(target, info, listIndex, receiver, handler);
+        }
+        else {
+            return setByRef(target, info, listIndex, value, receiver, handler);
+        }
+    };
+}
+
+function getAllWritable(target, prop, receiver, handler) {
+    const resolve = resolveWritable(target, prop, receiver, handler);
+    return (path, indexes) => {
+        const info = getStructuredPathInfo(path);
+        if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
+            const lastPattern = handler.lastTrackingStack;
+            if (lastPattern.parentInfo !== info) {
+                handler.engine.addDependentProp(lastPattern, info, "reference");
+            }
+        }
+        if (typeof indexes === "undefined") {
+            for (let i = 0; i < info.wildcardInfos.length; i++) {
+                const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
+                const listIndex = getContextListIndex(handler, wildcardPattern.pattern);
+                if (listIndex) {
+                    indexes = listIndex.indexes;
+                    break;
+                }
+            }
+            if (typeof indexes === "undefined") {
+                indexes = [];
+            }
+        }
+        const walkWildcardPattern = (wildcardParentInfos, wildardIndexPos, listIndex, indexes, indexPos, parentIndexes, results) => {
+            const wildcardParentPattern = wildcardParentInfos[wildardIndexPos] ?? null;
+            if (wildcardParentPattern === null) {
+                results.push(parentIndexes);
+                return;
+            }
+            const listIndexSet = handler.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+            const listIndexes = Array.from(listIndexSet);
+            const index = indexes[indexPos] ?? null;
+            if (index === null) {
+                for (let i = 0; i < listIndexes.length; i++) {
+                    const listIndex = listIndexes[i];
+                    walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
+                }
+            }
+            else {
+                const listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+                if ((wildardIndexPos + 1) < wildcardParentInfos.length) {
+                    walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
+                }
+            }
+        };
+        const resultIndexes = [];
+        walkWildcardPattern(info.wildcardParentInfos, 0, null, indexes, 0, [], resultIndexes);
+        const resultValues = [];
+        for (let i = 0; i < resultIndexes.length; i++) {
+            resultValues.push(resolve(info.pattern, resultIndexes[i]));
+        }
+        return resultValues;
     };
 }
 
@@ -3332,86 +3533,6 @@ function disconnectedCallback(target, prop, receiver, handler) {
  * - 通常のプロパティアクセスもバインディングや多重ループに対応
  * - シンボルAPIやReflect.getで拡張性・互換性も確保
  */
-function getReadonly(target, prop, receiver, handler) {
-    if (typeof prop === "string") {
-        if (prop.charCodeAt(0) === 36) {
-            if (prop.length === 2) {
-                const d = prop.charCodeAt(1) - 48;
-                if (d >= 1 && d <= 9) {
-                    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
-                    return listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-                }
-            }
-            switch (prop) {
-                case "$resolve":
-                    return resolve(target, prop, receiver, handler);
-                case "$getAll":
-                    return getAll(target, prop, receiver, handler);
-                case "$navigate":
-                    return (to) => getRouter()?.navigate(to);
-            }
-        }
-        const resolvedInfo = getResolvedPathInfo(prop);
-        const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        return getByRef$1(target, resolvedInfo.info, listIndex, receiver, handler);
-    }
-    else if (typeof prop === "symbol") {
-        switch (prop) {
-            case GetByRefSymbol: return getByRef(target, prop, receiver, handler);
-            case SetCacheableSymbol: return setCacheable(target, prop, receiver, handler);
-            case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver);
-            case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver);
-            default:
-                return Reflect.get(target, prop, receiver);
-        }
-    }
-}
-
-let StateHandler$1 = class StateHandler {
-    engine;
-    cacheable = false;
-    cache = {};
-    lastTrackingStack = null;
-    trackingStack = [];
-    structuredPathInfoStack = [];
-    listIndexStack = [];
-    loopContext = null;
-    constructor(engine) {
-        this.engine = engine;
-    }
-    get(target, prop, receiver) {
-        return getReadonly(target, prop, receiver, this);
-    }
-    set(target, prop, value, receiver) {
-        raiseError(`Cannot set property ${String(prop)} of readonly state.`);
-    }
-};
-function createReadonlyStateProxy(engine, state) {
-    return new Proxy(state, new StateHandler$1(engine));
-}
-
-function setByRef(target, prop, receiver, handler) {
-    return (pattern, listIndex, value) => setByRef$1(target, pattern, listIndex, value, receiver, handler);
-}
-
-/**
- * get.ts
- *
- * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
- *
- * 主な役割:
- * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $navigate）に応じた値やAPIを返却
- * - 通常のプロパティはgetResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
- * - getByRefで構造化パス・リストインデックスに対応した値を取得
- * - シンボルプロパティの場合はhandler.callableApi経由でAPIを呼び出し
- * - それ以外はReflect.getで通常のプロパティアクセスを実行
- *
- * 設計ポイント:
- * - $1〜$9は直近のStatePropertyRefのリストインデックス値を返す特殊プロパティ
- * - $resolve, $getAll, $navigateはAPI関数やルーターインスタンスを返す
- * - 通常のプロパティアクセスもバインディングや多重ループに対応
- * - シンボルAPIやReflect.getで拡張性・互換性も確保
- */
 function getWritable(target, prop, receiver, handler) {
     if (typeof prop === "string") {
         if (prop.charCodeAt(0) === 36) {
@@ -3424,23 +3545,27 @@ function getWritable(target, prop, receiver, handler) {
             }
             switch (prop) {
                 case "$resolve":
-                    return resolve(target, prop, receiver, handler);
+                    return resolveWritable(target, prop, receiver, handler);
                 case "$getAll":
-                    return getAll(target, prop, receiver, handler);
+                    return getAllWritable(target, prop, receiver, handler);
                 case "$navigate":
                     return (to) => getRouter()?.navigate(to);
             }
         }
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        return getByRef$1(target, resolvedInfo.info, listIndex, receiver, handler);
+        return getByRefWritable(target, resolvedInfo.info, listIndex, receiver, handler);
     }
     else if (typeof prop === "symbol") {
         switch (prop) {
-            case GetByRefSymbol: return getByRef(target, prop, receiver, handler);
-            case SetByRefSymbol: return setByRef(target, prop, receiver, handler);
-            case ConnectedCallbackSymbol: return connectedCallback(target, prop, receiver);
-            case DisconnectedCallbackSymbol: return disconnectedCallback(target, prop, receiver);
+            case GetByRefSymbol:
+                return (info, listIndex) => getByRefWritable(target, info, listIndex, receiver, handler);
+            case SetByRefSymbol:
+                return (info, listIndex, value) => setByRef(target, info, listIndex, value, receiver, handler);
+            case ConnectedCallbackSymbol:
+                return () => connectedCallback(target, prop, receiver);
+            case DisconnectedCallbackSymbol:
+                return () => disconnectedCallback(target, prop, receiver);
             default:
                 return Reflect.get(target, prop, receiver);
         }
@@ -3466,7 +3591,7 @@ function set(target, prop, value, receiver, handler) {
     if (typeof prop === "string") {
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        return setByRef$1(target, resolvedInfo.info, listIndex, value, receiver, handler);
+        return setByRef(target, resolvedInfo.info, listIndex, value, receiver, handler);
     }
     else {
         return Reflect.set(target, prop, value, receiver);
@@ -3516,8 +3641,6 @@ async function setLoopContext(handler, loopContext, callback) {
 
 class StateHandler {
     engine;
-    cacheable = false;
-    cache = {};
     lastTrackingStack = null;
     trackingStack = [];
     structuredPathInfoStack = [];

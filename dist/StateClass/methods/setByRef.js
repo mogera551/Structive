@@ -1,5 +1,5 @@
 import { raiseError } from "../../utils.js";
-import { getByRef } from "./getByRef.js";
+import { getByRefWritable } from "./getByRefWritable";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 export function setByRef(target, info, listIndex, value, receiver, handler) {
     try {
@@ -11,7 +11,7 @@ export function setByRef(target, info, listIndex, value, receiver, handler) {
         else {
             const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
             const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-            const parentValue = getByRef(target, parentInfo, parentListIndex, receiver, handler);
+            const parentValue = getByRefWritable(target, parentInfo, parentListIndex, receiver, handler);
             const lastSegment = info.lastSegment;
             if (lastSegment === "*") {
                 const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);

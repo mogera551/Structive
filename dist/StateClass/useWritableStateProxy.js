@@ -3,8 +3,6 @@ import { set as trapSet } from "./traps/set.js";
 import { setLoopContext } from "./methods/setLoopContext";
 class StateHandler {
     engine;
-    cacheable = false;
-    cache = {};
     lastTrackingStack = null;
     trackingStack = [];
     structuredPathInfoStack = [];

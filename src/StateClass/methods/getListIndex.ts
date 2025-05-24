@@ -18,12 +18,12 @@
 import { IListIndex } from "../../ListIndex/types";
 import { IResolvedPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
-import { IStateHandler, IReadonlyStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy, IStateProxy } from "../types";
 import { getContextListIndex } from "./getContextListIndex";
 
 export function getListIndex(
   info: IResolvedPathInfo, 
-  receiver: IReadonlyStateProxy,
+  receiver: IStateProxy,
   handler: IStateHandler
 ): IListIndex | null {
   switch (info.wildcardType) {

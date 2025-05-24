@@ -21,7 +21,7 @@ import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
-import { IStateHandler, IReadonlyStateProxy } from "../types";
+import { IStateHandler, IReadonlyStateProxy, IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../types";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 import { setTracking } from "./setTracking.js";
 
@@ -44,8 +44,8 @@ function _getByRef(
   target   : Object, 
   info     : IStructuredPathInfo,
   listIndex: IListIndex | null,
-  receiver : IReadonlyStateProxy,
-  handler  : IStateHandler
+  receiver : IWritableStateProxy,
+  handler  : IWritableStateHandler
 ): any {
   // 依存関係の自動登録
   if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
@@ -55,45 +55,24 @@ function _getByRef(
     }
   }
 
-  // キャッシュが有効な場合はrefKeyで値をキャッシュ
-  let refKey = '';
-  if (handler.cacheable) {
-    refKey = createRefKey(info, listIndex);
-    const value = handler.cache[refKey];
-    if (typeof value !== "undefined") {
-      return value;
-    }
-    if (refKey in handler.cache) {
-      return undefined;
-    }
-  }
-
-  let value;
-  try {
-    // パターンがtargetに存在する場合はgetter経由で取得
-    if (info.pattern in target) {
-      return (value = setStatePropertyRef(handler, info, listIndex, () => {
-        return Reflect.get(target, info.pattern, receiver);
-      }));
+  // パターンがtargetに存在する場合はgetter経由で取得
+  if (info.pattern in target) {
+    return setStatePropertyRef(handler, info, listIndex, () => {
+      return Reflect.get(target, info.pattern, receiver);
+    });
+  } else {
+    // 存在しない場合は親infoを辿って再帰的に取得
+    const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+    const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
+    const parentValue = getByRefWritable(target, parentInfo, parentListIndex, receiver, handler);
+    const lastSegment = info.lastSegment;
+    if (lastSegment === "*") {
+      // ワイルドカードの場合はlistIndexのindexでアクセス
+      const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+      return Reflect.get(parentValue, index);
     } else {
-      // 存在しない場合は親infoを辿って再帰的に取得
-      const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-      const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-      const parentValue = getByRef(target, parentInfo, parentListIndex, receiver, handler);
-      const lastSegment = info.lastSegment;
-      if (lastSegment === "*") {
-        // ワイルドカードの場合はlistIndexのindexでアクセス
-        const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
-        return (value = Reflect.get(parentValue, index));
-      } else {
-        // 通常のプロパティアクセス
-        return (value = Reflect.get(parentValue, lastSegment));
-      }
-    }
-  } finally {
-    // キャッシュが有効な場合は取得値をキャッシュ
-    if (handler.cacheable && !(refKey in handler.cache)) {
-      handler.cache[refKey] = value;
+      // 通常のプロパティアクセス
+      return Reflect.get(parentValue, lastSegment);
     }
   }
 }
@@ -102,12 +81,12 @@ function _getByRef(
  * trackedGettersに含まれる場合は依存追跡(setTracking)を有効化し、値取得を行う。
  * それ以外は通常の_getByRefで取得。
  */
-export function getByRef(
+export function getByRefWritable(
   target   : Object, 
   info     : IStructuredPathInfo,
   listIndex: IListIndex | null,
-  receiver : IReadonlyStateProxy,
-  handler  : IStateHandler
+  receiver : IWritableStateProxy,
+  handler  : IWritableStateHandler
 ): any {
   if (handler.engine.trackedGetters.has(info.pattern)) {
     return setTracking(info, handler, () => {

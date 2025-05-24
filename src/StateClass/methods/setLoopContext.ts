@@ -18,11 +18,11 @@
  */
 import { ILoopContext } from "../../LoopContext/types";
 import { raiseError } from "../../utils";
-import { IStateHandler } from "../types";
+import { IWritableStateHandler } from "../types";
 import { asyncSetStatePropertyRef } from "./asyncSetStatePropertyRef";
 
 export async function setLoopContext(
-  handler: IStateHandler,
+  handler: IWritableStateHandler,
   loopContext: ILoopContext | null,
   callback: () => Promise<void>
 ): Promise<void> {
