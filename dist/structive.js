@@ -3041,13 +3041,13 @@ function getResolvedPathInfo(name) {
 }
 
 function getContextListIndex(handler, structuredPath) {
-    const info = handler.structuredPathInfoStack[handler.structuredPathInfoStack.length - 1];
-    if (typeof info === "undefined") {
+    const info = handler.structuredPathInfoStack[handler.refIndex];
+    if (typeof info === "undefined" || info === null) {
         return null;
     }
     const index = info.indexByWildcardPath[structuredPath];
     if (index >= 0) {
-        const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+        const listIndex = handler.listIndexStack[handler.refIndex];
         if (typeof listIndex === "undefined") {
             return null;
         }
@@ -3080,14 +3080,20 @@ function getListIndex(info, receiver, handler) {
 }
 
 function setStatePropertyRef(handler, info, listIndex, callback) {
-    handler.structuredPathInfoStack.push(info);
-    handler.listIndexStack.push(listIndex);
+    handler.refIndex++;
+    if (handler.refIndex >= handler.structuredPathInfoStack.length) {
+        handler.structuredPathInfoStack.push(null);
+        handler.listIndexStack.push(null);
+    }
+    handler.structuredPathInfoStack[handler.refIndex] = info;
+    handler.listIndexStack[handler.refIndex] = listIndex;
     try {
         return callback();
     }
     finally {
-        handler.structuredPathInfoStack.pop();
-        handler.listIndexStack.pop();
+        handler.structuredPathInfoStack[handler.refIndex] = null;
+        handler.listIndexStack[handler.refIndex] = null;
+        handler.refIndex--;
     }
 }
 
@@ -3294,7 +3300,7 @@ function getReadonly(target, prop, receiver, handler) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+                    const listIndex = handler.listIndexStack[handler.refIndex];
                     return listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
             }
@@ -3323,15 +3329,17 @@ function getReadonly(target, prop, receiver, handler) {
     }
 }
 
+const STACK_DEPTH$1 = 32;
 let StateHandler$1 = class StateHandler {
     engine;
     cacheable = false;
     cache = {};
     lastTrackingStack = null;
-    trackingStack = Array(16).fill(null);
+    trackingStack = Array(STACK_DEPTH$1).fill(null);
     trackingIndex = -1;
-    structuredPathInfoStack = [];
-    listIndexStack = [];
+    structuredPathInfoStack = Array(STACK_DEPTH$1).fill(null);
+    listIndexStack = Array(STACK_DEPTH$1).fill(null);
+    refIndex = -1;
     loopContext = null;
     constructor(engine) {
         this.engine = engine;
@@ -3547,7 +3555,7 @@ function getWritable(target, prop, receiver, handler) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+                    const listIndex = handler.listIndexStack[handler.refIndex];
                     return listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
             }
@@ -3618,14 +3626,20 @@ function set(target, prop, value, receiver, handler) {
  * これにより、非同期処理中も正しいスコープ情報が維持されます。
  */
 async function asyncSetStatePropertyRef(handler, info, listIndex, callback) {
-    handler.structuredPathInfoStack.push(info);
-    handler.listIndexStack.push(listIndex);
+    handler.refIndex++;
+    if (handler.refIndex >= handler.structuredPathInfoStack.length) {
+        handler.structuredPathInfoStack.push(null);
+        handler.listIndexStack.push(null);
+    }
+    handler.structuredPathInfoStack[handler.refIndex] = info;
+    handler.listIndexStack[handler.refIndex] = listIndex;
     try {
         await callback();
     }
     finally {
-        handler.structuredPathInfoStack.pop();
-        handler.listIndexStack.pop();
+        handler.structuredPathInfoStack[handler.refIndex] = null;
+        handler.listIndexStack[handler.refIndex] = null;
+        handler.refIndex--;
     }
 }
 
@@ -3647,13 +3661,15 @@ async function setLoopContext(handler, loopContext, callback) {
     }
 }
 
+const STACK_DEPTH = 32;
 class StateHandler {
     engine;
     lastTrackingStack = null;
-    trackingStack = Array(16).fill(null);
+    trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;
-    structuredPathInfoStack = [];
-    listIndexStack = [];
+    structuredPathInfoStack = Array(STACK_DEPTH).fill(null);
+    listIndexStack = Array(STACK_DEPTH).fill(null);
+    refIndex = -1;
     loopContext = null;
     constructor(engine) {
         this.engine = engine;

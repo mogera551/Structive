@@ -63,8 +63,9 @@ export interface IReadonlyStateHandler {
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : (IStructuredPathInfo | null)[];
   trackingIndex    : number;
-  structuredPathInfoStack: IStructuredPathInfo[];
+  structuredPathInfoStack: (IStructuredPathInfo | null)[];
   listIndexStack: (IListIndex | null)[];
+  refIndex         : number;
   get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IReadonlyStateProxy): boolean;
 }
@@ -74,8 +75,9 @@ export interface IWritableStateHandler {
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : (IStructuredPathInfo | null)[];
   trackingIndex    : number;
-  structuredPathInfoStack: IStructuredPathInfo[];
+  structuredPathInfoStack: (IStructuredPathInfo | null)[];
   listIndexStack: (IListIndex | null)[];
+  refIndex         : number;
   loopContext: ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IWritableStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IWritableStateProxy): boolean;

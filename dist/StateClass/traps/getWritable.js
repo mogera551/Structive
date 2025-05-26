@@ -33,7 +33,7 @@ export function getWritable(target, prop, receiver, handler) {
             if (prop.length === 2) {
                 const d = prop.charCodeAt(1) - 48;
                 if (d >= 1 && d <= 9) {
-                    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+                    const listIndex = handler.listIndexStack[handler.refIndex];
                     return listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
                 }
             }

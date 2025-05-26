@@ -23,12 +23,18 @@ export function setStatePropertyRef(
   listIndex: IListIndex | null,
   callback: () => void
 ): void {
-  handler.structuredPathInfoStack.push(info);
-  handler.listIndexStack.push(listIndex);
+  handler.refIndex++;
+  if (handler.refIndex >= handler.structuredPathInfoStack.length) {
+    handler.structuredPathInfoStack.push(null);
+    handler.listIndexStack.push(null);
+  }
+  handler.structuredPathInfoStack[handler.refIndex] = info;
+  handler.listIndexStack[handler.refIndex] = listIndex;
   try {
     return callback();
   } finally {
-    handler.structuredPathInfoStack.pop();
-    handler.listIndexStack.pop();
+    handler.structuredPathInfoStack[handler.refIndex] = null;
+    handler.listIndexStack[handler.refIndex] = null;
+    handler.refIndex--;
   }
 }

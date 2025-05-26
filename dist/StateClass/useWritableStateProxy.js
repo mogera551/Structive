@@ -1,13 +1,15 @@
 import { getWritable as trapGet } from "./traps/getWritable.js";
 import { set as trapSet } from "./traps/set.js";
 import { setLoopContext } from "./methods/setLoopContext";
+const STACK_DEPTH = 32;
 class StateHandler {
     engine;
     lastTrackingStack = null;
-    trackingStack = Array(16).fill(null);
+    trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;
-    structuredPathInfoStack = [];
-    listIndexStack = [];
+    structuredPathInfoStack = Array(STACK_DEPTH).fill(null);
+    listIndexStack = Array(STACK_DEPTH).fill(null);
+    refIndex = -1;
     loopContext = null;
     constructor(engine) {
         this.engine = engine;

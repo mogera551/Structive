@@ -22,13 +22,13 @@ export function getContextListIndex(
   handler: IStateHandler,
   structuredPath: string
 ): IListIndex | null {
-  const info = handler.structuredPathInfoStack[handler.structuredPathInfoStack.length - 1];
-  if (typeof info === "undefined") {
+  const info = handler.structuredPathInfoStack[handler.refIndex];
+  if (typeof info === "undefined" || info === null) {
     return null;
   }
   const index = info.indexByWildcardPath[structuredPath];
   if (index >= 0) {
-    const listIndex = handler.listIndexStack[handler.listIndexStack.length - 1];
+    const listIndex = handler.listIndexStack[handler.refIndex];
     if (typeof listIndex === "undefined") {
       return null;
     }

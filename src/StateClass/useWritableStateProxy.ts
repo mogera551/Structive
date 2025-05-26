@@ -24,13 +24,16 @@ import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { setLoopContext } from "./methods/setLoopContext";
 
+const STACK_DEPTH = 32;
+
 class StateHandler implements IWritableStateHandler {
   engine   : IComponentEngine;
   lastTrackingStack: IStructuredPathInfo | null = null;
-  trackingStack: (IStructuredPathInfo | null)[] = Array(16).fill(null);
+  trackingStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
   trackingIndex: number = -1;
-  structuredPathInfoStack: IStructuredPathInfo[] = [];
-  listIndexStack: (IListIndex | null)[] = [];
+  structuredPathInfoStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
+  listIndexStack: (IListIndex | null)[] = Array(STACK_DEPTH).fill(null);
+  refIndex: number = -1;
   loopContext: ILoopContext | null = null;
   
   constructor(engine: IComponentEngine) {
