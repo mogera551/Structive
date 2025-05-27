@@ -25,6 +25,7 @@ import { GetByRefSymbol, SetCacheableSymbol } from "../symbols.js";
 import { getByRefReadonly } from "../methods/getByRefReadonly.js";
 import { setCacheable } from "../methods/setCacheable.js";
 import { getAllReadonly } from "../apis/getAllReadonly.js";
+import { trackDependency } from "../apis/trackDependency.js";
 export function getReadonly(target, prop, receiver, handler) {
     if (typeof prop === "string") {
         if (prop.charCodeAt(0) === 36) {
@@ -40,6 +41,8 @@ export function getReadonly(target, prop, receiver, handler) {
                     return resolveReadonly(target, prop, receiver, handler);
                 case "$getAll":
                     return getAllReadonly(target, prop, receiver, handler);
+                case "$trackDependency":
+                    return trackDependency(target, prop, receiver, handler);
                 case "$navigate":
                     return (to) => getRouter()?.navigate(to);
             }

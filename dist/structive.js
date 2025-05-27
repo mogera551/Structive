@@ -3098,19 +3098,27 @@ function setStatePropertyRef(handler, info, listIndex, callback) {
 }
 
 function setTracking(info, handler, callback) {
+    // 依存関係の自動登録
+    const lastTrackingStack = handler.trackingStack[handler.trackingIndex] ?? null;
+    if (lastTrackingStack != null) {
+        // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+        if (handler.engine.trackedGetters.has(lastTrackingStack.pattern)) {
+            handler.engine.addDependentProp(lastTrackingStack, info, "reference");
+        }
+    }
     handler.trackingIndex++;
     if (handler.trackingIndex >= handler.trackingStack.length) {
         handler.trackingStack.push(null);
     }
     handler.trackingStack[handler.trackingIndex] = info;
-    handler.lastTrackingStack = handler.trackingStack[handler.trackingIndex - 1] ?? null;
+    handler.lastTrackingStack = handler.trackingStack[handler.trackingIndex] ?? null;
     try {
         return callback();
     }
     finally {
+        handler.trackingStack[handler.trackingIndex] = null;
         handler.trackingIndex--;
-        handler.trackingStack[handler.trackingIndex + 1] = null;
-        handler.lastTrackingStack = handler.trackingStack[handler.trackingIndex - 1] ?? null;
+        handler.lastTrackingStack = handler.trackingStack[handler.trackingIndex] ?? null;
     }
 }
 
@@ -3130,13 +3138,6 @@ function setTracking(info, handler, callback) {
  * @returns         対象プロパティの値
  */
 function _getByRef$1(target, info, listIndex, receiver, handler) {
-    // 依存関係の自動登録
-    if (handler.lastTrackingStack != null) {
-        // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
-        if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
-            handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
-        }
-    }
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
     let refKey = '';
     if (handler.cacheable) {
@@ -3194,6 +3195,12 @@ function getByRefReadonly(target, info, listIndex, receiver, handler) {
 function resolveReadonly(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
+        if (handler.lastTrackingStack != null) {
+            // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+            if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
+                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+            }
+        }
         let listIndex = null;
         for (let i = 0; i < info.wildcardParentInfos.length; i++) {
             const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
@@ -3225,10 +3232,10 @@ function getAllReadonly(target, prop, receiver, handler) {
     const resolve = resolveReadonly(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
-        if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
-            const lastPattern = handler.lastTrackingStack;
-            if (lastPattern.parentInfo !== info) {
-                handler.engine.addDependentProp(lastPattern, info, "reference");
+        if (handler.lastTrackingStack != null) {
+            // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+            if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
+                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
             }
         }
         if (typeof indexes === "undefined") {
@@ -3276,6 +3283,18 @@ function getAllReadonly(target, prop, receiver, handler) {
     };
 }
 
+function trackDependency(target, prop, receiver, handler) {
+    return (path) => {
+        const info = getStructuredPathInfo(path);
+        if (handler.lastTrackingStack != null) {
+            // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+            if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
+                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+            }
+        }
+    };
+}
+
 /**
  * get.ts
  *
@@ -3309,6 +3328,8 @@ function getReadonly(target, prop, receiver, handler) {
                     return resolveReadonly(target, prop, receiver, handler);
                 case "$getAll":
                     return getAllReadonly(target, prop, receiver, handler);
+                case "$trackDependency":
+                    return trackDependency(target, prop, receiver, handler);
                 case "$navigate":
                     return (to) => getRouter()?.navigate(to);
             }
@@ -3371,13 +3392,6 @@ function createReadonlyStateProxy(engine, state) {
  * @returns         対象プロパティの値
  */
 function _getByRef(target, info, listIndex, receiver, handler) {
-    // 依存関係の自動登録
-    if (handler.lastTrackingStack != null) {
-        // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
-        if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
-            handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
-        }
-    }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (info.pattern in target) {
         return setStatePropertyRef(handler, info, listIndex, () => {
@@ -3440,6 +3454,12 @@ function setByRef(target, info, listIndex, value, receiver, handler) {
 function resolveWritable(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
+        if (handler.lastTrackingStack != null) {
+            // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+            if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
+                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+            }
+        }
         let listIndex = null;
         for (let i = 0; i < info.wildcardParentInfos.length; i++) {
             const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
@@ -3460,10 +3480,10 @@ function getAllWritable(target, prop, receiver, handler) {
     const resolve = resolveWritable(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
-        if (handler.lastTrackingStack != null && handler.lastTrackingStack !== info) {
-            const lastPattern = handler.lastTrackingStack;
-            if (lastPattern.parentInfo !== info) {
-                handler.engine.addDependentProp(lastPattern, info, "reference");
+        if (handler.lastTrackingStack != null) {
+            // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+            if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
+                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
             }
         }
         if (typeof indexes === "undefined") {
@@ -3564,6 +3584,8 @@ function getWritable(target, prop, receiver, handler) {
                     return resolveWritable(target, prop, receiver, handler);
                 case "$getAll":
                     return getAllWritable(target, prop, receiver, handler);
+                case "$trackDependency":
+                    return trackDependency(target, prop, receiver, handler);
                 case "$navigate":
                     return (to) => getRouter()?.navigate(to);
             }

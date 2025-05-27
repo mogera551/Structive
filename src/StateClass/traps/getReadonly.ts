@@ -28,6 +28,7 @@ import { IStructuredPathInfo } from "../../StateProperty/types.js";
 import { IListIndex } from "../../ListIndex/types.js";
 import { setCacheable } from "../methods/setCacheable.js";
 import { getAllReadonly } from "../apis/getAllReadonly.js";
+import { trackDependency } from "../apis/trackDependency.js";
 
 export function getReadonly(
   target  : Object, 
@@ -49,6 +50,8 @@ export function getReadonly(
           return resolveReadonly(target, prop, receiver, handler);
         case "$getAll":
           return getAllReadonly(target, prop, receiver, handler);
+        case "$trackDependency":
+          return trackDependency(target, prop, receiver, handler);
         case "$navigate":
           return (to:string) => getRouter()?.navigate(to);
       }

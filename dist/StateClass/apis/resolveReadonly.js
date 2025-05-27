@@ -4,6 +4,12 @@ import { getByRefReadonly } from "../methods/getByRefReadonly";
 export function resolveReadonly(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
+        if (handler.lastTrackingStack != null) {
+            // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+            if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
+                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+            }
+        }
         let listIndex = null;
         for (let i = 0; i < info.wildcardParentInfos.length; i++) {
             const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);

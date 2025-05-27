@@ -30,9 +30,11 @@ export interface IState {
   [propName: string]: any;
   $connectedCallback?(): Promise<void> | void;
   $disconnectedCallback?(): Promise<void> | void;
-  $dependentProps?: IDependentProps;
   $component?: any;
   $navigate?(to:string): void;
+  $resolve?(pattern:string, indexes?: number[]): any;
+  $getAll?(pattern:string, indexes?: number[]): any[];
+  $trackDependency?(pattern:string): void;
 }
 
 export interface IReadonlyStateProxy extends IState {

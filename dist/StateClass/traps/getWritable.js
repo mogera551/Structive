@@ -27,6 +27,7 @@ import { resolveWritable } from "../apis/resolveWritable.js";
 import { getAllWritable } from "../apis/getAllWritable.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
+import { trackDependency } from "../apis/trackDependency.js";
 export function getWritable(target, prop, receiver, handler) {
     if (typeof prop === "string") {
         if (prop.charCodeAt(0) === 36) {
@@ -42,6 +43,8 @@ export function getWritable(target, prop, receiver, handler) {
                     return resolveWritable(target, prop, receiver, handler);
                 case "$getAll":
                     return getAllWritable(target, prop, receiver, handler);
+                case "$trackDependency":
+                    return trackDependency(target, prop, receiver, handler);
                 case "$navigate":
                     return (to) => getRouter()?.navigate(to);
             }

@@ -47,14 +47,6 @@ function _getByRef(
   receiver : IReadonlyStateProxy,
   handler  : IReadonlyStateHandler
 ): any {
-  // 依存関係の自動登録
-  if (handler.lastTrackingStack != null) {
-    // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
-    if (handler.engine.trackedGetters.has(handler.lastTrackingStack.pattern)) {
-      handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
-    }
-  }
-
   // キャッシュが有効な場合はrefKeyで値をキャッシュ
   let refKey = '';
   if (handler.cacheable) {
