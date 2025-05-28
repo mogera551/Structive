@@ -23,34 +23,35 @@
 
 ## 🚀 はじめかた
 
-1. HTML内でインポートマップを定義：
+1. エントリーファイルのHTML内でインポートマップを定義：
 
 ```html
 <script type="importmap">
 {
   "imports": {
     "structive": "path/to/cdn/structive.js",
-    "@routes/root": "./components/my-component.html",
-    "@components/sub-component": "./components/sub-component.html"
+    "@components/app-main": "path/to/main.st.html",
+    "@components/app-sub": "path/to/sub.st.html"
   }
 }
 </script>
+
+```
+structiveのCDNへパスは、`https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/structive.js`となります。
+
+2. エントリーファイルのHTML内でコンポーネントをオートローダーで自動読み込み：
+
+```html
+<script type="module" src="path/to/cdn/autoloder"></script>
 ```
 
-2. コンポーネントを `bootstrapStructive()` で自動読み込み：
-
-```js
-import { config, bootstrapStructive } from "structive";
-
-config.autoLoadFromImportMap = true;
-bootstrapStructive();
-```
+オートローダーのCDNへパスは、`https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/AutoLoaders/components.js`となります。
 
 3. HTMLに記述して使用：
 
 ```html
-<app-main></app-main> <!-- default app main, attach @routes/root -->
-<sub-component></sub-component>
+<app-main></app-main>
+<app-sub></app-sub>
 ```
 
 ---

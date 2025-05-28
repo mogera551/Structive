@@ -21,34 +21,35 @@
 
 ## 🚀 Getting Started
 
-1. Define your import map in HTML:
+1. Define your import map in entry HTML:
 
 ```html
 <script type="importmap">
 {
   "imports": {
     "structive": "path/to/cdn/structive.js",
-    "@routes/root": "./components/my-component.html",
-    "@components/sub-component": "./components/sub-component.html"
+    "@components/app-main": "path/to/main.st.html",
+    "@components/app-sub": "path/to/sub.st.html"
   }
 }
 </script>
 ```
+CDN Path of Structive is `https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/structive.js`.
 
-2. Load components using `bootstrapStructive()`:
 
-```js
-import { config, bootstrapStructive } from "structive";
+2. Load components using auto loader in entry HTML:
 
-config.autoLoadFromImportMap = true;
-bootstrapStructive();
+```html
+<script type="module" src="path/to/cdn/autoloder"></script>
 ```
+
+CDN Path of autoloader is `https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/AutoLoaders/components.js`.
 
 3. Use it in your HTML:
 
 ```html
-<app-main></app-main> <!-- default app main, attach @routes/root -->
-<sub-component></sub-component>
+<app-main></app-main>
+<app-sub></app-sub>
 ```
 
 ---
