@@ -6,6 +6,8 @@ This guide walks you through setting up your first Structive component using a s
 
 Structive loads components via `import()` from HTML files. To resolve paths, define aliases using an import map.
 
+**Important**: Always include the Structive framework itself with the alias `structive`:
+
 ### Automatic Registration (Recommended)
 
 Use the `@components/` prefix for automatic component registration:
@@ -14,6 +16,7 @@ Use the `@components/` prefix for automatic component registration:
 <script type="importmap">
 {
   "imports": {
+    "structive": "path/to/cdn/structive",
     "@components/my-component": "./components/my-component.html",
     "@components/another-component": "./components/another-component.html"
   }
@@ -31,6 +34,7 @@ For manual control, use regular aliases:
 <script type="importmap">
 {
   "imports": {
+    "structive": "path/to/cdn/structive",
     "my-component": "./components/my-component.html"
   }
 }
@@ -41,16 +45,34 @@ For manual control, use regular aliases:
 
 ---
 
+## Configuration (Optional)
+
+If you don't need router functionality, you can disable it with configuration:
+
+```js
+import { config } from "structive";
+
+config.enableMainWrapper = false;
+config.enableRouter = false;
+```
+
+> 💡 This configuration should be set before loading components or the autoloader.
+
+---
+
 ## 2. Load Components
 
 ### Automatic Registration
 
-When using `@components/` prefixed aliases, components are automatically registered. Load autoloader.
+When using `@components/` prefixed aliases, load the autoloader script:
 
 ```html
 <script type="module" src="path/to/cdn/autoloader"></script>
 ```
 
+Components are then automatically registered. No additional JavaScript code needed!
+
+> 📦 Multiple types of autoloaders are available based on config options. The appropriate loader will be selected automatically depending on your configuration settings.
 
 ### Manual Registration
 
@@ -133,6 +155,7 @@ For routing-enabled applications, use the `@routes/` prefix:
 <script type="importmap">
 {
   "imports": {
+    "structive": "path/to/cdn/structive",
     "@routes/home": "./pages/home.html",
     "@routes/about": "./pages/about.html"
   }
