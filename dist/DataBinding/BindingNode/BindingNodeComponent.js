@@ -30,8 +30,7 @@ class BindingNodeComponent extends BindingNode {
         const engine = this.binding.engine;
         let bindings = engine.bindingsByComponent.get(this.node);
         if (typeof bindings === "undefined") {
-            bindings = new Set();
-            engine.bindingsByComponent.set(this.node, bindings);
+            engine.bindingsByComponent.set(this.node, bindings = new Set());
         }
         bindings.add(this.binding);
     }

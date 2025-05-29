@@ -43,8 +43,7 @@ class BindingNodeComponent extends BindingNode {
     const engine = this.binding.engine;
     let bindings = engine.bindingsByComponent.get(this.node as StructiveComponent);
     if (typeof bindings === "undefined") {
-      bindings = new Set<IBinding>();
-      engine.bindingsByComponent.set(this.node as StructiveComponent, bindings);
+      engine.bindingsByComponent.set(this.node as StructiveComponent, bindings = new Set<IBinding>());
     }
     bindings.add(this.binding);
   }

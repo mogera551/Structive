@@ -57,6 +57,7 @@ export class ComponentEngine {
     bindingsByListIndex = new WeakMap();
     dependentTree = new Map();
     bindingsByComponent = new WeakMap();
+    structiveComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
     constructor(config, owner) {
         this.config = config;
@@ -107,7 +108,9 @@ export class ComponentEngine {
     }
     async connectedCallback() {
         await this.owner.parentStructiveComponent?.waitForInitialize.promise;
+        // コンポーネントの状態を初期化する
         if (this.owner.dataset.state) {
+            // data-state属性から状態を取得する
             try {
                 const json = JSON.parse(this.owner.dataset.state);
                 await this.useWritableStateProxy(null, async (stateProxy) => {
@@ -124,7 +127,11 @@ export class ComponentEngine {
                 raiseError("Failed to parse state from dataset");
             }
         }
+        // 親コンポーネントに登録する
+        this.owner.parentStructiveComponent?.registerChildComponent(this.owner);
+        // コンポーネントの状態を親コンポーネントにバインドする
         this.owner.state[BindParentComponentSymbol]();
+        // 
         attachShadow(this.owner, this.config, this.styleSheet);
         this.bindContent.render();
         await this.useWritableStateProxy(null, async (stateProxy) => {
@@ -140,6 +147,8 @@ export class ComponentEngine {
         await this.useWritableStateProxy(null, async (stateProxy) => {
             await stateProxy[DisconnectedCallbackSymbol]();
         });
+        // 親コンポーネントから登録を解除する
+        this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
     }
     #saveInfoByListIndexByResolvedPathInfoId = {};
     #saveInfoByStructuredPathId = {};
@@ -235,6 +244,13 @@ export class ComponentEngine {
     // 書き込み可能な状態プロキシを作成する
     async useWritableStateProxy(loopContext, callback) {
         return useWritableStateProxy(this, this.state, loopContext, callback);
+    }
+    // Structive子コンポーネントを登録する
+    registerStrutiveComponent(component) {
+        this.structiveComponents.add(component);
+    }
+    unregisterStrutiveComponent(component) {
+        this.structiveComponents.delete(component);
     }
 }
 export function createComponentEngine(config, component) {

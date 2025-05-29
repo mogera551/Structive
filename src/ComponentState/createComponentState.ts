@@ -62,6 +62,9 @@ class ComponentState implements IComponentState {
     Object.defineProperty(this.engine.state, propName, { value:undefined });
   }
   
+  /** 
+   * 子コンポーネントから呼び出される 
+   */
   bindParentComponent(): void {
     // bindParentComponent
     const parent = this.engine.owner.parentStructiveComponent;
@@ -73,6 +76,16 @@ class ComponentState implements IComponentState {
       this.bindParentProperty(binding);
     }
     this.#names = new Set(Object.keys(this.bindingByName));
+  }
+
+  unbindParentComponent(): void {
+    // unbindParentComponent
+    for(const name of this.names) {
+      const binding = this.bindingByName[name];
+      if (binding) {
+        this.unbindParentProperty(binding);
+      }
+    }
   }
 
   render(name: string, value:any): void {

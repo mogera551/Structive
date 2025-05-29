@@ -45,6 +45,7 @@ export interface IComponentEngine {
   dependentTree      : Map<IStructuredPathInfo, Set<IDependencyEdge>>; // 依存関係の木を取得する
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // コンポーネントからバインディングを取得する
+  structiveComponents: Set<StructiveComponent>; // Structiveコンポーネントのセット
 
   setup(): void;
   connectedCallback(): Promise<void>;
@@ -66,6 +67,8 @@ export interface IComponentEngine {
     loopContext: ILoopContext | null,
     callback: (stateProxy: IWritableStateProxy) => Promise<void>
   ): Promise<void>;
+  registerStrutiveComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録する
+  unregisterStrutiveComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録解除する
 }
 
 /**

@@ -1444,8 +1444,7 @@ class BindingNodeComponent extends BindingNode {
         const engine = this.binding.engine;
         let bindings = engine.bindingsByComponent.get(this.node);
         if (typeof bindings === "undefined") {
-            bindings = new Set();
-            engine.bindingsByComponent.set(this.node, bindings);
+            engine.bindingsByComponent.set(this.node, bindings = new Set());
         }
         bindings.add(this.binding);
     }
@@ -3832,6 +3831,7 @@ class ComponentEngine {
     bindingsByListIndex = new WeakMap();
     dependentTree = new Map();
     bindingsByComponent = new WeakMap();
+    structiveComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
     constructor(config, owner) {
         this.config = config;
@@ -3882,7 +3882,9 @@ class ComponentEngine {
     }
     async connectedCallback() {
         await this.owner.parentStructiveComponent?.waitForInitialize.promise;
+        // コンポーネントの状態を初期化する
         if (this.owner.dataset.state) {
+            // data-state属性から状態を取得する
             try {
                 const json = JSON.parse(this.owner.dataset.state);
                 await this.useWritableStateProxy(null, async (stateProxy) => {
@@ -3899,7 +3901,11 @@ class ComponentEngine {
                 raiseError("Failed to parse state from dataset");
             }
         }
+        // 親コンポーネントに登録する
+        this.owner.parentStructiveComponent?.registerChildComponent(this.owner);
+        // コンポーネントの状態を親コンポーネントにバインドする
         this.owner.state[BindParentComponentSymbol]();
+        // 
         attachShadow(this.owner, this.config, this.styleSheet);
         this.bindContent.render();
         await this.useWritableStateProxy(null, async (stateProxy) => {
@@ -3915,6 +3921,8 @@ class ComponentEngine {
         await this.useWritableStateProxy(null, async (stateProxy) => {
             await stateProxy[DisconnectedCallbackSymbol]();
         });
+        // 親コンポーネントから登録を解除する
+        this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
     }
     #saveInfoByListIndexByResolvedPathInfoId = {};
     #saveInfoByStructuredPathId = {};
@@ -4010,6 +4018,13 @@ class ComponentEngine {
     // 書き込み可能な状態プロキシを作成する
     async useWritableStateProxy(loopContext, callback) {
         return useWritableStateProxy(this, this.state, loopContext, callback);
+    }
+    // Structive子コンポーネントを登録する
+    registerStrutiveComponent(component) {
+        this.structiveComponents.add(component);
+    }
+    unregisterStrutiveComponent(component) {
+        this.structiveComponents.delete(component);
     }
 }
 function createComponentEngine(config, component) {
@@ -4238,6 +4253,9 @@ class ComponentState {
         const propName = binding.bindingNode.subName;
         Object.defineProperty(this.engine.state, propName, { value: undefined });
     }
+    /**
+     * 子コンポーネントから呼び出される
+     */
     bindParentComponent() {
         // bindParentComponent
         const parent = this.engine.owner.parentStructiveComponent;
@@ -4249,6 +4267,15 @@ class ComponentState {
             this.bindParentProperty(binding);
         }
         this.#names = new Set(Object.keys(this.bindingByName));
+    }
+    unbindParentComponent() {
+        // unbindParentComponent
+        for (const name of this.names) {
+            const binding = this.bindingByName[name];
+            if (binding) {
+                this.unbindParentProperty(binding);
+            }
+        }
     }
     render(name, value) {
         if (!this.names.has(name)) {
@@ -4503,6 +4530,12 @@ function createComponentClass(componentData) {
         }
         getBindingsFromChild(component) {
             return this.#engine.bindingsByComponent.get(component) ?? null;
+        }
+        registerChildComponent(component) {
+            this.#engine.registerStrutiveComponent(component);
+        }
+        unregisterChildComponent(component) {
+            this.#engine.unregisterStrutiveComponent(component);
         }
         static define(tagName) {
             if (extendTagName) {

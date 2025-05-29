@@ -27,6 +27,8 @@ export interface IComponent {
   readonly isStructive: boolean; // Whether the component is structive or not
   readonly waitForInitialize: PromiseWithResolvers<void>;
   getBindingsFromChild(component:IComponent): Set<IBinding> | null; // Get the bindings by component
+  registerChildComponent(component:StructiveComponent): void; // Register the child component
+  unregisterChildComponent(component:StructiveComponent): void; // Unregister the child component
 }
 
 export interface IComponentStatic {

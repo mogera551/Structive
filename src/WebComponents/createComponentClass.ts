@@ -112,6 +112,12 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       return this.#engine.bindingsByComponent.get(component as StructiveComponent) ?? null;
     }
 
+    registerChildComponent(component:StructiveComponent): void {
+      this.#engine.registerStrutiveComponent(component);
+    }
+    unregisterChildComponent(component:StructiveComponent): void {
+      this.#engine.unregisterStrutiveComponent(component);
+    }
     static define(tagName:string) {
       if (extendTagName) {
         customElements.define(tagName, this, { extends: extendTagName });

@@ -54,6 +54,9 @@ class ComponentState {
         const propName = binding.bindingNode.subName;
         Object.defineProperty(this.engine.state, propName, { value: undefined });
     }
+    /**
+     * 子コンポーネントから呼び出される
+     */
     bindParentComponent() {
         // bindParentComponent
         const parent = this.engine.owner.parentStructiveComponent;
@@ -65,6 +68,15 @@ class ComponentState {
             this.bindParentProperty(binding);
         }
         this.#names = new Set(Object.keys(this.bindingByName));
+    }
+    unbindParentComponent() {
+        // unbindParentComponent
+        for (const name of this.names) {
+            const binding = this.bindingByName[name];
+            if (binding) {
+                this.unbindParentProperty(binding);
+            }
+        }
     }
     render(name, value) {
         if (!this.names.has(name)) {

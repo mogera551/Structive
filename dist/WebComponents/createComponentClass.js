@@ -95,6 +95,12 @@ export function createComponentClass(componentData) {
         getBindingsFromChild(component) {
             return this.#engine.bindingsByComponent.get(component) ?? null;
         }
+        registerChildComponent(component) {
+            this.#engine.registerStrutiveComponent(component);
+        }
+        unregisterChildComponent(component) {
+            this.#engine.unregisterStrutiveComponent(component);
+        }
         static define(tagName) {
             if (extendTagName) {
                 customElements.define(tagName, this, { extends: extendTagName });
