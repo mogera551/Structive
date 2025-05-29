@@ -77,6 +77,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       super();
       this.#engine = createComponentEngine(componentConfig, this as StructiveComponent);
       this.#componentState = createComponentState(this.#engine);
+      this.#engine.setup();
     }
 
     connectedCallback() {
@@ -101,6 +102,10 @@ export function createComponentClass(componentData: IUserComponentData): Structi
 
     get isStructive(): boolean {
       return this.#engine.stateClass.$isStructive ?? false;
+    }
+
+    get waitForInitialize(): PromiseWithResolvers<void> {
+      return this.#engine.waitForInitialize;
     }
 
     getBindingsFromChild(component: IComponent): Set<IBinding> | null {

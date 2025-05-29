@@ -31,6 +31,7 @@ export interface IStructuredPathInfo {
    * ]
    */
   readonly cumulativePaths: string[];
+  readonly cumulativePathSet: Set<string>;
   readonly cumulativeInfos: IStructuredPathInfo[];
   readonly cumulativeInfoSet: Set<IStructuredPathInfo>;
   /** 
@@ -45,10 +46,12 @@ export interface IStructuredPathInfo {
    * ]
    */
   readonly wildcardPaths: string[];
+  readonly wildcardPathSet: Set<string>;
   readonly indexByWildcardPath: Record<string, number>;
   readonly wildcardInfos: IStructuredPathInfo[];
   readonly wildcardInfoSet: Set<IStructuredPathInfo>;
   readonly wildcardParentPaths: string[];
+  readonly wildcardParentPathSet: Set<string>;
   readonly wildcardParentInfos: IStructuredPathInfo[];
   readonly wildcardParentInfoSet: Set<IStructuredPathInfo>;
   readonly lastWildcardPath: string | null;

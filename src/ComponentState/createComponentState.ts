@@ -1,7 +1,8 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
+import { GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
-import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
+import { BindParentComponentSymbol, GetPropertyValueFromChildSymbol, NamesSymbol, RenderSymbol, SetPropertyValueFromChildSymbol } from "./symbols.js";
 import { IComponentState, IComponentStateHandler, IComponentStateProxy } from "./types";
 
 /**
@@ -25,12 +26,19 @@ import { IComponentState, IComponentStateHandler, IComponentStateProxy } from ".
  */
 class ComponentState implements IComponentState {
   engine: IComponentEngine;
+  bindingByName: Record<string, IBinding> = {};
+  #names? : Set<string>;
   constructor(engine: IComponentEngine) {
     this.engine = engine;
   }
 
+  get names(): Set<string> {
+    return this.#names ?? new Set<string>();
+  }
+
   bindParentProperty(binding: IBinding): void {
     const propName = binding.bindingNode.subName;
+    this.bindingByName[propName] = binding;
     Object.defineProperty(this.engine.state, propName, {
       get: () => {
         return binding.bindingState.filteredValue;
@@ -64,9 +72,13 @@ class ComponentState implements IComponentState {
     for (const binding of bindings ?? []) {
       this.bindParentProperty(binding);
     }
+    this.#names = new Set(Object.keys(this.bindingByName));
   }
 
   render(name: string, value:any): void {
+    if (!this.names.has(name)) {
+      return;
+    }
     // render
     const info = getStructuredPathInfo(name);
     this.engine.updater.addUpdatedStatePropertyRefValue(info, null, value)
@@ -83,6 +95,42 @@ class ComponentState implements IComponentState {
     const info = getStructuredPathInfo(name);
     this.engine.setPropertyValue(info, null, value); 
   }
+
+  getPropertyValueFromChild(name: string): any {
+    const info = getStructuredPathInfo(name);
+    const rootName = info.cumulativePaths[0];
+    if (!this.names.has(rootName)) {
+      return undefined;
+    }
+    const parentBinding = this.bindingByName[rootName];
+    const remainName = name.slice(rootName.length); // include dot
+    const parentPropName = parentBinding?.bindingState.pattern + remainName;
+    const parentPropInfo = getStructuredPathInfo(parentPropName);
+    const listIndex = parentBinding.bindingState.listIndex ?? null;
+    return parentBinding.bindingState.state[GetByRefSymbol](parentPropInfo, listIndex);
+  }
+
+  setPropertyValueFromChild(name: string, value: any): void {
+    const info = getStructuredPathInfo(name);
+    const rootName = info.cumulativePaths[0];
+    if (!this.names.has(rootName)) {
+      return;
+    }
+    const parentBinding = this.bindingByName[rootName];
+    const loopContext = parentBinding.parentBindContent.currentLoopContext;
+    const remainName = name.slice(rootName.length); // include dot
+    const parentPropName = parentBinding?.bindingState.pattern + remainName;
+    const parentPropInfo = getStructuredPathInfo(parentPropName);
+    const listIndex = parentBinding.bindingState.listIndex ?? null;
+    const engine = parentBinding.engine;
+    engine.updater.addProcess(async () => {
+      engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+        // Set the value in the writable state proxy
+        // This will trigger the binding update logic
+        return stateProxy[SetByRefSymbol](parentPropInfo, listIndex, value);
+      });
+    });
+  }
 }
 
 class ComponentStateHandler implements IComponentStateHandler {
@@ -90,7 +138,14 @@ class ComponentStateHandler implements IComponentStateHandler {
     if (prop === RenderSymbol) {
       return state.render.bind(state);
     } else if (prop === BindParentComponentSymbol) {
+      // 子コンポーネントから呼ばれる
       return state.bindParentComponent.bind(state);
+    } else if (prop === NamesSymbol) {
+      return state.names;
+    } else if (prop === GetPropertyValueFromChildSymbol) {
+      return state.getPropertyValueFromChild.bind(state);
+    } else if (prop === SetPropertyValueFromChildSymbol) {
+      return state.setPropertyValueFromChild.bind(state);
     } else if (typeof prop === 'string') {
       return state.getPropertyValue(prop);
     } else {

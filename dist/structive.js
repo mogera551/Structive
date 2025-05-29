@@ -1411,6 +1411,9 @@ const createBindingNodeStyle = (name, filterTexts, decorates) => (binding, node,
 const symbolName$1 = "componentState";
 const RenderSymbol = Symbol.for(`${symbolName$1}.render`);
 const BindParentComponentSymbol = Symbol.for(`${symbolName$1}.bindParentComponent`);
+const NamesSymbol = Symbol.for(`${symbolName$1}.names`);
+const GetPropertyValueFromChildSymbol = Symbol.for(`${symbolName$1}.GetPropertyValueFromChild`);
+const SetPropertyValueFromChildSymbol = Symbol.for(`${symbolName$1}.SetPropertyValueFromChild`);
 
 /**
  * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
@@ -1586,13 +1589,16 @@ class StructuredPathInfo {
     pathSegments;
     lastSegment;
     cumulativePaths;
+    cumulativePathSet;
     cumulativeInfos;
     cumulativeInfoSet;
     wildcardPaths;
+    wildcardPathSet;
     wildcardInfos;
     indexByWildcardPath;
     wildcardInfoSet;
     wildcardParentPaths;
+    wildcardParentPathSet;
     wildcardParentInfos;
     wildcardParentInfoSet;
     lastWildcardPath;
@@ -1636,13 +1642,16 @@ class StructuredPathInfo {
         this.pathSegments = pathSegments;
         this.lastSegment = pathSegments[pathSegments.length - 1];
         this.cumulativePaths = cumulativePaths;
+        this.cumulativePathSet = new Set(cumulativePaths);
         this.cumulativeInfos = cumulativeInfos;
         this.cumulativeInfoSet = new Set(cumulativeInfos);
         this.wildcardPaths = wildcardPaths;
+        this.wildcardPathSet = new Set(wildcardPaths);
         this.indexByWildcardPath = indexByWildcardPath;
         this.wildcardInfos = wildcardInfos;
         this.wildcardInfoSet = new Set(wildcardInfos);
         this.wildcardParentPaths = wildcardParentPaths;
+        this.wildcardParentPathSet = new Set(wildcardParentPaths);
         this.wildcardParentInfos = wildcardParentInfos;
         this.wildcardParentInfoSet = new Set(wildcardParentInfos);
         this.lastWildcardPath = lastWildcardPath;
@@ -3123,6 +3132,25 @@ function setTracking(info, handler, callback) {
 }
 
 /**
+ * getByRef.ts
+ *
+ * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
+ * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
+ *
+ * 主な役割:
+ * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
+ * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
+ * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
+ * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
+ * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
+ *
+ * 設計ポイント:
+ * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+ * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
+ * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
+ * - finallyでキャッシュへの格納を保証
+ */
+/**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
  *
  * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
@@ -3152,6 +3180,9 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
     }
     let value;
     try {
+        if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
+            return value = handler.engine.owner.state[GetPropertyValueFromChildSymbol](info.pattern);
+        }
         // パターンがtargetに存在する場合はgetter経由で取得
         if (info.pattern in target) {
             return (value = setStatePropertyRef(handler, info, listIndex, () => {
@@ -3377,6 +3408,25 @@ function createReadonlyStateProxy(engine, state) {
 }
 
 /**
+ * getByRef.ts
+ *
+ * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
+ * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
+ *
+ * 主な役割:
+ * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
+ * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
+ * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
+ * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
+ * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
+ *
+ * 設計ポイント:
+ * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+ * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
+ * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
+ * - finallyでキャッシュへの格納を保証
+ */
+/**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
  *
  * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
@@ -3392,6 +3442,9 @@ function createReadonlyStateProxy(engine, state) {
  * @returns         対象プロパティの値
  */
 function _getByRef(target, info, listIndex, receiver, handler) {
+    if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
+        return handler.engine.owner.state[GetPropertyValueFromChildSymbol](info.pattern);
+    }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (info.pattern in target) {
         return setStatePropertyRef(handler, info, listIndex, () => {
@@ -3425,8 +3478,28 @@ function getByRefWritable(target, info, listIndex, receiver, handler) {
     });
 }
 
+/**
+ * setByRef.ts
+ *
+ * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
+ * 状態オブジェクト（target）に値を設定するための関数（setByRef）の実装です。
+ *
+ * 主な役割:
+ * - 指定されたパス・インデックスに対応するState値を設定（多重ループやワイルドカードにも対応）
+ * - getter/setter経由で値設定時はSetStatePropertyRefSymbolでスコープを一時設定
+ * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を設定
+ * - 設定後はengine.updater.addUpdatedStatePropertyRefValueで更新情報を登録
+ *
+ * 設計ポイント:
+ * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値設定を実現
+ * - finallyで必ず更新情報を登録し、再描画や依存解決に利用
+ * - getter/setter経由のスコープ切り替えも考慮した設計
+ */
 function setByRef(target, info, listIndex, value, receiver, handler) {
     try {
+        if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
+            return handler.engine.owner.state[SetPropertyValueFromChildSymbol](info.pattern, value);
+        }
         if (info.pattern in target) {
             return setStatePropertyRef(handler, info, listIndex, () => {
                 return Reflect.set(target, info.pattern, value, receiver);
@@ -3744,7 +3817,13 @@ class ComponentEngine {
     updater;
     inputFilters;
     outputFilters;
-    bindContent;
+    #bindContent = null;
+    get bindContent() {
+        if (this.#bindContent === null) {
+            raiseError("bindContent is not initialized yet");
+        }
+        return this.#bindContent;
+    }
     baseClass = HTMLElement;
     owner;
     trackedGetters;
@@ -3787,15 +3866,22 @@ class ComponentEngine {
             this.listInfoSet.add(getStructuredPathInfo(listPath));
             this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
         }
+    }
+    setup() {
+        const componentClass = this.owner.constructor;
         for (const info of this.listInfoSet) {
             if (info.wildcardCount > 0)
                 continue;
             const value = this.readonlyState[GetByRefSymbol](info, null);
             buildListIndexTree(this, info, null, value);
         }
-        this.bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+        this.#bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+    }
+    get waitForInitialize() {
+        return this.#waitForInitialize;
     }
     async connectedCallback() {
+        await this.owner.parentStructiveComponent?.waitForInitialize.promise;
         if (this.owner.dataset.state) {
             try {
                 const json = JSON.parse(this.owner.dataset.state);
@@ -4120,11 +4206,17 @@ function getComponentConfig(userConfig) {
  */
 class ComponentState {
     engine;
+    bindingByName = {};
+    #names;
     constructor(engine) {
         this.engine = engine;
     }
+    get names() {
+        return this.#names ?? new Set();
+    }
     bindParentProperty(binding) {
         const propName = binding.bindingNode.subName;
+        this.bindingByName[propName] = binding;
         Object.defineProperty(this.engine.state, propName, {
             get: () => {
                 return binding.bindingState.filteredValue;
@@ -4156,8 +4248,12 @@ class ComponentState {
         for (const binding of bindings ?? []) {
             this.bindParentProperty(binding);
         }
+        this.#names = new Set(Object.keys(this.bindingByName));
     }
     render(name, value) {
+        if (!this.names.has(name)) {
+            return;
+        }
         // render
         const info = getStructuredPathInfo(name);
         this.engine.updater.addUpdatedStatePropertyRefValue(info, null, value);
@@ -4172,6 +4268,40 @@ class ComponentState {
         const info = getStructuredPathInfo(name);
         this.engine.setPropertyValue(info, null, value);
     }
+    getPropertyValueFromChild(name) {
+        const info = getStructuredPathInfo(name);
+        const rootName = info.cumulativePaths[0];
+        if (!this.names.has(rootName)) {
+            return undefined;
+        }
+        const parentBinding = this.bindingByName[rootName];
+        const remainName = name.slice(rootName.length); // include dot
+        const parentPropName = parentBinding?.bindingState.pattern + remainName;
+        const parentPropInfo = getStructuredPathInfo(parentPropName);
+        const listIndex = parentBinding.bindingState.listIndex ?? null;
+        return parentBinding.bindingState.state[GetByRefSymbol](parentPropInfo, listIndex);
+    }
+    setPropertyValueFromChild(name, value) {
+        const info = getStructuredPathInfo(name);
+        const rootName = info.cumulativePaths[0];
+        if (!this.names.has(rootName)) {
+            return;
+        }
+        const parentBinding = this.bindingByName[rootName];
+        const loopContext = parentBinding.parentBindContent.currentLoopContext;
+        const remainName = name.slice(rootName.length); // include dot
+        const parentPropName = parentBinding?.bindingState.pattern + remainName;
+        const parentPropInfo = getStructuredPathInfo(parentPropName);
+        const listIndex = parentBinding.bindingState.listIndex ?? null;
+        const engine = parentBinding.engine;
+        engine.updater.addProcess(async () => {
+            engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+                // Set the value in the writable state proxy
+                // This will trigger the binding update logic
+                return stateProxy[SetByRefSymbol](parentPropInfo, listIndex, value);
+            });
+        });
+    }
 }
 class ComponentStateHandler {
     get(state, prop, receiver) {
@@ -4179,7 +4309,17 @@ class ComponentStateHandler {
             return state.render.bind(state);
         }
         else if (prop === BindParentComponentSymbol) {
+            // 子コンポーネントから呼ばれる
             return state.bindParentComponent.bind(state);
+        }
+        else if (prop === NamesSymbol) {
+            return state.names;
+        }
+        else if (prop === GetPropertyValueFromChildSymbol) {
+            return state.getPropertyValueFromChild.bind(state);
+        }
+        else if (prop === SetPropertyValueFromChildSymbol) {
+            return state.setPropertyValueFromChild.bind(state);
         }
         else if (typeof prop === 'string') {
             return state.getPropertyValue(prop);
@@ -4337,6 +4477,7 @@ function createComponentClass(componentData) {
             super();
             this.#engine = createComponentEngine(componentConfig, this);
             this.#componentState = createComponentState(this.#engine);
+            this.#engine.setup();
         }
         connectedCallback() {
             this.#engine.connectedCallback();
@@ -4356,6 +4497,9 @@ function createComponentClass(componentData) {
         }
         get isStructive() {
             return this.#engine.stateClass.$isStructive ?? false;
+        }
+        get waitForInitialize() {
+            return this.#engine.waitForInitialize;
         }
         getBindingsFromChild(component) {
             return this.#engine.bindingsByComponent.get(component) ?? null;

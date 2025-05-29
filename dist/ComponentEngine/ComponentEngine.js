@@ -42,7 +42,13 @@ export class ComponentEngine {
     updater;
     inputFilters;
     outputFilters;
-    bindContent;
+    #bindContent = null;
+    get bindContent() {
+        if (this.#bindContent === null) {
+            raiseError("bindContent is not initialized yet");
+        }
+        return this.#bindContent;
+    }
     baseClass = HTMLElement;
     owner;
     trackedGetters;
@@ -85,15 +91,22 @@ export class ComponentEngine {
             this.listInfoSet.add(getStructuredPathInfo(listPath));
             this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
         }
+    }
+    setup() {
+        const componentClass = this.owner.constructor;
         for (const info of this.listInfoSet) {
             if (info.wildcardCount > 0)
                 continue;
             const value = this.readonlyState[GetByRefSymbol](info, null);
             buildListIndexTree(this, info, null, value);
         }
-        this.bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+        this.#bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+    }
+    get waitForInitialize() {
+        return this.#waitForInitialize;
     }
     async connectedCallback() {
+        await this.owner.parentStructiveComponent?.waitForInitialize.promise;
         if (this.owner.dataset.state) {
             try {
                 const json = JSON.parse(this.owner.dataset.state);

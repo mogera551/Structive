@@ -68,6 +68,7 @@ export function createComponentClass(componentData) {
             super();
             this.#engine = createComponentEngine(componentConfig, this);
             this.#componentState = createComponentState(this.#engine);
+            this.#engine.setup();
         }
         connectedCallback() {
             this.#engine.connectedCallback();
@@ -87,6 +88,9 @@ export function createComponentClass(componentData) {
         }
         get isStructive() {
             return this.#engine.stateClass.$isStructive ?? false;
+        }
+        get waitForInitialize() {
+            return this.#engine.waitForInitialize;
         }
         getBindingsFromChild(component) {
             return this.#engine.bindingsByComponent.get(component) ?? null;

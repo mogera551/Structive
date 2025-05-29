@@ -33,10 +33,11 @@ export interface IComponentEngine {
   updater       : IUpdater;
   inputFilters  : FilterWithOptions;
   outputFilters : FilterWithOptions;
-  bindContent   : IBindContent;
+  readonly  bindContent   : IBindContent;
   baseClass     : typeof HTMLElement;
   owner         : StructiveComponent;
   trackedGetters: Set<string>;
+  waitForInitialize: PromiseWithResolvers<void>;
 
   listInfoSet        : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列を持つもの
   elementInfoSet     : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列の要素を持つもの
@@ -45,6 +46,7 @@ export interface IComponentEngine {
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // コンポーネントからバインディングを取得する
 
+  setup(): void;
   connectedCallback(): Promise<void>;
   disconnectedCallback(): Promise<void>;
 

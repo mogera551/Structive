@@ -1,1 +1,1 @@
-import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
+import { BindParentComponentSymbol, GetPropertyValueFromChildSymbol, NamesSymbol, RenderSymbol, SetPropertyValueFromChildSymbol } from "./symbols.js";

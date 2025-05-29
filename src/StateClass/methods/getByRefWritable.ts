@@ -17,6 +17,7 @@
  * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
  * - finallyでキャッシュへの格納を保証
  */
+import { GetPropertyValueFromChildSymbol, NamesSymbol } from "../../ComponentState/symbols";
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
@@ -47,6 +48,10 @@ function _getByRef(
   receiver : IWritableStateProxy,
   handler  : IWritableStateHandler
 ): any {
+  if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
+    return handler.engine.owner.state[GetPropertyValueFromChildSymbol](info.pattern);
+  }
+
   // パターンがtargetに存在する場合はgetter経由で取得
   if (info.pattern in target) {
     return setStatePropertyRef(handler, info, listIndex, () => {

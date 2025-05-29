@@ -1,4 +1,4 @@
-import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
+import { BindParentComponentSymbol, GetPropertyValueFromChildSymbol, NamesSymbol, RenderSymbol, SetPropertyValueFromChildSymbol } from "./symbols.js";
 /**
  * ComponentState関連の型定義ファイル。
  *
@@ -11,10 +11,13 @@ import { BindParentComponentSymbol, RenderSymbol } from "./symbols.js";
  * - コンポーネント状態の基本的な操作（レンダリング、親バインディング、プロパティ取得・設定）を定義
  */
 export interface IComponentState {
+  readonly names: Set<string>;
   render(name: string, value: any): void;
   bindParentComponent(): void;
   getPropertyValue(name: string): any;
   setPropertyValue(name: string, value: any): void;
+  getPropertyValueFromChild(name: string): any;
+  setPropertyValueFromChild(name: string, value: any): void;
 }
 
 /**
@@ -35,4 +38,7 @@ export interface IComponentStateProxy extends IComponentState {
   [key:string]: any;
   [RenderSymbol]: (name: string, value: any) => void;
   [BindParentComponentSymbol]: () => void;
+  [NamesSymbol]: Set<string>;
+  [GetPropertyValueFromChildSymbol]: (name: string) => any;
+  [SetPropertyValueFromChildSymbol]: (name: string, value: any) => void;
 }

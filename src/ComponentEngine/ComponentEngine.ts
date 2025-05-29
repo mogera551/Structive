@@ -53,7 +53,13 @@ export class ComponentEngine implements IComponentEngine {
   updater       : IUpdater;
   inputFilters  : FilterWithOptions;
   outputFilters : FilterWithOptions;
-  bindContent   : IBindContent;
+  #bindContent  :IBindContent | null = null;
+  get bindContent(): IBindContent {
+    if (this.#bindContent === null) {
+      raiseError("bindContent is not initialized yet");
+    }
+    return this.#bindContent;
+  }
   baseClass     : typeof HTMLElement = HTMLElement;
   owner         : StructiveComponent;
   trackedGetters: Set<string>;
@@ -99,15 +105,24 @@ export class ComponentEngine implements IComponentEngine {
       this.listInfoSet.add(getStructuredPathInfo(listPath));
       this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
     }
+  }
+
+  setup(): void {
+    const componentClass = this.owner.constructor as IComponentStatic;
     for(const info of this.listInfoSet) {
       if (info.wildcardCount > 0) continue;
       const value = this.readonlyState[GetByRefSymbol](info, null)
       buildListIndexTree(this, info, null, value);
     }
-    this.bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+    this.#bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+  }
+
+  get waitForInitialize(): PromiseWithResolvers<void> {
+    return this.#waitForInitialize;
   }
 
   async connectedCallback(): Promise<void> {
+    await this.owner.parentStructiveComponent?.waitForInitialize.promise;
     if (this.owner.dataset.state) {
       try {
         const json = JSON.parse(this.owner.dataset.state);
