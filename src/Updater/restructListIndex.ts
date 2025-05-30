@@ -76,6 +76,7 @@ export function restructListIndexes(
     }
     const dependentWalker = createDependencyWalker(engine, {info, listIndex});
     const nowOnList = config.optimizeList && engine.listInfoSet.has(info);
+    // 依存関係を辿る
     dependentWalker.walk((ref, refInfo, type) => {
       if (nowOnList && type === "structured" && ref.info !== refInfo) {
         if (refInfo.cumulativeInfoSet.has(ref.info)) {
@@ -85,6 +86,7 @@ export function restructListIndexes(
       const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(refInfo.wildcardInfoSet));
       const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
       const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
+      // リストインデックスを展開する
       listWalker(engine, refInfo, listIndex, (_info, _listIndex) => {
         if (!engine.existsBindingsByInfo(_info)) {
           return;

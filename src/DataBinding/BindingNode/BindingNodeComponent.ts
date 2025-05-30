@@ -5,7 +5,7 @@ import { Filters, FilterWithOptions } from "../../Filter/types";
 import { StructiveComponent } from "../../WebComponents/types";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
-import { CreateBindingNodeFn } from "./types";
+import { CreateBindingNodeFn, INotifyRedraw } from "./types";
 
 /**
  * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
@@ -22,7 +22,7 @@ import { CreateBindingNodeFn } from "./types";
  * - 初期化時にbindingsByComponentへバインディング情報を登録
  * - 柔軟なバインディング記法・フィルタ適用に対応
  */
-class BindingNodeComponent extends BindingNode {
+class BindingNodeComponent extends BindingNode implements INotifyRedraw {
   #subName: string;
   get subName():string {
     return this.#subName;
@@ -51,6 +51,9 @@ class BindingNodeComponent extends BindingNode {
   assignValue(value: any): void {
     const component = this.node as StructiveComponent;
     component.state[RenderSymbol](this.subName, value);
+  }
+
+  notifyRedraw(binding: Set<IBinding>): void {
   }
 
 }

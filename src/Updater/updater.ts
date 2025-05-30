@@ -71,16 +71,27 @@ class Updater implements IUpdater {
   entryRender() {
     if (this.#isEntryRender) return;
     this.#isEntryRender = true;
+    const engine = this.engine;
     queueMicrotask(() => {
       try {
         const { bindings, arrayElementBindings } = this.rebuild();
-        // render
+        // スワップ処理
         for(const arrayElementBinding of arrayElementBindings) {
           arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
         }
+        // レンダリング
         if (bindings.length > 0) {
           this.render(bindings);
         }
+        // 子コンポーネントへの再描画通知
+        if (engine.structiveComponents.size > 0) {
+          for(const structiveComponent of engine.structiveComponents) {
+            const structiveComponentBindings = engine.bindingsByComponent.get(structiveComponent) ?? new Set<IBinding>();
+
+          }
+      }
+
+
       } finally {
         this.#isEntryRender = false;
       }

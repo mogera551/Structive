@@ -33,6 +33,9 @@ export interface IBindingNode {
   updateElements(listIndexes: IListIndex[], values: any[]): void;
 }
 
+export interface INotifyRedraw {
+  notifyRedraw(binding: Set<IBinding>): void
+}
 /**
  * バインディングノード生成ファクトリ型
  * - name, フィルタ, デコレータ情報からバインディングノード生成関数を返す
