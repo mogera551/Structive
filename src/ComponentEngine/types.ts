@@ -65,7 +65,7 @@ export interface IComponentEngine {
   createReadonlyStateProxy(): IReadonlyStateProxy; // 読み取り専用の状態プロキシを作成する
   useWritableStateProxy(
     loopContext: ILoopContext | null,
-    callback: (stateProxy: IWritableStateProxy) => Promise<void>
+    callback: (stateProxy: IWritableStateProxy) => (Promise<void> | void)
   ): Promise<void>;
   registerStrutiveComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録する
   unregisterStrutiveComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録解除する
