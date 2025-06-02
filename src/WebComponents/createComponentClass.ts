@@ -38,8 +38,9 @@ import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
 import { config as globalConfig } from "./getGlobalConfig.js";
 import { raiseError } from "../utils.js";
+import { IComponentStateInput } from "../ComponentStateInput/types.js";
 
-function findStructiveParent(el:StructiveComponent): IComponent | null {
+function findStructiveParent(el:StructiveComponent): StructiveComponent | null {
   let current = el.parentNode;
   while (current) {
     if ((current as StructiveComponent).state && (current as StructiveComponent).isStructive) {
@@ -71,12 +72,10 @@ export function createComponentClass(componentData: IUserComponentData): Structi
   const extendTagName = componentConfig.extends;
   return class extends baseClass implements IComponent {
     #engine: IComponentEngine;
-    #componentState: IComponentStateProxy;
 
     constructor() {
       super();
       this.#engine = createComponentEngine(componentConfig, this as StructiveComponent);
-      this.#componentState = createComponentState(this.#engine);
       this.#engine.setup();
     }
 
@@ -88,16 +87,16 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       this.#engine.disconnectedCallback();
     }
 
-    #parentStructiveComponent: IComponent | null | undefined;
-    get parentStructiveComponent(): IComponent | null {
+    #parentStructiveComponent: StructiveComponent | null | undefined;
+    get parentStructiveComponent(): StructiveComponent | null {
       if (typeof this.#parentStructiveComponent === "undefined") {
         this.#parentStructiveComponent = findStructiveParent(this as StructiveComponent);
       }
       return this.#parentStructiveComponent;
     }
 
-    get state(): IComponentStateProxy {
-      return this.#componentState;
+    get state(): IComponentStateInput {
+      return this.#engine.stateInput;
     }
 
     get isStructive(): boolean {
@@ -197,6 +196,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
           const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
           if (trackedGetters) {
             for (const [key, desc] of Object.entries(trackedGetters)) {
+              // Getterだけ設定しているプロパティが対象
               if ((desc as PropertyDescriptor).get && !(desc as PropertyDescriptor).set) {
                 this.#trackedGetters.add(key);
               }

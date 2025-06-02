@@ -19,6 +19,13 @@ import { DependencyType, IDependencyEdge } from "../DependencyWalker/types.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy.js";
+import { IComponentStateBinding } from "../ComponentStateBinding/types.js";
+import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
+import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
+import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
+import { IComponentStateInput } from "../ComponentStateInput/types.js";
+import { IComponentStateOutput } from "../ComponentStateOutput/types.js";
+import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
@@ -74,6 +81,10 @@ export class ComponentEngine implements IComponentEngine {
 
   #waitForInitialize : PromiseWithResolvers<void> = Promise.withResolvers<void>();
 
+  #stateBinding: IComponentStateBinding = createComponentStateBinding();
+  stateInput: IComponentStateInput;
+  stateOutput: IComponentStateOutput;
+
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
     if (this.config.extends) {
@@ -90,6 +101,8 @@ export class ComponentEngine implements IComponentEngine {
     this.outputFilters = componentClass.outputFilters;
     this.owner = owner;
     this.trackedGetters = componentClass.trackedGetters;
+    this.stateInput = createComponentStateInput(this, this.#stateBinding);
+    this.stateOutput = createComponentStateOutput(this.#stateBinding);
     // 依存関係の木を作成する
     const checkDependentProp = (info: IStructuredPathInfo) => {
       const parentInfo = info.parentInfo;
@@ -129,23 +142,18 @@ export class ComponentEngine implements IComponentEngine {
       // data-state属性から状態を取得する
       try {
         const json = JSON.parse(this.owner.dataset.state);
-        await this.useWritableStateProxy(null, async (stateProxy) => {
-          // JSONから状態を設定する
-          for(const [key, value] of Object.entries(json)) {
-            const info = getStructuredPathInfo(key);
-            if (info.wildcardCount > 0) continue;
-            stateProxy[SetByRefSymbol](info, null, value);
-          }
-        });
+        this.stateInput[AssignStateSymbol](json);
       } catch(e) {
         raiseError("Failed to parse state from dataset");
       }
     }
-    // 親コンポーネントに登録する
-    this.owner.parentStructiveComponent?.registerChildComponent(this.owner);
-    // コンポーネントの状態を親コンポーネントにバインドする
-    this.owner.state[BindParentComponentSymbol]();
-    // 
+    const parentComponent = this.owner.parentStructiveComponent;
+    if (parentComponent) {
+      // 親コンポーネントの状態をバインドする
+      parentComponent.registerChildComponent(this.owner);
+      // 親コンポーネントの状態を子コンポーネントにバインドする
+      this.#stateBinding.bind(parentComponent, this.owner);
+    }
     attachShadow(this.owner, this.config, this.styleSheet);
 
     this.bindContent.render();
@@ -271,8 +279,7 @@ export class ComponentEngine implements IComponentEngine {
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any {
     // プロパティの値を取得する
-    const readonlyState = createReadonlyStateProxy(this, this.state);
-    return readonlyState[GetByRefSymbol](info, listIndex);
+    return this.readonlyState[GetByRefSymbol](info, listIndex);
   }
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void {
     // プロパティの値を設定する
@@ -281,10 +288,6 @@ export class ComponentEngine implements IComponentEngine {
         stateProxy[SetByRefSymbol](info, listIndex, value);
       });
     });
-  }
-  // 読み取り専用の状態プロキシを作成する
-  createReadonlyStateProxy(): IReadonlyStateProxy {
-    return createReadonlyStateProxy(this, this.state);
   }
   // 書き込み可能な状態プロキシを作成する
   async useWritableStateProxy(

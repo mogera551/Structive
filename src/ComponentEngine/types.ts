@@ -1,3 +1,5 @@
+import { IComponentStateInput } from "../ComponentStateInput/types";
+import { IComponentStateOutput } from "../ComponentStateOutput/types";
 import { IBindContent, IBinding } from "../DataBinding/types";
 import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
@@ -44,8 +46,11 @@ export interface IComponentEngine {
   bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する
   dependentTree      : Map<IStructuredPathInfo, Set<IDependencyEdge>>; // 依存関係の木を取得する
 
-  bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // コンポーネントからバインディングを取得する
-  structiveComponents: Set<StructiveComponent>; // Structiveコンポーネントのセット
+  bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // Structive子コンポーネントからバインディングを取得する
+  structiveComponents: Set<StructiveComponent>; // Structive子コンポーネントのセット
+
+  stateInput: IComponentStateInput;
+  stateOutput: IComponentStateOutput;
 
   setup(): void;
   connectedCallback(): Promise<void>;
@@ -62,7 +67,6 @@ export interface IComponentEngine {
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する
-  createReadonlyStateProxy(): IReadonlyStateProxy; // 読み取り専用の状態プロキシを作成する
   useWritableStateProxy(
     loopContext: ILoopContext | null,
     callback: (stateProxy: IWritableStateProxy) => (Promise<void> | void)

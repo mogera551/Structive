@@ -63,8 +63,10 @@ function _getByRef(
 
   let value;
   try {
-    if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
-      return value = handler.engine.owner.state[GetPropertyValueFromChildSymbol](info.pattern);
+    // 親子関係のあるgetterが存在する場合は、外部依存から取得
+    // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
+    if (handler.engine.stateOutput.startsWith(info)) {
+      return value = handler.engine.stateOutput.get(info);
     }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (info.pattern in target) {

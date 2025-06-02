@@ -18,12 +18,13 @@ import { FilterWithOptions } from "../Filter/types";
 import { IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
 import { IComponentStateProxy } from "../ComponentState/types";
+import { IComponentStateInput } from "../ComponentStateInput/types";
 
 export type ComponentType = 'autonomous' | 'builtin';
 
 export interface IComponent {
-  readonly parentStructiveComponent: IComponent | null; // The parent component of the current component
-  readonly state: IComponentStateProxy;
+  readonly parentStructiveComponent: StructiveComponent | null; // The parent component of the current component
+  readonly state: IComponentStateInput;
   readonly isStructive: boolean; // Whether the component is structive or not
   readonly waitForInitialize: PromiseWithResolvers<void>;
   getBindingsFromChild(component:IComponent): Set<IBinding> | null; // Get the bindings by component

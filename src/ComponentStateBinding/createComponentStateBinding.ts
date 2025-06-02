@@ -2,6 +2,7 @@ import { IBinding } from "../DataBinding/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { raiseError } from "../utils";
+import { StructiveComponent } from "../WebComponents/types";
 import { IComponentStateBinding } from "./types";
 
 class ComponentStateBinding implements IComponentStateBinding {
@@ -15,12 +16,6 @@ class ComponentStateBinding implements IComponentStateBinding {
   addBinding(binding: IBinding): void {
     const parentPath = binding.bindingState.pattern;
     const childPath = binding.bindingNode.subName;
-    this.add(parentPath, childPath);
-    this.bindingByParentPath.set(parentPath, binding);
-    this.bindingByChildPath.set(childPath, binding);
-  }
-  
-  add(parentPath: string, childPath: string): void {
     if (this.childPathByParentPath.has(parentPath)) {
       throw new Error(`Parent path "${parentPath}" already has a child path.`);
     }
@@ -31,8 +26,10 @@ class ComponentStateBinding implements IComponentStateBinding {
     this.parentPathByChildPath.set(childPath, parentPath);
     this.parentPaths.add(parentPath);
     this.childPaths.add(childPath);
+    this.bindingByParentPath.set(parentPath, binding);
+    this.bindingByChildPath.set(childPath, binding);
   }
-
+  
   getChildPath(parentPath: string): string | undefined {
     return this.childPathByParentPath.get(parentPath);
   }
@@ -84,6 +81,14 @@ class ComponentStateBinding implements IComponentStateBinding {
       const matches = Array.from(matchPaths);
       const longestMatchPath = matches[matches.length - 1];
       return longestMatchPath;
+    }
+  }
+
+  bind(parentComponent: StructiveComponent, childComponent: StructiveComponent): void {
+    // bindParentComponent
+    const bindings = parentComponent.getBindingsFromChild(childComponent);
+    for (const binding of bindings ?? []) {
+      this.addBinding(binding);
     }
   }
 }
