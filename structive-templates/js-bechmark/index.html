@@ -7,22 +7,15 @@
     <script type="importmap">
       {
         "imports": {
-          "structive": "https://cdn.jsdelivr.net/gh/mogera551/Structive@0.2.2/dist/structive.js",
+          "structive": "https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/structive.js",
           "buildData": "./buildData.js",
-          "main": "./js-benchmark.st.html"
+          "@components/app-main": "./js-benchmark.st.html"
         }
       }
     </script>
+    <script type="module" src="https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/AutoLoaders/components--disable-shadow-dom.js"></script>
   </head>
   <body>
     <app-main></app-main>
   </body>
-  <script type="module">
-    import { config, defineComponents } from "structive";
-    config.debug = true;
-    config.enableMainWrapper = false;
-    config.enableRouter = false;
-    config.enableShadowDom = false;
-    defineComponents({ "app-main": "main" });
-  </script>
 </html>

@@ -10,19 +10,13 @@
       {
         "imports": {
           "structive": "https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/structive.js",
-          "main": "./simple-component.st.html"
+          "@components/app-main": "./simple-component.st.html"
         }
       }
     </script>
+    <script type="module" src="https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/AutoLoaders/components--disable-shadow-dom.js"></script>
   </head>
   <body>
     <app-main></app-main>
   </body>
-  <script type="module">
-    import { config, defineComponents } from "structive";
-    config.enableMainWrapper = false;
-    config.enableRouter = false;
-    config.enableShadowDom = false;
-    defineComponents({ "app-main": "main" });
-  </script>
 </html>
