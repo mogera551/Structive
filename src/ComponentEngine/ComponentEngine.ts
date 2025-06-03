@@ -69,6 +69,8 @@ export class ComponentEngine implements IComponentEngine {
   baseClass     : typeof HTMLElement = HTMLElement;
   owner         : StructiveComponent;
   trackedGetters: Set<string>;
+  getters       : Set<string>;
+  setters       : Set<string>;
 
   listInfoSet         : Set<IStructuredPathInfo> = new Set();
   elementInfoSet      : Set<IStructuredPathInfo> = new Set();
@@ -100,6 +102,8 @@ export class ComponentEngine implements IComponentEngine {
     this.outputFilters = componentClass.outputFilters;
     this.owner = owner;
     this.trackedGetters = componentClass.trackedGetters;
+    this.getters = componentClass.getters;
+    this.setters = componentClass.setters;
     this.stateInput = createComponentStateInput(this, this.#stateBinding);
     this.stateOutput = createComponentStateOutput(this.#stateBinding);
     // 依存関係の木を作成する

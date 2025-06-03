@@ -30,7 +30,6 @@ import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/register
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
 import { config as globalConfig } from "./getGlobalConfig.js";
-import { raiseError } from "../utils.js";
 function findStructiveParent(el) {
     let current = el.parentNode;
     while (current) {
@@ -162,25 +161,35 @@ export function createComponentClass(componentData) {
         static get paths() {
             return getPathsSetById(this.id);
         }
-        static #getters = null;
+        static #getters = new Set();
         static get getters() {
-            return this.#getters ?? raiseError("getters is null");
+            return this.#getters;
+        }
+        static #setters = new Set();
+        static get setters() {
+            return this.#setters;
         }
         static #trackedGetters = null;
         static get trackedGetters() {
             if (this.#trackedGetters === null) {
                 this.#trackedGetters = new Set();
-                this.#getters = new Set();
                 let currentProto = this.stateClass.prototype;
                 while (currentProto && currentProto !== Object.prototype) {
                     const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
                     if (trackedGetters) {
                         for (const [key, desc] of Object.entries(trackedGetters)) {
-                            // Getterだけ設定しているプロパティが対象
-                            if (desc.get && !desc.set) {
-                                this.#trackedGetters.add(key);
+                            const hasGetter = desc.get !== undefined;
+                            const hasSetter = desc.set !== undefined;
+                            if (hasGetter) {
+                                this.#getters.add(key);
+                                if (hasSetter) {
+                                    this.#setters?.add(key);
+                                }
+                                else {
+                                    // Getterだけ設定しているプロパティが対象
+                                    this.#trackedGetters.add(key);
+                                }
                             }
-                            this.#getters.add(key);
                         }
                     }
                     currentProto = Object.getPrototypeOf(currentProto);

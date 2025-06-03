@@ -39,6 +39,8 @@ export interface IComponentEngine {
   baseClass     : typeof HTMLElement;
   owner         : StructiveComponent;
   trackedGetters: Set<string>;
+  getters       : Set<string>;
+  setters       : Set<string>;
   waitForInitialize: PromiseWithResolvers<void>;
 
   listInfoSet        : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列を持つもの

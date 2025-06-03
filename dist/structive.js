@@ -2823,6 +2823,7 @@ class Updater {
         const retBindings = [];
         const retProperties = [];
         const engine = this.engine;
+        const hasChildComponent = engine.structiveComponents.size > 0;
         while (this.updatedProperties.size > 0) {
             const updatedProiperties = Array.from(this.updatedProperties.values());
             this.updatedProperties.clear();
@@ -2880,7 +2881,9 @@ class Updater {
                 for (const listIndex of listIndexes) {
                     const bindings = engine.getBindings(info, listIndex);
                     retBindings.push(...bindings ?? []);
-                    retProperties.push({ info, listIndex });
+                    if (hasChildComponent) {
+                        retProperties.push({ info, listIndex });
+                    }
                 }
             }
             retBindings.push(...bindingsByListIndex);
@@ -3201,7 +3204,7 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
     try {
         // 親子関係のあるgetterが存在する場合は、外部依存から取得
         // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-        if (handler.engine.stateOutput.startsWith(info)) {
+        if (handler.engine.stateOutput.startsWith(info) && handler.engine.getters.intersection(info.cumulativePathSet).size === 0) {
             return value = handler.engine.stateOutput.get(info);
         }
         // パターンがtargetに存在する場合はgetter経由で取得
@@ -3446,7 +3449,7 @@ function createReadonlyStateProxy(engine, state) {
 function _getByRef(target, info, listIndex, receiver, handler) {
     // 親子関係のあるgetterが存在する場合は、外部依存から取得
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-    if (handler.engine.stateOutput.startsWith(info)) {
+    if (handler.engine.stateOutput.startsWith(info) && handler.engine.getters.intersection(info.cumulativePathSet).size === 0) {
         return handler.engine.stateOutput.get(info);
     }
     // パターンがtargetに存在する場合はgetter経由で取得
@@ -3486,7 +3489,7 @@ function setByRef(target, info, listIndex, value, receiver, handler) {
     try {
         // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
         // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-        if (handler.engine.stateOutput.startsWith(info)) {
+        if (handler.engine.stateOutput.startsWith(info) && handler.engine.setters.intersection(info.cumulativePathSet).size === 0) {
             return handler.engine.stateOutput.set(info, value);
         }
         if (info.pattern in target) {
@@ -3998,6 +4001,8 @@ class ComponentEngine {
     baseClass = HTMLElement;
     owner;
     trackedGetters;
+    getters;
+    setters;
     listInfoSet = new Set();
     elementInfoSet = new Set();
     bindingsByListIndex = new WeakMap();
@@ -4024,6 +4029,8 @@ class ComponentEngine {
         this.outputFilters = componentClass.outputFilters;
         this.owner = owner;
         this.trackedGetters = componentClass.trackedGetters;
+        this.getters = componentClass.getters;
+        this.setters = componentClass.setters;
         this.stateInput = createComponentStateInput(this, this.#stateBinding);
         this.stateOutput = createComponentStateOutput(this.#stateBinding);
         // 依存関係の木を作成する
@@ -4596,25 +4603,35 @@ function createComponentClass(componentData) {
         static get paths() {
             return getPathsSetById(this.id);
         }
-        static #getters = null;
+        static #getters = new Set();
         static get getters() {
-            return this.#getters ?? raiseError("getters is null");
+            return this.#getters;
+        }
+        static #setters = new Set();
+        static get setters() {
+            return this.#setters;
         }
         static #trackedGetters = null;
         static get trackedGetters() {
             if (this.#trackedGetters === null) {
                 this.#trackedGetters = new Set();
-                this.#getters = new Set();
                 let currentProto = this.stateClass.prototype;
                 while (currentProto && currentProto !== Object.prototype) {
                     const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
                     if (trackedGetters) {
                         for (const [key, desc] of Object.entries(trackedGetters)) {
-                            // Getterだけ設定しているプロパティが対象
-                            if (desc.get && !desc.set) {
-                                this.#trackedGetters.add(key);
+                            const hasGetter = desc.get !== undefined;
+                            const hasSetter = desc.set !== undefined;
+                            if (hasGetter) {
+                                this.#getters.add(key);
+                                if (hasSetter) {
+                                    this.#setters?.add(key);
+                                }
+                                else {
+                                    // Getterだけ設定しているプロパティが対象
+                                    this.#trackedGetters.add(key);
+                                }
                             }
-                            this.#getters.add(key);
                         }
                     }
                     currentProto = Object.getPrototypeOf(currentProto);

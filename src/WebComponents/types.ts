@@ -43,6 +43,7 @@ export interface IComponentStatic {
   readonly paths         : Set<string>;
   readonly trackedGetters: Set<string>;
   readonly getters       : Set<string>;
+  readonly setters       : Set<string>;
   html:string;
   css:string;
   define(tagName:string):void;

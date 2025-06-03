@@ -55,6 +55,8 @@ export class ComponentEngine {
     baseClass = HTMLElement;
     owner;
     trackedGetters;
+    getters;
+    setters;
     listInfoSet = new Set();
     elementInfoSet = new Set();
     bindingsByListIndex = new WeakMap();
@@ -81,6 +83,8 @@ export class ComponentEngine {
         this.outputFilters = componentClass.outputFilters;
         this.owner = owner;
         this.trackedGetters = componentClass.trackedGetters;
+        this.getters = componentClass.getters;
+        this.setters = componentClass.setters;
         this.stateInput = createComponentStateInput(this, this.#stateBinding);
         this.stateOutput = createComponentStateOutput(this.#stateBinding);
         // 依存関係の木を作成する

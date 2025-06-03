@@ -64,6 +64,7 @@ class Updater {
         const retBindings = [];
         const retProperties = [];
         const engine = this.engine;
+        const hasChildComponent = engine.structiveComponents.size > 0;
         while (this.updatedProperties.size > 0) {
             const updatedProiperties = Array.from(this.updatedProperties.values());
             this.updatedProperties.clear();
@@ -121,7 +122,9 @@ class Updater {
                 for (const listIndex of listIndexes) {
                     const bindings = engine.getBindings(info, listIndex);
                     retBindings.push(...bindings ?? []);
-                    retProperties.push({ info, listIndex });
+                    if (hasChildComponent) {
+                        retProperties.push({ info, listIndex });
+                    }
                 }
             }
             retBindings.push(...bindingsByListIndex);

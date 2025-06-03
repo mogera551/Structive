@@ -180,25 +180,34 @@ export function createComponentClass(componentData: IUserComponentData): Structi
     static get paths(): Set<string> {
       return getPathsSetById(this.id);
     }
-    static #getters: Set<string> | null = null;
+    static #getters: Set<string> = new Set<string>();
     static get getters(): Set<string> {
-      return this.#getters ?? raiseError("getters is null");
+      return this.#getters;
+    }
+    static #setters: Set<string> = new Set<string>();
+    static get setters(): Set<string> {
+      return this.#setters;
     }
     static #trackedGetters: Set<string> | null = null;
     static get trackedGetters(): Set<string> {
       if(this.#trackedGetters === null) {
         this.#trackedGetters = new Set<string>();
-        this.#getters = new Set<string>();
         let currentProto = this.stateClass.prototype;
         while (currentProto && currentProto !== Object.prototype) {
           const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
           if (trackedGetters) {
             for (const [key, desc] of Object.entries(trackedGetters)) {
-              // Getterだけ設定しているプロパティが対象
-              if ((desc as PropertyDescriptor).get && !(desc as PropertyDescriptor).set) {
-                this.#trackedGetters.add(key);
+              const hasGetter = (desc as PropertyDescriptor).get !== undefined;
+              const hasSetter = (desc as PropertyDescriptor).set !== undefined;
+              if (hasGetter) {
+                this.#getters.add(key);
+                if (hasSetter) {
+                  this.#setters?.add(key);
+                } else {
+                  // Getterだけ設定しているプロパティが対象
+                  this.#trackedGetters.add(key);
+                }
               }
-              this.#getters.add(key);
             }
           }
           currentProto = Object.getPrototypeOf(currentProto);
