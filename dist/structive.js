@@ -3929,7 +3929,7 @@ class ComponentStateOutput {
         if (typeof binding === "undefined") {
             raiseError(`No binding found for child path "${childPath}".`);
         }
-        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(childPath));
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
         return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, binding.bindingState.listIndex);
     }
     set(pathInfo, value) {
@@ -3941,7 +3941,7 @@ class ComponentStateOutput {
         if (typeof binding === "undefined") {
             raiseError(`No binding found for child path "${childPath}".`);
         }
-        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(childPath));
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
         const engine = binding.engine;
         engine.useWritableStateProxy(null, async (state) => {
             state[SetByRefSymbol](parentPathInfo, binding.bindingState.listIndex, value);
