@@ -1,5 +1,6 @@
 import { Filters } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
+import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils.js";
 import { IBindContent, IBinding } from "../types";
 import { IBindingNode } from "./types";
@@ -71,6 +72,9 @@ export class BindingNode implements IBindingNode {
   }
   updateElements(listIndexes: IListIndex[], values: any[]) {
     raiseError(`BindingNode: updateElements not implemented`);
+  }
+  notifyRedraw(refs: IStatePropertyRef[]): void {
+    // サブクラスで親子関係を考慮してバインディングの更新を通知する実装が可能
   }
   get isSelectElement(): boolean {
     return this.node instanceof HTMLSelectElement;

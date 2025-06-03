@@ -740,6 +740,9 @@ class BindingNode {
     updateElements(listIndexes, values) {
         raiseError(`BindingNode: updateElements not implemented`);
     }
+    notifyRedraw(refs) {
+        // サブクラスで親子関係を考慮してバインディングの更新を通知する実装が可能
+    }
     get isSelectElement() {
         return this.node instanceof HTMLSelectElement;
     }
@@ -1408,12 +1411,9 @@ const createBindingNodeStyle = (name, filterTexts, decorates) => (binding, node,
     return new BindingNodeStyle(binding, node, name, filterFns, decorates);
 };
 
-const symbolName$1 = "componentState";
-const RenderSymbol = Symbol.for(`${symbolName$1}.render`);
-const BindParentComponentSymbol = Symbol.for(`${symbolName$1}.bindParentComponent`);
-const NamesSymbol = Symbol.for(`${symbolName$1}.names`);
-const GetPropertyValueFromChildSymbol = Symbol.for(`${symbolName$1}.GetPropertyValueFromChild`);
-const SetPropertyValueFromChildSymbol = Symbol.for(`${symbolName$1}.SetPropertyValueFromChild`);
+const symbolName$1 = "component-state-input";
+const AssignStateSymbol = Symbol.for(`${symbolName$1}.AssignState`);
+const NotifyRedrawSymbol = Symbol.for(`${symbolName$1}.NotifyRedraw`);
 
 /**
  * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
@@ -1449,8 +1449,25 @@ class BindingNodeComponent extends BindingNode {
         bindings.add(this.binding);
     }
     assignValue(value) {
+    }
+    notifyRedraw(refs) {
+        const notifyRefs = [];
+        const listIndex = this.binding.bindingState.listIndex;
+        const info = this.binding.bindingState.info;
+        for (const ref of refs) {
+            if (ref.listIndex !== listIndex) {
+                continue;
+            }
+            if (!ref.info.cumulativePathSet.has(info.pattern)) {
+                continue;
+            }
+            notifyRefs.push(ref);
+        }
+        if (notifyRefs.length === 0) {
+            return;
+        }
         const component = this.node;
-        component.state[RenderSymbol](this.subName, value);
+        component.state[NotifyRedrawSymbol](notifyRefs);
     }
 }
 /**
@@ -2264,6 +2281,9 @@ class Binding {
     updateStateValue(writeState, value) {
         return this.bindingState.assignValue(writeState, value);
     }
+    notifyRedraw(refs) {
+        this.bindingNode.notifyRedraw(refs);
+    }
 }
 /**
  * バインディング生成用ファクトリ関数
@@ -2707,6 +2727,7 @@ function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
         }
         const dependentWalker = createDependencyWalker(engine, { info, listIndex });
         const nowOnList = config$2.optimizeList && engine.listInfoSet.has(info);
+        // 依存関係を辿る
         dependentWalker.walk((ref, refInfo, type) => {
             if (nowOnList && type === "structured" && ref.info !== refInfo) {
                 if (refInfo.cumulativeInfoSet.has(ref.info)) {
@@ -2716,6 +2737,7 @@ function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
             const wildcardMatchPaths = Array.from(ref.info.wildcardInfoSet.intersection(refInfo.wildcardInfoSet));
             const longestMatchAt = (wildcardMatchPaths.at(-1)?.wildcardCount ?? 0) - 1;
             const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
+            // リストインデックスを展開する
             listWalker(engine, refInfo, listIndex, (_info, _listIndex) => {
                 if (!engine.existsBindingsByInfo(_info)) {
                     return;
@@ -2769,15 +2791,26 @@ class Updater {
         if (this.#isEntryRender)
             return;
         this.#isEntryRender = true;
+        const engine = this.engine;
         queueMicrotask(() => {
             try {
-                const { bindings, arrayElementBindings } = this.rebuild();
-                // render
+                const { bindings, arrayElementBindings, properties } = this.rebuild();
+                // スワップ処理
                 for (const arrayElementBinding of arrayElementBindings) {
                     arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
                 }
+                // レンダリング
                 if (bindings.length > 0) {
                     this.render(bindings);
+                }
+                // 子コンポーネントへの再描画通知
+                if (engine.structiveComponents.size > 0) {
+                    for (const structiveComponent of engine.structiveComponents) {
+                        const structiveComponentBindings = engine.bindingsByComponent.get(structiveComponent) ?? new Set();
+                        for (const binding of structiveComponentBindings) {
+                            binding.notifyRedraw(properties);
+                        }
+                    }
                 }
             }
             finally {
@@ -2788,6 +2821,7 @@ class Updater {
     rebuild() {
         const retArrayElementBindings = [];
         const retBindings = [];
+        const retProperties = [];
         const engine = this.engine;
         while (this.updatedProperties.size > 0) {
             const updatedProiperties = Array.from(this.updatedProperties.values());
@@ -2846,12 +2880,17 @@ class Updater {
                 for (const listIndex of listIndexes) {
                     const bindings = engine.getBindings(info, listIndex);
                     retBindings.push(...bindings ?? []);
+                    retProperties.push({ info, listIndex });
                 }
             }
             retBindings.push(...bindingsByListIndex);
         }
         this.updatedValues = {};
-        return { bindings: retBindings, arrayElementBindings: retArrayElementBindings };
+        return {
+            bindings: retBindings,
+            arrayElementBindings: retArrayElementBindings,
+            properties: retProperties
+        };
     }
     render(bindings) {
         this.#version++;
@@ -3131,25 +3170,6 @@ function setTracking(info, handler, callback) {
 }
 
 /**
- * getByRef.ts
- *
- * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
- * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
- *
- * 主な役割:
- * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
- * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
- * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
- * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
- * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
- *
- * 設計ポイント:
- * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
- * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
- * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
- * - finallyでキャッシュへの格納を保証
- */
-/**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
  *
  * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
@@ -3179,8 +3199,10 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
     }
     let value;
     try {
-        if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
-            return value = handler.engine.owner.state[GetPropertyValueFromChildSymbol](info.pattern);
+        // 親子関係のあるgetterが存在する場合は、外部依存から取得
+        // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
+        if (handler.engine.stateOutput.startsWith(info)) {
+            return value = handler.engine.stateOutput.get(info);
         }
         // パターンがtargetに存在する場合はgetter経由で取得
         if (info.pattern in target) {
@@ -3407,25 +3429,6 @@ function createReadonlyStateProxy(engine, state) {
 }
 
 /**
- * getByRef.ts
- *
- * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
- * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
- *
- * 主な役割:
- * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
- * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
- * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
- * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
- * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
- *
- * 設計ポイント:
- * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
- * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
- * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
- * - finallyでキャッシュへの格納を保証
- */
-/**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
  *
  * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
@@ -3441,8 +3444,10 @@ function createReadonlyStateProxy(engine, state) {
  * @returns         対象プロパティの値
  */
 function _getByRef(target, info, listIndex, receiver, handler) {
-    if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
-        return handler.engine.owner.state[GetPropertyValueFromChildSymbol](info.pattern);
+    // 親子関係のあるgetterが存在する場合は、外部依存から取得
+    // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
+    if (handler.engine.stateOutput.startsWith(info)) {
+        return handler.engine.stateOutput.get(info);
     }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (info.pattern in target) {
@@ -3477,27 +3482,12 @@ function getByRefWritable(target, info, listIndex, receiver, handler) {
     });
 }
 
-/**
- * setByRef.ts
- *
- * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
- * 状態オブジェクト（target）に値を設定するための関数（setByRef）の実装です。
- *
- * 主な役割:
- * - 指定されたパス・インデックスに対応するState値を設定（多重ループやワイルドカードにも対応）
- * - getter/setter経由で値設定時はSetStatePropertyRefSymbolでスコープを一時設定
- * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を設定
- * - 設定後はengine.updater.addUpdatedStatePropertyRefValueで更新情報を登録
- *
- * 設計ポイント:
- * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値設定を実現
- * - finallyで必ず更新情報を登録し、再描画や依存解決に利用
- * - getter/setter経由のスコープ切り替えも考慮した設計
- */
 function setByRef(target, info, listIndex, value, receiver, handler) {
     try {
-        if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
-            return handler.engine.owner.state[SetPropertyValueFromChildSymbol](info.pattern, value);
+        // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
+        // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
+        if (handler.engine.stateOutput.startsWith(info)) {
+            return handler.engine.stateOutput.set(info, value);
         }
         if (info.pattern in target) {
             return setStatePropertyRef(handler, info, listIndex, () => {
@@ -3783,6 +3773,188 @@ async function useWritableStateProxy(engine, state, loopContext = null, callback
     });
 }
 
+class ComponentStateBinding {
+    parentPaths = new Set();
+    childPaths = new Set();
+    childPathByParentPath = new Map();
+    parentPathByChildPath = new Map();
+    bindingByParentPath = new Map();
+    bindingByChildPath = new Map();
+    addBinding(binding) {
+        const parentPath = binding.bindingState.pattern;
+        const childPath = binding.bindingNode.subName;
+        if (this.childPathByParentPath.has(parentPath)) {
+            throw new Error(`Parent path "${parentPath}" already has a child path.`);
+        }
+        if (this.parentPathByChildPath.has(childPath)) {
+            throw new Error(`Child path "${childPath}" already has a parent path.`);
+        }
+        this.childPathByParentPath.set(parentPath, childPath);
+        this.parentPathByChildPath.set(childPath, parentPath);
+        this.parentPaths.add(parentPath);
+        this.childPaths.add(childPath);
+        this.bindingByParentPath.set(parentPath, binding);
+        this.bindingByChildPath.set(childPath, binding);
+    }
+    getChildPath(parentPath) {
+        return this.childPathByParentPath.get(parentPath);
+    }
+    getParentPath(childPath) {
+        return this.parentPathByChildPath.get(childPath);
+    }
+    toParentPathFromChildPath(childPath) {
+        const childPathInfo = getStructuredPathInfo(childPath);
+        const matchPaths = childPathInfo.cumulativePathSet.intersection(this.childPaths);
+        if (matchPaths.size === 0) {
+            raiseError(`No parent path found for child path "${childPath}".`);
+        }
+        const matchPathArray = Array.from(matchPaths);
+        const longestMatchPath = matchPathArray[matchPathArray.length - 1];
+        const remainPath = childPath.slice(longestMatchPath.length); // include the dot
+        const matchParentPath = this.parentPathByChildPath.get(longestMatchPath);
+        if (typeof matchParentPath === "undefined") {
+            raiseError(`No parent path found for child path "${childPath}".`);
+        }
+        return matchParentPath + remainPath;
+    }
+    toChildPathFromParentPath(parentPath) {
+        const parentPathInfo = getStructuredPathInfo(parentPath);
+        const matchPaths = parentPathInfo.cumulativePathSet.intersection(this.parentPaths);
+        if (matchPaths.size === 0) {
+            raiseError(`No child path found for parent path "${parentPath}".`);
+        }
+        const matchPathArray = Array.from(matchPaths);
+        const longestMatchPath = matchPathArray[matchPathArray.length - 1];
+        const remainPath = parentPath.slice(longestMatchPath.length); // include the dot
+        const matchChildPath = this.childPathByParentPath.get(longestMatchPath);
+        if (typeof matchChildPath === "undefined") {
+            raiseError(`No child path found for parent path "${parentPath}".`);
+        }
+        return matchChildPath + remainPath;
+    }
+    startsWithByChildPath(childPathInfo) {
+        if (this.childPaths.size === 0) {
+            return null;
+        }
+        const matchPaths = childPathInfo.cumulativePathSet.intersection(this.childPaths);
+        if (matchPaths.size === 0) {
+            return null;
+        }
+        else {
+            const matches = Array.from(matchPaths);
+            const longestMatchPath = matches[matches.length - 1];
+            return longestMatchPath;
+        }
+    }
+    bind(parentComponent, childComponent) {
+        // bindParentComponent
+        const bindings = parentComponent.getBindingsFromChild(childComponent);
+        for (const binding of bindings ?? []) {
+            this.addBinding(binding);
+        }
+    }
+}
+function createComponentStateBinding() {
+    return new ComponentStateBinding();
+}
+
+class ComponentStateInputHandler {
+    componentStateBinding;
+    engine;
+    constructor(engine, componentStateBinding) {
+        this.componentStateBinding = componentStateBinding;
+        this.engine = engine;
+    }
+    assignState(object) {
+        this.engine.useWritableStateProxy(null, async (state) => {
+            for (const [key, value] of Object.entries(object)) {
+                const childPathInfo = getStructuredPathInfo(key);
+                this.engine.setPropertyValue(childPathInfo, null, value);
+            }
+        });
+    }
+    /**
+     * listindexに一致するかどうかは事前にスクリーニングしておく
+     * @param refs
+     */
+    notifyRedraw(refs) {
+        for (const parentPathInfo of refs) {
+            try {
+                const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathInfo.info.pattern);
+                const childPathInfo = getStructuredPathInfo(childPath);
+                const value = this.engine.getPropertyValue(childPathInfo, null);
+                this.engine.updater.addUpdatedStatePropertyRefValue(childPathInfo, null, value);
+            }
+            catch (e) {
+                // 対象でないものは何もしない
+            }
+        }
+    }
+    get(target, prop, receiver) {
+        if (prop === AssignStateSymbol) {
+            return this.assignState.bind(this);
+        }
+        else if (prop === NotifyRedrawSymbol) {
+            return this.notifyRedraw.bind(this);
+        }
+        else if (typeof prop === "string") {
+            return this.engine.getPropertyValue(getStructuredPathInfo(prop), null);
+        }
+        raiseError(`Property "${String(prop)}" is not supported in ComponentStateInput.`);
+    }
+    set(target, prop, value, receiver) {
+        if (typeof prop === "string") {
+            this.engine.setPropertyValue(getStructuredPathInfo(prop), null, value);
+            return true;
+        }
+        raiseError(`Property "${String(prop)}" is not supported in ComponentStateInput.`);
+    }
+}
+function createComponentStateInput(engine, componentStateBinding) {
+    const handler = new ComponentStateInputHandler(engine, componentStateBinding);
+    return new Proxy({}, handler);
+}
+
+class ComponentStateOutput {
+    binding;
+    constructor(binding) {
+        this.binding = binding;
+    }
+    get(pathInfo) {
+        const childPath = this.binding.startsWithByChildPath(pathInfo);
+        if (childPath === null) {
+            raiseError(`No child path found for path "${pathInfo.toString()}".`);
+        }
+        const binding = this.binding.bindingByChildPath.get(childPath);
+        if (typeof binding === "undefined") {
+            raiseError(`No binding found for child path "${childPath}".`);
+        }
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(childPath));
+        return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, binding.bindingState.listIndex);
+    }
+    set(pathInfo, value) {
+        const childPath = this.binding.startsWithByChildPath(pathInfo);
+        if (childPath === null) {
+            raiseError(`No child path found for path "${pathInfo.toString()}".`);
+        }
+        const binding = this.binding.bindingByChildPath.get(childPath);
+        if (typeof binding === "undefined") {
+            raiseError(`No binding found for child path "${childPath}".`);
+        }
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(childPath));
+        const engine = binding.engine;
+        engine.useWritableStateProxy(null, async (state) => {
+            state[SetByRefSymbol](parentPathInfo, binding.bindingState.listIndex, value);
+        });
+    }
+    startsWith(pathInfo) {
+        return this.binding.startsWithByChildPath(pathInfo) !== null;
+    }
+}
+function createComponentStateOutput(binding) {
+    return new ComponentStateOutput(binding);
+}
+
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
  * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
@@ -3833,6 +4005,9 @@ class ComponentEngine {
     bindingsByComponent = new WeakMap();
     structiveComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
+    #stateBinding = createComponentStateBinding();
+    stateInput;
+    stateOutput;
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {
@@ -3849,6 +4024,8 @@ class ComponentEngine {
         this.outputFilters = componentClass.outputFilters;
         this.owner = owner;
         this.trackedGetters = componentClass.trackedGetters;
+        this.stateInput = createComponentStateInput(this, this.#stateBinding);
+        this.stateOutput = createComponentStateOutput(this.#stateBinding);
         // 依存関係の木を作成する
         const checkDependentProp = (info) => {
             const parentInfo = info.parentInfo;
@@ -3887,25 +4064,19 @@ class ComponentEngine {
             // data-state属性から状態を取得する
             try {
                 const json = JSON.parse(this.owner.dataset.state);
-                await this.useWritableStateProxy(null, async (stateProxy) => {
-                    // JSONから状態を設定する
-                    for (const [key, value] of Object.entries(json)) {
-                        const info = getStructuredPathInfo(key);
-                        if (info.wildcardCount > 0)
-                            continue;
-                        stateProxy[SetByRefSymbol](info, null, value);
-                    }
-                });
+                this.stateInput[AssignStateSymbol](json);
             }
             catch (e) {
                 raiseError("Failed to parse state from dataset");
             }
         }
-        // 親コンポーネントに登録する
-        this.owner.parentStructiveComponent?.registerChildComponent(this.owner);
-        // コンポーネントの状態を親コンポーネントにバインドする
-        this.owner.state[BindParentComponentSymbol]();
-        // 
+        const parentComponent = this.owner.parentStructiveComponent;
+        if (parentComponent) {
+            // 親コンポーネントの状態をバインドする
+            parentComponent.registerChildComponent(this.owner);
+            // 親コンポーネントの状態を子コンポーネントにバインドする
+            this.#stateBinding.bind(parentComponent, this.owner);
+        }
         attachShadow(this.owner, this.config, this.styleSheet);
         this.bindContent.render();
         await this.useWritableStateProxy(null, async (stateProxy) => {
@@ -4000,8 +4171,7 @@ class ComponentEngine {
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する
-        const readonlyState = createReadonlyStateProxy(this, this.state);
-        return readonlyState[GetByRefSymbol](info, listIndex);
+        return this.readonlyState[GetByRefSymbol](info, listIndex);
     }
     setPropertyValue(info, listIndex, value) {
         // プロパティの値を設定する
@@ -4010,10 +4180,6 @@ class ComponentEngine {
                 stateProxy[SetByRefSymbol](info, listIndex, value);
             });
         });
-    }
-    // 読み取り専用の状態プロキシを作成する
-    createReadonlyStateProxy() {
-        return createReadonlyStateProxy(this, this.state);
     }
     // 書き込み可能な状態プロキシを作成する
     async useWritableStateProxy(loopContext, callback) {
@@ -4201,175 +4367,6 @@ function getComponentConfig(userConfig) {
 }
 
 /**
- * createComponentState.ts
- *
- * Structiveコンポーネントの状態管理を担う「ComponentState」クラスと、そのプロキシ生成関数の実装。
- *
- * 主な役割:
- * - 親コンポーネントとのバインディング（親プロパティのgetter/setterを動的に定義）
- * - 親コンポーネントからのバインディング一括登録（bindParentComponent）
- * - 状態プロパティの取得・設定・レンダリング（getPropertyValue, setPropertyValue, render）
- * - Proxyハンドラで、プロパティアクセスを自動的にget/set/特殊メソッドに振り分け
- *
- * 構造・設計ポイント:
- * - 親子コンポーネント間のデータ連携を柔軟に実現
- * - ループコンテキストや非同期更新にも対応
- * - Proxyによる柔軟なAPI（state.xxxで直接アクセス可能）
- *
- * @param engine IComponentEngineインスタンス
- * @returns      IComponentStateProxy（Proxyラップされた状態オブジェクト）
- */
-class ComponentState {
-    engine;
-    bindingByName = {};
-    #names;
-    constructor(engine) {
-        this.engine = engine;
-    }
-    get names() {
-        return this.#names ?? new Set();
-    }
-    bindParentProperty(binding) {
-        const propName = binding.bindingNode.subName;
-        this.bindingByName[propName] = binding;
-        Object.defineProperty(this.engine.state, propName, {
-            get: () => {
-                return binding.bindingState.filteredValue;
-            },
-            set: (value) => {
-                const engine = binding.engine;
-                const loopContext = binding.parentBindContent.currentLoopContext;
-                engine.updater.addProcess(async () => {
-                    engine.useWritableStateProxy(loopContext, async (stateProxy) => {
-                        // Set the value in the writable state proxy
-                        // This will trigger the binding update logic
-                        return binding.updateStateValue(stateProxy, value);
-                    });
-                });
-            }
-        });
-    }
-    unbindParentProperty(binding) {
-        const propName = binding.bindingNode.subName;
-        Object.defineProperty(this.engine.state, propName, { value: undefined });
-    }
-    /**
-     * 子コンポーネントから呼び出される
-     */
-    bindParentComponent() {
-        // bindParentComponent
-        const parent = this.engine.owner.parentStructiveComponent;
-        if (parent === null) {
-            return;
-        }
-        const bindings = parent.getBindingsFromChild(this.engine.owner);
-        for (const binding of bindings ?? []) {
-            this.bindParentProperty(binding);
-        }
-        this.#names = new Set(Object.keys(this.bindingByName));
-    }
-    unbindParentComponent() {
-        // unbindParentComponent
-        for (const name of this.names) {
-            const binding = this.bindingByName[name];
-            if (binding) {
-                this.unbindParentProperty(binding);
-            }
-        }
-    }
-    render(name, value) {
-        if (!this.names.has(name)) {
-            return;
-        }
-        // render
-        const info = getStructuredPathInfo(name);
-        this.engine.updater.addUpdatedStatePropertyRefValue(info, null, value);
-    }
-    getPropertyValue(name) {
-        // getPropertyValue
-        const info = getStructuredPathInfo(name);
-        return this.engine.getPropertyValue(info, null);
-    }
-    setPropertyValue(name, value) {
-        // setPropertyValue
-        const info = getStructuredPathInfo(name);
-        this.engine.setPropertyValue(info, null, value);
-    }
-    getPropertyValueFromChild(name) {
-        const info = getStructuredPathInfo(name);
-        const rootName = info.cumulativePaths[0];
-        if (!this.names.has(rootName)) {
-            return undefined;
-        }
-        const parentBinding = this.bindingByName[rootName];
-        const remainName = name.slice(rootName.length); // include dot
-        const parentPropName = parentBinding?.bindingState.pattern + remainName;
-        const parentPropInfo = getStructuredPathInfo(parentPropName);
-        const listIndex = parentBinding.bindingState.listIndex ?? null;
-        return parentBinding.bindingState.state[GetByRefSymbol](parentPropInfo, listIndex);
-    }
-    setPropertyValueFromChild(name, value) {
-        const info = getStructuredPathInfo(name);
-        const rootName = info.cumulativePaths[0];
-        if (!this.names.has(rootName)) {
-            return;
-        }
-        const parentBinding = this.bindingByName[rootName];
-        const loopContext = parentBinding.parentBindContent.currentLoopContext;
-        const remainName = name.slice(rootName.length); // include dot
-        const parentPropName = parentBinding?.bindingState.pattern + remainName;
-        const parentPropInfo = getStructuredPathInfo(parentPropName);
-        const listIndex = parentBinding.bindingState.listIndex ?? null;
-        const engine = parentBinding.engine;
-        engine.updater.addProcess(async () => {
-            engine.useWritableStateProxy(loopContext, async (stateProxy) => {
-                // Set the value in the writable state proxy
-                // This will trigger the binding update logic
-                return stateProxy[SetByRefSymbol](parentPropInfo, listIndex, value);
-            });
-        });
-    }
-}
-class ComponentStateHandler {
-    get(state, prop, receiver) {
-        if (prop === RenderSymbol) {
-            return state.render.bind(state);
-        }
-        else if (prop === BindParentComponentSymbol) {
-            // 子コンポーネントから呼ばれる
-            return state.bindParentComponent.bind(state);
-        }
-        else if (prop === NamesSymbol) {
-            return state.names;
-        }
-        else if (prop === GetPropertyValueFromChildSymbol) {
-            return state.getPropertyValueFromChild.bind(state);
-        }
-        else if (prop === SetPropertyValueFromChildSymbol) {
-            return state.setPropertyValueFromChild.bind(state);
-        }
-        else if (typeof prop === 'string') {
-            return state.getPropertyValue(prop);
-        }
-        else {
-            return Reflect.get(state, prop, receiver);
-        }
-    }
-    set(state, prop, value, receiver) {
-        if (typeof prop === 'string') {
-            state.setPropertyValue(prop, value);
-            return true;
-        }
-        else {
-            return Reflect.set(state, prop, value, receiver);
-        }
-    }
-}
-const createComponentState = (engine) => {
-    return new Proxy(new ComponentState(engine), new ComponentStateHandler());
-};
-
-/**
  * createAccessorFunctions.ts
  *
  * Stateプロパティのパス情報（IStructuredPathInfo）から、動的なgetter/setter関数を生成するユーティリティです。
@@ -4499,11 +4496,9 @@ function createComponentClass(componentData) {
     const extendTagName = componentConfig.extends;
     return class extends baseClass {
         #engine;
-        #componentState;
         constructor() {
             super();
             this.#engine = createComponentEngine(componentConfig, this);
-            this.#componentState = createComponentState(this.#engine);
             this.#engine.setup();
         }
         connectedCallback() {
@@ -4520,7 +4515,7 @@ function createComponentClass(componentData) {
             return this.#parentStructiveComponent;
         }
         get state() {
-            return this.#componentState;
+            return this.#engine.stateInput;
         }
         get isStructive() {
             return this.#engine.stateClass.$isStructive ?? false;
@@ -4615,6 +4610,7 @@ function createComponentClass(componentData) {
                     const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
                     if (trackedGetters) {
                         for (const [key, desc] of Object.entries(trackedGetters)) {
+                            // Getterだけ設定しているプロパティが対象
                             if (desc.get && !desc.set) {
                                 this.#trackedGetters.add(key);
                             }

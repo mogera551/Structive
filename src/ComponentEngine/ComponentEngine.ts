@@ -13,7 +13,6 @@ import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, Se
 import { ILoopContext } from "../LoopContext/types";
 import { IListIndex } from "../ListIndex/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
-import { BindParentComponentSymbol } from "../ComponentState/symbols.js";
 import { raiseError } from "../utils.js";
 import { DependencyType, IDependencyEdge } from "../DependencyWalker/types.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";

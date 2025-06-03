@@ -1,11 +1,12 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
-import { RenderSymbol } from "../../ComponentState/symbols.js";
+import { NotifyRedrawSymbol } from "../../ComponentStateInput/symbols.js";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { StructiveComponent } from "../../WebComponents/types";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
-import { CreateBindingNodeFn, INotifyRedraw } from "./types";
+import { CreateBindingNodeFn } from "./types";
 
 /**
  * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
@@ -22,7 +23,7 @@ import { CreateBindingNodeFn, INotifyRedraw } from "./types";
  * - 初期化時にbindingsByComponentへバインディング情報を登録
  * - 柔軟なバインディング記法・フィルタ適用に対応
  */
-class BindingNodeComponent extends BindingNode implements INotifyRedraw {
+class BindingNodeComponent extends BindingNode {
   #subName: string;
   get subName():string {
     return this.#subName;
@@ -49,13 +50,27 @@ class BindingNodeComponent extends BindingNode implements INotifyRedraw {
   }
 
   assignValue(value: any): void {
+  }
+
+  notifyRedraw(refs: IStatePropertyRef[]): void {
+    const notifyRefs = [];
+    const listIndex = this.binding.bindingState.listIndex;
+    const info = this.binding.bindingState.info;
+    for(const ref of refs) {
+      if (ref.listIndex !== listIndex) {
+        continue;
+      }
+      if (!ref.info.cumulativePathSet.has(info.pattern)) {
+        continue;
+      }
+      notifyRefs.push(ref);
+    }
+    if (notifyRefs.length === 0) {
+      return;
+    }
     const component = this.node as StructiveComponent;
-    component.state[RenderSymbol](this.subName, value);
+    component.state[NotifyRedrawSymbol](notifyRefs);
   }
-
-  notifyRedraw(binding: Set<IBinding>): void {
-  }
-
 }
 
 /**

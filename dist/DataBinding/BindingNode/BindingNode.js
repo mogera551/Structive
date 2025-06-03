@@ -61,6 +61,9 @@ export class BindingNode {
     updateElements(listIndexes, values) {
         raiseError(`BindingNode: updateElements not implemented`);
     }
+    notifyRedraw(refs) {
+        // サブクラスで親子関係を考慮してバインディングの更新を通知する実装が可能
+    }
     get isSelectElement() {
         return this.node instanceof HTMLSelectElement;
     }

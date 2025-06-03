@@ -1,5 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
-import { RenderSymbol } from "../../ComponentState/symbols.js";
+import { NotifyRedrawSymbol } from "../../ComponentStateInput/symbols.js";
 import { BindingNode } from "./BindingNode.js";
 /**
  * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
@@ -35,8 +35,25 @@ class BindingNodeComponent extends BindingNode {
         bindings.add(this.binding);
     }
     assignValue(value) {
+    }
+    notifyRedraw(refs) {
+        const notifyRefs = [];
+        const listIndex = this.binding.bindingState.listIndex;
+        const info = this.binding.bindingState.info;
+        for (const ref of refs) {
+            if (ref.listIndex !== listIndex) {
+                continue;
+            }
+            if (!ref.info.cumulativePathSet.has(info.pattern)) {
+                continue;
+            }
+            notifyRefs.push(ref);
+        }
+        if (notifyRefs.length === 0) {
+            return;
+        }
         const component = this.node;
-        component.state[RenderSymbol](this.subName, value);
+        component.state[NotifyRedrawSymbol](notifyRefs);
     }
 }
 /**

@@ -17,7 +17,6 @@
 import { FilterWithOptions } from "../Filter/types";
 import { IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
-import { IComponentStateProxy } from "../ComponentState/types";
 import { IComponentStateInput } from "../ComponentStateInput/types";
 
 export type ComponentType = 'autonomous' | 'builtin';

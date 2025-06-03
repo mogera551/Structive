@@ -46,6 +46,9 @@ class Binding {
     updateStateValue(writeState, value) {
         return this.bindingState.assignValue(writeState, value);
     }
+    notifyRedraw(refs) {
+        this.bindingNode.notifyRedraw(refs);
+    }
 }
 /**
  * バインディング生成用ファクトリ関数

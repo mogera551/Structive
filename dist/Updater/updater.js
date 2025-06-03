@@ -32,15 +32,26 @@ class Updater {
         if (this.#isEntryRender)
             return;
         this.#isEntryRender = true;
+        const engine = this.engine;
         queueMicrotask(() => {
             try {
-                const { bindings, arrayElementBindings } = this.rebuild();
-                // render
+                const { bindings, arrayElementBindings, properties } = this.rebuild();
+                // スワップ処理
                 for (const arrayElementBinding of arrayElementBindings) {
                     arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
                 }
+                // レンダリング
                 if (bindings.length > 0) {
                     this.render(bindings);
+                }
+                // 子コンポーネントへの再描画通知
+                if (engine.structiveComponents.size > 0) {
+                    for (const structiveComponent of engine.structiveComponents) {
+                        const structiveComponentBindings = engine.bindingsByComponent.get(structiveComponent) ?? new Set();
+                        for (const binding of structiveComponentBindings) {
+                            binding.notifyRedraw(properties);
+                        }
+                    }
                 }
             }
             finally {
@@ -51,6 +62,7 @@ class Updater {
     rebuild() {
         const retArrayElementBindings = [];
         const retBindings = [];
+        const retProperties = [];
         const engine = this.engine;
         while (this.updatedProperties.size > 0) {
             const updatedProiperties = Array.from(this.updatedProperties.values());
@@ -109,12 +121,17 @@ class Updater {
                 for (const listIndex of listIndexes) {
                     const bindings = engine.getBindings(info, listIndex);
                     retBindings.push(...bindings ?? []);
+                    retProperties.push({ info, listIndex });
                 }
             }
             retBindings.push(...bindingsByListIndex);
         }
         this.updatedValues = {};
-        return { bindings: retBindings, arrayElementBindings: retArrayElementBindings };
+        return {
+            bindings: retBindings,
+            arrayElementBindings: retArrayElementBindings,
+            properties: retProperties
+        };
     }
     render(bindings) {
         this.#version++;

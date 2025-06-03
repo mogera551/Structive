@@ -17,12 +17,11 @@
  * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
  * - finallyでキャッシュへの格納を保証
  */
-import { GetPropertyValueFromChildSymbol, NamesSymbol } from "../../ComponentState/symbols";
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
-import { IStateHandler, IReadonlyStateProxy, IStateProxy, IReadonlyStateHandler } from "../types";
+import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 import { setTracking } from "./setTracking.js";
 

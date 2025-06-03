@@ -4,6 +4,7 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
+import { IStatePropertyRef } from "../StatePropertyRef/types";
 /**
  * DataBinding/types.ts
  *
@@ -46,7 +47,7 @@ export interface IBindContent {
   render(): void;
   init(): void;
   assignListIndex(listIndex: IListIndex): void;
-  getLastNode(parentNode: Node): Node | null  
+  getLastNode(parentNode: Node): Node | null;
 }
 
 // バインドプロパティ情報
@@ -61,6 +62,7 @@ export interface IBinding {
   render(): void;
   init(): void;
   updateStateValue(writeState: IWritableStateProxy, value: any): void;
+  notifyRedraw(refs: IStatePropertyRef[]): void;
 }
 
 export type StateBindSummary = Map<string, WeakMap<ILoopContext, IBindContent>>;

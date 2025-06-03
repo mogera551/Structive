@@ -32,8 +32,6 @@ import { IComponent, IUserComponentData, IUserConfig, StructiveComponentClass, S
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes.js";
 import { IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
-import { IComponentStateProxy } from "../ComponentState/types";
-import { createComponentState } from "../ComponentState/createComponentState.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
 import { config as globalConfig } from "./getGlobalConfig.js";

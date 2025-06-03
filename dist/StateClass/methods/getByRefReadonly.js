@@ -1,23 +1,3 @@
-/**
- * getByRef.ts
- *
- * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
- * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
- *
- * 主な役割:
- * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
- * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
- * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
- * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
- * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
- *
- * 設計ポイント:
- * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
- * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
- * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
- * - finallyでキャッシュへの格納を保証
- */
-import { GetPropertyValueFromChildSymbol, NamesSymbol } from "../../ComponentState/symbols";
 import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
 import { setStatePropertyRef } from "./setStatePropertyRef";
@@ -52,8 +32,10 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     }
     let value;
     try {
-        if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
-            return value = handler.engine.owner.state[GetPropertyValueFromChildSymbol](info.pattern);
+        // 親子関係のあるgetterが存在する場合は、外部依存から取得
+        // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
+        if (handler.engine.stateOutput.startsWith(info)) {
+            return value = handler.engine.stateOutput.get(info);
         }
         // パターンがtargetに存在する場合はgetter経由で取得
         if (info.pattern in target) {

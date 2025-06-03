@@ -27,7 +27,6 @@ import { getTemplateById } from "../Template/registerTemplate.js";
 import { getBaseClass } from "./getBaseClass.js";
 import { getComponentConfig } from "./getComponentConfig.js";
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes.js";
-import { createComponentState } from "../ComponentState/createComponentState.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
 import { config as globalConfig } from "./getGlobalConfig.js";
@@ -63,11 +62,9 @@ export function createComponentClass(componentData) {
     const extendTagName = componentConfig.extends;
     return class extends baseClass {
         #engine;
-        #componentState;
         constructor() {
             super();
             this.#engine = createComponentEngine(componentConfig, this);
-            this.#componentState = createComponentState(this.#engine);
             this.#engine.setup();
         }
         connectedCallback() {
@@ -84,7 +81,7 @@ export function createComponentClass(componentData) {
             return this.#parentStructiveComponent;
         }
         get state() {
-            return this.#componentState;
+            return this.#engine.stateInput;
         }
         get isStructive() {
             return this.#engine.stateClass.$isStructive ?? false;
@@ -179,6 +176,7 @@ export function createComponentClass(componentData) {
                     const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
                     if (trackedGetters) {
                         for (const [key, desc] of Object.entries(trackedGetters)) {
+                            // Getterだけ設定しているプロパティが対象
                             if (desc.get && !desc.set) {
                                 this.#trackedGetters.add(key);
                             }

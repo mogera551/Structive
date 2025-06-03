@@ -1,28 +1,12 @@
-/**
- * setByRef.ts
- *
- * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
- * 状態オブジェクト（target）に値を設定するための関数（setByRef）の実装です。
- *
- * 主な役割:
- * - 指定されたパス・インデックスに対応するState値を設定（多重ループやワイルドカードにも対応）
- * - getter/setter経由で値設定時はSetStatePropertyRefSymbolでスコープを一時設定
- * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を設定
- * - 設定後はengine.updater.addUpdatedStatePropertyRefValueで更新情報を登録
- *
- * 設計ポイント:
- * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値設定を実現
- * - finallyで必ず更新情報を登録し、再描画や依存解決に利用
- * - getter/setter経由のスコープ切り替えも考慮した設計
- */
-import { NamesSymbol, SetPropertyValueFromChildSymbol } from "../../ComponentState/symbols";
 import { raiseError } from "../../utils.js";
 import { getByRefWritable } from "./getByRefWritable";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 export function setByRef(target, info, listIndex, value, receiver, handler) {
     try {
-        if (handler.engine.owner.state[NamesSymbol].has(info.cumulativePaths[0]) && info.cumulativePaths.length > 1) {
-            return handler.engine.owner.state[SetPropertyValueFromChildSymbol](info.pattern, value);
+        // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
+        // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
+        if (handler.engine.stateOutput.startsWith(info)) {
+            return handler.engine.stateOutput.set(info, value);
         }
         if (info.pattern in target) {
             return setStatePropertyRef(handler, info, listIndex, () => {

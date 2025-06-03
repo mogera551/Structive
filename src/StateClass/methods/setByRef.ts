@@ -15,7 +15,6 @@
  * - finallyで必ず更新情報を登録し、再描画や依存解決に利用
  * - getter/setter経由のスコープ切り替えも考慮した設計
  */
-import { NamesSymbol, SetPropertyValueFromChildSymbol } from "../../ComponentState/symbols";
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";

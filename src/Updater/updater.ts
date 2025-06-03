@@ -74,7 +74,7 @@ class Updater implements IUpdater {
     const engine = this.engine;
     queueMicrotask(() => {
       try {
-        const { bindings, arrayElementBindings } = this.rebuild();
+        const { bindings, arrayElementBindings, properties } = this.rebuild();
         // スワップ処理
         for(const arrayElementBinding of arrayElementBindings) {
           arrayElementBinding.binding.bindingNode.updateElements(arrayElementBinding.listIndexes, arrayElementBinding.values);
@@ -87,20 +87,25 @@ class Updater implements IUpdater {
         if (engine.structiveComponents.size > 0) {
           for(const structiveComponent of engine.structiveComponents) {
             const structiveComponentBindings = engine.bindingsByComponent.get(structiveComponent) ?? new Set<IBinding>();
-
+            for(const binding of structiveComponentBindings) {
+              binding.notifyRedraw(properties);
+            }
           }
-      }
-
-
+        }
       } finally {
         this.#isEntryRender = false;
       }
     });
   }
 
-  rebuild(): {bindings: IBinding[], arrayElementBindings: UpdatedArrayElementBinding[]} {
+  rebuild(): {
+    bindings: IBinding[], 
+    arrayElementBindings: UpdatedArrayElementBinding[],
+    properties: IStatePropertyRef[]
+  } {
     const retArrayElementBindings: UpdatedArrayElementBinding[] = [];
     const retBindings: IBinding[] = [];
+    const retProperties: IStatePropertyRef[] = [];
     const engine = this.engine;
     while(this.updatedProperties.size > 0) {
       const updatedProiperties = Array.from(this.updatedProperties.values());
@@ -159,12 +164,17 @@ class Updater implements IUpdater {
         for(const listIndex of listIndexes) {
           const bindings = engine.getBindings(info, listIndex);
           retBindings.push(...bindings ?? []);
+          retProperties.push({info, listIndex});
         }
       }
       retBindings.push(...bindingsByListIndex);
     }
     this.updatedValues = {};
-    return {bindings: retBindings, arrayElementBindings: retArrayElementBindings};
+    return {
+      bindings: retBindings, 
+      arrayElementBindings: retArrayElementBindings,
+      properties: retProperties
+    };
   }
 
   render(bindings: IBinding[]) {
