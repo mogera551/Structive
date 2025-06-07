@@ -27,23 +27,22 @@
 <script type="importmap">
 {
   "imports": {
-    "structive": "path/to/cdn/structive.js",
     "@components/app-main": "path/to/main.st.html",
     "@components/app-sub": "path/to/sub.st.html"
   }
 }
 </script>
 ```
-CDN Path of Structive is `https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/structive.js`.
+Define your component's tag-name and file path on importmap. 
 
 
 2. Load components using auto loader in entry HTML:
 
 ```html
-<script type="module" src="path/to/cdn/autoloder"></script>
+<script type="module" src="path/to/cdn/easyloder"></script>
 ```
 
-CDN Path of autoloader is `https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/AutoLoaders/components.js`.
+CDN Path of easyloader is `https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/EasyLoaders/components.js`.
 
 3. Use it in your HTML:
 
@@ -130,8 +129,15 @@ Learn more in [`docs/structure-philosophy.md`](docs/structure-philosophy.md)
 
 ## 🧪 Example
 
-```ts
-// state.js
+```html
+<template>
+  <ul>
+    {{ for:list }}
+      <li>{{ list.*.double }}</li>
+    {{ endfor: }}
+  </ul>
+</template>
+<script type="module">
 export default class {
   list = [
     { value: 1 },
@@ -143,15 +149,7 @@ export default class {
     return this["list.*.value"] * 2;
   }
 }
-```
-
-```html
-<!-- template -->
-<ul>
-  {{ for:list }}
-    <li>{{ list.*.double }}</li>
-  {{ endfor: }}
-</ul>
+</script>
 ```
 
 ---

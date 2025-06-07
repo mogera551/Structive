@@ -29,7 +29,6 @@
 <script type="importmap">
 {
   "imports": {
-    "structive": "path/to/cdn/structive.js",
     "@components/app-main": "path/to/main.st.html",
     "@components/app-sub": "path/to/sub.st.html"
   }
@@ -37,15 +36,15 @@
 </script>
 
 ```
-structiveのCDNへパスは、`https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/structive.js`となります。
+コンポーネントの定義（タグ名とファイルパス）をimportmapで行います。
 
-2. エントリーファイルのHTML内でコンポーネントをオートローダーで自動読み込み：
+2. エントリーファイルのHTML内でコンポーネントを簡易ローダーで自動読み込み：
 
 ```html
-<script type="module" src="path/to/cdn/autoloder"></script>
+<script type="module" src="path/to/cdn/easyloder"></script>
 ```
 
-オートローダーのCDNへパスは、`https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/AutoLoaders/components.js`となります。
+簡易ローダーのCDNへパスは、`https://cdn.jsdelivr.net/gh/mogera551/Structive@latest/dist/EasyLoaders/components.js`となります。
 
 3. HTMLに記述して使用：
 
@@ -135,8 +134,15 @@ get "list.*.selected"() {
 
 ## 🧪 サンプル
 
-```ts
-// state.js
+```html
+<template>
+  <ul>
+    {{ for:list }}
+      <li>{{ list.*.double }}</li>
+    {{ endfor: }}
+  </ul>
+</template>
+<script type="module">
 export default class {
   list = [
     { value: 1 },
@@ -148,15 +154,7 @@ export default class {
     return this["list.*.value"] * 2;
   }
 }
-```
-
-```html
-<!-- template -->
-<ul>
-  {{ for:list }}
-    <li>{{ list.*.double }}</li>
-  {{ endfor: }}
-</ul>
+</script>
 ```
 
 ---
