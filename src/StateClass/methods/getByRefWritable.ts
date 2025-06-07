@@ -49,7 +49,7 @@ function _getByRef(
   // 親子関係のあるgetterが存在する場合は、外部依存から取得
   // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
   if (handler.engine.stateOutput.startsWith(info) && handler.engine.getters.intersection(info.cumulativePathSet).size === 0) {
-    return handler.engine.stateOutput.get(info);
+    return handler.engine.stateOutput.get(info, listIndex);
   }
 
   // パターンがtargetに存在する場合はgetter経由で取得

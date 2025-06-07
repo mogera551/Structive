@@ -122,6 +122,10 @@ export class ComponentEngine implements IComponentEngine {
       this.listInfoSet.add(getStructuredPathInfo(listPath));
       this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
     }
+    for(const listPath of this.stateClass.$listProperties ?? []) {
+      this.listInfoSet.add(getStructuredPathInfo(listPath));
+      this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
+    }
   }
 
   setup(): void {
@@ -258,6 +262,9 @@ export class ComponentEngine implements IComponentEngine {
   }
 
   getListIndexesSet(info:IStructuredPathInfo, listIndex:IListIndex | null): Set<IListIndex> | null {
+    if (this.stateOutput.startsWith(info)) {
+      return this.stateOutput.getListIndexesSet(info, listIndex);
+    }
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     return saveInfo.listIndexesSet;
   }

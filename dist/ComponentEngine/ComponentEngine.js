@@ -104,6 +104,10 @@ export class ComponentEngine {
             this.listInfoSet.add(getStructuredPathInfo(listPath));
             this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
         }
+        for (const listPath of this.stateClass.$listProperties ?? []) {
+            this.listInfoSet.add(getStructuredPathInfo(listPath));
+            this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
+        }
     }
     setup() {
         const componentClass = this.owner.constructor;
@@ -214,6 +218,9 @@ export class ComponentEngine {
         return false;
     }
     getListIndexesSet(info, listIndex) {
+        if (this.stateOutput.startsWith(info)) {
+            return this.stateOutput.getListIndexesSet(info, listIndex);
+        }
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.listIndexesSet;
     }

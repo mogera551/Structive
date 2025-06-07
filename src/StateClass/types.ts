@@ -54,6 +54,7 @@ export type IStateProxy = IReadonlyStateProxy | IWritableStateProxy;
 export interface IStructiveStaticState {
   $isStructive?: boolean; // Whether the state is structive or not
   $config?: IUserConfig; // The config of the component
+  $listProperties?: string[]; // The list properties of the component
 }
 
 export type IStructiveState = Constructor<IState> & IStructiveStaticState;

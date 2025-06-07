@@ -3205,7 +3205,7 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
         // 親子関係のあるgetterが存在する場合は、外部依存から取得
         // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
         if (handler.engine.stateOutput.startsWith(info) && handler.engine.getters.intersection(info.cumulativePathSet).size === 0) {
-            return value = handler.engine.stateOutput.get(info);
+            return value = handler.engine.stateOutput.get(info, listIndex);
         }
         // パターンがtargetに存在する場合はgetter経由で取得
         if (info.pattern in target) {
@@ -3450,7 +3450,7 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     // 親子関係のあるgetterが存在する場合は、外部依存から取得
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
     if (handler.engine.stateOutput.startsWith(info) && handler.engine.getters.intersection(info.cumulativePathSet).size === 0) {
-        return handler.engine.stateOutput.get(info);
+        return handler.engine.stateOutput.get(info, listIndex);
     }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (info.pattern in target) {
@@ -3490,7 +3490,7 @@ function setByRef(target, info, listIndex, value, receiver, handler) {
         // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
         // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
         if (handler.engine.stateOutput.startsWith(info) && handler.engine.setters.intersection(info.cumulativePathSet).size === 0) {
-            return handler.engine.stateOutput.set(info, value);
+            return handler.engine.stateOutput.set(info, listIndex, value);
         }
         if (info.pattern in target) {
             return setStatePropertyRef(handler, info, listIndex, () => {
@@ -3923,7 +3923,7 @@ class ComponentStateOutput {
     constructor(binding) {
         this.binding = binding;
     }
-    get(pathInfo) {
+    get(pathInfo, listIndex) {
         const childPath = this.binding.startsWithByChildPath(pathInfo);
         if (childPath === null) {
             raiseError(`No child path found for path "${pathInfo.toString()}".`);
@@ -3933,9 +3933,9 @@ class ComponentStateOutput {
             raiseError(`No binding found for child path "${childPath}".`);
         }
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
-        return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, binding.bindingState.listIndex);
+        return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex);
     }
-    set(pathInfo, value) {
+    set(pathInfo, listIndex, value) {
         const childPath = this.binding.startsWithByChildPath(pathInfo);
         if (childPath === null) {
             raiseError(`No child path found for path "${pathInfo.toString()}".`);
@@ -3947,11 +3947,23 @@ class ComponentStateOutput {
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
         const engine = binding.engine;
         engine.useWritableStateProxy(null, async (state) => {
-            state[SetByRefSymbol](parentPathInfo, binding.bindingState.listIndex, value);
+            state[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
         });
     }
     startsWith(pathInfo) {
         return this.binding.startsWithByChildPath(pathInfo) !== null;
+    }
+    getListIndexesSet(pathInfo, listIndex) {
+        const childPath = this.binding.startsWithByChildPath(pathInfo);
+        if (childPath === null) {
+            raiseError(`No child path found for path "${pathInfo.toString()}".`);
+        }
+        const binding = this.binding.bindingByChildPath.get(childPath);
+        if (typeof binding === "undefined") {
+            raiseError(`No binding found for child path "${childPath}".`);
+        }
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
+        return binding.engine.getListIndexesSet(parentPathInfo, listIndex);
     }
 }
 function createComponentStateOutput(binding) {
@@ -4047,6 +4059,10 @@ class ComponentEngine {
         }
         // 配列のプロパティ、配列要素のプロパティを登録する
         for (const listPath of componentClass.listPaths) {
+            this.listInfoSet.add(getStructuredPathInfo(listPath));
+            this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
+        }
+        for (const listPath of this.stateClass.$listProperties ?? []) {
             this.listInfoSet.add(getStructuredPathInfo(listPath));
             this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
         }
@@ -4160,6 +4176,9 @@ class ComponentEngine {
         return false;
     }
     getListIndexesSet(info, listIndex) {
+        if (this.stateOutput.startsWith(info)) {
+            return this.stateOutput.getListIndexesSet(info, listIndex);
+        }
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.listIndexesSet;
     }

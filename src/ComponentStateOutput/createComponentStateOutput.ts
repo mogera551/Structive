@@ -1,4 +1,5 @@
 import { IComponentStateBinding } from "../ComponentStateBinding/types";
+import { IListIndex } from "../ListIndex/types";
 import { GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
@@ -11,7 +12,7 @@ class ComponentStateOutput implements IComponentStateOutput {
     this.binding = binding;
   }
 
-  get(pathInfo: IStructuredPathInfo): any {
+  get(pathInfo: IStructuredPathInfo, listIndex: IListIndex | null): any {
     const childPath = this.binding.startsWithByChildPath(pathInfo);
     if (childPath === null) {
       raiseError(`No child path found for path "${pathInfo.toString()}".`);
@@ -21,10 +22,10 @@ class ComponentStateOutput implements IComponentStateOutput {
       raiseError(`No binding found for child path "${childPath}".`);
     }
     const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
-    return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, binding.bindingState.listIndex);
+    return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex);
   }
 
-  set(pathInfo: IStructuredPathInfo, value: any): void {
+  set(pathInfo: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void {
     const childPath = this.binding.startsWithByChildPath(pathInfo);
     if (childPath === null) {
       raiseError(`No child path found for path "${pathInfo.toString()}".`);
@@ -36,12 +37,25 @@ class ComponentStateOutput implements IComponentStateOutput {
     const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
     const engine = binding.engine;
     engine.useWritableStateProxy(null, async (state) => {
-      state[SetByRefSymbol](parentPathInfo, binding.bindingState.listIndex, value);
+      state[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
     });
   }
 
   startsWith(pathInfo: IStructuredPathInfo): boolean {
     return this.binding.startsWithByChildPath(pathInfo) !== null;
+  }
+
+  getListIndexesSet(pathInfo:IStructuredPathInfo, listIndex:IListIndex | null): Set<IListIndex> | null {
+    const childPath = this.binding.startsWithByChildPath(pathInfo);
+    if (childPath === null) {
+      raiseError(`No child path found for path "${pathInfo.toString()}".`);
+    }
+    const binding = this.binding.bindingByChildPath.get(childPath);
+    if (typeof binding === "undefined") {
+      raiseError(`No binding found for child path "${childPath}".`);
+    }
+    const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
+    return binding.engine.getListIndexesSet(parentPathInfo, listIndex);
   }
 }
 
