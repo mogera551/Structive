@@ -1029,7 +1029,7 @@ class BindingNodeIf extends BindingNodeBlock {
         }
         if (value) {
             this.#bindContent.render();
-            this.#bindContent.mountAfter(parentNode, this.node.nextSibling);
+            this.#bindContent.mountAfter(parentNode, this.node);
             this.#bindContents = this.#trueBindContents;
         }
         else {
