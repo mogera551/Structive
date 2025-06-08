@@ -21,12 +21,13 @@ class ComponentStateInputHandler {
      * @param refs
      */
     notifyRedraw(refs) {
-        for (const parentPathInfo of refs) {
+        for (const parentPathRef of refs) {
             try {
-                const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathInfo.info.pattern);
+                const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathRef.info.pattern);
                 const childPathInfo = getStructuredPathInfo(childPath);
-                const value = this.engine.getPropertyValue(childPathInfo, null);
-                this.engine.updater.addUpdatedStatePropertyRefValue(childPathInfo, null, value);
+                const childListIndex = parentPathRef.listIndex;
+                const value = this.engine.getPropertyValue(childPathInfo, childListIndex);
+                this.engine.updater.addUpdatedStatePropertyRefValue(childPathInfo, childListIndex, value);
             }
             catch (e) {
                 // 対象でないものは何もしない

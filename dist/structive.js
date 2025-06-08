@@ -1452,10 +1452,11 @@ class BindingNodeComponent extends BindingNode {
     }
     notifyRedraw(refs) {
         const notifyRefs = [];
-        const listIndex = this.binding.bindingState.listIndex;
         const info = this.binding.bindingState.info;
+        const listIndex = this.binding.bindingState.listIndex?.at(info.wildcardCount - 1) ?? null;
+        const at = (listIndex?.length ?? 0) - 1;
         for (const ref of refs) {
-            if (ref.listIndex !== listIndex) {
+            if (listIndex !== null && ref.listIndex?.at(at) !== listIndex) {
                 continue;
             }
             if (!ref.info.cumulativePathSet.has(info.pattern)) {
@@ -2739,9 +2740,6 @@ function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
             const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
             // リストインデックスを展開する
             listWalker(engine, refInfo, listIndex, (_info, _listIndex) => {
-                if (!engine.existsBindingsByInfo(_info)) {
-                    return;
-                }
                 const refKey = createRefKey(_info, _listIndex);
                 if (refKeys.has(refKey)) {
                     return;
@@ -2752,6 +2750,9 @@ function restructListIndexes(infos, engine, updateValues, refKeys, cache) {
                     cache.set(_info, cacheListIndexSet);
                 }
                 cacheListIndexSet.add(_listIndex);
+                if (!engine.existsBindingsByInfo(_info)) {
+                    return;
+                }
                 refKeys.add(refKey);
                 if (engine.listInfoSet.has(_info)) {
                     const values = updateValues[refKey] ?? engine.readonlyState[GetByRefSymbol](_info, _listIndex);
@@ -3881,12 +3882,13 @@ class ComponentStateInputHandler {
      * @param refs
      */
     notifyRedraw(refs) {
-        for (const parentPathInfo of refs) {
+        for (const parentPathRef of refs) {
             try {
-                const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathInfo.info.pattern);
+                const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathRef.info.pattern);
                 const childPathInfo = getStructuredPathInfo(childPath);
-                const value = this.engine.getPropertyValue(childPathInfo, null);
-                this.engine.updater.addUpdatedStatePropertyRefValue(childPathInfo, null, value);
+                const childListIndex = parentPathRef.listIndex;
+                const value = this.engine.getPropertyValue(childPathInfo, childListIndex);
+                this.engine.updater.addUpdatedStatePropertyRefValue(childPathInfo, childListIndex, value);
             }
             catch (e) {
                 // 対象でないものは何もしない

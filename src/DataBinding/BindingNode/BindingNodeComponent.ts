@@ -54,10 +54,11 @@ class BindingNodeComponent extends BindingNode {
 
   notifyRedraw(refs: IStatePropertyRef[]): void {
     const notifyRefs = [];
-    const listIndex = this.binding.bindingState.listIndex;
     const info = this.binding.bindingState.info;
+    const listIndex = this.binding.bindingState.listIndex?.at(info.wildcardCount - 1) ?? null;
+    const at = (listIndex?.length ?? 0) - 1;
     for(const ref of refs) {
-      if (ref.listIndex !== listIndex) {
+      if (listIndex !== null && ref.listIndex?.at(at) !== listIndex) {
         continue;
       }
       if (!ref.info.cumulativePathSet.has(info.pattern)) {

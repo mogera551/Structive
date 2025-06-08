@@ -88,9 +88,6 @@ export function restructListIndexes(
       const listIndex = (longestMatchAt >= 0) ? (ref.listIndex?.at(longestMatchAt) ?? null) : null;
       // リストインデックスを展開する
       listWalker(engine, refInfo, listIndex, (_info, _listIndex) => {
-        if (!engine.existsBindingsByInfo(_info)) {
-          return;
-        }
         const refKey = createRefKey(_info, _listIndex);
         if (refKeys.has(refKey)) {
           return;
@@ -101,6 +98,9 @@ export function restructListIndexes(
           cache.set(_info, cacheListIndexSet);
         }
         cacheListIndexSet.add(_listIndex);
+        if (!engine.existsBindingsByInfo(_info)) {
+          return;
+        }
         refKeys.add(refKey);
         if (engine.listInfoSet.has(_info)) {
           const values = updateValues[refKey] ?? engine.readonlyState[GetByRefSymbol](_info, _listIndex);
