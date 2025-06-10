@@ -68,7 +68,7 @@ class BindContent {
     getLastNode(parentNode) {
         const lastBinding = this.bindings[this.bindings.length - 1];
         const lastChildNode = this.lastChildNode;
-        if (lastBinding.node === lastChildNode) {
+        if (typeof lastBinding !== "undefined" && lastBinding.node === lastChildNode) {
             if (lastBinding.bindContents.size > 0) {
                 const childBindContent = Array.from(lastBinding.bindContents).at(-1) ?? raiseError(`BindContent: childBindContent is not found`);
                 const lastNode = childBindContent.getLastNode(parentNode);
