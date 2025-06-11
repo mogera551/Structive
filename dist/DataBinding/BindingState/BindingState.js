@@ -65,7 +65,7 @@ class BindingState {
         if (this.info.wildcardCount > 0) {
             const lastWildcardPath = this.info.lastWildcardPath ??
                 raiseError(`BindingState.init: wildcardLastParentPath is null`);
-            const loopContext = this.binding.parentBindContent.loopContext?.find(lastWildcardPath) ??
+            const loopContext = this.binding.parentBindContent.currentLoopContext?.find(lastWildcardPath) ??
                 raiseError(`BindingState.init: loopContext is null`);
             this.#listIndexRef = loopContext.listIndexRef;
         }
