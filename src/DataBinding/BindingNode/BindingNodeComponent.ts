@@ -3,6 +3,7 @@ import { IFilterText } from "../../BindingBuilder/types";
 import { NotifyRedrawSymbol } from "../../ComponentStateInput/symbols.js";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
+import { registerStructiveComponent } from "../../WebComponents/findStructiveParent.js";
 import { StructiveComponent } from "../../WebComponents/types";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
@@ -42,6 +43,7 @@ class BindingNodeComponent extends BindingNode {
 
   init(): void {
     const engine = this.binding.engine;
+    registerStructiveComponent(engine.owner, this.node as StructiveComponent);
     let bindings = engine.bindingsByComponent.get(this.node as StructiveComponent);
     if (typeof bindings === "undefined") {
       engine.bindingsByComponent.set(this.node as StructiveComponent, bindings = new Set<IBinding>());

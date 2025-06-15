@@ -37,23 +37,8 @@ import { createAccessorFunctions } from "../StateProperty/createAccessorFunction
 import { config as globalConfig } from "./getGlobalConfig.js";
 import { raiseError } from "../utils.js";
 import { IComponentStateInput } from "../ComponentStateInput/types.js";
+import { findStructiveParent } from "./findStructiveParent.js";
 
-function findStructiveParent(el:StructiveComponent): StructiveComponent | null {
-  let current = el.parentNode;
-  while (current) {
-    if ((current as StructiveComponent).state && (current as StructiveComponent).isStructive) {
-      return current as StructiveComponent;
-    }
-    current = current.parentNode;
-    if (current instanceof ShadowRoot) {
-      if (current.host && (current.host as StructiveComponent).state && (current.host as StructiveComponent).isStructive) {
-        return current.host as StructiveComponent;
-      }
-      current = current.host;
-    }
-  }
-  return null;
-}
 
 export function createComponentClass(componentData: IUserComponentData): StructiveComponentClass {
   const config = (componentData.stateClass.$config ?? {})as IUserConfig;
@@ -110,10 +95,10 @@ export function createComponentClass(componentData: IUserComponentData): Structi
     }
 
     registerChildComponent(component:StructiveComponent): void {
-      this.#engine.registerStrutiveComponent(component);
+      this.#engine.registerChildComponent(component);
     }
     unregisterChildComponent(component:StructiveComponent): void {
-      this.#engine.unregisterStrutiveComponent(component);
+      this.#engine.unregisterChildComponent(component);
     }
     static define(tagName:string) {
       if (extendTagName) {

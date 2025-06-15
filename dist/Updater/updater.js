@@ -45,8 +45,8 @@ class Updater {
                     this.render(bindings);
                 }
                 // 子コンポーネントへの再描画通知
-                if (engine.structiveComponents.size > 0) {
-                    for (const structiveComponent of engine.structiveComponents) {
+                if (engine.structiveChildComponents.size > 0) {
+                    for (const structiveComponent of engine.structiveChildComponents) {
                         const structiveComponentBindings = engine.bindingsByComponent.get(structiveComponent) ?? new Set();
                         for (const binding of structiveComponentBindings) {
                             binding.notifyRedraw(properties);
@@ -64,7 +64,7 @@ class Updater {
         const retBindings = [];
         const retProperties = [];
         const engine = this.engine;
-        const hasChildComponent = engine.structiveComponents.size > 0;
+        const hasChildComponent = engine.structiveChildComponents.size > 0;
         while (this.updatedProperties.size > 0) {
             const updatedProiperties = Array.from(this.updatedProperties.values());
             this.updatedProperties.clear();

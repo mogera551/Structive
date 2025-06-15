@@ -25,6 +25,7 @@ import { createComponentStateOutput } from "../ComponentStateOutput/createCompon
 import { IComponentStateInput } from "../ComponentStateInput/types.js";
 import { IComponentStateOutput } from "../ComponentStateOutput/types.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
+import { registerStructiveComponent } from "../WebComponents/findStructiveParent.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
@@ -78,13 +79,16 @@ export class ComponentEngine implements IComponentEngine {
   dependentTree       : Map<IStructuredPathInfo, Set<IDependencyEdge>> = new Map();
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
-  structiveComponents: Set<StructiveComponent> = new Set();
+  structiveChildComponents: Set<StructiveComponent> = new Set();
 
   #waitForInitialize : PromiseWithResolvers<void> = Promise.withResolvers<void>();
 
   #stateBinding: IComponentStateBinding = createComponentStateBinding();
   stateInput: IComponentStateInput;
   stateOutput: IComponentStateOutput;
+  #blockPlaceholder: Comment | null = null; // ブロックプレースホルダー
+  #blockParentNode: Node | null = null; // ブロックプレースホルダーの親ノード
+  #ignoreDissconnectedCallback: boolean = false; // disconnectedCallbackを無視するフラグ
 
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
@@ -100,7 +104,7 @@ export class ComponentEngine implements IComponentEngine {
     this.updater = createUpdater(this);
     this.inputFilters = componentClass.inputFilters;
     this.outputFilters = componentClass.outputFilters;
-    this.owner = owner;
+    this.owner =  owner;
     this.trackedGetters = componentClass.trackedGetters;
     this.getters = componentClass.getters;
     this.setters = componentClass.setters;
@@ -161,7 +165,18 @@ export class ComponentEngine implements IComponentEngine {
       // 親コンポーネントの状態を子コンポーネントにバインドする
       this.#stateBinding.bind(parentComponent, this.owner);
     }
-    attachShadow(this.owner, this.config, this.styleSheet);
+    if (this.config.enableWebComponents) {
+      attachShadow(this.owner, this.config, this.styleSheet);
+    } else {
+      this.#blockParentNode = this.owner.parentNode;
+      this.#blockPlaceholder = document.createComment("Structive block placeholder");
+      try {
+        this.#ignoreDissconnectedCallback = true; // disconnectedCallbackを無視するフラグを立てる
+        this.owner.replaceWith(this.#blockPlaceholder); // disconnectCallbackが呼ばれてしまう
+      } finally {
+        this.#ignoreDissconnectedCallback = false;
+      }
+    }
 
     this.bindContent.render();
     await this.useWritableStateProxy(null, async (stateProxy) => {
@@ -169,17 +184,30 @@ export class ComponentEngine implements IComponentEngine {
     });
     // レンダリングが終わってから実行する
     queueMicrotask(() => {
-      this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
+      if (this.config.enableWebComponents) {
+        // Shadow DOMにバインドコンテンツをマウントする
+        this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
+      } else {
+        // ブロックプレースホルダーの親ノードにバインドコンテンツをマウントする
+        const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
+        this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
+      }
       this.#waitForInitialize.resolve();
     });
   }
 
   async disconnectedCallback(): Promise<void> {
+    if (this.#ignoreDissconnectedCallback) return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
     await this.useWritableStateProxy(null, async (stateProxy) => {
       await stateProxy[DisconnectedCallbackSymbol]();
     });
     // 親コンポーネントから登録を解除する
     this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
+    if (!this.config.enableWebComponents) {
+      this.#blockPlaceholder?.remove();
+      this.#blockPlaceholder = null;
+      this.#blockParentNode = null;
+    }
   }
 
   #saveInfoByListIndexByResolvedPathInfoId: { [id:number]: WeakMap<IListIndex,ISaveInfoByResolvedPathInfo> } = {};
@@ -307,11 +335,11 @@ export class ComponentEngine implements IComponentEngine {
     return useWritableStateProxy(this, this.state, loopContext, callback);
   }
   // Structive子コンポーネントを登録する
-  registerStrutiveComponent(component: StructiveComponent): void {
-    this.structiveComponents.add(component);
+  registerChildComponent(component: StructiveComponent): void {
+    this.structiveChildComponents.add(component);
   }
-  unregisterStrutiveComponent(component: StructiveComponent): void {
-    this.structiveComponents.delete(component);
+  unregisterChildComponent(component: StructiveComponent): void {
+    this.structiveChildComponents.delete(component);
   }
   
 }

@@ -1,5 +1,6 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { NotifyRedrawSymbol } from "../../ComponentStateInput/symbols.js";
+import { registerStructiveComponent } from "../../WebComponents/findStructiveParent.js";
 import { BindingNode } from "./BindingNode.js";
 /**
  * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
@@ -28,6 +29,7 @@ class BindingNodeComponent extends BindingNode {
     }
     init() {
         const engine = this.binding.engine;
+        registerStructiveComponent(engine.owner, this.node);
         let bindings = engine.bindingsByComponent.get(this.node);
         if (typeof bindings === "undefined") {
             engine.bindingsByComponent.set(this.node, bindings = new Set());

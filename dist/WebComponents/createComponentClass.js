@@ -30,22 +30,7 @@ import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/register
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
 import { config as globalConfig } from "./getGlobalConfig.js";
-function findStructiveParent(el) {
-    let current = el.parentNode;
-    while (current) {
-        if (current.state && current.isStructive) {
-            return current;
-        }
-        current = current.parentNode;
-        if (current instanceof ShadowRoot) {
-            if (current.host && current.host.state && current.host.isStructive) {
-                return current.host;
-            }
-            current = current.host;
-        }
-    }
-    return null;
-}
+import { findStructiveParent } from "./findStructiveParent.js";
 export function createComponentClass(componentData) {
     const config = (componentData.stateClass.$config ?? {});
     const componentConfig = getComponentConfig(config);
@@ -92,10 +77,10 @@ export function createComponentClass(componentData) {
             return this.#engine.bindingsByComponent.get(component) ?? null;
         }
         registerChildComponent(component) {
-            this.#engine.registerStrutiveComponent(component);
+            this.#engine.registerChildComponent(component);
         }
         unregisterChildComponent(component) {
-            this.#engine.unregisterStrutiveComponent(component);
+            this.#engine.unregisterChildComponent(component);
         }
         static define(tagName) {
             if (extendTagName) {

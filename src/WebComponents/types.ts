@@ -72,13 +72,15 @@ export interface IConfig {
 }
 
 export interface IUserConfig {
-  enableShadowDom?: boolean; // Whether to use Shadow DOM or not
-  extends?        : string; // The tag name of the component to extend
+  enableWebComponents? : boolean; // Whether to use Web Components or not
+  enableShadowDom?     : boolean; // Whether to use Shadow DOM or not
+  extends?             : string; // The tag name of the component to extend
 }
 
 export interface IComponentConfig {
-  enableShadowDom: boolean; // Whether to use Shadow DOM or not
-  extends        : string | null; // The tag name of the component to extend
+  enableWebComponents : boolean; // Whether to use Web Components or not
+  enableShadowDom     : boolean; // Whether to use Shadow DOM or not
+  extends             : string | null; // The tag name of the component to extend
 }
 
 export interface IUserComponentData {

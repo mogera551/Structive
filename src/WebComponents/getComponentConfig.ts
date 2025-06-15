@@ -18,7 +18,8 @@ import { IUserConfig, IComponentConfig } from "./types";
 export function getComponentConfig(userConfig: IUserConfig): IComponentConfig {
   const globalConfig = getGlobalConfig();
   return {
-    enableShadowDom: userConfig.enableShadowDom ?? globalConfig.enableShadowDom,
-    extends        : userConfig.extends ?? null,
+    enableWebComponents: typeof userConfig.enableWebComponents === "undefined" ? true : userConfig.enableWebComponents,
+    enableShadowDom    : userConfig.enableShadowDom ?? globalConfig.enableShadowDom,
+    extends            : userConfig.extends ?? null,
   };
 }

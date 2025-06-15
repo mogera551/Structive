@@ -17,7 +17,7 @@ import { IConfig } from "./types";
 const globalConfig: IConfig = {
   "debug"                : false,
   "locale"               : "en-US", // The locale of the component, ex. "en-US", default is "en-US"
-  "enableShadowDom"      : true,
+  "enableShadowDom"      : true, // Whether to use Shadow DOM or not
   "enableMainWrapper"    : true, // Whether to use the main wrapper or not
   "enableRouter"         : true, // Whether to use the router or not
   "autoInsertMainWrapper": false, // Whether to automatically insert the main wrapper or not

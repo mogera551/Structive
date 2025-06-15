@@ -16,6 +16,7 @@ import { getGlobalConfig } from "./getGlobalConfig.js";
 export function getComponentConfig(userConfig) {
     const globalConfig = getGlobalConfig();
     return {
+        enableWebComponents: typeof userConfig.enableWebComponents === "undefined" ? true : userConfig.enableWebComponents,
         enableShadowDom: userConfig.enableShadowDom ?? globalConfig.enableShadowDom,
         extends: userConfig.extends ?? null,
     };

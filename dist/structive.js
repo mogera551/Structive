@@ -85,7 +85,7 @@ function getRouter() {
 const globalConfig = {
     "debug": false,
     "locale": "en-US", // The locale of the component, ex. "en-US", default is "en-US"
-    "enableShadowDom": true,
+    "enableShadowDom": true, // Whether to use Shadow DOM or not
     "enableMainWrapper": true, // Whether to use the main wrapper or not
     "enableRouter": true, // Whether to use the router or not
     "autoInsertMainWrapper": false, // Whether to automatically insert the main wrapper or not
@@ -1415,6 +1415,14 @@ const symbolName$1 = "component-state-input";
 const AssignStateSymbol = Symbol.for(`${symbolName$1}.AssignState`);
 const NotifyRedrawSymbol = Symbol.for(`${symbolName$1}.NotifyRedraw`);
 
+const parentStructiveComponentByStructiveComponent = new WeakMap();
+function findStructiveParent(el) {
+    return parentStructiveComponentByStructiveComponent.get(el) ?? null;
+}
+function registerStructiveComponent(parentComponent, component) {
+    parentStructiveComponentByStructiveComponent.set(component, parentComponent);
+}
+
 /**
  * BindingNodeComponentクラスは、StructiveComponent（カスタムコンポーネント）への
  * バインディング処理を担当するバインディングノードの実装です。
@@ -1442,6 +1450,7 @@ class BindingNodeComponent extends BindingNode {
     }
     init() {
         const engine = this.binding.engine;
+        registerStructiveComponent(engine.owner, this.node);
         let bindings = engine.bindingsByComponent.get(this.node);
         if (typeof bindings === "undefined") {
             engine.bindingsByComponent.set(this.node, bindings = new Set());
@@ -2805,8 +2814,8 @@ class Updater {
                     this.render(bindings);
                 }
                 // 子コンポーネントへの再描画通知
-                if (engine.structiveComponents.size > 0) {
-                    for (const structiveComponent of engine.structiveComponents) {
+                if (engine.structiveChildComponents.size > 0) {
+                    for (const structiveComponent of engine.structiveChildComponents) {
                         const structiveComponentBindings = engine.bindingsByComponent.get(structiveComponent) ?? new Set();
                         for (const binding of structiveComponentBindings) {
                             binding.notifyRedraw(properties);
@@ -2824,7 +2833,7 @@ class Updater {
         const retBindings = [];
         const retProperties = [];
         const engine = this.engine;
-        const hasChildComponent = engine.structiveComponents.size > 0;
+        const hasChildComponent = engine.structiveChildComponents.size > 0;
         while (this.updatedProperties.size > 0) {
             const updatedProiperties = Array.from(this.updatedProperties.values());
             this.updatedProperties.clear();
@@ -4022,11 +4031,14 @@ class ComponentEngine {
     bindingsByListIndex = new WeakMap();
     dependentTree = new Map();
     bindingsByComponent = new WeakMap();
-    structiveComponents = new Set();
+    structiveChildComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
     #stateBinding = createComponentStateBinding();
     stateInput;
     stateOutput;
+    #blockPlaceholder = null; // ブロックプレースホルダー
+    #blockParentNode = null; // ブロックプレースホルダーの親ノード
+    #ignoreDissconnectedCallback = false; // disconnectedCallbackを無視するフラグ
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {
@@ -4102,23 +4114,51 @@ class ComponentEngine {
             // 親コンポーネントの状態を子コンポーネントにバインドする
             this.#stateBinding.bind(parentComponent, this.owner);
         }
-        attachShadow(this.owner, this.config, this.styleSheet);
+        if (this.config.enableWebComponents) {
+            attachShadow(this.owner, this.config, this.styleSheet);
+        }
+        else {
+            this.#blockParentNode = this.owner.parentNode;
+            this.#blockPlaceholder = document.createComment("Structive block placeholder");
+            try {
+                this.#ignoreDissconnectedCallback = true; // disconnectedCallbackを無視するフラグを立てる
+                this.owner.replaceWith(this.#blockPlaceholder); // disconnectCallbackが呼ばれてしまう
+            }
+            finally {
+                this.#ignoreDissconnectedCallback = false;
+            }
+        }
         this.bindContent.render();
         await this.useWritableStateProxy(null, async (stateProxy) => {
             await stateProxy[ConnectedCallbackSymbol]();
         });
         // レンダリングが終わってから実行する
         queueMicrotask(() => {
-            this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
+            if (this.config.enableWebComponents) {
+                // Shadow DOMにバインドコンテンツをマウントする
+                this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
+            }
+            else {
+                // ブロックプレースホルダーの親ノードにバインドコンテンツをマウントする
+                const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
+                this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
+            }
             this.#waitForInitialize.resolve();
         });
     }
     async disconnectedCallback() {
+        if (this.#ignoreDissconnectedCallback)
+            return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
         await this.useWritableStateProxy(null, async (stateProxy) => {
             await stateProxy[DisconnectedCallbackSymbol]();
         });
         // 親コンポーネントから登録を解除する
         this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
+        if (!this.config.enableWebComponents) {
+            this.#blockPlaceholder?.remove();
+            this.#blockPlaceholder = null;
+            this.#blockParentNode = null;
+        }
     }
     #saveInfoByListIndexByResolvedPathInfoId = {};
     #saveInfoByStructuredPathId = {};
@@ -4214,11 +4254,11 @@ class ComponentEngine {
         return useWritableStateProxy(this, this.state, loopContext, callback);
     }
     // Structive子コンポーネントを登録する
-    registerStrutiveComponent(component) {
-        this.structiveComponents.add(component);
+    registerChildComponent(component) {
+        this.structiveChildComponents.add(component);
     }
-    unregisterStrutiveComponent(component) {
-        this.structiveComponents.delete(component);
+    unregisterChildComponent(component) {
+        this.structiveChildComponents.delete(component);
     }
 }
 function createComponentEngine(config, component) {
@@ -4389,6 +4429,7 @@ function getBaseClass(extendTagName) {
 function getComponentConfig(userConfig) {
     const globalConfig = getGlobalConfig();
     return {
+        enableWebComponents: typeof userConfig.enableWebComponents === "undefined" ? true : userConfig.enableWebComponents,
         enableShadowDom: userConfig.enableShadowDom ?? globalConfig.enableShadowDom,
         extends: userConfig.extends ?? null,
     };
@@ -4493,22 +4534,6 @@ function createAccessorFunctions(info, getters) {
  * - テンプレート・CSS・StateClass・バインディング情報をIDで一元管理し、再利用性・拡張性を確保
  * - フィルターやバインディング情報も静的プロパティで柔軟に拡張可能
  */
-function findStructiveParent(el) {
-    let current = el.parentNode;
-    while (current) {
-        if (current.state && current.isStructive) {
-            return current;
-        }
-        current = current.parentNode;
-        if (current instanceof ShadowRoot) {
-            if (current.host && current.host.state && current.host.isStructive) {
-                return current.host;
-            }
-            current = current.host;
-        }
-    }
-    return null;
-}
 function createComponentClass(componentData) {
     const config = (componentData.stateClass.$config ?? {});
     const componentConfig = getComponentConfig(config);
@@ -4555,10 +4580,10 @@ function createComponentClass(componentData) {
             return this.#engine.bindingsByComponent.get(component) ?? null;
         }
         registerChildComponent(component) {
-            this.#engine.registerStrutiveComponent(component);
+            this.#engine.registerChildComponent(component);
         }
         unregisterChildComponent(component) {
-            this.#engine.unregisterStrutiveComponent(component);
+            this.#engine.unregisterChildComponent(component);
         }
         static define(tagName) {
             if (extendTagName) {
