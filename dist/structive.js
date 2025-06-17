@@ -4128,7 +4128,9 @@ class ComponentEngine {
                 this.#ignoreDissconnectedCallback = false;
             }
         }
-        this.bindContent.render();
+        this.readonlyState[SetCacheableSymbol](() => {
+            this.bindContent.render();
+        }); // キャッシュ可能にする
         await this.useWritableStateProxy(null, async (stateProxy) => {
             await stateProxy[ConnectedCallbackSymbol]();
         });

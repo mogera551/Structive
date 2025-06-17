@@ -2,7 +2,7 @@ import { createBindContent } from "../DataBinding/BindContent.js";
 import { createUpdater } from "../Updater/updater.js";
 import { attachShadow } from "./attachShadow.js";
 import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
@@ -159,7 +159,9 @@ export class ComponentEngine {
                 this.#ignoreDissconnectedCallback = false;
             }
         }
-        this.bindContent.render();
+        this.readonlyState[SetCacheableSymbol](() => {
+            this.bindContent.render();
+        }); // キャッシュ可能にする
         await this.useWritableStateProxy(null, async (stateProxy) => {
             await stateProxy[ConnectedCallbackSymbol]();
         });
