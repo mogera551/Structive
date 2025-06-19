@@ -22,6 +22,7 @@ import { IListIndex } from "./types";
 class ListIndex implements IListIndex {
   static id: number = 0;
   id              : number = ++ListIndex.id;
+  sid             : string = this.id.toString();
   #parentListIndex: IListIndex | null = null;
   get parentListIndex(): IListIndex | null {
     return this.#parentListIndex;
@@ -85,24 +86,30 @@ class ListIndex implements IListIndex {
   #atcache:{[key:number]:(WeakRef<IListIndex> | null)} = {};
   at(position: number): IListIndex | null {
     const value = this.#atcache[position];
-    if (value !== undefined) {
+    if (typeof value !== "undefined") {
       return value ? (value.deref() ?? null) : null;
     }
-    let iterator;
+    let listIndex: IListIndex | null = null;
     if (position >= 0) {
-      iterator = this.iterator();
+      let count = this.length - position - 1;
+      listIndex = this;
+      while(count > 0 && listIndex !== null) {
+        listIndex = listIndex.parentListIndex;
+        count--;
+      } 
     } else {
+      let iterator;
       position = - position - 1 
       iterator = this.reverseIterator();
+      let next;
+      while(position >= 0) {
+        next = iterator.next();
+        position--;
+      }
+      listIndex = next?.value ?? null;
     }
-    let next;
-    while(position >= 0) {
-      next = iterator.next();
-      position--;
-    }
-    const lisIndex = next?.value ?? null;
-    this.#atcache[position] = lisIndex ? new WeakRef(lisIndex) : null;
-    return lisIndex;
+    this.#atcache[position] = listIndex ? new WeakRef(listIndex) : null;
+    return listIndex;
   }
   
 }

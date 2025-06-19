@@ -17,7 +17,7 @@ import { IReadonlyStateHandler } from "../types";
 
 export function setCacheable(handler: IReadonlyStateHandler, callback: () => void): void {
   handler.cacheable = true;
-  handler.cache = {}
+  handler.cache = new Map();
   try {
     callback();
   } finally {

@@ -1611,6 +1611,7 @@ const _cache$1 = {};
 class StructuredPathInfo {
     static id = 0;
     id = ++StructuredPathInfo.id;
+    sid = this.id.toString();
     pattern;
     pathSegments;
     lastSegment;
@@ -2605,6 +2606,7 @@ function createDependencyWalker(engine, entryRef) {
 class ListIndex {
     static id = 0;
     id = ++ListIndex.id;
+    sid = this.id.toString();
     #parentListIndex = null;
     get parentListIndex() {
         return this.#parentListIndex;
@@ -2658,25 +2660,31 @@ class ListIndex {
     #atcache = {};
     at(position) {
         const value = this.#atcache[position];
-        if (value !== undefined) {
+        if (typeof value !== "undefined") {
             return value ? (value.deref() ?? null) : null;
         }
-        let iterator;
+        let listIndex = null;
         if (position >= 0) {
-            iterator = this.iterator();
+            let count = this.length - position - 1;
+            listIndex = this;
+            while (count > 0 && listIndex !== null) {
+                listIndex = listIndex.parentListIndex;
+                count--;
+            }
         }
         else {
+            let iterator;
             position = -position - 1;
             iterator = this.reverseIterator();
+            let next;
+            while (position >= 0) {
+                next = iterator.next();
+                position--;
+            }
+            listIndex = next?.value ?? null;
         }
-        let next;
-        while (position >= 0) {
-            next = iterator.next();
-            position--;
-        }
-        const lisIndex = next?.value ?? null;
-        this.#atcache[position] = lisIndex ? new WeakRef(lisIndex) : null;
-        return lisIndex;
+        this.#atcache[position] = listIndex ? new WeakRef(listIndex) : null;
+        return listIndex;
     }
 }
 function createListIndex(parentListIndex, index) {
@@ -2701,7 +2709,7 @@ function listWalker(engine, info, listIndex, callback) {
 }
 
 function createRefKey(info, listIndex) {
-    return info.id + ":" + (listIndex?.id ?? 0);
+    return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
 }
 
 const BLANK_LISTINDEXES_SET$1 = new Set();
@@ -3201,14 +3209,15 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
     let refKey = '';
     if (handler.cacheable) {
-        refKey = createRefKey(info, listIndex);
-        const value = handler.cache[refKey];
+        const key = (listIndex === null) ? info.sid : (info.sid + "#" + listIndex.sid);
+        const value = handler.cache.get(key);
         if (typeof value !== "undefined") {
             return value;
         }
-        if (refKey in handler.cache) {
+        if (handler.cache.has(key)) {
             return undefined;
         }
+        refKey = key;
     }
     let value;
     try {
@@ -3242,8 +3251,8 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
     }
     finally {
         // キャッシュが有効な場合は取得値をキャッシュ
-        if (handler.cacheable && !(refKey in handler.cache)) {
-            handler.cache[refKey] = value;
+        if (handler.cacheable && !handler.cache.has(refKey)) {
+            handler.cache.set(refKey, value);
         }
     }
 }
@@ -3284,7 +3293,7 @@ function resolveReadonly(target, prop, receiver, handler) {
 
 function setCacheable(handler, callback) {
     handler.cacheable = true;
-    handler.cache = {};
+    handler.cache = new Map();
     try {
         callback();
     }
@@ -3419,7 +3428,7 @@ const STACK_DEPTH$1 = 32;
 let StateHandler$1 = class StateHandler {
     engine;
     cacheable = false;
-    cache = {};
+    cache = new Map();
     lastTrackingStack = null;
     trackingStack = Array(STACK_DEPTH$1).fill(null);
     trackingIndex = -1;

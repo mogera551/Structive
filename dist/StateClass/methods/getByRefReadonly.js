@@ -1,4 +1,3 @@
-import { createRefKey } from "../../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../../utils";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 import { setTracking } from "./setTracking.js";
@@ -21,14 +20,15 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
     let refKey = '';
     if (handler.cacheable) {
-        refKey = createRefKey(info, listIndex);
-        const value = handler.cache[refKey];
+        const key = (listIndex === null) ? info.sid : (info.sid + "#" + listIndex.sid);
+        const value = handler.cache.get(key);
         if (typeof value !== "undefined") {
             return value;
         }
-        if (refKey in handler.cache) {
+        if (handler.cache.has(key)) {
             return undefined;
         }
+        refKey = key;
     }
     let value;
     try {
@@ -62,8 +62,8 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     }
     finally {
         // キャッシュが有効な場合は取得値をキャッシュ
-        if (handler.cacheable && !(refKey in handler.cache)) {
-            handler.cache[refKey] = value;
+        if (handler.cacheable && !handler.cache.has(refKey)) {
+            handler.cache.set(refKey, value);
         }
     }
 }

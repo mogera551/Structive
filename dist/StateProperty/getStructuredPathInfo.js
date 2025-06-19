@@ -31,6 +31,7 @@ const _cache = {};
 class StructuredPathInfo {
     static id = 0;
     id = ++StructuredPathInfo.id;
+    sid = this.id.toString();
     pattern;
     pathSegments;
     lastSegment;
