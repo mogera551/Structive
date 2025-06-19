@@ -1,6 +1,6 @@
 export function setCacheable(handler, callback) {
     handler.cacheable = true;
-    handler.cache = new Map();
+    handler.cache = {};
     try {
         callback();
     }

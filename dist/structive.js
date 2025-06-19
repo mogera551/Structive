@@ -3210,11 +3210,11 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
     let refKey = '';
     if (handler.cacheable) {
         const key = (listIndex === null) ? info.sid : (info.sid + "#" + listIndex.sid);
-        const value = handler.cache.get(key);
+        const value = handler.cache[key];
         if (typeof value !== "undefined") {
             return value;
         }
-        if (handler.cache.has(key)) {
+        if (key in handler.cache) {
             return undefined;
         }
         refKey = key;
@@ -3251,8 +3251,8 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
     }
     finally {
         // キャッシュが有効な場合は取得値をキャッシュ
-        if (handler.cacheable && !handler.cache.has(refKey)) {
-            handler.cache.set(refKey, value);
+        if (handler.cacheable && !(refKey in handler.cache)) {
+            handler.cache[refKey] = value;
         }
     }
 }
@@ -3293,7 +3293,7 @@ function resolveReadonly(target, prop, receiver, handler) {
 
 function setCacheable(handler, callback) {
     handler.cacheable = true;
-    handler.cache = new Map();
+    handler.cache = {};
     try {
         callback();
     }
@@ -3428,7 +3428,7 @@ const STACK_DEPTH$1 = 32;
 let StateHandler$1 = class StateHandler {
     engine;
     cacheable = false;
-    cache = new Map();
+    cache = {};
     lastTrackingStack = null;
     trackingStack = Array(STACK_DEPTH$1).fill(null);
     trackingIndex = -1;

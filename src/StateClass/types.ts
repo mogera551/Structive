@@ -62,7 +62,7 @@ export type IStructiveState = Constructor<IState> & IStructiveStaticState;
 export interface IReadonlyStateHandler {
   engine           : IComponentEngine;
   cacheable        : boolean;
-  cache            : Map<string, any>;
+  cache            : {[key: string]: any };
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : (IStructuredPathInfo | null)[];
   trackingIndex    : number;

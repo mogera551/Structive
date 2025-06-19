@@ -21,11 +21,11 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     let refKey = '';
     if (handler.cacheable) {
         const key = (listIndex === null) ? info.sid : (info.sid + "#" + listIndex.sid);
-        const value = handler.cache.get(key);
+        const value = handler.cache[key];
         if (typeof value !== "undefined") {
             return value;
         }
-        if (handler.cache.has(key)) {
+        if (key in handler.cache) {
             return undefined;
         }
         refKey = key;
@@ -62,8 +62,8 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     }
     finally {
         // キャッシュが有効な場合は取得値をキャッシュ
-        if (handler.cacheable && !handler.cache.has(refKey)) {
-            handler.cache.set(refKey, value);
+        if (handler.cacheable && !(refKey in handler.cache)) {
+            handler.cache[refKey] = value;
         }
     }
 }
