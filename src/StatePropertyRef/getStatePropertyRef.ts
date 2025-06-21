@@ -19,6 +19,6 @@ export function createRefKey(
   info: IStructuredPathInfo,
   listIndex: IListIndex | null,
 ) {
-  return info.id + ":" + (listIndex?.id ?? 0);
+  return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
 }
 

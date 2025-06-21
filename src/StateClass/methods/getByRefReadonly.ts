@@ -50,14 +50,15 @@ function _getByRef(
   // キャッシュが有効な場合はrefKeyで値をキャッシュ
   let refKey = '';
   if (handler.cacheable) {
-    refKey = createRefKey(info, listIndex);
-    const value = handler.cache[refKey];
+    const key = (listIndex === null) ? info.sid : (info.sid + "#" + listIndex.sid);
+    const value = handler.cache[key];
     if (typeof value !== "undefined") {
       return value;
     }
-    if (refKey in handler.cache) {
+    if (key in handler.cache) {
       return undefined;
     }
+    refKey = key;
   }
 
   let value;

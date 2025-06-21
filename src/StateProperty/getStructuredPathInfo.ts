@@ -34,6 +34,7 @@ const _cache: { [key:string]: IStructuredPathInfo } = {};
 class StructuredPathInfo implements IStructuredPathInfo {
   static id : number = 0;
   id = ++StructuredPathInfo.id;
+  sid = this.id.toString();
   pattern;
   pathSegments;
   lastSegment;

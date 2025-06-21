@@ -25,6 +25,7 @@ export interface IListIndex {
   parentListIndex: IListIndex | null;
   index          : number;
   readonly id      : number;
+  readonly sid     : string; // Unique ID as a string
   readonly indexes : number[];
   readonly position: number;
   readonly length: number;

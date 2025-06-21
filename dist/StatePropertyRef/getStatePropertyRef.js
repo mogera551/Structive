@@ -1,3 +1,3 @@
 export function createRefKey(info, listIndex) {
-    return info.id + ":" + (listIndex?.id ?? 0);
+    return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
 }

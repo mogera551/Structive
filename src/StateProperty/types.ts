@@ -16,6 +16,7 @@
  */
 export interface IStructuredPathInfo {
   readonly id: number;
+  readonly sid: string; // Unique ID as a string
   /** 
    * ex. aaa.\*.bbb.\*.ccc => ["aaa", "\*", "bbb", "\*", "ccc"]
    */
