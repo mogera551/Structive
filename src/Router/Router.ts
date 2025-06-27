@@ -15,6 +15,7 @@
  * - ルートパスのパラメータ（:id等）も正規表現で抽出し、data-state属性で渡す
  * - getRouterでグローバルなRouterインスタンスを取得可能
  */
+import { isLazyLoadComponent, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap";
 import { IRouter } from "./types";
 
 const DEFAULT_ROUTE_PATH = '/'; // Default route path
@@ -29,6 +30,10 @@ const routeEntries: Array<[string, string]> = [];
 let globalRouter : Router | null = null;
 
 export class Router extends HTMLElement implements IRouter {
+  originalPathName = window.location.pathname; // Store the original path name
+  originalFileName = window.location.pathname.split('/').pop() || ''; // Store the original file name
+  basePath = document.querySelector('base')?.href.replace(window.location.origin, "") || DEFAULT_ROUTE_PATH;
+
   _popstateHandler: (event: PopStateEvent) => void;
   constructor() {
     super();
@@ -53,7 +58,8 @@ export class Router extends HTMLElement implements IRouter {
   }
 
   navigate(to: string) {
-    history.pushState({}, '', to);
+    const toPath = to[0] === '/' ? (this.basePath + to.slice(1)) : to; // Ensure the path starts with '/'
+    history.pushState({}, '', toPath);
     this.render();
   }
 
@@ -64,16 +70,22 @@ export class Router extends HTMLElement implements IRouter {
     );
     slotChildren.forEach(n => this.removeChild(n));
 
-    const routePath = window.location.pathname || DEFAULT_ROUTE_PATH;
+    const paths = window.location.pathname.split('/');
+    if (paths.at(-1) === this.originalFileName) {
+      paths[paths.length - 1] = ''; // Ensure the last path is empty for root
+    }
+    const pathName = paths.join('/');
+    const replacedPath = pathName.replace(this.basePath, ''); // Remove base path and ensure default route
+    const currentPath = replacedPath[0] !== '/' ? '/' + replacedPath : replacedPath; // Ensure the path starts with '/'
     let tagName: string | undefined = undefined;
     let params: Record<string, string> = {};
     // Check if the routePath matches any of the defined routes
     for (const [path, tag] of routeEntries) {
-      const regex = new RegExp(path.replace(/:[^\s/]+/g, '([^/]+)'));
-      if (regex.test(routePath)) {
+      const regex = new RegExp("^" + path.replace(/:[^\s/]+/g, '([^/]+)') + "$");
+      if (regex.test(currentPath)) {
         tagName = tag;
         // Extract the parameters from the routePath
-        const matches = routePath.match(regex);
+        const matches = currentPath.match(regex);
         if (matches) {
           const keys = path.match(/:[^\s/]+/g) || [];
           keys.forEach((key, index) => {
@@ -91,6 +103,9 @@ export class Router extends HTMLElement implements IRouter {
       customElement.setAttribute('data-state', JSON.stringify(params));
       customElement.setAttribute('slot', 'content');
       this.appendChild(customElement);
+      if (isLazyLoadComponent(tagName)) {
+        loadLazyLoadComponent(tagName); // Load lazy load component if necessary
+      }
     } else {
       // If no route matches, show 404 content
       const messageElement = document.createElement('h1') as HTMLElement;

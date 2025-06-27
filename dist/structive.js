@@ -1,87 +1,3 @@
-const DEFAULT_ROUTE_PATH = '/'; // Default route path
-const ROUTE_PATH_PREFIX = 'routes:'; // Prefix for route paths
-/**
- * example:
- * ```ts
- * entryRoute('my-view', '/my-view/:id');
- */
-const routeEntries = [];
-let globalRouter = null;
-class Router extends HTMLElement {
-    _popstateHandler;
-    constructor() {
-        super();
-        this._popstateHandler = this.popstateHandler.bind(this);
-    }
-    connectedCallback() {
-        globalRouter = this;
-        this.innerHTML = '<slot name="content"></slot>';
-        window.addEventListener('popstate', this._popstateHandler);
-        window.dispatchEvent(new Event("popstate")); // Dispatch popstate event to trigger the initial render
-    }
-    disconnectedCallback() {
-        window.removeEventListener('popstate', this._popstateHandler);
-        globalRouter = null;
-    }
-    popstateHandler(event) {
-        event.preventDefault();
-        this.render();
-    }
-    navigate(to) {
-        history.pushState({}, '', to);
-        this.render();
-    }
-    render() {
-        // スロットコンテントをクリア
-        const slotChildren = Array.from(this.childNodes).filter(n => n.getAttribute?.('slot') === 'content');
-        slotChildren.forEach(n => this.removeChild(n));
-        const routePath = window.location.pathname || DEFAULT_ROUTE_PATH;
-        let tagName = undefined;
-        let params = {};
-        // Check if the routePath matches any of the defined routes
-        for (const [path, tag] of routeEntries) {
-            const regex = new RegExp(path.replace(/:[^\s/]+/g, '([^/]+)'));
-            if (regex.test(routePath)) {
-                tagName = tag;
-                // Extract the parameters from the routePath
-                const matches = routePath.match(regex);
-                if (matches) {
-                    const keys = path.match(/:[^\s/]+/g) || [];
-                    keys.forEach((key, index) => {
-                        params[key.substring(1)] = matches[index + 1]; // +1 to skip the full match
-                    });
-                }
-                break;
-            }
-        }
-        if (tagName) {
-            // If a route matches, create the custom element and set its state
-            // Create the custom element with the tag name
-            // project the custom element into the router slot
-            const customElement = document.createElement(tagName);
-            customElement.setAttribute('data-state', JSON.stringify(params));
-            customElement.setAttribute('slot', 'content');
-            this.appendChild(customElement);
-        }
-        else {
-            // If no route matches, show 404 content
-            const messageElement = document.createElement('h1');
-            messageElement.setAttribute('slot', 'content');
-            messageElement.textContent = '404 Not Found';
-            this.appendChild(messageElement);
-        }
-    }
-}
-function entryRoute(tagName, routePath) {
-    if (routePath.startsWith(ROUTE_PATH_PREFIX)) {
-        routePath = routePath.substring(ROUTE_PATH_PREFIX.length); // Remove 'routes:' prefix
-    }
-    routeEntries.push([routePath, tagName]);
-}
-function getRouter() {
-    return globalRouter;
-}
-
 const globalConfig = {
     "debug": false,
     "locale": "en-US", // The locale of the component, ex. "en-US", default is "en-US"
@@ -2407,7 +2323,15 @@ function render(bindings) {
 function createContent(id) {
     const template = getTemplateById(id) ??
         raiseError(`BindContent: template is not found: ${id}`);
-    return document.importNode(template.content, true);
+    const fragment = document.importNode(template.content, true);
+    if (hasLazyLoadComponents()) {
+        const lazyLoadElements = fragment.querySelectorAll(":not(:defined)");
+        for (let i = 0; i < lazyLoadElements.length; i++) {
+            const tagName = lazyLoadElements[i].tagName.toLowerCase();
+            loadLazyLoadComponent(tagName);
+        }
+    }
+    return fragment;
 }
 function createBindings(bindContent, id, engine, content) {
     const attributes = getDataBindAttributesById(id) ??
@@ -4717,6 +4641,17 @@ function createComponentClass(componentData) {
     };
 }
 
+function loadImportmap() {
+    const importmap = {};
+    document.querySelectorAll("script[type='importmap']").forEach(script => {
+        const scriptImportmap = JSON.parse(script.innerHTML);
+        if (scriptImportmap.imports) {
+            importmap.imports = Object.assign(importmap.imports || {}, scriptImportmap.imports);
+        }
+    });
+    return importmap;
+}
+
 function escapeEmbed(html) {
     return html.replaceAll(/\{\{([^\}]+)\}\}/g, (match, expr) => {
         return `<!--{{${expr}}}-->`;
@@ -4771,6 +4706,197 @@ async function loadSingleFileComponent(path) {
 
 function registerComponentClass(tagName, componentClass) {
     componentClass.define(tagName);
+}
+
+/**
+ * loadFromImportMap.ts
+ *
+ * importmapの情報をもとに、Structiveのルートやコンポーネントを動的にロード・登録するユーティリティです。
+ *
+ * 主な役割:
+ * - importmap.imports内のエイリアスを走査し、@routes/や@components/のプレフィックスで判定
+ * - @routes/の場合はルーティング情報をentryRouteで登録
+ * - @components/の場合はloadSingleFileComponentでSFCをロードし、createComponentClassでクラス化してregisterComponentClassで登録
+ *
+ * 設計ポイント:
+ * - importmapのエイリアスを利用して、ルーティングやコンポーネントの自動登録を実現
+ * - パスやタグ名の正規化、パラメータ除去なども自動で処理
+ * - 非同期でSFCをロードし、動的なWeb Components登録に対応
+ */
+const ROUTES_KEY = "@routes/";
+const COMPONENTS_KEY = "@components/";
+const LAZY_LOAD_SUFFIX = "#lazy";
+const LAZY_LOAD_SUFFIX_LEN = LAZY_LOAD_SUFFIX.length;
+const lazyLoadComponentAliasByTagName = {};
+async function loadFromImportMap() {
+    const importmap = loadImportmap();
+    if (importmap.imports) {
+        const loadAliasByTagName = new Map();
+        for (const [alias, value] of Object.entries(importmap.imports)) {
+            let tagName, isLazyLoad;
+            if (alias.startsWith(ROUTES_KEY)) {
+                isLazyLoad = alias.endsWith(LAZY_LOAD_SUFFIX);
+                // remove the prefix '@routes' and the suffix '#lazy' if it exists
+                const path = alias.slice(ROUTES_KEY.length - 1, isLazyLoad ? -LAZY_LOAD_SUFFIX_LEN : undefined);
+                const pathWithoutParams = path.replace(/:[^\s/]+/g, ""); // remove the params
+                tagName = "routes" + pathWithoutParams.replace(/\//g, "-"); // replace '/' with '-'
+                entryRoute(tagName, path === "/root" ? "/" : path); // routing
+            }
+            if (alias.startsWith(COMPONENTS_KEY)) {
+                isLazyLoad = alias.endsWith(LAZY_LOAD_SUFFIX);
+                // remove the prefix '@components/' and the suffix '#lazy' if it exists
+                tagName = alias.slice(COMPONENTS_KEY.length, isLazyLoad ? -LAZY_LOAD_SUFFIX_LEN : undefined);
+            }
+            if (!tagName) {
+                continue;
+            }
+            if (isLazyLoad) {
+                // Lazy Load用のコンポーネントのエイリアスを格納
+                lazyLoadComponentAliasByTagName[tagName] = alias;
+                continue; // Lazy Loadの場合はここでスキップ
+            }
+            loadAliasByTagName.set(tagName, alias);
+        }
+        for (const [tagName, alias] of loadAliasByTagName.entries()) {
+            // 非Lazy Loadのコンポーネントはここで登録
+            const componentData = await loadSingleFileComponent(alias);
+            const componentClass = createComponentClass(componentData);
+            registerComponentClass(tagName, componentClass);
+        }
+    }
+}
+function hasLazyLoadComponents() {
+    return Object.keys(lazyLoadComponentAliasByTagName).length > 0;
+}
+function isLazyLoadComponent(tagName) {
+    return lazyLoadComponentAliasByTagName.hasOwnProperty(tagName);
+}
+function loadLazyLoadComponent(tagName) {
+    const alias = lazyLoadComponentAliasByTagName[tagName];
+    if (!alias) {
+        console.warn(`loadLazyLoadComponent: alias not found for tagName: ${tagName}`);
+        return;
+    }
+    delete lazyLoadComponentAliasByTagName[tagName]; // 一度ロードしたら削除
+    queueMicrotask(async () => {
+        const componentData = await loadSingleFileComponent(alias);
+        const componentClass = createComponentClass(componentData);
+        registerComponentClass(tagName, componentClass);
+    });
+}
+
+/**
+ * Router.ts
+ *
+ * シングルページアプリケーション（SPA）向けのカスタムエレメント Router の実装です。
+ *
+ * 主な役割:
+ * - ルート定義（entryRoute）に基づき、URLパスに応じてカスタム要素を動的に生成・表示
+ * - pushState/popstateイベントを利用した履歴管理とルーティング制御
+ * - ルートパラメータの抽出とカスタム要素への受け渡し
+ * - 404ページ（未定義ルート時）の表示
+ *
+ * 設計ポイント:
+ * - entryRouteでルートパスとカスタム要素タグ名のペアを登録
+ * - popstateイベントでURL変更時に自動で再描画
+ * - ルートパスのパラメータ（:id等）も正規表現で抽出し、data-state属性で渡す
+ * - getRouterでグローバルなRouterインスタンスを取得可能
+ */
+const DEFAULT_ROUTE_PATH = '/'; // Default route path
+const ROUTE_PATH_PREFIX = 'routes:'; // Prefix for route paths
+/**
+ * example:
+ * ```ts
+ * entryRoute('my-view', '/my-view/:id');
+ */
+const routeEntries = [];
+let globalRouter = null;
+class Router extends HTMLElement {
+    originalPathName = window.location.pathname; // Store the original path name
+    originalFileName = window.location.pathname.split('/').pop() || ''; // Store the original file name
+    basePath = document.querySelector('base')?.href.replace(window.location.origin, "") || DEFAULT_ROUTE_PATH;
+    _popstateHandler;
+    constructor() {
+        super();
+        this._popstateHandler = this.popstateHandler.bind(this);
+    }
+    connectedCallback() {
+        globalRouter = this;
+        this.innerHTML = '<slot name="content"></slot>';
+        window.addEventListener('popstate', this._popstateHandler);
+        window.dispatchEvent(new Event("popstate")); // Dispatch popstate event to trigger the initial render
+    }
+    disconnectedCallback() {
+        window.removeEventListener('popstate', this._popstateHandler);
+        globalRouter = null;
+    }
+    popstateHandler(event) {
+        event.preventDefault();
+        this.render();
+    }
+    navigate(to) {
+        const toPath = to[0] === '/' ? (this.basePath + to.slice(1)) : to; // Ensure the path starts with '/'
+        history.pushState({}, '', toPath);
+        this.render();
+    }
+    render() {
+        // スロットコンテントをクリア
+        const slotChildren = Array.from(this.childNodes).filter(n => n.getAttribute?.('slot') === 'content');
+        slotChildren.forEach(n => this.removeChild(n));
+        const paths = window.location.pathname.split('/');
+        if (paths.at(-1) === this.originalFileName) {
+            paths[paths.length - 1] = ''; // Ensure the last path is empty for root
+        }
+        const pathName = paths.join('/');
+        const replacedPath = pathName.replace(this.basePath, ''); // Remove base path and ensure default route
+        const currentPath = replacedPath[0] !== '/' ? '/' + replacedPath : replacedPath; // Ensure the path starts with '/'
+        let tagName = undefined;
+        let params = {};
+        // Check if the routePath matches any of the defined routes
+        for (const [path, tag] of routeEntries) {
+            const regex = new RegExp("^" + path.replace(/:[^\s/]+/g, '([^/]+)') + "$");
+            if (regex.test(currentPath)) {
+                tagName = tag;
+                // Extract the parameters from the routePath
+                const matches = currentPath.match(regex);
+                if (matches) {
+                    const keys = path.match(/:[^\s/]+/g) || [];
+                    keys.forEach((key, index) => {
+                        params[key.substring(1)] = matches[index + 1]; // +1 to skip the full match
+                    });
+                }
+                break;
+            }
+        }
+        if (tagName) {
+            // If a route matches, create the custom element and set its state
+            // Create the custom element with the tag name
+            // project the custom element into the router slot
+            const customElement = document.createElement(tagName);
+            customElement.setAttribute('data-state', JSON.stringify(params));
+            customElement.setAttribute('slot', 'content');
+            this.appendChild(customElement);
+            if (isLazyLoadComponent(tagName)) {
+                loadLazyLoadComponent(tagName); // Load lazy load component if necessary
+            }
+        }
+        else {
+            // If no route matches, show 404 content
+            const messageElement = document.createElement('h1');
+            messageElement.setAttribute('slot', 'content');
+            messageElement.textContent = '404 Not Found';
+            this.appendChild(messageElement);
+        }
+    }
+}
+function entryRoute(tagName, routePath) {
+    if (routePath.startsWith(ROUTE_PATH_PREFIX)) {
+        routePath = routePath.substring(ROUTE_PATH_PREFIX.length); // Remove 'routes:' prefix
+    }
+    routeEntries.push([routePath, tagName]);
+}
+function getRouter() {
+    return globalRouter;
 }
 
 /**
@@ -4866,59 +4992,6 @@ class MainWrapper extends HTMLElement {
             const router = document.createElement(config$2.routerTagName);
             router.setAttribute('slot', SLOT_KEY);
             this.root.appendChild(router);
-        }
-    }
-}
-
-function loadImportmap() {
-    const importmap = {};
-    document.querySelectorAll("script[type='importmap']").forEach(script => {
-        const scriptImportmap = JSON.parse(script.innerHTML);
-        if (scriptImportmap.imports) {
-            importmap.imports = Object.assign(importmap.imports || {}, scriptImportmap.imports);
-        }
-    });
-    return importmap;
-}
-
-/**
- * loadFromImportMap.ts
- *
- * importmapの情報をもとに、Structiveのルートやコンポーネントを動的にロード・登録するユーティリティです。
- *
- * 主な役割:
- * - importmap.imports内のエイリアスを走査し、@routes/や@components/のプレフィックスで判定
- * - @routes/の場合はルーティング情報をentryRouteで登録
- * - @components/の場合はloadSingleFileComponentでSFCをロードし、createComponentClassでクラス化してregisterComponentClassで登録
- *
- * 設計ポイント:
- * - importmapのエイリアスを利用して、ルーティングやコンポーネントの自動登録を実現
- * - パスやタグ名の正規化、パラメータ除去なども自動で処理
- * - 非同期でSFCをロードし、動的なWeb Components登録に対応
- */
-const ROUTES_KEY = "@routes/";
-const COMPONENTS_KEY = "@components/";
-async function loadFromImportMap() {
-    const importmap = loadImportmap();
-    if (importmap.imports) {
-        for (const [alias, value] of Object.entries(importmap.imports)) {
-            let tagName;
-            if (alias.startsWith(ROUTES_KEY)) {
-                const path = alias.slice(ROUTES_KEY.length - 1); // remove the prefix '@routes'
-                const pathWithoutParams = path.replace(/:[^\s/]+/g, ""); // remove the params
-                tagName = "routes" + pathWithoutParams.replace(/\//g, "-"); // replace '/' with '-'
-                entryRoute(tagName, path === "/root" ? "/" : path); // routing
-            }
-            if (alias.startsWith(COMPONENTS_KEY)) {
-                tagName = alias.slice(COMPONENTS_KEY.length); // remove the prefix '@components/'
-            }
-            if (!tagName) {
-                continue;
-            }
-            let componentData = null;
-            componentData = await loadSingleFileComponent(alias);
-            const componentClass = createComponentClass(componentData);
-            registerComponentClass(tagName, componentClass);
         }
     }
 }

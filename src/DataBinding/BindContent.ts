@@ -9,11 +9,20 @@ import { IBindContent, IBinding } from "./types";
 import { createLoopContext } from "../LoopContext/createLoopContext.js";
 import { render } from "../Updater/render.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
+import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap.js";
 
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 
     raiseError(`BindContent: template is not found: ${id}`);
-  return document.importNode(template.content, true);
+  const fragment = document.importNode(template.content, true);
+  if (hasLazyLoadComponents()) {
+    const lazyLoadElements = fragment.querySelectorAll(":not(:defined)");
+    for(let i = 0; i < lazyLoadElements.length; i++) {
+      const tagName = lazyLoadElements[i].tagName.toLowerCase();
+      loadLazyLoadComponent(tagName);
+    }
+  }
+  return fragment;
 }
 
 function createBindings(
