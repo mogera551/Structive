@@ -28,16 +28,25 @@ import { getAllWritable } from "../apis/getAllWritable.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { trackDependency } from "../apis/trackDependency.js";
+const indexNameToIndex = {
+    "$1": 0,
+    "$2": 1,
+    "$3": 2,
+    "$4": 3,
+    "$5": 4,
+    "$6": 5,
+    "$7": 6,
+    "$8": 7,
+    "$9": 8,
+};
 export function getWritable(target, prop, receiver, handler) {
     if (typeof prop === "string") {
-        if (prop.charCodeAt(0) === 36) {
-            if (prop.length === 2) {
-                const d = prop.charCodeAt(1) - 48;
-                if (d >= 1 && d <= 9) {
-                    const listIndex = handler.listIndexStack[handler.refIndex];
-                    return listIndex?.at(d - 1)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-                }
-            }
+        const index = indexNameToIndex[prop];
+        if (typeof index !== "undefined") {
+            const listIndex = handler.listIndexStack[handler.refIndex];
+            return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop}`);
+        }
+        if (prop[0] === "$") {
             switch (prop) {
                 case "$resolve":
                     return resolveWritable(target, prop, receiver, handler);
