@@ -31,18 +31,7 @@ import { getAllWritable } from "../apis/getAllWritable.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { trackDependency } from "../apis/trackDependency.js";
-
-const indexNameToIndex: Record<string, number> = {
-  "$1": 0,
-  "$2": 1,
-  "$3": 2,
-  "$4": 3,
-  "$5": 4,
-  "$6": 5,
-  "$7": 6,
-  "$8": 7,
-  "$9": 8,
-};
+import { indexByIndexName } from "./indexByIndexName.js";
 
 export function getWritable(
   target  : Object, 
@@ -50,12 +39,12 @@ export function getWritable(
   receiver: IWritableStateProxy,
   handler : IWritableStateHandler
 ): any {
+  const index = indexByIndexName[prop];
+  if (typeof index !== "undefined") {
+    const listIndex = handler.listIndexStack[handler.refIndex];
+    return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop.toString()}`);
+  }
   if (typeof prop === "string") {
-    const index = indexNameToIndex[prop];
-    if (typeof index !== "undefined") {
-      const listIndex = handler.listIndexStack[handler.refIndex];
-      return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-    }
     if (prop[0] === "$") {
       switch (prop) {
         case "$resolve":

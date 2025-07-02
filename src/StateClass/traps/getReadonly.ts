@@ -29,18 +29,8 @@ import { IListIndex } from "../../ListIndex/types.js";
 import { setCacheable } from "../methods/setCacheable.js";
 import { getAllReadonly } from "../apis/getAllReadonly.js";
 import { trackDependency } from "../apis/trackDependency.js";
+import { indexByIndexName } from "./indexByIndexName.js";
 
-const indexNameToIndex: Record<string, number> = {
-  "$1": 0,
-  "$2": 1,
-  "$3": 2,
-  "$4": 3,
-  "$5": 4,
-  "$6": 5,
-  "$7": 6,
-  "$8": 7,
-  "$9": 8,
-};
 
 export function getReadonly(
   target  : Object, 
@@ -48,12 +38,12 @@ export function getReadonly(
   receiver: IReadonlyStateProxy,
   handler : IReadonlyStateHandler
 ): any {
+  const index = indexByIndexName[prop];
+  if (typeof index !== "undefined") {
+    const listIndex = handler.listIndexStack[handler.refIndex];
+    return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop.toString()}`);
+  }
   if (typeof prop === "string") {
-    const index = indexNameToIndex[prop];
-    if (typeof index !== "undefined") {
-      const listIndex = handler.listIndexStack[handler.refIndex];
-      return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-    }
     if (prop[0] === "$") {
       switch (prop) {
         case "$resolve":

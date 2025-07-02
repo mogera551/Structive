@@ -2428,39 +2428,24 @@ class BindContent {
         this.bindings = createBindings(this, id, engine, this.fragment);
     }
     mount(parentNode) {
-        if (this.fragment.childNodes.length === 0) {
-            for (let i = 0; i < this.childNodes.length; i++) {
-                parentNode.appendChild(this.childNodes[i]);
-            }
-        }
-        else {
-            parentNode.appendChild(this.fragment);
+        for (let i = 0; i < this.childNodes.length; i++) {
+            parentNode.appendChild(this.childNodes[i]);
         }
     }
     mountBefore(parentNode, beforeNode) {
-        if (this.fragment.childNodes.length === 0) {
-            for (let i = 0; i < this.childNodes.length; i++) {
-                parentNode.insertBefore(this.childNodes[i], beforeNode);
-            }
-        }
-        else {
-            parentNode.insertBefore(this.fragment, beforeNode);
+        for (let i = 0; i < this.childNodes.length; i++) {
+            parentNode.insertBefore(this.childNodes[i], beforeNode);
         }
     }
     mountAfter(parentNode, afterNode) {
         const beforeNode = afterNode?.nextSibling ?? null;
-        if (this.fragment.childNodes.length === 0) {
-            for (let i = 0; i < this.childNodes.length; i++) {
-                parentNode.insertBefore(this.childNodes[i], beforeNode);
-            }
-        }
-        else {
-            parentNode.insertBefore(this.fragment, beforeNode);
+        for (let i = 0; i < this.childNodes.length; i++) {
+            parentNode.insertBefore(this.childNodes[i], beforeNode);
         }
     }
     unmount() {
         for (let i = 0; i < this.childNodes.length; i++) {
-            this.fragment.appendChild(this.childNodes[i]);
+            this.childNodes[i].parentElement?.removeChild(this.childNodes[i]);
         }
     }
     bindings = [];
@@ -3293,6 +3278,18 @@ function trackDependency(target, prop, receiver, handler) {
     };
 }
 
+const indexByIndexName = {
+    "$1": 0,
+    "$2": 1,
+    "$3": 2,
+    "$4": 3,
+    "$5": 4,
+    "$6": 5,
+    "$7": 6,
+    "$8": 7,
+    "$9": 8,
+};
+
 /**
  * get.ts
  *
@@ -3311,24 +3308,13 @@ function trackDependency(target, prop, receiver, handler) {
  * - 通常のプロパティアクセスもバインディングや多重ループに対応
  * - シンボルAPIやReflect.getで拡張性・互換性も確保
  */
-const indexNameToIndex$1 = {
-    "$1": 0,
-    "$2": 1,
-    "$3": 2,
-    "$4": 3,
-    "$5": 4,
-    "$6": 5,
-    "$7": 6,
-    "$8": 7,
-    "$9": 8,
-};
 function getReadonly(target, prop, receiver, handler) {
+    const index = indexByIndexName[prop];
+    if (typeof index !== "undefined") {
+        const listIndex = handler.listIndexStack[handler.refIndex];
+        return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop.toString()}`);
+    }
     if (typeof prop === "string") {
-        const index = indexNameToIndex$1[prop];
-        if (typeof index !== "undefined") {
-            const listIndex = handler.listIndexStack[handler.refIndex];
-            return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-        }
         if (prop[0] === "$") {
             switch (prop) {
                 case "$resolve":
@@ -3586,24 +3572,13 @@ function disconnectedCallback(target, prop, receiver, handler) {
  * - 通常のプロパティアクセスもバインディングや多重ループに対応
  * - シンボルAPIやReflect.getで拡張性・互換性も確保
  */
-const indexNameToIndex = {
-    "$1": 0,
-    "$2": 1,
-    "$3": 2,
-    "$4": 3,
-    "$5": 4,
-    "$6": 5,
-    "$7": 6,
-    "$8": 7,
-    "$9": 8,
-};
 function getWritable(target, prop, receiver, handler) {
+    const index = indexByIndexName[prop];
+    if (typeof index !== "undefined") {
+        const listIndex = handler.listIndexStack[handler.refIndex];
+        return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop.toString()}`);
+    }
     if (typeof prop === "string") {
-        const index = indexNameToIndex[prop];
-        if (typeof index !== "undefined") {
-            const listIndex = handler.listIndexStack[handler.refIndex];
-            return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop}`);
-        }
         if (prop[0] === "$") {
             switch (prop) {
                 case "$resolve":

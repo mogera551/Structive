@@ -115,39 +115,24 @@ class BindContent {
         this.bindings = createBindings(this, id, engine, this.fragment);
     }
     mount(parentNode) {
-        if (this.fragment.childNodes.length === 0) {
-            for (let i = 0; i < this.childNodes.length; i++) {
-                parentNode.appendChild(this.childNodes[i]);
-            }
-        }
-        else {
-            parentNode.appendChild(this.fragment);
+        for (let i = 0; i < this.childNodes.length; i++) {
+            parentNode.appendChild(this.childNodes[i]);
         }
     }
     mountBefore(parentNode, beforeNode) {
-        if (this.fragment.childNodes.length === 0) {
-            for (let i = 0; i < this.childNodes.length; i++) {
-                parentNode.insertBefore(this.childNodes[i], beforeNode);
-            }
-        }
-        else {
-            parentNode.insertBefore(this.fragment, beforeNode);
+        for (let i = 0; i < this.childNodes.length; i++) {
+            parentNode.insertBefore(this.childNodes[i], beforeNode);
         }
     }
     mountAfter(parentNode, afterNode) {
         const beforeNode = afterNode?.nextSibling ?? null;
-        if (this.fragment.childNodes.length === 0) {
-            for (let i = 0; i < this.childNodes.length; i++) {
-                parentNode.insertBefore(this.childNodes[i], beforeNode);
-            }
-        }
-        else {
-            parentNode.insertBefore(this.fragment, beforeNode);
+        for (let i = 0; i < this.childNodes.length; i++) {
+            parentNode.insertBefore(this.childNodes[i], beforeNode);
         }
     }
     unmount() {
         for (let i = 0; i < this.childNodes.length; i++) {
-            this.fragment.appendChild(this.childNodes[i]);
+            this.childNodes[i].parentElement?.removeChild(this.childNodes[i]);
         }
     }
     bindings = [];
