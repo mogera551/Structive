@@ -158,8 +158,12 @@ class BindContent implements IBindContent {
     }
   }
   unmount() {
+    const parentElement = this.childNodes[0]?.parentElement ?? null;
+    if (parentElement === null) {
+      return; // すでにDOMから削除されている場合は何もしない
+    }
     for(let i = 0; i < this.childNodes.length; i++) {
-      this.childNodes[i].parentElement?.removeChild(this.childNodes[i]);
+      parentElement.removeChild(this.childNodes[i]);
     }
   }
   bindings: IBinding[] = [];
