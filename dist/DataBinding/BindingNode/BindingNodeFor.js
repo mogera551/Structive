@@ -98,8 +98,8 @@ class BindingNodeFor extends BindingNodeBlock {
             let bindContent = this.#bindContentByListIndex.get(listIndex);
             if (typeof bindContent === "undefined") {
                 bindContent = this.createBindContent(listIndex);
-                bindContent.render();
                 bindContent.mountAfter(parentNode, lastNode);
+                bindContent.render();
             }
             else {
                 if (lastNode?.nextSibling !== bindContent.firstChildNode) {
