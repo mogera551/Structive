@@ -56,8 +56,8 @@ class BindingNodeIf extends BindingNodeBlock {
       raiseError(`BindingNodeIf.update: parentNode is null`);
     }
     if (value) {
-      this.#bindContent.render();
       this.#bindContent.mountAfter(parentNode, this.node);
+      this.#bindContent.render();
       this.#bindContents = this.#trueBindContents;
     } else {
       this.#bindContent.unmount();
