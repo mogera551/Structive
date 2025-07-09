@@ -19,12 +19,12 @@ import { CreateBindingNodeFn } from "./types";
  * - 柔軟なバインディング記法・フィルタ適用に対応
  */
 class BindingNodeClassList extends BindingNode {
-  assignValue(value:any) {
+  *assignValue(value:any) {
     if (!Array.isArray(value)) {
       raiseError(`BindingNodeClassList.update: value is not array`);
     }
     const element = this.node as Element;
-    element.className = value.join(" ");
+    yield element.className = value.join(" ");
   }
 }
 

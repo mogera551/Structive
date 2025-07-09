@@ -34,12 +34,12 @@ class BindingNodeAttribute extends BindingNode {
     const [, subName] = this.name.split(".");
     this.#subName = subName;
   }
-  assignValue(value:any) {
+  *assignValue(value:any) {
     if (value === null || value === undefined || Number.isNaN(value)) {
       value = "";
     }
     const element = this.node as Element;
-    element.setAttribute(this.subName, value.toString());
+    yield element.setAttribute(this.subName, value.toString());
   }
 }
 

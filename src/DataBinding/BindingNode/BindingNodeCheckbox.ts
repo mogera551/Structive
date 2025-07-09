@@ -20,12 +20,12 @@ import { CreateBindingNodeFn } from "./types";
  * - 柔軟なバインディング記法・フィルタ適用に対応
  */
 class BindingNodeCheckbox extends BindingNode {
-  assignValue(value:any) {
+  *assignValue(value:any) {
     if (!Array.isArray(value)) {
       raiseError(`BindingNodeCheckbox.update: value is not array`, );
     }
     const element = this.node as HTMLInputElement;
-    element.checked = value.map(_val => _val.toString()).includes(element.value);
+    yield element.checked = value.map(_val => _val.toString()).includes(element.value);
   }
 }
 

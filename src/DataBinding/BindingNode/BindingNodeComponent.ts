@@ -51,7 +51,7 @@ class BindingNodeComponent extends BindingNode {
     bindings.add(this.binding);
   }
 
-  assignValue(value: any): void {
+  *assignValue(value: any) {
   }
 
   notifyRedraw(refs: IStatePropertyRef[]): void {
