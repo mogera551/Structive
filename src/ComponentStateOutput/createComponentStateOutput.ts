@@ -25,7 +25,7 @@ class ComponentStateOutput implements IComponentStateOutput {
     return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex);
   }
 
-  set(pathInfo: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void {
+  set(pathInfo: IStructuredPathInfo, listIndex: IListIndex | null, value: any): boolean {
     const childPath = this.binding.startsWithByChildPath(pathInfo);
     if (childPath === null) {
       raiseError(`No child path found for path "${pathInfo.toString()}".`);
@@ -39,6 +39,7 @@ class ComponentStateOutput implements IComponentStateOutput {
     engine.useWritableStateProxy(null, async (state) => {
       state[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
     });
+    return true;
   }
 
   startsWith(pathInfo: IStructuredPathInfo): boolean {

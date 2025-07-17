@@ -3890,6 +3890,7 @@ class ComponentStateOutput {
         engine.useWritableStateProxy(null, async (state) => {
             state[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
         });
+        return true;
     }
     startsWith(pathInfo) {
         return this.binding.startsWithByChildPath(pathInfo) !== null;
