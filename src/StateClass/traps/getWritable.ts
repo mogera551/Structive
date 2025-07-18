@@ -55,6 +55,8 @@ export function getWritable(
           return trackDependency(target, prop, receiver, handler);
         case "$navigate":
           return (to:string) => getRouter()?.navigate(to);
+        case "$component":
+          return handler.engine.owner;
       }
     }
     const resolvedInfo = getResolvedPathInfo(prop);

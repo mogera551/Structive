@@ -3329,6 +3329,8 @@ function getReadonly(target, prop, receiver, handler) {
                     return trackDependency(target, prop, receiver, handler);
                 case "$navigate":
                     return (to) => getRouter()?.navigate(to);
+                case "$component":
+                    return handler.engine.owner;
             }
         }
         const resolvedInfo = getResolvedPathInfo(prop);
@@ -3593,6 +3595,8 @@ function getWritable(target, prop, receiver, handler) {
                     return trackDependency(target, prop, receiver, handler);
                 case "$navigate":
                     return (to) => getRouter()?.navigate(to);
+                case "$component":
+                    return handler.engine.owner;
             }
         }
         const resolvedInfo = getResolvedPathInfo(prop);
