@@ -296,7 +296,7 @@ const date = (options) => {
     return (value) => {
         if (!(value instanceof Date))
             valueMustBeDate('date');
-        return value.toLocaleDateString(config.locale);
+        return value.toLocaleDateString(opt);
     };
 };
 const time = (options) => {
@@ -304,7 +304,7 @@ const time = (options) => {
     return (value) => {
         if (!(value instanceof Date))
             valueMustBeDate('time');
-        return value.toLocaleTimeString(config.locale);
+        return value.toLocaleTimeString(opt);
     };
 };
 const datetime = (options) => {
@@ -312,7 +312,7 @@ const datetime = (options) => {
     return (value) => {
         if (!(value instanceof Date))
             valueMustBeDate('datetime');
-        return value.toLocaleString(config.locale);
+        return value.toLocaleString(opt);
     };
 };
 const ymd = (options) => {

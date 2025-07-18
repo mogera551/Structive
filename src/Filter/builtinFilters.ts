@@ -289,7 +289,7 @@ const date = (options?:string[]) => {
   const opt = options?.[0] ?? config.locale;
   return (value: any) => {
     if (!(value instanceof Date))  valueMustBeDate('date');
-    return value.toLocaleDateString(config.locale);
+    return value.toLocaleDateString(opt);
   }
 }
 
@@ -297,7 +297,7 @@ const time = (options?:string[]) => {
   const opt = options?.[0] ?? config.locale;
   return (value: any) => {
     if (!(value instanceof Date)) valueMustBeDate('time');
-    return value.toLocaleTimeString(config.locale);
+    return value.toLocaleTimeString(opt);
   }
 }
 
@@ -305,7 +305,7 @@ const datetime = (options?:string[]) => {
   const opt = options?.[0] ?? config.locale;
   return (value: any) => {
     if (!(value instanceof Date)) valueMustBeDate('datetime');
-    return value.toLocaleString(config.locale);
+    return value.toLocaleString(opt);
   }
 }
 

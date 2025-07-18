@@ -343,27 +343,27 @@ const percent = (options) => {
     };
 };
 const date = (options) => {
-    options?.[0] ?? config$1.locale;
+    const opt = options?.[0] ?? config$1.locale;
     return (value) => {
         if (!(value instanceof Date))
             valueMustBeDate('date');
-        return value.toLocaleDateString(config$1.locale);
+        return value.toLocaleDateString(opt);
     };
 };
 const time = (options) => {
-    options?.[0] ?? config$1.locale;
+    const opt = options?.[0] ?? config$1.locale;
     return (value) => {
         if (!(value instanceof Date))
             valueMustBeDate('time');
-        return value.toLocaleTimeString(config$1.locale);
+        return value.toLocaleTimeString(opt);
     };
 };
 const datetime = (options) => {
-    options?.[0] ?? config$1.locale;
+    const opt = options?.[0] ?? config$1.locale;
     return (value) => {
         if (!(value instanceof Date))
             valueMustBeDate('datetime');
-        return value.toLocaleString(config$1.locale);
+        return value.toLocaleString(opt);
     };
 };
 const ymd = (options) => {
