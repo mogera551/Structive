@@ -3727,7 +3727,11 @@ class ComponentStateBinding {
     parentPathByChildPath = new Map();
     bindingByParentPath = new Map();
     bindingByChildPath = new Map();
+    bindings = new WeakSet();
     addBinding(binding) {
+        if (this.bindings.has(binding)) {
+            return; // 既にバインディングが追加されている場合は何もしない
+        }
         const parentPath = binding.bindingState.pattern;
         const childPath = binding.bindingNode.subName;
         if (this.childPathByParentPath.has(parentPath)) {
@@ -3742,6 +3746,7 @@ class ComponentStateBinding {
         this.childPaths.add(childPath);
         this.bindingByParentPath.set(parentPath, binding);
         this.bindingByChildPath.set(childPath, binding);
+        this.bindings.add(binding);
     }
     getChildPath(parentPath) {
         return this.childPathByParentPath.get(parentPath);

@@ -12,8 +12,12 @@ class ComponentStateBinding implements IComponentStateBinding {
   parentPathByChildPath: Map<string, string> = new Map();
   bindingByParentPath: Map<string, IBinding> = new Map();
   bindingByChildPath: Map<string, IBinding> = new Map();
+  bindings: WeakSet<IBinding> = new WeakSet();
 
   addBinding(binding: IBinding): void {
+    if (this.bindings.has(binding)) {
+      return; // 既にバインディングが追加されている場合は何もしない
+    }
     const parentPath = binding.bindingState.pattern;
     const childPath = binding.bindingNode.subName;
     if (this.childPathByParentPath.has(parentPath)) {
@@ -28,6 +32,7 @@ class ComponentStateBinding implements IComponentStateBinding {
     this.childPaths.add(childPath);
     this.bindingByParentPath.set(parentPath, binding);
     this.bindingByChildPath.set(childPath, binding);
+    this.bindings.add(binding);
   }
   
   getChildPath(parentPath: string): string | undefined {
