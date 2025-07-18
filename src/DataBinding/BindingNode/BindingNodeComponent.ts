@@ -60,13 +60,29 @@ class BindingNodeComponent extends BindingNode {
     const listIndex = this.binding.bindingState.listIndex?.at(info.wildcardCount - 1) ?? null;
     const at = (listIndex?.length ?? 0) - 1;
     for(const ref of refs) {
-      if (listIndex !== null && ref.listIndex?.at(at) !== listIndex) {
-        continue;
+      if (info.pathSegments.length > ref.info.pathSegments.length) {
+        // 親パスが更新された
+        // ex values, values.* valuesが更新された場合
+        if (info.cumulativePathSet.has(ref.info.pattern)) {
+          const thisAt = (ref.listIndex?.length ?? 0) - 1;
+          if (thisAt >= 0) {
+            if (listIndex === null) continue;
+            if (ref.listIndex !== listIndex?.at(thisAt)) continue;
+          }
+          notifyRefs.push({ info, listIndex });
+        }
+      } else {
+        // 子パスが更新された
+        // ex values.*.foo values.* values.*.fooが更新された
+        if (!ref.info.cumulativePathSet.has(info.pattern)) {
+          // リストインデックスが一致しない場合はスキップ
+          if (at >= 0) {
+            if (ref.listIndex?.at(at) !== listIndex) continue;
+          }
+          notifyRefs.push(ref);
+        }
+
       }
-      if (!ref.info.cumulativePathSet.has(info.pattern)) {
-        continue;
-      }
-      notifyRefs.push(ref);
     }
     if (notifyRefs.length === 0) {
       return;

@@ -1381,13 +1381,32 @@ class BindingNodeComponent extends BindingNode {
         const listIndex = this.binding.bindingState.listIndex?.at(info.wildcardCount - 1) ?? null;
         const at = (listIndex?.length ?? 0) - 1;
         for (const ref of refs) {
-            if (listIndex !== null && ref.listIndex?.at(at) !== listIndex) {
-                continue;
+            if (info.pathSegments.length > ref.info.pathSegments.length) {
+                // 親パスが更新された
+                // ex values, values.* valuesが更新された場合
+                if (info.cumulativePathSet.has(ref.info.pattern)) {
+                    const thisAt = (ref.listIndex?.length ?? 0) - 1;
+                    if (thisAt >= 0) {
+                        if (listIndex === null)
+                            continue;
+                        if (ref.listIndex !== listIndex?.at(thisAt))
+                            continue;
+                    }
+                    notifyRefs.push({ info, listIndex });
+                }
             }
-            if (!ref.info.cumulativePathSet.has(info.pattern)) {
-                continue;
+            else {
+                // 子パスが更新された
+                // ex values.*.foo values.* values.*.fooが更新された
+                if (!ref.info.cumulativePathSet.has(info.pattern)) {
+                    // リストインデックスが一致しない場合はスキップ
+                    if (at >= 0) {
+                        if (ref.listIndex?.at(at) !== listIndex)
+                            continue;
+                    }
+                    notifyRefs.push(ref);
+                }
             }
-            notifyRefs.push(ref);
         }
         if (notifyRefs.length === 0) {
             return;
@@ -3975,6 +3994,7 @@ class ComponentEngine {
     bindingsByComponent = new WeakMap();
     structiveChildComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
+    #waitForDisconnected = null;
     #stateBinding = createComponentStateBinding();
     stateInput;
     stateOutput;
@@ -4037,6 +4057,7 @@ class ComponentEngine {
         return this.#waitForInitialize;
     }
     async connectedCallback() {
+        await this.#waitForDisconnected?.promise; // disconnectedCallbackが呼ばれている場合は待つ
         await this.owner.parentStructiveComponent?.waitForInitialize.promise;
         // コンポーネントの状態を初期化する
         if (this.owner.dataset.state) {
@@ -4070,6 +4091,15 @@ class ComponentEngine {
                 this.#ignoreDissconnectedCallback = false;
             }
         }
+        if (this.config.enableWebComponents) {
+            // Shadow DOMにバインドコンテンツをマウントする
+            this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
+        }
+        else {
+            // ブロックプレースホルダーの親ノードにバインドコンテンツをマウントする
+            const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
+            this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
+        }
         this.readonlyState[SetCacheableSymbol](() => {
             this.bindContent.render();
         }); // キャッシュ可能にする
@@ -4078,30 +4108,27 @@ class ComponentEngine {
         });
         // レンダリングが終わってから実行する
         queueMicrotask(() => {
-            if (this.config.enableWebComponents) {
-                // Shadow DOMにバインドコンテンツをマウントする
-                this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
-            }
-            else {
-                // ブロックプレースホルダーの親ノードにバインドコンテンツをマウントする
-                const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
-                this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
-            }
             this.#waitForInitialize.resolve();
         });
     }
     async disconnectedCallback() {
-        if (this.#ignoreDissconnectedCallback)
-            return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-        await this.useWritableStateProxy(null, async (stateProxy) => {
-            await stateProxy[DisconnectedCallbackSymbol]();
-        });
-        // 親コンポーネントから登録を解除する
-        this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
-        if (!this.config.enableWebComponents) {
-            this.#blockPlaceholder?.remove();
-            this.#blockPlaceholder = null;
-            this.#blockParentNode = null;
+        this.#waitForDisconnected = Promise.withResolvers();
+        try {
+            if (this.#ignoreDissconnectedCallback)
+                return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
+            await this.useWritableStateProxy(null, async (stateProxy) => {
+                await stateProxy[DisconnectedCallbackSymbol]();
+            });
+            // 親コンポーネントから登録を解除する
+            this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
+            if (!this.config.enableWebComponents) {
+                this.#blockPlaceholder?.remove();
+                this.#blockPlaceholder = null;
+                this.#blockParentNode = null;
+            }
+        }
+        finally {
+            this.#waitForDisconnected.resolve(); // disconnectedCallbackが呼ばれたことを通知   
         }
     }
     #saveInfoByListIndexByResolvedPathInfoId = {};

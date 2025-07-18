@@ -82,7 +82,8 @@ export class ComponentEngine implements IComponentEngine {
   structiveChildComponents: Set<StructiveComponent> = new Set();
 
   #waitForInitialize : PromiseWithResolvers<void> = Promise.withResolvers<void>();
-
+  #waitForDisconnected: PromiseWithResolvers<void> | null = null;
+  
   #stateBinding: IComponentStateBinding = createComponentStateBinding();
   stateInput: IComponentStateInput;
   stateOutput: IComponentStateOutput;
@@ -147,6 +148,7 @@ export class ComponentEngine implements IComponentEngine {
   }
 
   async connectedCallback(): Promise<void> {
+    await this.#waitForDisconnected?.promise; // disconnectedCallbackが呼ばれている場合は待つ
     await this.owner.parentStructiveComponent?.waitForInitialize.promise;
     // コンポーネントの状態を初期化する
     if (this.owner.dataset.state) {
@@ -178,6 +180,14 @@ export class ComponentEngine implements IComponentEngine {
       }
     }
 
+    if (this.config.enableWebComponents) {
+      // Shadow DOMにバインドコンテンツをマウントする
+      this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
+    } else {
+      // ブロックプレースホルダーの親ノードにバインドコンテンツをマウントする
+      const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
+      this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
+    }
     this.readonlyState[SetCacheableSymbol](() => {
       this.bindContent.render();
     }); // キャッシュ可能にする
@@ -186,29 +196,26 @@ export class ComponentEngine implements IComponentEngine {
     });
     // レンダリングが終わってから実行する
     queueMicrotask(() => {
-      if (this.config.enableWebComponents) {
-        // Shadow DOMにバインドコンテンツをマウントする
-        this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
-      } else {
-        // ブロックプレースホルダーの親ノードにバインドコンテンツをマウントする
-        const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
-        this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
-      }
       this.#waitForInitialize.resolve();
     });
   }
 
   async disconnectedCallback(): Promise<void> {
-    if (this.#ignoreDissconnectedCallback) return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-    await this.useWritableStateProxy(null, async (stateProxy) => {
-      await stateProxy[DisconnectedCallbackSymbol]();
-    });
-    // 親コンポーネントから登録を解除する
-    this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
-    if (!this.config.enableWebComponents) {
-      this.#blockPlaceholder?.remove();
-      this.#blockPlaceholder = null;
-      this.#blockParentNode = null;
+    this.#waitForDisconnected = Promise.withResolvers<void>();
+    try {
+      if (this.#ignoreDissconnectedCallback) return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
+      await this.useWritableStateProxy(null, async (stateProxy) => {
+        await stateProxy[DisconnectedCallbackSymbol]();
+      });
+      // 親コンポーネントから登録を解除する
+      this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
+      if (!this.config.enableWebComponents) {
+        this.#blockPlaceholder?.remove();
+        this.#blockPlaceholder = null;
+        this.#blockParentNode = null;
+      }
+    } finally {
+      this.#waitForDisconnected.resolve(); // disconnectedCallbackが呼ばれたことを通知   
     }
   }
 
