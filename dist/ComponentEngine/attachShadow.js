@@ -25,8 +25,10 @@ function getParentShadowRoot(parentNode) {
 export function attachShadow(element, config, styleSheet) {
     if (config.enableShadowDom) {
         if (config.extends === null || canHaveShadowRoot(config.extends)) {
-            const shadowRoot = element.attachShadow({ mode: 'open' });
-            shadowRoot.adoptedStyleSheets = [styleSheet];
+            if (!element.shadowRoot) {
+                const shadowRoot = element.attachShadow({ mode: 'open' });
+                shadowRoot.adoptedStyleSheets = [styleSheet];
+            }
         }
         else {
             raiseError(`ComponentEngine: Shadow DOM not supported for builtin components that extend ${config.extends}`);
