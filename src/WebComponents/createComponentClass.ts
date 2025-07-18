@@ -186,11 +186,10 @@ export function createComponentClass(componentData: IUserComponentData): Structi
               const hasSetter = (desc as PropertyDescriptor).set !== undefined;
               if (hasGetter) {
                 this.#getters.add(key);
+                // Getterを設定しているプロパティが対象
+                this.#trackedGetters.add(key);
                 if (hasSetter) {
                   this.#setters?.add(key);
-                } else {
-                  // Getterだけ設定しているプロパティが対象
-                  this.#trackedGetters.add(key);
                 }
               }
             }
