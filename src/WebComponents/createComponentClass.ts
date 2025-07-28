@@ -38,6 +38,11 @@ import { config as globalConfig } from "./getGlobalConfig.js";
 import { raiseError } from "../utils.js";
 import { IComponentStateInput } from "../ComponentStateInput/types.js";
 import { findStructiveParent } from "./findStructiveParent.js";
+import { IComponentPathManager } from "../ComponentPathManager/types.js";
+import { createComponentPathManager } from "../ComponentPathManager/ComponentPathManager.js";
+import { setPathInfoFromState } from "../ComponentPathManager/setPathInfoFromState.js";
+import { setPathInfoFromTemplate } from "../ComponentPathManager/setPathInfoFromTemplate.js";
+import { optimizePathAccessor } from "../ComponentPathManager/optimizePathAccessor.js";
 
 
 export function createComponentClass(componentData: IUserComponentData): StructiveComponentClass {
@@ -100,6 +105,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
     unregisterChildComponent(component:StructiveComponent): void {
       this.#engine.unregisterChildComponent(component);
     }
+
     static define(tagName:string) {
       if (extendTagName) {
         customElements.define(tagName, this, { extends: extendTagName });
@@ -159,6 +165,17 @@ export function createComponentClass(componentData: IUserComponentData): Structi
     static get outputFilters():FilterWithOptions {
       return this.#outputFilters;
     }
+    static #pathManager: IComponentPathManager | null = null;
+    static get pathManager(): IComponentPathManager {
+      if (!this.#pathManager) {
+        this.#pathManager = createComponentPathManager();
+        setPathInfoFromState(this.#pathManager, this.stateClass);
+        setPathInfoFromTemplate(this.#pathManager, this.id);
+        optimizePathAccessor(this.#pathManager, this.stateClass);
+      }
+      return this.#pathManager;
+    }
+
     static get listPaths(): Set<string> {
       return getListPathsSetById(this.id);
     }

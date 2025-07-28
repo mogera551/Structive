@@ -101,18 +101,18 @@ class CacheEntry implements ICacheEntry {
     return true;
   }
 
-  static traces: Array<TracePaths> = 
+  static poolTracePaths: Array<TracePaths> = 
     Array(INITIAL_TRACE_SIZE).fill(new Set())
   ;
   static getTracePaths(): TracePaths {
-    if (this.traces.length === 0) {
-      this.traces = Array(INITIAL_TRACE_SIZE).fill(new Set());
+    if (this.poolTracePaths.length === 0) {
+      return new Set(); // プールが空なら新しいセットを返す
     }
-    return this.traces.pop() ?? raiseError("No trace paths available");
+    return this.poolTracePaths.pop() ?? raiseError("No trace paths available");
   }
   static releaseTracePaths(tracePaths: TracePaths): void {
     tracePaths.clear();
-    this.traces.push(tracePaths);
+    this.poolTracePaths.push(tracePaths);
   }
 }
 

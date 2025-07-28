@@ -26,6 +26,9 @@ import { IComponentStateInput } from "../ComponentStateInput/types.js";
 import { IComponentStateOutput } from "../ComponentStateOutput/types.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 import { registerStructiveComponent } from "../WebComponents/findStructiveParent.js";
+import { ICacheManager } from "../Cache/types.js";
+import { createCacheManager } from "../Cache/CacheManager.js";
+import { IComponentPathManager } from "../ComponentPathManager/types.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
@@ -90,6 +93,8 @@ export class ComponentEngine implements IComponentEngine {
   #blockPlaceholder: Comment | null = null; // ブロックプレースホルダー
   #blockParentNode: Node | null = null; // ブロックプレースホルダーの親ノード
   #ignoreDissconnectedCallback: boolean = false; // disconnectedCallbackを無視するフラグ
+  cacheManager: ICacheManager = createCacheManager();
+  pathManager: IComponentPathManager;
 
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
@@ -111,6 +116,7 @@ export class ComponentEngine implements IComponentEngine {
     this.setters = componentClass.setters;
     this.stateInput = createComponentStateInput(this, this.#stateBinding);
     this.stateOutput = createComponentStateOutput(this.#stateBinding);
+    this.pathManager = componentClass.pathManager;
     // 依存関係の木を作成する
     const checkDependentProp = (info: IStructuredPathInfo) => {
       const parentInfo = info.parentInfo;
@@ -135,6 +141,7 @@ export class ComponentEngine implements IComponentEngine {
 
   setup(): void {
     const componentClass = this.owner.constructor as IComponentStatic;
+    // リストインデックスを構築しておく
     for(const info of this.listInfoSet) {
       if (info.wildcardCount > 0) continue;
       const value = this.readonlyState[GetByRefSymbol](info, null)

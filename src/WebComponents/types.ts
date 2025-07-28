@@ -18,6 +18,7 @@ import { FilterWithOptions } from "../Filter/types";
 import { IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
 import { IComponentStateInput } from "../ComponentStateInput/types";
+import { IComponentPathManager } from "../ComponentPathManager/types";
 
 export type ComponentType = 'autonomous' | 'builtin';
 
@@ -39,6 +40,7 @@ export interface IComponentStatic {
   readonly stateClass    : IStructiveState;
   readonly inputFilters  : FilterWithOptions;
   readonly outputFilters : FilterWithOptions;
+  readonly pathManager   : IComponentPathManager; 
   readonly listPaths     : Set<string>;
   readonly paths         : Set<string>;
   readonly trackedGetters: Set<string>;
