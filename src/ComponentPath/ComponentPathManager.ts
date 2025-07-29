@@ -11,6 +11,7 @@ class ComponentPathManager implements IComponentPathManager {
   UIs: Set<string> = new Set(); // UIが存在するパスのセット
   lists: Set<string> = new Set(); // リストパスのセット
   paths: Set<string> = new Set(); // 全てのパスのセット
+  elements: Set<string> = new Set(); // リスト要素パスのセット
 
   optimizedAccessor: boolean = false; // 最適化されたアクセサーの処理が終わったか
   setFromState: boolean = false; // setPathInfoFromStateの処理が終わったか
@@ -56,6 +57,10 @@ class ComponentPathManager implements IComponentPathManager {
       pathInfo = this.createPathInfo(path);
     }
     return pathInfo;
+  }
+
+  existsPathInfo(path: string): boolean {
+    return this.pathInfos.has(path);
   }
 }
 

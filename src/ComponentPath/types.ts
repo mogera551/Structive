@@ -26,10 +26,12 @@ export interface IComponentPathManager {
   setters: Set<string>;
   UIs: Set<string>; // UIが存在するパスのセット
   lists: Set<string>; // リストパスのセット
+  elements: Set<string>; // リスト要素パスのセット
   paths: Set<string>; // 全てのパスのセット
 
   addStaticDependency(path: string, dependency: string): void;
   addDynamicDependency(path: string, dependency: string): void;
   createPathInfo(path: string): IComponentPathInfo;
   getPathInfo(path: string): IComponentPathInfo;
+  existsPathInfo(path: string): boolean; // パス情報が存在するかどうかを確認
 }

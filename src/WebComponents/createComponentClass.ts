@@ -38,11 +38,11 @@ import { config as globalConfig } from "./getGlobalConfig.js";
 import { raiseError } from "../utils.js";
 import { IComponentStateInput } from "../ComponentStateInput/types.js";
 import { findStructiveParent } from "./findStructiveParent.js";
-import { IComponentPathManager } from "../ComponentPathManager/types.js";
-import { createComponentPathManager } from "../ComponentPathManager/ComponentPathManager.js";
-import { setPathInfoFromState } from "../ComponentPathManager/setPathInfoFromState.js";
-import { setPathInfoFromTemplate } from "../ComponentPathManager/setPathInfoFromTemplate.js";
-import { optimizePathAccessor } from "../ComponentPathManager/optimizePathAccessor.js";
+import { IComponentPathManager } from "../ComponentPath/types.js";
+import { createComponentPathManager } from "../ComponentPath/ComponentPathManager.js";
+import { setPathInfoFromState } from "../ComponentPath/setPathInfoFromState.js";
+import { setPathInfoFromTemplate } from "../ComponentPath/setPathInfoFromTemplate.js";
+import { optimizePathAccessor } from "../ComponentPath/optimizePathAccessor.js";
 
 
 export function createComponentClass(componentData: IUserComponentData): StructiveComponentClass {

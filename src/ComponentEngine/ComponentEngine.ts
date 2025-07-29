@@ -28,7 +28,7 @@ import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 import { registerStructiveComponent } from "../WebComponents/findStructiveParent.js";
 import { ICacheManager } from "../Cache/types.js";
 import { createCacheManager } from "../Cache/CacheManager.js";
-import { IComponentPathManager } from "../ComponentPathManager/types.js";
+import { IComponentPathManager } from "../ComponentPath/types.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・

@@ -1,4 +1,5 @@
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { createComponentPathInfo } from "./ComponentPathInfo";
 import { IComponentPathManager } from "./types";
 
@@ -8,10 +9,16 @@ export function setPathInfoFromTemplate(
 ): void {
   const paths = getPathsSetById(templateId);
   for(const path of paths) {
-    const pathInfo = pathManager.getPathInfo(path);
-    pathInfo.existsUI = true;
-    pathManager.pathInfos.set(path, pathInfo);
-    pathManager.UIs.add(path);
+    const info = getStructuredPathInfo(path);
+    for(const subPath of info.cumulativePathSet) {
+      if (pathManager.existsPathInfo(subPath)) {
+        continue; // 既に存在するパスはスキップ
+      }
+      const pathInfo = pathManager.getPathInfo(subPath);
+      pathInfo.existsUI = true;
+      pathManager.pathInfos.set(subPath, pathInfo);
+      pathManager.UIs.add(subPath);
+    }
   }
 
   const listPaths = getListPathsSetById(templateId);
@@ -20,5 +27,6 @@ export function setPathInfoFromTemplate(
     pathInfo.isList = true;
     pathManager.pathInfos.set(path, pathInfo);
     pathManager.lists.add(path);
+    pathManager.elements.add(path + '.*');
   }
 }

@@ -1,4 +1,5 @@
 import { ICacheManager } from "../Cache/types";
+import { IComponentPathManager } from "../ComponentPath/types";
 import { IComponentStateInput } from "../ComponentStateInput/types";
 import { IComponentStateOutput } from "../ComponentStateOutput/types";
 import { IBindContent, IBinding } from "../DataBinding/types";
@@ -56,6 +57,7 @@ export interface IComponentEngine {
   stateOutput: IComponentStateOutput;
 
   cacheManager: ICacheManager; // キャッシュマネージャー
+  pathManager: IComponentPathManager; // パスマネージャー
 
   setup(): void;
   connectedCallback(): Promise<void>;
