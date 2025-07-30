@@ -1,16 +1,17 @@
 import { IListIndex } from "../ListIndex/types";
 import { raiseError } from "../utils";
+import { IEntry } from "./types";
 
 type Primitive = boolean | number | string | undefined | null | symbol | bigint;
 
-class Entry implements Entry {
-  #parentEntry: Entry | null = null;
+class Entry implements IEntry {
+  #parentEntry: IEntry | null = null;
   #path: string;
   #listIndex: WeakRef<IListIndex> | null = null;
   #value: WeakRef<Object> | Primitive = null;
   #version: number = 0;
   constructor(
-    parentEntry: Entry | null,
+    parentEntry: IEntry | null,
     path: string, 
     listIndex: IListIndex | null = null,
     value?: Primitive | Object,
@@ -65,11 +66,11 @@ class Entry implements Entry {
 }
 
 export function createEntry(
-  parentEntry: Entry | null,
+  parentEntry: IEntry | null,
   path: string,
   listIndex: IListIndex | null,
   value?: Primitive | Object,
   version?: number
-): Entry {
+): IEntry {
   return new Entry(parentEntry, path, listIndex, value, version);
 }
