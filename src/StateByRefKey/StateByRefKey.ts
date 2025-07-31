@@ -19,3 +19,7 @@ class StateByRefKey implements IStateByRefKey {
     this.map.set(refKey, entry);
   }
 }
+
+export function createStateByRefKey(): IStateByRefKey {
+  return new StateByRefKey();
+}

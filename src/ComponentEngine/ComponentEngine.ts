@@ -29,6 +29,9 @@ import { registerStructiveComponent } from "../WebComponents/findStructiveParent
 import { ICacheManager } from "../Cache/types.js";
 import { createCacheManager } from "../Cache/CacheManager.js";
 import { IComponentPathManager } from "../ComponentPath/types.js";
+import { createStateByRefKey } from "../StateByRefKey/StateByRefKey.js";
+import { IStateByRefKey } from "../StateByRefKey/types.js";
+import { buildAll } from "../StateByRefKey/build.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
@@ -95,6 +98,7 @@ export class ComponentEngine implements IComponentEngine {
   #ignoreDissconnectedCallback: boolean = false; // disconnectedCallbackを無視するフラグ
   cacheManager: ICacheManager = createCacheManager();
   pathManager: IComponentPathManager;
+  stateByRefKey: IStateByRefKey;
 
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
@@ -117,6 +121,7 @@ export class ComponentEngine implements IComponentEngine {
     this.stateInput = createComponentStateInput(this, this.#stateBinding);
     this.stateOutput = createComponentStateOutput(this.#stateBinding);
     this.pathManager = componentClass.pathManager;
+    this.stateByRefKey = createStateByRefKey();
     // 依存関係の木を作成する
     const checkDependentProp = (info: IStructuredPathInfo) => {
       const parentInfo = info.parentInfo;
@@ -137,6 +142,7 @@ export class ComponentEngine implements IComponentEngine {
       this.listInfoSet.add(getStructuredPathInfo(listPath));
       this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
     }
+    buildAll(this.pathManager, this.stateByRefKey, this.readonlyState);
   }
 
   setup(): void {

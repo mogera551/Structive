@@ -12,6 +12,9 @@ import { createComponentStateBinding } from "../ComponentStateBinding/createComp
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
 import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
+import { createCacheManager } from "../Cache/CacheManager.js";
+import { createStateByRefKey } from "../StateByRefKey/StateByRefKey.js";
+import { buildAll } from "../StateByRefKey/build.js";
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
  * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
@@ -71,6 +74,9 @@ export class ComponentEngine {
     #blockPlaceholder = null; // ブロックプレースホルダー
     #blockParentNode = null; // ブロックプレースホルダーの親ノード
     #ignoreDissconnectedCallback = false; // disconnectedCallbackを無視するフラグ
+    cacheManager = createCacheManager();
+    pathManager;
+    stateByRefKey;
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {
@@ -91,6 +97,8 @@ export class ComponentEngine {
         this.setters = componentClass.setters;
         this.stateInput = createComponentStateInput(this, this.#stateBinding);
         this.stateOutput = createComponentStateOutput(this.#stateBinding);
+        this.pathManager = componentClass.pathManager;
+        this.stateByRefKey = createStateByRefKey();
         // 依存関係の木を作成する
         const checkDependentProp = (info) => {
             const parentInfo = info.parentInfo;
@@ -112,9 +120,11 @@ export class ComponentEngine {
             this.listInfoSet.add(getStructuredPathInfo(listPath));
             this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
         }
+        buildAll(this.pathManager, this.stateByRefKey, this.readonlyState);
     }
     setup() {
         const componentClass = this.owner.constructor;
+        // リストインデックスを構築しておく
         for (const info of this.listInfoSet) {
             if (info.wildcardCount > 0)
                 continue;

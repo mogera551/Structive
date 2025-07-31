@@ -7,6 +7,7 @@ import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
+import { IStateByRefKey } from "../StateByRefKey/types";
 import { IState, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IUpdater } from "../Updater/types";
@@ -58,6 +59,7 @@ export interface IComponentEngine {
 
   cacheManager: ICacheManager; // キャッシュマネージャー
   pathManager: IComponentPathManager; // パスマネージャー
+  stateByRefKey: IStateByRefKey; // StateByRefKey管理
 
   setup(): void;
   connectedCallback(): Promise<void>;

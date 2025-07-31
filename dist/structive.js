@@ -2643,6 +2643,14 @@ function listWalker(engine, info, listIndex, callback) {
 function createRefKey(info, listIndex) {
     return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
 }
+function getStatePropertyRefKey(path, listIndex) {
+    if (listIndex === null) {
+        return path;
+    }
+    else {
+        return path + "." + listIndex.index + "#" + listIndex.sid;
+    }
+}
 
 const BLANK_LISTINDEXES_SET$1 = new Set();
 function buildListIndexTree$1(engine, info, listIndex, value) {
@@ -3947,6 +3955,310 @@ function createComponentStateOutput(binding) {
     return new ComponentStateOutput(binding);
 }
 
+const INITIAL_TRACE_SIZE = 100;
+// キャッシュ情報
+class CacheEntry {
+    #listIndex;
+    #info;
+    #value;
+    #version = 0;
+    #refs = new Set(); // 依存先キャッシュエントリ
+    constructor(info, listIndex) {
+        this.#info = info;
+        this.#listIndex = listIndex ? new WeakRef(listIndex) : null;
+    }
+    get dirty() {
+        return this.getVersion() !== this.#version;
+    }
+    get info() {
+        return this.#info;
+    }
+    get value() {
+        if (this.#value instanceof WeakRef) {
+            const value = this.#value.deref();
+            if (value !== undefined)
+                return value;
+        }
+        return this.#value; // string, number, null, undefined
+    }
+    set value(value) {
+        if (typeof value === "object") {
+            this.#value = new WeakRef(value);
+        }
+        else {
+            this.#value = value; // string, number, null, undefined
+        }
+    }
+    get listIndex() {
+        return this.#listIndex?.deref() ?? null;
+    }
+    get version() {
+        return this.#version;
+    }
+    set version(version) {
+        this.#version = version;
+    }
+    #getVersion(tracePaths) {
+        if (tracePaths.has(this.info.pattern))
+            return -1; // 循環参照防止
+        tracePaths.add(this.info.pattern);
+        let maxVersion = this.version;
+        for (const cacheEntry of this.#refs || []) {
+            const v = cacheEntry.getVersion(tracePaths);
+            if (v >= 0)
+                maxVersion = Math.max(maxVersion, v);
+        }
+        return maxVersion;
+    }
+    getVersion(tracePaths) {
+        if (typeof tracePaths === "undefined") {
+            tracePaths = CacheEntry.getTracePaths();
+            try {
+                return this.#getVersion(tracePaths);
+            }
+            finally {
+                CacheEntry.releaseTracePaths(tracePaths);
+            }
+        }
+        else {
+            return this.#getVersion(tracePaths);
+        }
+    }
+    getValue(state, version) {
+        if (version === this.version)
+            return this.#value;
+        // 違うスレッドが書き込んだので、例外を投げる
+        if (version < this.version)
+            raiseError("Concurrency error: version mismatch");
+        if (this.dirty) {
+            this.value = state[GetByRefSymbol](this.#info, this.listIndex);
+        }
+        this.version = version;
+        return this.value;
+    }
+    setValue(state, value, version) {
+        // 違うスレッドが書き込んだので、例外を投げる
+        if (version < this.version)
+            raiseError("Concurrency error: version mismatch");
+        state[SetByRefSymbol](this.info, this.listIndex, value);
+        this.value = value; // string, number, null, undefined
+        this.version = version;
+        return true;
+    }
+    static poolTracePaths = Array(INITIAL_TRACE_SIZE).fill(new Set());
+    static getTracePaths() {
+        if (this.poolTracePaths.length === 0) {
+            return new Set(); // プールが空なら新しいセットを返す
+        }
+        return this.poolTracePaths.pop() ?? raiseError("No trace paths available");
+    }
+    static releaseTracePaths(tracePaths) {
+        tracePaths.clear();
+        this.poolTracePaths.push(tracePaths);
+    }
+}
+function createCacheEntry(info, listIndex) {
+    return new CacheEntry(info, listIndex);
+}
+
+class CacheManager {
+    version = 0;
+    entries = new Map();
+    // CacheManager implementation details
+    getVersion() {
+        return ++this.version;
+    }
+    #getEntry(info, listIndex) {
+        // Implementation to get value from cache
+        const key = createRefKey(info, listIndex);
+        return this.entries.get(key);
+    }
+    #setEntry(info, listIndex, entry) {
+        // Implementation to set value in cache
+        const key = createRefKey(info, listIndex);
+        this.entries.set(key, entry);
+    }
+    getEntry(info, listIndex) {
+        let entry = this.#getEntry(info, listIndex);
+        if (typeof entry === "undefined") {
+            entry = createCacheEntry(info, listIndex);
+            this.#setEntry(info, listIndex, entry);
+        }
+        return entry;
+    }
+    getValue(state, info, listIndex) {
+        const entry = this.getEntry(info, listIndex);
+        return entry ? entry.getValue(state, this.getVersion()) : raiseError(`Cache entry not found for info: ${info.sid} and listIndex: ${listIndex ? listIndex.index : 'null'}`);
+    }
+    setValue(state, info, listIndex, value) {
+        const entry = this.getEntry(info, listIndex);
+        return entry ? entry.setValue(state, value, this.getVersion()) : raiseError(`Cache entry not found for info: ${info.sid} and listIndex: ${listIndex ? listIndex.index : 'null'}`);
+    }
+    build(state, pathManager) {
+        // Implementation to build cache entries from state and path manager
+        this.entries.clear();
+        for (const path of pathManager.paths) {
+            const info = getStructuredPathInfo(path);
+            if (info.cumulativePaths.length > 0) {
+                continue; // Skip paths that are not primitive
+            }
+        }
+    }
+}
+function createCacheManager() {
+    return new CacheManager();
+}
+
+class StateByRefKey {
+    listIndexesByListValue = new Map();
+    map = new Map();
+    exists(path, listIndex) {
+        const refKey = getStatePropertyRefKey(path, listIndex);
+        return this.map.has(refKey);
+    }
+    getEntry(path, listIndex) {
+        const refKey = getStatePropertyRefKey(path, listIndex);
+        return this.map.get(refKey) ?? null;
+    }
+    setEntry(path, listIndex, entry) {
+        const refKey = getStatePropertyRefKey(path, listIndex);
+        this.map.set(refKey, entry);
+    }
+}
+function createStateByRefKey() {
+    return new StateByRefKey();
+}
+
+class Entry {
+    #parentEntry = null;
+    #path;
+    #listIndex = null;
+    #value = null;
+    #version = 0;
+    constructor(parentEntry, path, listIndex = null, value, version) {
+        this.#parentEntry = parentEntry;
+        this.#path = path;
+        this.#listIndex = listIndex ? new WeakRef(listIndex) : null;
+        if (version !== undefined) {
+            this.setValue(value, version);
+        }
+    }
+    get path() {
+        return this.#path;
+    }
+    get listIndex() {
+        return this.#listIndex?.deref() ?? null;
+    }
+    getValue(version) {
+        if (this.#version > version) {
+            raiseError(`Version mismatch: requested version ${version}, current version ${this.#version}`);
+        }
+        if (this.#value instanceof WeakRef) {
+            return this.#value?.deref();
+        }
+        else {
+            return this.#value;
+        }
+    }
+    setValue(newValue, version) {
+        if (typeof newValue === "object" && newValue !== null) {
+            this.#value = new WeakRef(newValue);
+        }
+        else {
+            this.#value = newValue;
+        }
+        this.#version = version;
+    }
+    get disposable() {
+        if (this.#value instanceof WeakRef) {
+            return this.#value.deref() === undefined;
+        }
+        else {
+            if (this.#parentEntry) {
+                return this.#parentEntry.disposable;
+            }
+        }
+        return false;
+    }
+}
+function createEntry(parentEntry, path, listIndex, value, version) {
+    return new Entry(parentEntry, path, listIndex, value, version);
+}
+
+class StateBuilder {
+    #pathManager;
+    #stateByRefKey;
+    #state;
+    constructor(pathManager, stateByRefKey, state) {
+        this.#pathManager = pathManager;
+        this.#stateByRefKey = stateByRefKey;
+        this.#state = state;
+    }
+    getValue(info, listIndex, parentValue) {
+        // 値の取得方法
+        let value;
+        if (this.#pathManager.getters.has(info.pattern)) {
+            // getterが存在する場合はgetterを呼び出す
+            value = this.#state[GetByRefSymbol](info, listIndex);
+        }
+        else {
+            // getterが存在しない場合は直接値を取得
+            if (info.pathSegments.length > 1) {
+                // プリミティブでない場合は、親の値から取得
+                if (info.lastSegment === "*") {
+                    // ワイルドカードの場合はインデックスから取得
+                    if (!listIndex) {
+                        raiseError(`ListIndex is required for wildcard path: ${info.pattern}`);
+                    }
+                    value = parentValue[listIndex.index];
+                }
+                else {
+                    value = parentValue[info.lastSegment];
+                }
+            }
+            else {
+                // プリミティブの場合は直接値を取得
+                value = this.#state[info.pattern];
+            }
+        }
+        return value;
+    }
+    buildEntry(info, listIndex, parentValue, parentEntry, version) {
+        const value = this.getValue(info, listIndex, parentValue);
+        // エントリを作成して登録
+        const entry = createEntry(parentEntry, info.pattern, listIndex, value, version);
+        this.#stateByRefKey.setEntry(info.pattern, listIndex, entry);
+        // 構造に合わせて子エントリを作成
+        const refPaths = this.#pathManager.staticDependencies.get(info.pattern) ?? [];
+        for (const refPath of refPaths) {
+            const refInfo = getStructuredPathInfo(refPath);
+            if (this.#pathManager.elements.has(refPath)) {
+                for (let i = 0; i < value.length; i++) {
+                    const refListIndex = createListIndex(listIndex, i);
+                    this.buildEntry(refInfo, refListIndex, value, entry, version);
+                }
+            }
+            else {
+                this.buildEntry(refInfo, listIndex, value, entry, version);
+            }
+        }
+    }
+    build() {
+        // 全てのパスを走査してエントリを構築
+        for (const path of this.#pathManager.paths) {
+            const info = getStructuredPathInfo(path);
+            if (info.pathSegments.length > 1) {
+                continue; // プリミティブでない場合はスキップ
+            }
+            this.buildEntry(info, null, null, null, 0);
+        }
+    }
+}
+function buildAll(pathManager, stateByRefKey, state) {
+    const builder = new StateBuilder(pathManager, stateByRefKey, state);
+    builder.build();
+}
+
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
  * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
@@ -4006,6 +4318,9 @@ class ComponentEngine {
     #blockPlaceholder = null; // ブロックプレースホルダー
     #blockParentNode = null; // ブロックプレースホルダーの親ノード
     #ignoreDissconnectedCallback = false; // disconnectedCallbackを無視するフラグ
+    cacheManager = createCacheManager();
+    pathManager;
+    stateByRefKey;
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {
@@ -4026,6 +4341,8 @@ class ComponentEngine {
         this.setters = componentClass.setters;
         this.stateInput = createComponentStateInput(this, this.#stateBinding);
         this.stateOutput = createComponentStateOutput(this.#stateBinding);
+        this.pathManager = componentClass.pathManager;
+        this.stateByRefKey = createStateByRefKey();
         // 依存関係の木を作成する
         const checkDependentProp = (info) => {
             const parentInfo = info.parentInfo;
@@ -4047,9 +4364,11 @@ class ComponentEngine {
             this.listInfoSet.add(getStructuredPathInfo(listPath));
             this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
         }
+        buildAll(this.pathManager, this.stateByRefKey, this.readonlyState);
     }
     setup() {
         const componentClass = this.owner.constructor;
+        // リストインデックスを構築しておく
         for (const info of this.listInfoSet) {
             if (info.wildcardCount > 0)
                 continue;
@@ -4492,6 +4811,132 @@ function createAccessorFunctions(info, getters) {
     }
 }
 
+class ComponentPathInfo {
+    path;
+    info;
+    withGetter = false;
+    withSetter = false;
+    isList = false;
+    existsUI = false;
+    isTracked = false;
+    optimized = false; // 最適化されたパス情報かどうか
+    constructor(path) {
+        this.path = path;
+        this.info = getStructuredPathInfo(path);
+    }
+}
+function createComponentPathInfo(path) {
+    return new ComponentPathInfo(path);
+}
+
+class ComponentPathManager {
+    staticDependencies;
+    dynamicDependencies;
+    pathInfos;
+    getters = new Set();
+    trackedGetters = new Set();
+    setters = new Set();
+    UIs = new Set(); // UIが存在するパスのセット
+    lists = new Set(); // リストパスのセット
+    paths = new Set(); // 全てのパスのセット
+    elements = new Set(); // リスト要素パスのセット
+    optimizedAccessor = false; // 最適化されたアクセサーの処理が終わったか
+    setFromState = false; // setPathInfoFromStateの処理が終わったか
+    setFromTemplate = false; // setPathInfoFromTemplateの処理が終わったか
+    constructor() {
+        this.staticDependencies = new Map();
+        this.dynamicDependencies = new Map();
+        this.pathInfos = new Map();
+    }
+    addStaticDependency(path, dependency) {
+        let paths = this.staticDependencies.get(dependency);
+        if (!paths) {
+            paths = new Set();
+            this.staticDependencies.set(dependency, paths);
+        }
+        paths.add(path);
+    }
+    addDynamicDependency(path, dependency) {
+        let paths = this.dynamicDependencies.get(dependency);
+        if (!paths) {
+            paths = new Set();
+            this.dynamicDependencies.set(dependency, paths);
+        }
+        paths.add(path);
+    }
+    createPathInfo(path) {
+        const pathInfo = createComponentPathInfo(path);
+        this.pathInfos.set(path, pathInfo);
+        this.paths.add(path);
+        if (pathInfo.info.pathSegments.length > 1) {
+            this.addStaticDependency(path, pathInfo.info.parentPath || "");
+        }
+        return pathInfo;
+    }
+    getPathInfo(path) {
+        let pathInfo = this.pathInfos.get(path);
+        if (!pathInfo) {
+            pathInfo = this.createPathInfo(path);
+        }
+        return pathInfo;
+    }
+    existsPathInfo(path) {
+        return this.pathInfos.has(path);
+    }
+}
+function createComponentPathManager() {
+    return new ComponentPathManager();
+}
+
+function setPathInfoFromState(pathManager, stateClass) {
+    // stateから必要な情報を抽出してpathManagerに設定する処理
+    let currentProto = stateClass.prototype;
+    while (currentProto && currentProto !== Object.prototype) {
+        const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
+        for (const [key, desc] of Object.entries(trackedGetters)) {
+            if (desc.get === undefined)
+                continue; // getterがない場合はスキップ
+            const pathInfo = pathManager.getPathInfo(key);
+            pathInfo.withGetter = desc.get !== undefined;
+            pathInfo.withSetter = desc.set !== undefined;
+            pathInfo.isTracked = pathInfo.withGetter;
+            pathManager.pathInfos.set(key, pathInfo);
+            if (pathInfo.withGetter) {
+                pathManager.getters.add(key);
+                pathManager.trackedGetters.add(key);
+                if (pathInfo.withSetter) {
+                    pathManager.setters.add(key);
+                }
+            }
+        }
+        currentProto = Object.getPrototypeOf(currentProto);
+    }
+}
+
+function setPathInfoFromTemplate(pathManager, templateId) {
+    const paths = getPathsSetById(templateId);
+    for (const path of paths) {
+        const info = getStructuredPathInfo(path);
+        for (const subPath of info.cumulativePathSet) {
+            if (pathManager.existsPathInfo(subPath)) {
+                continue; // 既に存在するパスはスキップ
+            }
+            const pathInfo = pathManager.getPathInfo(subPath);
+            pathInfo.existsUI = true;
+            pathManager.pathInfos.set(subPath, pathInfo);
+            pathManager.UIs.add(subPath);
+        }
+    }
+    const listPaths = getListPathsSetById(templateId);
+    for (const path of listPaths) {
+        const pathInfo = pathManager.getPathInfo(path);
+        pathInfo.isList = true;
+        pathManager.pathInfos.set(path, pathInfo);
+        pathManager.lists.add(path);
+        pathManager.elements.add(path + '.*');
+    }
+}
+
 /**
  * createComponentClass.ts
  *
@@ -4618,6 +5063,16 @@ function createComponentClass(componentData) {
         static #outputFilters = outputFilters;
         static get outputFilters() {
             return this.#outputFilters;
+        }
+        static #pathManager = null;
+        static get pathManager() {
+            if (!this.#pathManager) {
+                this.#pathManager = createComponentPathManager();
+                setPathInfoFromTemplate(this.#pathManager, this.id);
+                setPathInfoFromState(this.#pathManager, this.stateClass);
+                //        optimizePathAccessor(this.#pathManager, this.stateClass);
+            }
+            return this.#pathManager;
         }
         static get listPaths() {
             return getListPathsSetById(this.id);

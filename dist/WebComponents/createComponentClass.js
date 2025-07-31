@@ -31,6 +31,9 @@ import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
 import { config as globalConfig } from "./getGlobalConfig.js";
 import { findStructiveParent } from "./findStructiveParent.js";
+import { createComponentPathManager } from "../ComponentPath/ComponentPathManager.js";
+import { setPathInfoFromState } from "../ComponentPath/setPathInfoFromState.js";
+import { setPathInfoFromTemplate } from "../ComponentPath/setPathInfoFromTemplate.js";
 export function createComponentClass(componentData) {
     const config = (componentData.stateClass.$config ?? {});
     const componentConfig = getComponentConfig(config);
@@ -139,6 +142,16 @@ export function createComponentClass(componentData) {
         static #outputFilters = outputFilters;
         static get outputFilters() {
             return this.#outputFilters;
+        }
+        static #pathManager = null;
+        static get pathManager() {
+            if (!this.#pathManager) {
+                this.#pathManager = createComponentPathManager();
+                setPathInfoFromTemplate(this.#pathManager, this.id);
+                setPathInfoFromState(this.#pathManager, this.stateClass);
+                //        optimizePathAccessor(this.#pathManager, this.stateClass);
+            }
+            return this.#pathManager;
         }
         static get listPaths() {
             return getListPathsSetById(this.id);

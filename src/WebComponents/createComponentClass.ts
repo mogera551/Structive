@@ -169,9 +169,9 @@ export function createComponentClass(componentData: IUserComponentData): Structi
     static get pathManager(): IComponentPathManager {
       if (!this.#pathManager) {
         this.#pathManager = createComponentPathManager();
-        setPathInfoFromState(this.#pathManager, this.stateClass);
         setPathInfoFromTemplate(this.#pathManager, this.id);
-        optimizePathAccessor(this.#pathManager, this.stateClass);
+        setPathInfoFromState(this.#pathManager, this.stateClass);
+//        optimizePathAccessor(this.#pathManager, this.stateClass);
       }
       return this.#pathManager;
     }

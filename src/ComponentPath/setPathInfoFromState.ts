@@ -10,6 +10,7 @@ export function setPathInfoFromState(
   while (currentProto && currentProto !== Object.prototype) {
     const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
     for (const [key, desc] of Object.entries(trackedGetters)) {
+      if ((desc as PropertyDescriptor).get === undefined) continue; // getterがない場合はスキップ
       const pathInfo = pathManager.getPathInfo(key);
       pathInfo.withGetter = (desc as PropertyDescriptor).get !== undefined;
       pathInfo.withSetter = (desc as PropertyDescriptor).set !== undefined;
@@ -23,6 +24,6 @@ export function setPathInfoFromState(
         }
       }
     }
+    currentProto = Object.getPrototypeOf(currentProto);
   }
-  currentProto = Object.getPrototypeOf(currentProto);
 }
