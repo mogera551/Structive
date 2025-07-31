@@ -10,3 +10,5 @@ RefKeyは参照キーで、Path＋ListIndexのキー
 ListIndexの構築もここで行う
 
 非同期処理での競合を検知する
+
+構築方法

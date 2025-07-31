@@ -29,6 +29,6 @@ export function getStatePropertyRefKey(
   if (listIndex === null) {
     return path;
   } else {
-    return path + "." + listIndex.index + "#" + listIndex.sid;
+    return path + ":" + listIndex.index + "#" + listIndex.sid;
   }
 }

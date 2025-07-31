@@ -5,9 +5,18 @@ import { GetByRefSymbol } from "../StateClass/symbols";
 import { IReadonlyStateProxy } from "../StateClass/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
+import { getStatePropertyRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../utils";
 import { createEntry } from "./Entry";
 import { IEntry, IStateByRefKey } from "./types";
+
+type RetryEntryInfo = {
+    info: IStructuredPathInfo,
+    listIndex: IListIndex | null,
+    parentValue: any,
+    parentEntry: IEntry | null,
+    version: number,
+}
 
 class StateBuilder {
   #pathManager: IComponentPathManager;
@@ -32,6 +41,7 @@ class StateBuilder {
     let value: any;
     if (this.#pathManager.getters.has(info.pattern)) {
       // getterが存在する場合はgetterを呼び出す
+      // 構築時ににまだツリーに登録されていない場合、例外を返してあとで再試行する
       value = this.#state[GetByRefSymbol](info, listIndex);
     } else {
       // getterが存在しない場合は直接値を取得
@@ -59,9 +69,24 @@ class StateBuilder {
     listIndex: IListIndex | null,
     parentValue: any,
     parentEntry: IEntry | null,
-    version: number
+    version: number,
+    retryEntryInfos: RetryEntryInfo[] = []
   ): void {
-    const value = this.getValue(info, listIndex, parentValue);
+    let value;
+    try {
+      value = this.getValue(info, listIndex, parentValue);
+    } catch(error) {
+      // 構築時ににまだツリーに登録されていない場合、例外を返してあとで再試行する
+      const retryInfo: RetryEntryInfo = {
+        info,
+        listIndex,
+        parentValue,
+        parentEntry,
+        version
+      };
+      retryEntryInfos.push(retryInfo);
+      return;
+    }
     // エントリを作成して登録
     const entry = createEntry(
       parentEntry,
@@ -86,7 +111,8 @@ class StateBuilder {
             refListIndex,
             value,
             entry,
-            version
+            version,
+            retryEntryInfos
           );
         }
       } else {
@@ -95,7 +121,8 @@ class StateBuilder {
           listIndex,
           value,
           entry,
-          version
+          version,
+          retryEntryInfos
         );
       }
     }
@@ -103,12 +130,33 @@ class StateBuilder {
 
   build(): void {
     // 全てのパスを走査してエントリを構築
+    const retryEntryInfos: RetryEntryInfo[] = [];
     for (const path of this.#pathManager.paths) {
       const info = getStructuredPathInfo(path);
       if (info.pathSegments.length > 1) {
         continue; // プリミティブでない場合はスキップ
       }
-      this.buildEntry(info, null, null, null, 0);
+      this.buildEntry(info, null, null, null, 0, retryEntryInfos);
+    }
+    // 再試行が必要なエントリを再構築
+    let rebuildRetryEntryInfos = retryEntryInfos;
+    while( rebuildRetryEntryInfos.length > 0) {
+      const reretryEntryInfos: RetryEntryInfo[] = [];
+      for (const retryInfo of rebuildRetryEntryInfos) {
+        const { info, listIndex, parentValue, parentEntry, version } = retryInfo;
+        this.buildEntry(info, listIndex, parentValue, parentEntry, version, reretryEntryInfos);
+      }
+      // 再試行が必要なエントリがあれば再度ループ
+      const refKeys = new Set(rebuildRetryEntryInfos.map(info => getStatePropertyRefKey(info.info.pattern, info.listIndex)));
+      const rerefKeys = new Set(reretryEntryInfos.map(info => getStatePropertyRefKey(info.info.pattern, info.listIndex)));
+      if (refKeys.size > 0 && rerefKeys.size > 0) {
+        const diff = refKeys.difference(rerefKeys);
+        if (diff.size === 0) {
+          // 再試行が必要なエントリが同じ場合は、相互参照のため処理中断
+          raiseError("Circular reference detected in StateByRefKey entries.");
+        }
+      }
+      rebuildRetryEntryInfos = reretryEntryInfos;
     }
   }
 }
