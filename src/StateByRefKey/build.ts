@@ -149,9 +149,9 @@ class StateBuilder {
       // 再試行が必要なエントリがあれば再度ループ
       const refKeys = new Set(rebuildRetryEntryInfos.map(info => getStatePropertyRefKey(info.info.pattern, info.listIndex)));
       const rerefKeys = new Set(reretryEntryInfos.map(info => getStatePropertyRefKey(info.info.pattern, info.listIndex)));
-      if (refKeys.size > 0 && rerefKeys.size > 0) {
-        const diff = refKeys.difference(rerefKeys);
-        if (diff.size === 0) {
+      if (refKeys.size > 0 && rerefKeys.size > 0 && refKeys.size === rerefKeys.size ) {
+        const intersection = refKeys.intersection(rerefKeys);
+        if (intersection.size === refKeys.size) {
           // 再試行が必要なエントリが同じ場合は、相互参照のため処理中断
           raiseError("Circular reference detected in StateByRefKey entries.");
         }
