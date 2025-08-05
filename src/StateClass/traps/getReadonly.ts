@@ -59,7 +59,18 @@ export function getReadonly(
       }
     }
     const resolvedInfo = getResolvedPathInfo(prop);
+    if (resolvedInfo.info.wildcardCount === 0) {
+      // 単一のプロパティアクセスの場合は直接値を返す
+      return Reflect.get(target, resolvedInfo.info.pattern);
+    }
     const listIndex = getListIndex(resolvedInfo, receiver, handler);
+    const entry = handler.engine.stateByRefKey.getEntry(resolvedInfo.info.pattern, listIndex);
+    if (entry) {
+      // 既にエントリが存在する場合はその値を返す
+      return entry.getValue(0);
+    } else {
+      raiseError(`Entry not found for pattern: ${resolvedInfo.info.pattern}`);
+    }
     return getByRefReadonly(
       target, 
       resolvedInfo.info, 

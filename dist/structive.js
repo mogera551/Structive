@@ -2648,7 +2648,7 @@ function getStatePropertyRefKey(path, listIndex) {
         return path;
     }
     else {
-        return path + "." + listIndex.index + "#" + listIndex.sid;
+        return path + ":" + listIndex.index + "#" + listIndex.sid;
     }
 }
 
@@ -3368,7 +3368,19 @@ function getReadonly(target, prop, receiver, handler) {
             }
         }
         const resolvedInfo = getResolvedPathInfo(prop);
+        if (resolvedInfo.info.wildcardCount === 0) {
+            // 単一のプロパティアクセスの場合は直接値を返す
+            return Reflect.get(target, resolvedInfo.info.pattern);
+        }
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
+        const entry = handler.engine.stateByRefKey.getEntry(resolvedInfo.info.pattern, listIndex);
+        if (entry) {
+            // 既にエントリが存在する場合はその値を返す
+            return entry.getValue(0);
+        }
+        else {
+            raiseError(`Entry not found for pattern: ${resolvedInfo.info.pattern}`);
+        }
         return getByRefReadonly(target, resolvedInfo.info, listIndex, receiver, handler);
     }
     else if (typeof prop === "symbol") {
@@ -4199,6 +4211,7 @@ class StateBuilder {
         let value;
         if (this.#pathManager.getters.has(info.pattern)) {
             // getterが存在する場合はgetterを呼び出す
+            // 構築時ににまだツリーに登録されていない場合、例外を返してあとで再試行する
             value = this.#state[GetByRefSymbol](info, listIndex);
         }
         else {
@@ -4223,8 +4236,23 @@ class StateBuilder {
         }
         return value;
     }
-    buildEntry(info, listIndex, parentValue, parentEntry, version) {
-        const value = this.getValue(info, listIndex, parentValue);
+    buildEntry(info, listIndex, parentValue, parentEntry, version, retryEntryInfos = []) {
+        let value;
+        try {
+            value = this.getValue(info, listIndex, parentValue);
+        }
+        catch (error) {
+            // 構築時ににまだツリーに登録されていない場合、例外を返してあとで再試行する
+            const retryInfo = {
+                info,
+                listIndex,
+                parentValue,
+                parentEntry,
+                version
+            };
+            retryEntryInfos.push(retryInfo);
+            return;
+        }
         // エントリを作成して登録
         const entry = createEntry(parentEntry, info.pattern, listIndex, value, version);
         this.#stateByRefKey.setEntry(info.pattern, listIndex, entry);
@@ -4235,22 +4263,43 @@ class StateBuilder {
             if (this.#pathManager.elements.has(refPath)) {
                 for (let i = 0; i < value.length; i++) {
                     const refListIndex = createListIndex(listIndex, i);
-                    this.buildEntry(refInfo, refListIndex, value, entry, version);
+                    this.buildEntry(refInfo, refListIndex, value, entry, version, retryEntryInfos);
                 }
             }
             else {
-                this.buildEntry(refInfo, listIndex, value, entry, version);
+                this.buildEntry(refInfo, listIndex, value, entry, version, retryEntryInfos);
             }
         }
     }
     build() {
         // 全てのパスを走査してエントリを構築
+        const retryEntryInfos = [];
         for (const path of this.#pathManager.paths) {
             const info = getStructuredPathInfo(path);
             if (info.pathSegments.length > 1) {
                 continue; // プリミティブでない場合はスキップ
             }
-            this.buildEntry(info, null, null, null, 0);
+            this.buildEntry(info, null, null, null, 0, retryEntryInfos);
+        }
+        // 再試行が必要なエントリを再構築
+        let rebuildRetryEntryInfos = retryEntryInfos;
+        while (rebuildRetryEntryInfos.length > 0) {
+            const reretryEntryInfos = [];
+            for (const retryInfo of rebuildRetryEntryInfos) {
+                const { info, listIndex, parentValue, parentEntry, version } = retryInfo;
+                this.buildEntry(info, listIndex, parentValue, parentEntry, version, reretryEntryInfos);
+            }
+            // 再試行が必要なエントリがあれば再度ループ
+            const refKeys = new Set(rebuildRetryEntryInfos.map(info => getStatePropertyRefKey(info.info.pattern, info.listIndex)));
+            const rerefKeys = new Set(reretryEntryInfos.map(info => getStatePropertyRefKey(info.info.pattern, info.listIndex)));
+            if (refKeys.size > 0 && rerefKeys.size > 0 && refKeys.size === rerefKeys.size) {
+                const intersection = refKeys.intersection(rerefKeys);
+                if (intersection.size === refKeys.size) {
+                    // 再試行が必要なエントリが同じ場合は、相互参照のため処理中断
+                    raiseError("Circular reference detected in StateByRefKey entries.");
+                }
+            }
+            rebuildRetryEntryInfos = reretryEntryInfos;
         }
     }
 }

@@ -6,6 +6,6 @@ export function getStatePropertyRefKey(path, listIndex) {
         return path;
     }
     else {
-        return path + "." + listIndex.index + "#" + listIndex.sid;
+        return path + ":" + listIndex.index + "#" + listIndex.sid;
     }
 }

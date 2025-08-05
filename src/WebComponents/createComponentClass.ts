@@ -30,7 +30,7 @@ import { getBaseClass } from "./getBaseClass.js";
 import { getComponentConfig } from "./getComponentConfig.js";
 import { IComponent, IUserComponentData, IUserConfig, StructiveComponentClass, StructiveComponent } from "./types";
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes.js";
-import { IStructiveState } from "../StateClass/types";
+import { IState, IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
@@ -43,6 +43,8 @@ import { createComponentPathManager } from "../ComponentPath/ComponentPathManage
 import { setPathInfoFromState } from "../ComponentPath/setPathInfoFromState.js";
 import { setPathInfoFromTemplate } from "../ComponentPath/setPathInfoFromTemplate.js";
 import { optimizePathAccessor } from "../ComponentPath/optimizePathAccessor.js";
+import { IStatePathInfoManager } from "../StateManager/StatePathInfoManager/types.js";
+import { createStatePathInfoManager } from "../StateManager/StatePathInfoManager/createStatePathInfoManager.js";
 
 
 export function createComponentClass(componentData: IUserComponentData): StructiveComponentClass {
@@ -165,15 +167,12 @@ export function createComponentClass(componentData: IUserComponentData): Structi
     static get outputFilters():FilterWithOptions {
       return this.#outputFilters;
     }
-    static #pathManager: IComponentPathManager | null = null;
-    static get pathManager(): IComponentPathManager {
-      if (!this.#pathManager) {
-        this.#pathManager = createComponentPathManager();
-        setPathInfoFromTemplate(this.#pathManager, this.id);
-        setPathInfoFromState(this.#pathManager, this.stateClass);
-//        optimizePathAccessor(this.#pathManager, this.stateClass);
+    static #pathInfoManager: IStatePathInfoManager | null = null;
+    static get pathInfoManager(): IStatePathInfoManager {
+      if (!this.#pathInfoManager) {
+        this.#pathInfoManager = createStatePathInfoManager(this);
       }
-      return this.#pathManager;
+      return this.#pathInfoManager;
     }
 
     static get listPaths(): Set<string> {
