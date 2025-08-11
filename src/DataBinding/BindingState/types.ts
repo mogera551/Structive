@@ -33,5 +33,5 @@ export interface IBindingState {
  * バインディング状態生成ファクトリ型
  * - バインディング名・フィルタ情報からBindingState生成関数を返す
  */
-export type CreateBindingStateByStateFn = (binding:IBinding, state: IReadonlyStateProxy, filters: FilterWithOptions) => IBindingState;
+export type CreateBindingStateByStateFn = (binding:IBinding, filters: FilterWithOptions) => IBindingState;
 export type CreateBindingStateFn = (name: string, filterTexts: IFilterText[]) => CreateBindingStateByStateFn;

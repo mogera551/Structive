@@ -31,6 +31,7 @@ import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
 import { config as globalConfig } from "./getGlobalConfig.js";
 import { findStructiveParent } from "./findStructiveParent.js";
+import { createStatePathManager } from "../NewStatePathManager/createStatePathManager.js";
 export function createComponentClass(componentData) {
     const config = (componentData.stateClass.$config ?? {});
     const componentConfig = getComponentConfig(config);
@@ -38,7 +39,6 @@ export function createComponentClass(componentData) {
     const { html, css, stateClass } = componentData;
     const inputFilters = Object.assign({}, inputBuiltinFilters);
     const outputFilters = Object.assign({}, outputBuiltinFilters);
-    stateClass.$isStructive = true;
     registerHtml(id, html);
     registerCss(id, css);
     registerStateClass(id, stateClass);
@@ -66,9 +66,6 @@ export function createComponentClass(componentData) {
         }
         get state() {
             return this.#engine.stateInput;
-        }
-        get isStructive() {
-            return this.#engine.stateClass.$isStructive ?? false;
         }
         get waitForInitialize() {
             return this.#engine.waitForInitialize;
@@ -153,6 +150,13 @@ export function createComponentClass(componentData) {
         static #setters = new Set();
         static get setters() {
             return this.#setters;
+        }
+        static #pathManager = null;
+        static get pathManager() {
+            if (!this.#pathManager) {
+                this.#pathManager = createStatePathManager(this.id, this.stateClass);
+            }
+            return this.#pathManager;
         }
         static #trackedGetters = null;
         static get trackedGetters() {

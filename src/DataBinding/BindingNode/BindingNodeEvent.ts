@@ -58,10 +58,11 @@ class BindingNodeEvent extends BindingNode {
     if (options.includes("stopPropagation")) {
       e.stopPropagation();
     }
-    await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+    return;
+//    await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
       // stateProxyを生成し、バインディング値を実行
-      await Reflect.apply(value, stateProxy, [e, ...indexes]);
-    });
+///      await Reflect.apply(value, stateProxy, [e, ...indexes]);
+//    });
   }
 }
 

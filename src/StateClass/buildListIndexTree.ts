@@ -43,7 +43,8 @@ function buildListIndexTreeSub(
       continue;
     }
     for(const subListIndex of newListIndexesSet) {
-      const subValue = engine.readonlyState[GetByRefSymbol](info, subListIndex);
+//      const subValue = engine.readonlyState[GetByRefSymbol](info, subListIndex);
+      const subValue = null;
       buildListIndexTreeSub(
         engine, 
         listInfos, 

@@ -1,53 +1,62 @@
 /**
  * createListIndex.ts
  *
- * リストバインディングやループ処理で利用する「リストインデックス」管理クラスとファクトリ関数の実装です。
+ * リストや多重ループのインデックス情報を管理するListIndexクラスと、その生成関数を提供するモジュールです。
  *
  * 主な役割:
- * - ListIndexクラスで多重ループやネスト構造のインデックス情報をツリー状に管理
- * - indexes, position, lengthなどで階層的なインデックス情報を取得可能
- * - iterator/reverseIteratorで親子関係を辿るイテレータを提供
- * - atメソッドで指定位置のListIndexをキャッシュ付きで取得（WeakRefによるメモリ効率化）
- * - truncateで指定長さまでの親ListIndexを取得
- * - addで新たな子ListIndexを生成
+ * - ListIndex: 多重リスト構造における各要素のインデックス情報（親リストとの階層関係、インデックス配列、位置、長さなど）を管理
+ * - at(): 指定位置のListIndexを取得（キャッシュ・WeakRef対応）
+ * - iterator()/reverseIterator(): 階層構造を順方向・逆方向にイテレート
+ * - truncate()/add(): 階層の切り詰めや新しいインデックスの追加
+ * - createListIndex(): ListIndexインスタンスの生成用ファクトリ関数
  *
  * 設計ポイント:
- * - ListIndexは親子関係を持つことで多重ループやforバインディングに柔軟に対応
- * - atメソッドはキャッシュとWeakRefを活用し、GCフレンドリーかつ高速なインデックス参照を実現
- * - createListIndexファクトリで一貫した生成・管理が可能
- * - getMaxListIndexIdで現在の最大IDを取得可能（デバッグや管理用途）
+ * - 多重リストやネストしたforループにおけるインデックス管理を効率化
+ * - 階層構造の親子関係を辿れるようにし、各種情報（indexes, position, length等）をキャッシュ
+ * - at()メソッドはWeakRefを用いてメモリ効率とパフォーマンスを両立
+ * - イテレータで階層を柔軟に走査可能
  */
 import { IListIndex } from "./types";
 
 class ListIndex implements IListIndex {
   static id: number = 0;
-  id              : number = ++ListIndex.id;
-  sid             : string = this.id.toString();
-  #parentListIndex: IListIndex | null = null;
-  get parentListIndex(): IListIndex | null {
-    return this.#parentListIndex;
-  }
+  id   : number = ++ListIndex.id;
+  sid  : string = this.id.toString();
   index: number;
-  get indexes(): number[] {
-    const indexes = this.parentListIndex?.indexes ?? [];
-    indexes.push(this.index);
-    return indexes;
-  }
 
-  get position(): number {
-    return (this.parentListIndex?.position ?? -1) + 1;
-  }
-
-  get length(): number {
-    return (this.parentListIndex?.length ?? 0) + 1;
-  }
-  
   constructor(
     parentListIndex: IListIndex | null,
     index: number
   ) {
     this.#parentListIndex = parentListIndex;
     this.index = index;
+  }
+
+  #parentListIndex: IListIndex | null = null;
+  get parentListIndex(): IListIndex | null {
+    return this.#parentListIndex;
+  }
+
+  #indexes: number[] | undefined = undefined;
+  get indexes(): number[] {
+    if (typeof this.#indexes !== "undefined") return this.#indexes;
+    this.#indexes = this.parentListIndex?.indexes ?? [];
+    this.#indexes.push(this.index);
+    return this.#indexes;
+  }
+
+  #position: number | undefined = undefined;
+  get position(): number {
+    if (typeof this.#position !== "undefined") return this.#position;
+    this.#position = (this.parentListIndex?.position ?? -1) + 1;
+    return this.#position;
+  }
+
+  #length: number | undefined = undefined;
+  get length(): number {
+    if (typeof this.#length !== "undefined") return this.#length;
+    this.#length = (this.parentListIndex?.length ?? 0) + 1;
+    return this.#length;
   }
   
   truncate(length: number): IListIndex | null {
@@ -119,8 +128,4 @@ export function createListIndex(
   index          : number
 ): IListIndex {
   return new ListIndex(parentListIndex, index);
-}
-
-export function getMaxListIndexId(): number {
-  return ListIndex.id;
 }

@@ -2,25 +2,36 @@ class ListIndex {
     static id = 0;
     id = ++ListIndex.id;
     sid = this.id.toString();
+    index;
+    constructor(parentListIndex, index) {
+        this.#parentListIndex = parentListIndex;
+        this.index = index;
+    }
     #parentListIndex = null;
     get parentListIndex() {
         return this.#parentListIndex;
     }
-    index;
+    #indexes = undefined;
     get indexes() {
-        const indexes = this.parentListIndex?.indexes ?? [];
-        indexes.push(this.index);
-        return indexes;
+        if (typeof this.#indexes !== "undefined")
+            return this.#indexes;
+        this.#indexes = this.parentListIndex?.indexes ?? [];
+        this.#indexes.push(this.index);
+        return this.#indexes;
     }
+    #position = undefined;
     get position() {
-        return (this.parentListIndex?.position ?? -1) + 1;
+        if (typeof this.#position !== "undefined")
+            return this.#position;
+        this.#position = (this.parentListIndex?.position ?? -1) + 1;
+        return this.#position;
     }
+    #length = undefined;
     get length() {
-        return (this.parentListIndex?.length ?? 0) + 1;
-    }
-    constructor(parentListIndex, index) {
-        this.#parentListIndex = parentListIndex;
-        this.index = index;
+        if (typeof this.#length !== "undefined")
+            return this.#length;
+        this.#length = (this.parentListIndex?.length ?? 0) + 1;
+        return this.#length;
     }
     truncate(length) {
         let listIndex = this;
@@ -84,7 +95,4 @@ class ListIndex {
 }
 export function createListIndex(parentListIndex, index) {
     return new ListIndex(parentListIndex, index);
-}
-export function getMaxListIndexId() {
-    return ListIndex.id;
 }

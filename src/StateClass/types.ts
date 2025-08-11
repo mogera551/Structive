@@ -19,7 +19,8 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { Constructor, IUserConfig } from "../WebComponents/types";
+import { Constructor } from "../types";
+import { IUserConfig } from "../WebComponents/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
 
 export interface IDependentProps {

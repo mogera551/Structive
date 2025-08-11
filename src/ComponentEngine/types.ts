@@ -5,7 +5,9 @@ import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
-import { IState, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
+import { IStatePathManager } from "../NewStatePathManager/types";
+import { IState, IStateExtended, IStateProxyHandler, StateClass } from "../NewStateProxyHandler/types";
+//import { IState, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IUpdater } from "../Updater/types";
 import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";
@@ -29,9 +31,10 @@ export interface IComponentEngine {
   config        : IComponentConfig;
   template      : HTMLTemplateElement;
   styleSheet    : CSSStyleSheet;
-  stateClass    : IStructiveState;
+  stateClass    : StateClass;
   state         : IState;
-  readonlyState : IReadonlyStateProxy;
+  stateProxyHandler: IStateProxyHandler;
+  //readonlyState : IReadonlyStateProxy;
   updater       : IUpdater;
   inputFilters  : FilterWithOptions;
   outputFilters : FilterWithOptions;
@@ -42,6 +45,8 @@ export interface IComponentEngine {
   getters       : Set<string>;
   setters       : Set<string>;
   waitForInitialize: PromiseWithResolvers<void>;
+
+  pathManager: IStatePathManager;
 
   listInfoSet        : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列を持つもの
   elementInfoSet     : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列の要素を持つもの
@@ -69,10 +74,12 @@ export interface IComponentEngine {
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する
+/*
   useWritableStateProxy(
     loopContext: ILoopContext | null,
     callback: (stateProxy: IWritableStateProxy) => (Promise<void> | void)
   ): Promise<void>;
+*/
   registerChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録する
   unregisterChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録解除する
 }

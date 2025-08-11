@@ -70,10 +70,10 @@ class BindingNodeProperty extends BindingNode {
     this.node.addEventListener(eventName, async () => {
       const loopContext = this.binding.parentBindContent.currentLoopContext;
       const value = this.filteredValue;
-      await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+//      await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
         // stateProxyを生成し、バインディング値を更新
-        binding.updateStateValue(stateProxy, value);
-      });
+//        binding.updateStateValue(stateProxy, value);
+//      });
     });
   }
 

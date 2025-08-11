@@ -182,9 +182,9 @@ class Updater implements IUpdater {
 
   render(bindings: IBinding[]) {
     this.#version++;
-    this.engine.readonlyState[SetCacheableSymbol](() => {
-      return render(bindings);
-    });
+//    this.engine.readonlyState[SetCacheableSymbol](() => {
+//      return render(bindings);
+//    });
   }
 }
 

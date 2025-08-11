@@ -90,7 +90,7 @@ class BindingState implements IBindingState {
 
 export const createBindingState: CreateBindingStateFn = 
 (name: string, filterTexts: IFilterText[]) => 
-  (binding:IBinding, state: IReadonlyStateProxy, filters:FilterWithOptions) => {
+  (binding:IBinding, filters:FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts); // ToDo:ここは、メモ化できる
     return new BindingState(binding, state, name, filterFns);
   }

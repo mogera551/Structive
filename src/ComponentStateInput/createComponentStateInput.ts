@@ -15,12 +15,14 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
   }
 
   assignState(object: any): void {
+/*
     this.engine.useWritableStateProxy(null, async (state) => {
       for(const [key, value] of Object.entries(object)) {
         const childPathInfo = getStructuredPathInfo(key);
         this.engine.setPropertyValue(childPathInfo, null, value);
       }
     });
+*/
   }
 
   /**

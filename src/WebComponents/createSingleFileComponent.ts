@@ -14,7 +14,7 @@
  * - scriptはdata:URL経由で安全に動的import
  * - テンプレート・スクリプト・スタイルを柔軟に分離・管理できる設計
  */
-import { IStructiveState } from "../StateClass/types";
+import { StateClass } from "../NewStateProxyHandler/types";
 import { IUserComponentData } from "./types";
 
 function escapeEmbed(html: string): string {
@@ -45,7 +45,7 @@ export async function createSingleFileComponent(text: string): Promise<IUserComp
   const style = template.content.querySelector("style");
   style?.remove();
 
-  const stateClass = (scriptModule.default ?? class {}) as IStructiveState;
+  const stateClass = (scriptModule.default ?? class {}) as StateClass;
   
   return {
     text,

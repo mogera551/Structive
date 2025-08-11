@@ -103,7 +103,7 @@ export function restructListIndexes(
         }
         refKeys.add(refKey);
         if (engine.listInfoSet.has(_info)) {
-          const values = updateValues[refKey] ?? engine.readonlyState[GetByRefSymbol](_info, _listIndex);
+          const values = updateValues[refKey];// ?? engine.readonlyState[GetByRefSymbol](_info, _listIndex);
           buildListIndexTree(engine, _info, _listIndex, values);
         }
       });

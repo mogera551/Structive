@@ -30,7 +30,6 @@ import { getBaseClass } from "./getBaseClass.js";
 import { getComponentConfig } from "./getComponentConfig.js";
 import { IComponent, IUserComponentData, IUserConfig, StructiveComponentClass, StructiveComponent } from "./types";
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes.js";
-import { IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
@@ -38,6 +37,9 @@ import { config as globalConfig } from "./getGlobalConfig.js";
 import { raiseError } from "../utils.js";
 import { IComponentStateInput } from "../ComponentStateInput/types.js";
 import { findStructiveParent } from "./findStructiveParent.js";
+import { IStatePathManager } from "../NewStatePathManager/types.js";
+import { createStatePathManager } from "../NewStatePathManager/createStatePathManager.js";
+import { StateClass } from "../NewStateProxyHandler/types.js";
 
 
 export function createComponentClass(componentData: IUserComponentData): StructiveComponentClass {
@@ -47,7 +49,6 @@ export function createComponentClass(componentData: IUserComponentData): Structi
   const { html, css, stateClass } = componentData;
   const inputFilters:FilterWithOptions = Object.assign({}, inputBuiltinFilters);
   const outputFilters:FilterWithOptions = Object.assign({}, outputBuiltinFilters);
-  stateClass.$isStructive = true;
   registerHtml(id, html);
   registerCss(id, css);
   registerStateClass(id, stateClass);
@@ -80,10 +81,6 @@ export function createComponentClass(componentData: IUserComponentData): Structi
 
     get state(): IComponentStateInput {
       return this.#engine.stateInput;
-    }
-
-    get isStructive(): boolean {
-      return this.#engine.stateClass.$isStructive ?? false;
     }
 
     get waitForInitialize(): PromiseWithResolvers<void> {
@@ -144,10 +141,10 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       }
       return this.#styleSheet;
     }
-    static #stateClass: IStructiveState | null = null;
-    static get stateClass():IStructiveState {
+    static #stateClass: StateClass | null = null;
+    static get stateClass(): StateClass {
       if (!this.#stateClass) {
-        this.#stateClass = getStateClassById(this.id) as IStructiveState;
+        this.#stateClass = getStateClassById(this.id) as StateClass;
       }
       return this.#stateClass;
     }
@@ -172,6 +169,14 @@ export function createComponentClass(componentData: IUserComponentData): Structi
     static #setters: Set<string> = new Set<string>();
     static get setters(): Set<string> {
       return this.#setters;
+    }
+
+    static #pathManager: IStatePathManager | null = null;
+    static get pathManager(): IStatePathManager {
+      if (!this.#pathManager) {
+        this.#pathManager = createStatePathManager(this.id, this.stateClass);
+      }
+      return this.#pathManager;
     }
     static #trackedGetters: Set<string> | null = null;
     static get trackedGetters(): Set<string> {

@@ -22,7 +22,8 @@ class ComponentStateOutput implements IComponentStateOutput {
       raiseError(`No binding found for child path "${childPath}".`);
     }
     const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
-    return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex);
+    // return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex);
+    return null;
   }
 
   set(pathInfo: IStructuredPathInfo, listIndex: IListIndex | null, value: any): boolean {
@@ -36,9 +37,9 @@ class ComponentStateOutput implements IComponentStateOutput {
     }
     const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
     const engine = binding.engine;
-    engine.useWritableStateProxy(null, async (state) => {
-      state[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
-    });
+//    engine.useWritableStateProxy(null, async (state) => {
+//      state[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
+//    });
     return true;
   }
 

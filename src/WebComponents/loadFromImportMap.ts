@@ -19,7 +19,6 @@ import { createComponentClass } from "./createComponentClass";
 import { loadImportmap } from "./loadImportmap";
 import { loadSingleFileComponent } from "./loadSingleFileComponent";
 import { registerComponentClass } from "./registerComponentClass";
-import { IUserComponentData } from "./types";
 
 const ROUTES_KEY = "@routes/";
 const COMPONENTS_KEY = "@components/";

@@ -15,16 +15,17 @@
  * - SFCやimportmapなど動的なコンポーネント管理にも対応
  */
 import { FilterWithOptions } from "../Filter/types";
-import { IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
 import { IComponentStateInput } from "../ComponentStateInput/types";
+import { Constructor } from "../types";
+import { IStatePathManager } from "../NewStatePathManager/types";
+import { StateClass } from "../NewStateProxyHandler/types";
 
 export type ComponentType = 'autonomous' | 'builtin';
 
 export interface IComponent {
   readonly parentStructiveComponent: StructiveComponent | null; // The parent component of the current component
   readonly state: IComponentStateInput;
-  readonly isStructive: boolean; // Whether the component is structive or not
   readonly waitForInitialize: PromiseWithResolvers<void>;
   getBindingsFromChild(component:IComponent): Set<IBinding> | null; // Get the bindings by component
   registerChildComponent(component:StructiveComponent): void; // Register the child component
@@ -36,7 +37,7 @@ export interface IComponentStatic {
   readonly id            : number;
   readonly template      : HTMLTemplateElement;
   readonly styleSheet    : CSSStyleSheet;
-  readonly stateClass    : IStructiveState;
+  readonly stateClass    : StateClass;
   readonly inputFilters  : FilterWithOptions;
   readonly outputFilters : FilterWithOptions;
   readonly listPaths     : Set<string>;
@@ -44,11 +45,11 @@ export interface IComponentStatic {
   readonly trackedGetters: Set<string>;
   readonly getters       : Set<string>;
   readonly setters       : Set<string>;
+  readonly pathManager   : IStatePathManager;
   html:string;
   css:string;
   define(tagName:string):void;
 }
-export type Constructor<T = {}> = new (...args: any[]) => T;
 
 export type StructiveComponent = HTMLElement & IComponent;
 
@@ -87,7 +88,7 @@ export interface IUserComponentData {
   text      : string; // The text content of the component file
   html      : string; // The HTML content of the component file
   css       : string;  // The CSS content of the component file
-  stateClass: IStructiveState; // The class that will be used to create the state object
+  stateClass: StateClass; // The class that will be used to create the state object
 }
 
 export type StructiveComponentClasses = Record<string, StructiveComponentClass>;
