@@ -3567,23 +3567,19 @@ function getAllWritable(target, prop, receiver, handler) {
 }
 
 const CONNECTED_CALLBACK = "$connectedCallback";
-function connectedCallback(target, prop, receiver, handler) {
-    return async () => {
-        const callback = Reflect.get(target, CONNECTED_CALLBACK);
-        if (typeof callback === "function") {
-            await callback.call(target, receiver);
-        }
-    };
+async function connectedCallback(target, prop, receiver, handler) {
+    const callback = Reflect.get(target, CONNECTED_CALLBACK);
+    if (typeof callback === "function") {
+        await callback.call(target, receiver);
+    }
 }
 
 const DISCONNECTED_CALLBACK = "$disconnectedCallback";
-function disconnectedCallback(target, prop, receiver, handler) {
-    return async () => {
-        const callback = Reflect.get(target, DISCONNECTED_CALLBACK);
-        if (typeof callback === "function") {
-            await callback.call(target, receiver);
-        }
-    };
+async function disconnectedCallback(target, prop, receiver, handler) {
+    const callback = Reflect.get(target, DISCONNECTED_CALLBACK);
+    if (typeof callback === "function") {
+        await callback.call(target, receiver);
+    }
 }
 
 /**

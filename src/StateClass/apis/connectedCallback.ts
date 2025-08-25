@@ -17,16 +17,14 @@ import { IWritableStateProxy, IWritableStateHandler } from "../types";
 
 const CONNECTED_CALLBACK = "$connectedCallback";
 
-export function connectedCallback(
+export async function connectedCallback(
   target: Object, 
   prop: PropertyKey, 
   receiver: IWritableStateProxy,
   handler: IWritableStateHandler
-):Function {
-  return async () => {
-    const callback = Reflect.get(target, CONNECTED_CALLBACK);
-    if (typeof callback === "function") {
-      await callback.call(target, receiver);
-    }
-  };
+):Promise<void> {
+  const callback = Reflect.get(target, CONNECTED_CALLBACK);
+  if (typeof callback === "function") {
+    await callback.call(target, receiver);
+  }
 }
