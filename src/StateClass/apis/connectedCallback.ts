@@ -25,6 +25,6 @@ export async function connectedCallback(
 ):Promise<void> {
   const callback = Reflect.get(target, CONNECTED_CALLBACK);
   if (typeof callback === "function") {
-    await callback.call(target, receiver);
+    await callback.call(receiver);
   }
 }
