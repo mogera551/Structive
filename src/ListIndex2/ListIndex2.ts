@@ -1,22 +1,16 @@
-import { IListIndex } from "./types";
+import { IListIndex2 } from "./types";
 
-interface INewListIndex extends IListIndex {
-  version: number;
-  dirty: boolean;
-  indexes: number[];
-  listIndexes: WeakRef<IListIndex>[];
-}
 
 let version = 0;
 let id = 0;
-class NewListIndex implements INewListIndex {
-  #parentListIndex: INewListIndex | null = null;
+class ListIndex2 implements IListIndex2 {
+  #parentListIndex: IListIndex2 | null = null;
   #pos: number = 0;
   #index: number = 0;
   #version: number;
   #id = ++id;
   #sid = this.#id.toString();
-  constructor(parentListIndex: INewListIndex | null, index: number) {
+  constructor(parentListIndex: IListIndex2 | null, index: number) {
     this.#parentListIndex = parentListIndex;
     this.#pos = parentListIndex ? parentListIndex.position + 1 : 0;
     this.#index = index;
@@ -63,6 +57,7 @@ class NewListIndex implements INewListIndex {
       return this.#parentListIndex.dirty || this.#parentListIndex.version > this.#version;
     }
   }
+
   #indexes: number[] | undefined;
   get indexes(): number[] {
     if (this.#parentListIndex === null) {
@@ -78,8 +73,8 @@ class NewListIndex implements INewListIndex {
     return this.#indexes;
   }
 
-  #listIndexes: WeakRef<IListIndex>[] | undefined;
-  get listIndexes(): WeakRef<IListIndex>[] {
+  #listIndexes: WeakRef<IListIndex2>[] | undefined;
+  get listIndexes(): WeakRef<IListIndex2>[] {
     if (this.#parentListIndex === null) {
       if (typeof this.#listIndexes === "undefined") {
         this.#listIndexes = [new WeakRef(this)];
@@ -92,7 +87,7 @@ class NewListIndex implements INewListIndex {
     return this.#listIndexes;
   }
 
-  at(pos: number): IListIndex | null {
+  at(pos: number): IListIndex2 | null {
     if (pos >= 0) {
       return this.listIndexes[pos].deref() || null;
     } else {
@@ -101,6 +96,6 @@ class NewListIndex implements INewListIndex {
   }
 }
 
-function createListIndex(parentListIndex: INewListIndex | null, index: number): INewListIndex {
-  return new NewListIndex(parentListIndex, index);
+function createListIndex2(parentListIndex: IListIndex2 | null, index: number): IListIndex2 {
+  return new ListIndex2(parentListIndex, index);
 }
