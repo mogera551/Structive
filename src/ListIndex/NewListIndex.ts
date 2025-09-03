@@ -2,6 +2,9 @@ import { IListIndex } from "./types";
 
 interface INewListIndex extends IListIndex {
   version: number;
+  dirty: boolean;
+  indexes: number[];
+  listIndexes: WeakRef<IListIndex>[];
 }
 
 let version = 0;
@@ -53,6 +56,13 @@ class NewListIndex implements INewListIndex {
     return this.#version;
   }
 
+  get dirty(): boolean {
+    if (this.#parentListIndex === null) {
+      return false;
+    } else {
+      return this.#parentListIndex.dirty || this.#parentListIndex.version > this.#version;
+    }
+  }
   #indexes: number[] | undefined;
   get indexes(): number[] {
     if (this.#parentListIndex === null) {
@@ -60,7 +70,7 @@ class NewListIndex implements INewListIndex {
         this.#indexes = [this.#index];
       }
     } else {
-      if (typeof this.#indexes === "undefined" || this.#parentListIndex.version > this.#version) {
+      if (typeof this.#indexes === "undefined" || this.dirty) {
         this.#indexes = [...this.#parentListIndex.indexes, this.#index];
         this.#version = version;
       }
