@@ -15,12 +15,12 @@
  * - getByRef/setByRefで値の取得・設定を一元的に処理
  * - 柔軟なバインディングやAPI経由での利用が可能
  */
-import { IListIndex } from "../../ListIndex/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { IWritableStateProxy, IWritableStateHandler } from "../types";
 import { setByRef } from "../methods/setByRef.js";
 import { getByRefWritable } from "../methods/getByRefWritable";
+import { IListIndex2 } from "../../ListIndex2/types";
 
 export function resolveWritable(
   target: Object, 
@@ -37,10 +37,10 @@ export function resolveWritable(
       }
     }
 
-    let listIndex: IListIndex | null = null;
+    let listIndex: IListIndex2 | null = null;
     for(let i = 0; i < info.wildcardParentInfos.length; i++) {
       const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
-      const listIndexes: IListIndex[] = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? []);
+      const listIndexes: IListIndex2[] = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? []);
       const index = indexes[i] ?? raiseError(`index is null`);
       listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
     }

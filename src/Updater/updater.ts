@@ -15,7 +15,6 @@
  * - StateClassエンジンとの連携やキャッシュ機構も考慮した設計
  */
 import { IBinding } from "../DataBinding/types";
-import { IListIndex } from "../ListIndex/types";
 import { render } from "./render.js";
 import { SetCacheableSymbol } from "../StateClass/symbols.js";
 import { IStructuredPathInfo } from "../StateProperty/types";
@@ -25,16 +24,17 @@ import { IUpdater } from "./types";
 import { restructListIndexes } from "./restructListIndex";
 import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
+import { IListIndex2 } from "../ListIndex2/types";
 
 type UpdatedArrayElementBinding = {
   parentRef: IStatePropertyRef;
   binding: IBinding;
-  listIndexes: IListIndex[];
+  listIndexes: IListIndex2[];
   values: any[];
 };
 
 class Updater implements IUpdater {
-  updatedProperties: Set<IStatePropertyRef | IListIndex> = new Set;
+  updatedProperties: Set<IStatePropertyRef | IListIndex2> = new Set;
   updatedValues    : {[key:string]: any} = {};
   engine           : IComponentEngine;
   #version         : number = 0;
@@ -53,7 +53,7 @@ class Updater implements IUpdater {
 
   addUpdatedStatePropertyRefValue(
     info     : IStructuredPathInfo, 
-    listIndex: IListIndex | null, 
+    listIndex: IListIndex2 | null, 
     value    : any
   ): void {
     const refKey = createRefKey(info, listIndex);
@@ -62,7 +62,7 @@ class Updater implements IUpdater {
     this.entryRender();
   }
 
-  addUpdatedListIndex(listIndex: IListIndex): void {
+  addUpdatedListIndex(listIndex: IListIndex2): void {
     this.updatedProperties.add(listIndex);
     this.entryRender();
   }
@@ -117,7 +117,7 @@ class Updater implements IUpdater {
       for(let i = 0; i < updatedProiperties.length; i++) {
         const item = updatedProiperties[i];
         if ("index" in item) {
-          const bindings = engine.bindingsByListIndex.get(item as IListIndex) ?? [];
+          const bindings = engine.bindingsByListIndex.get(item as IListIndex2) ?? [];
           bindingsByListIndex.push(...bindings);
         } else {
           updatedRefs.push(item as IStatePropertyRef);
@@ -138,13 +138,13 @@ class Updater implements IUpdater {
             const refKey = createRefKey(item.info, item.listIndex);
             const value = this.updatedValues[refKey] ?? null;
             info.values?.push(value);
-            info.listIndexes?.push(item.listIndex as IListIndex);
+            info.listIndexes?.push(item.listIndex as IListIndex2);
           }
         }
       }
       // リストインデックスの構築
       const builtStatePropertyRefKeySet = new Set<string>();
-      const affectedRefs = new Map<IStructuredPathInfo, Set<IListIndex|null>>();
+      const affectedRefs = new Map<IStructuredPathInfo, Set<IListIndex2 | null>>();
       restructListIndexes(updatedRefs, engine, this.updatedValues, builtStatePropertyRefKeySet, affectedRefs);
 
       // スワップの場合の情報を構築する

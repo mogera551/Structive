@@ -1,6 +1,5 @@
 import { resolveNodeFromPath } from "../BindingBuilder/resolveNodeFromPath.js";
 import { ILoopContext } from "../LoopContext/types";
-import { IListIndex } from "../ListIndex/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { getTemplateById } from "../Template/registerTemplate.js";
 import { raiseError } from "../utils.js";
@@ -10,6 +9,7 @@ import { createLoopContext } from "../LoopContext/createLoopContext.js";
 import { render } from "../Updater/render.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap.js";
+import { IListIndex2 } from "../ListIndex2/types.js";
 
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 
@@ -126,7 +126,7 @@ class BindContent implements IBindContent {
     id           : number, 
     engine       : IComponentEngine, 
     loopContext  : string | null,
-    listIndex    : IListIndex | null
+    listIndex    : IListIndex2 | null
   ) {
     this.parentBinding = parentBinding;
     this.#id = id;
@@ -173,7 +173,7 @@ class BindContent implements IBindContent {
   init() {
     this.bindings.forEach(binding => binding.init());
   }
-  assignListIndex(listIndex: IListIndex): void {
+  assignListIndex(listIndex: IListIndex2): void {
     if (this.loopContext == null) raiseError(`BindContent: loopContext is null`);
     this.loopContext.assignListIndex(listIndex);
     this.init();
@@ -185,7 +185,7 @@ export function createBindContent(
   id           : number, 
   engine       :IComponentEngine, 
   loopContext  : string | null, 
-  listIndex    :IListIndex | null
+  listIndex    :IListIndex2 | null
 ):IBindContent {
   const bindContent = new BindContent(
     parentBinding, 

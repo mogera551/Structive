@@ -16,7 +16,7 @@
  * - createLoopContextファクトリで一貫した生成・管理が可能
  */
 import { IBindContent } from "../DataBinding/types";
-import { IListIndex } from "../ListIndex/types";
+import { IListIndex2 } from "../ListIndex2/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { raiseError } from "../utils.js";
@@ -25,11 +25,11 @@ import { ILoopContext } from "./types";
 class LoopContext implements ILoopContext {
   #path     : string;
   #info        : IStructuredPathInfo;
-  #listIndexRef: WeakRef<IListIndex> | null;
+  #listIndexRef: WeakRef<IListIndex2> | null;
   #bindContent : IBindContent;
   constructor(
     path    : string | null,
-    listIndex  : IListIndex,
+    listIndex  : IListIndex2,
     bindContent: IBindContent
   ) {
     this.#path = path ?? raiseError("name is required");
@@ -43,13 +43,13 @@ class LoopContext implements ILoopContext {
   get info(): IStructuredPathInfo {
     return this.#info;
   }
-  get listIndex(): IListIndex {
+  get listIndex(): IListIndex2 {
     return this.#listIndexRef?.deref() ?? raiseError("listIndex is null");
   }
-  get listIndexRef(): WeakRef<IListIndex> {
+  get listIndexRef(): WeakRef<IListIndex2> {
     return this.#listIndexRef ?? raiseError("listIndexRef is null");
   }
-  assignListIndex(listIndex: IListIndex): void {
+  assignListIndex(listIndex: IListIndex2): void {
     this.#listIndexRef = new WeakRef(listIndex);
     // 構造は変わらないので、#parentLoopContext、#cacheはクリアする必要はない
   }
@@ -112,7 +112,7 @@ class LoopContext implements ILoopContext {
 // IBindContentにずっと保持される
 export function createLoopContext(
   pattern: string | null,
-  listIndex: IListIndex,
+  listIndex: IListIndex2,
   bindContent: IBindContent
 ): ILoopContext {
   return new LoopContext(pattern, listIndex, bindContent);

@@ -20,8 +20,8 @@
  */
 import { IComponentEngine } from "../ComponentEngine/types";
 import { createDependencyWalker } from "../DependencyWalker/createDependencyWalker";
-import { createListIndex } from "../ListIndex/createListIndex";
-import { IListIndex } from "../ListIndex/types";
+import { createListIndex2 } from "../ListIndex2/ListIndex2";
+import { IListIndex2 } from "../ListIndex2/types";
 import { listWalker } from "../ListWalker/listWalker";
 import { GetByRefSymbol } from "../StateClass/symbols";
 import { IStructuredPathInfo } from "../StateProperty/types";
@@ -29,25 +29,25 @@ import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { config } from "../WebComponents/getGlobalConfig";
 
-const BLANK_LISTINDEXES_SET = new Set<IListIndex>();
+const BLANK_LISTINDEXES_SET = new Set<IListIndex2>();
 
 function buildListIndexTree(
   engine   : IComponentEngine, 
   info     : IStructuredPathInfo,
-  listIndex: IListIndex | null, 
+  listIndex: IListIndex2 | null, 
   value: any[]
 ): void {
   const oldValue = engine.getList(info, listIndex) ?? [];
   if (oldValue === value) {
     return;
   }
-  const newListIndexesSet:Set<IListIndex> = new Set();
+  const newListIndexesSet:Set<IListIndex2> = new Set();
   const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET;
   const oldListIndexesByItem = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
   for(let i = 0; i < value.length; i++) {
     // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
     // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
-    let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+    let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex2(listIndex, i);
     if (curListIndex.index !== i) {
       curListIndex.index = i;
       // リストインデックスのインデックスを更新したので、リストインデックスを登録する
@@ -67,7 +67,7 @@ export function restructListIndexes(
   engine: IComponentEngine,
   updateValues: {[key:string]: any[]},
   refKeys: Set<string>,
-  cache: Map<IStructuredPathInfo, Set<IListIndex|null>>,
+  cache: Map<IStructuredPathInfo, Set<IListIndex2|null>>,
 ) {
   for(const {info, listIndex} of infos) {
     if (config.optimizeListElements && engine.elementInfoSet.has(info)) {
@@ -94,7 +94,7 @@ export function restructListIndexes(
         }
         let cacheListIndexSet = cache.get(_info);
         if (!cacheListIndexSet) {
-          cacheListIndexSet = new Set<IListIndex|null>();
+          cacheListIndexSet = new Set<IListIndex2|null>();
           cache.set(_info, cacheListIndexSet);
         }
         cacheListIndexSet.add(_listIndex);

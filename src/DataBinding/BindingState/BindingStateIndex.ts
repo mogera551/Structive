@@ -1,7 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
-import { IListIndex } from "../../ListIndex/types";
+import { IListIndex2 } from "../../ListIndex2/types.js";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
@@ -25,7 +25,7 @@ import { CreateBindingStateFn, IBindingState } from "./types";
 class BindingStateIndex implements IBindingState {
   #binding     : IBinding;
   #indexNumber : number;
-  #listIndexRef: WeakRef<IListIndex> | null = null;
+  #listIndexRef: WeakRef<IListIndex2> | null = null;
   #state       : IReadonlyStateProxy;
   #filters     : Filters;
   get pattern(): string {

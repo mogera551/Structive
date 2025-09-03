@@ -16,10 +16,11 @@
  * - StateClassの拡張やテスト、型安全な利用を支える基盤
  */
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IListIndex } from "../ListIndex/types";
+import { IListIndex2 } from "../ListIndex2/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { Constructor, IUserConfig } from "../WebComponents/types";
+import { Constructor } from "../types";
+import { IUserConfig } from "../WebComponents/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
 
 export interface IDependentProps {
@@ -38,13 +39,13 @@ export interface IState {
 }
 
 export interface IReadonlyStateProxy extends IState {
-  [GetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null): any;
+  [GetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex2 | null): any;
   [SetCacheableSymbol](callback: () => void): void;
 }
 
 export interface IWritableStateProxy extends IState {
-  [GetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null): any;
-  [SetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void;
+  [GetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex2 | null): any;
+  [SetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any): void;
   [ConnectedCallbackSymbol](): Promise<void>;
   [DisconnectedCallbackSymbol](): Promise<void>;
 }
@@ -67,7 +68,7 @@ export interface IReadonlyStateHandler {
   trackingStack    : (IStructuredPathInfo | null)[];
   trackingIndex    : number;
   structuredPathInfoStack: (IStructuredPathInfo | null)[];
-  listIndexStack: (IListIndex | null)[];
+  listIndex2Stack: (IListIndex2 | null)[];
   refIndex         : number;
   get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IReadonlyStateProxy): boolean;
@@ -79,7 +80,7 @@ export interface IWritableStateHandler {
   trackingStack    : (IStructuredPathInfo | null)[];
   trackingIndex    : number;
   structuredPathInfoStack: (IStructuredPathInfo | null)[];
-  listIndexStack: (IListIndex | null)[];
+  listIndex2Stack: (IListIndex2 | null)[];
   refIndex         : number;
   loopContext: ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IWritableStateProxy): any;

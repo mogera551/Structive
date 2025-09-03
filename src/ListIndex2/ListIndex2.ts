@@ -96,6 +96,6 @@ class ListIndex2 implements IListIndex2 {
   }
 }
 
-function createListIndex2(parentListIndex: IListIndex2 | null, index: number): IListIndex2 {
+export function createListIndex2(parentListIndex: IListIndex2 | null, index: number): IListIndex2 {
   return new ListIndex2(parentListIndex, index);
 }

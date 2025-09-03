@@ -1,7 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { FilterWithOptions } from "../../Filter/types";
-import { IListIndex } from "../../ListIndex/types";
+import { IListIndex2 } from "../../ListIndex2/types.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
 import { IBindContent, IBinding } from "../types";
@@ -27,10 +27,10 @@ import { CreateBindingNodeFn } from "./types";
  */
 class BindingNodeFor extends BindingNodeBlock {
   #bindContentsSet       : Set<IBindContent> = new Set<IBindContent>();
-  #bindContentByListIndex: WeakMap<IListIndex, IBindContent> = new WeakMap();
+  #bindContentByListIndex: WeakMap<IListIndex2, IBindContent> = new WeakMap();
   #bindContentPool       : IBindContent[] = [];
   #bindContentLastIndex  : number = 0;
-  #lastListIndexSet      : Set<IListIndex> = new Set<IListIndex>();
+  #lastListIndexSet      : Set<IListIndex2> = new Set<IListIndex2>();
 
   get bindContents(): Set<IBindContent> {
     return this.#bindContentsSet;
@@ -43,7 +43,7 @@ class BindingNodeFor extends BindingNodeBlock {
   init() {
   }
 
-  createBindContent(listIndex: IListIndex): IBindContent {
+  createBindContent(listIndex: IListIndex2): IBindContent {
     let bindContent: IBindContent;
     if (this.#bindContentLastIndex >= 0) {
       // プールの最後の要素を取得して、プールの長さをあとで縮減する
@@ -135,7 +135,7 @@ class BindingNodeFor extends BindingNodeBlock {
     // プールの長さは、プールの最後の要素のインデックス+1であるため、
     this.poolLength = this.bindContentLastIndex + 1;
     this.#bindContentsSet = newBindContensSet;
-    this.#lastListIndexSet = new Set<IListIndex>(listIndexesSet);
+    this.#lastListIndexSet = new Set<IListIndex2>(listIndexesSet);
   }
 
   /**
@@ -145,7 +145,7 @@ class BindingNodeFor extends BindingNodeBlock {
    * @param values 
    * @returns 
    */
-  updateElements(listIndexes: IListIndex[], values: any[]) {
+  updateElements(listIndexes: IListIndex2[], values: any[]) {
     if (typeof values[0] !== "object") return;
     const engine = this.binding.engine;
     const oldListValues = 

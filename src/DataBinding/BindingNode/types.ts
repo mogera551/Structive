@@ -1,6 +1,6 @@
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
-import { IListIndex } from "../../ListIndex/types";
+import { IListIndex2 } from "../../ListIndex2/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { IBindContent, IBinding } from "../types";
 
@@ -31,7 +31,7 @@ export interface IBindingNode {
   update(): void;
   init(): void;
   assignValue(value: any): void;
-  updateElements(listIndexes: IListIndex[], values: any[]): void;
+  updateElements(listIndexes: IListIndex2[], values: any[]): void;
   notifyRedraw(refs: IStatePropertyRef[]): void; // 親子関係を考慮してバインディングの更新を通知する
 }
 

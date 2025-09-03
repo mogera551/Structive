@@ -18,6 +18,7 @@ import { FilterWithOptions } from "../Filter/types";
 import { IStructiveState } from "../StateClass/types";
 import { IBinding } from "../DataBinding/types";
 import { IComponentStateInput } from "../ComponentStateInput/types";
+import { Constructor } from "../types";
 
 export type ComponentType = 'autonomous' | 'builtin';
 
@@ -48,7 +49,6 @@ export interface IComponentStatic {
   css:string;
   define(tagName:string):void;
 }
-export type Constructor<T = {}> = new (...args: any[]) => T;
 
 export type StructiveComponent = HTMLElement & IComponent;
 

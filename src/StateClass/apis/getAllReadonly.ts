@@ -16,13 +16,13 @@
  * - getContextListIndexで現在のループインデックスを取得
  * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
  */
-import { IListIndex } from "../../ListIndex/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
 import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
 import { resolveReadonly } from "./resolveReadonly.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
+import { IListIndex2 } from "../../ListIndex2/types";
 
 export function getAllReadonly(
   target: Object, 
@@ -56,7 +56,7 @@ export function getAllReadonly(
       const walkWildcardPattern = (
         wildcardParentInfos: IStructuredPathInfo[],
         wildardIndexPos: number,
-        listIndex: IListIndex | null,
+        listIndex: IListIndex2 | null,
         indexes: number[],
         indexPos: number,
         parentIndexes: number[],

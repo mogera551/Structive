@@ -1,29 +1,29 @@
-import { createListIndex } from "../ListIndex/createListIndex.js";
-import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { GetByRefSymbol } from "./symbols.js";
+import { IListIndex2 } from "../ListIndex2/types.js";
+import { createListIndex2 } from "../ListIndex2/ListIndex2.js";
 
-const BLANK_LISTINDEXES_SET = new Set<IListIndex>();
+const BLANK_LISTINDEXES_SET = new Set<IListIndex2>();
 
 function buildListIndexTreeSub(
   engine   : IComponentEngine, 
   listInfos: Set<IStructuredPathInfo>,
   info     : IStructuredPathInfo,
-  listIndex: IListIndex | null, 
+  listIndex: IListIndex2 | null, 
   value: any[]
 ): void {
   const oldValue = engine.getList(info, listIndex) ?? [];
   if (oldValue === value) {
     return;
   }
-  const newListIndexesSet:Set<IListIndex> = new Set();
+  const newListIndexesSet:Set<IListIndex2> = new Set();
   const oldListIndexesSet = engine.getListIndexesSet(info, listIndex) ?? BLANK_LISTINDEXES_SET;
   const oldListIndexesByItem = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
   for(let i = 0; i < value.length; i++) {
     // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
     // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
-    let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+    let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex2(listIndex, i);
     if (curListIndex.index !== i) {
       curListIndex.index = i;
       // リストインデックスのインデックスを更新したので、リストインデックスを登録する
@@ -59,7 +59,7 @@ function buildListIndexTreeSub(
 export function buildListIndexTree(
   engine   : IComponentEngine, 
   info     : IStructuredPathInfo,
-  listIndex: IListIndex | null, 
+  listIndex: IListIndex2 | null, 
   value    : any
 ): void {
   const listInfos = engine.listInfoSet;

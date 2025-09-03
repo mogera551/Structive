@@ -15,7 +15,7 @@
  * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
  * - エラー時はraiseErrorで詳細な例外を投げる
  */
-import { IListIndex } from "../../ListIndex/types";
+import { IListIndex2 } from "../../ListIndex2/types";
 import { IResolvedPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
 import { IStateHandler, IReadonlyStateProxy, IStateProxy } from "../types";
@@ -25,7 +25,7 @@ export function getListIndex(
   info: IResolvedPathInfo, 
   receiver: IStateProxy,
   handler: IStateHandler
-): IListIndex | null {
+): IListIndex2 | null {
   switch (info.wildcardType) {
     case "none":
       return null;
@@ -38,7 +38,7 @@ export function getListIndex(
       let parentListIndex = null;
       for(let i = 0; i < info.info.wildcardCount; i++) {
         const wildcardParentPattern = info.info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPattern is null`);
-        const listIndexes: IListIndex[] = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
+        const listIndexes: IListIndex2[] = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
         const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
         parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
       }

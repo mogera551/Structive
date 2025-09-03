@@ -20,8 +20,8 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { IReadonlyStateHandler, IState, IReadonlyStateProxy } from "./types";
 import { getReadonly as trapGet } from "./traps/getReadonly.js";
 import { raiseError } from "../utils";
-import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
+import { IListIndex2 } from "../ListIndex2/types";
 
 const STACK_DEPTH = 32;
 
@@ -33,7 +33,7 @@ class StateHandler implements IReadonlyStateHandler {
   trackingStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
   trackingIndex: number = -1;
   structuredPathInfoStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
-  listIndexStack: (IListIndex | null)[] = Array(STACK_DEPTH).fill(null);
+  listIndex2Stack: (IListIndex2 | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   loopContext: ILoopContext | null = null;
   

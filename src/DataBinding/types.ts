@@ -1,10 +1,10 @@
 import { ILoopContext } from "../LoopContext/types";
-import { IListIndex } from "../ListIndex/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
-import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
+import { IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
+import { IListIndex2 } from "../ListIndex2/types";
 /**
  * DataBinding/types.ts
  *
@@ -46,7 +46,7 @@ export interface IBindContent {
   bindings: IBinding[];
   render(): void;
   init(): void;
-  assignListIndex(listIndex: IListIndex): void;
+  assignListIndex(listIndex: IListIndex2): void;
   getLastNode(parentNode: Node): Node | null;
 }
 

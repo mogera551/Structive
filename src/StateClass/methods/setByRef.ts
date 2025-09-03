@@ -15,7 +15,7 @@
  * - finallyで必ず更新情報を登録し、再描画や依存解決に利用
  * - getter/setter経由のスコープ切り替えも考慮した設計
  */
-import { IListIndex } from "../../ListIndex/types";
+import { IListIndex2 } from "../../ListIndex2/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
 import { IWritableStateProxy, IWritableStateHandler } from "../types";
@@ -25,7 +25,7 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
 export function setByRef(
     target   : Object, 
     info     : IStructuredPathInfo, 
-    listIndex: IListIndex | null, 
+    listIndex: IListIndex2 | null, 
     value    : any, 
     receiver : IWritableStateProxy,
     handler  : IWritableStateHandler

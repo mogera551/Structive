@@ -1,5 +1,5 @@
 import { Filters } from "../../Filter/types";
-import { IListIndex } from "../../ListIndex/types";
+import { IListIndex2 } from "../../ListIndex2/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils.js";
 import { IBindContent, IBinding } from "../types";
@@ -70,7 +70,7 @@ export class BindingNode implements IBindingNode {
   assignValue(value: any): void {
     raiseError(`BindingNode: assignValue not implemented`);
   }
-  updateElements(listIndexes: IListIndex[], values: any[]) {
+  updateElements(listIndexes: IListIndex2[], values: any[]) {
     raiseError(`BindingNode: updateElements not implemented`);
   }
   notifyRedraw(refs: IStatePropertyRef[]): void {

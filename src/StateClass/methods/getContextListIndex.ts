@@ -15,20 +15,20 @@
  * - listIndex.at(index)で該当階層のリストインデックスを取得
  * - パスが一致しない場合や参照が存在しない場合はnullを返す
  */
-import { IListIndex } from "../../ListIndex/types";
+import { IListIndex2 } from "../../ListIndex2/types";
 import { IStateHandler } from "../types";
 
 export function getContextListIndex(
   handler: IStateHandler,
   structuredPath: string
-): IListIndex | null {
+): IListIndex2 | null {
   const info = handler.structuredPathInfoStack[handler.refIndex];
   if (typeof info === "undefined" || info === null) {
     return null;
   }
   const index = info.indexByWildcardPath[structuredPath];
   if (index >= 0) {
-    const listIndex = handler.listIndexStack[handler.refIndex];
+    const listIndex = handler.listIndex2Stack[handler.refIndex];
     if (typeof listIndex === "undefined") {
       return null;
     }

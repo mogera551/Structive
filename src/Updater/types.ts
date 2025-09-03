@@ -14,12 +14,12 @@
  * - 状態変更やリストインデックスの更新を一元管理し、再描画や依存解決のトリガーとして利用
  * - 非同期処理や複数の更新処理にも対応できる設計
  */
-import { IListIndex } from "../ListIndex/types";
+import { IListIndex2 } from "../ListIndex2/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 
 export interface IUpdater {
   readonly version: number;
   addProcess(process: () => Promise<void> | void): void;
-  addUpdatedStatePropertyRefValue(info: IStructuredPathInfo, listIndex: IListIndex | null, value:any): void;
-  addUpdatedListIndex(listIndex: IListIndex): void;
+  addUpdatedStatePropertyRefValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value:any): void;
+  addUpdatedListIndex(listIndex: IListIndex2): void;
 }

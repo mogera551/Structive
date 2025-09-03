@@ -20,9 +20,9 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { IState, IWritableStateHandler, IWritableStateProxy } from "./types";
 import { getWritable as trapGet } from "./traps/getWritable.js";
 import { set as trapSet } from "./traps/set.js";
-import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { setLoopContext } from "./methods/setLoopContext";
+import { IListIndex2 } from "../ListIndex2/types";
 
 const STACK_DEPTH = 32;
 
@@ -32,7 +32,7 @@ class StateHandler implements IWritableStateHandler {
   trackingStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
   trackingIndex: number = -1;
   structuredPathInfoStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
-  listIndexStack: (IListIndex | null)[] = Array(STACK_DEPTH).fill(null);
+  listIndex2Stack: (IListIndex2 | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   loopContext: ILoopContext | null = null;
   

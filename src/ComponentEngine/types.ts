@@ -3,7 +3,7 @@ import { IComponentStateOutput } from "../ComponentStateOutput/types";
 import { IBindContent, IBinding } from "../DataBinding/types";
 import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
-import { IListIndex } from "../ListIndex/types";
+import { IListIndex2 } from "../ListIndex2/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IState, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
@@ -45,7 +45,7 @@ export interface IComponentEngine {
 
   listInfoSet        : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列を持つもの
   elementInfoSet     : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列の要素を持つもの
-  bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する
+  bindingsByListIndex: WeakMap<IListIndex2, Set<IBinding>>; // リストインデックスからバインディングを取得する
   dependentTree      : Map<IStructuredPathInfo, Set<IDependencyEdge>>; // 依存関係の木を取得する
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // Structive子コンポーネントからバインディングを取得する
@@ -58,17 +58,17 @@ export interface IComponentEngine {
   connectedCallback(): Promise<void>;
   disconnectedCallback(): Promise<void>;
 
-  saveBinding(pattern:IStructuredPathInfo, listIndex:IListIndex | null, binding: IBinding): void;
-  saveListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex | null, saveListIndexesSet:Set<IListIndex>): void;
-  saveList(pattern:IStructuredPathInfo, listIndex:IListIndex | null, list:any[]): void;
-  getBindings(pattern:IStructuredPathInfo, listIndex:IListIndex | null): IBinding[];
+  saveBinding(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, binding: IBinding): void;
+  saveListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, saveListIndexesSet:Set<IListIndex2>): void;
+  saveList(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, list:any[]): void;
+  getBindings(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): IBinding[];
   existsBindingsByInfo(info: IStructuredPathInfo): boolean;
-  getListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex | null): Set<IListIndex> | null;
-  getList(pattern:IStructuredPathInfo, listIndex:IListIndex | null): any[] | null;
+  getListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): Set<IListIndex2> | null;
+  getList(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): any[] | null;
   addDependentProp(pattern:IStructuredPathInfo, dependentPattern:IStructuredPathInfo, type:DependencyType): void;
 
-  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
-  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する
+  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null): any; // プロパティの値を取得する
+  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null, value: any): void; // プロパティの値を設定する
   useWritableStateProxy(
     loopContext: ILoopContext | null,
     callback: (stateProxy: IWritableStateProxy) => (Promise<void> | void)
@@ -82,6 +82,6 @@ export interface IComponentEngine {
  */
 export interface ISaveInfoByResolvedPathInfo {
   list          : any[] | null;
-  listIndexesSet: Set<IListIndex> | null;
+  listIndexesSet: Set<IListIndex2> | null;
   bindings      : IBinding[];
 }

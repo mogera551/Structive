@@ -10,12 +10,12 @@
  *
  * - IDependencyEdge: 依存関係グラフのエッジ情報（パス情報と依存種別の組み合わせ）
  */
-import { IListIndex } from "../ListIndex/types";
+import { IListIndex2 } from "../ListIndex2/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 
 export interface IDependencyWalker {
   walk(
-    callback: (ref: { info: IStructuredPathInfo, listIndex: IListIndex | null }, info: IStructuredPathInfo) => void
+    callback: (ref: { info: IStructuredPathInfo, listIndex: IListIndex2 | null }, info: IStructuredPathInfo) => void
   ): void;
 }
 

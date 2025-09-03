@@ -15,7 +15,7 @@
  * - createDependencyWalkerファクトリで一貫した生成・利用が可能
  */
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IListIndex } from "../ListIndex/types";
+import { IListIndex2 } from "../ListIndex2/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { createDependencyKey } from "./createDependencyEdge";
@@ -23,11 +23,11 @@ import { DependencyType } from "./types";
 
 class dependencyWalker {
   engine: IComponentEngine;
-  entryRef: { info: IStructuredPathInfo, listIndex: IListIndex | null };
+  entryRef: { info: IStructuredPathInfo, listIndex: IListIndex2 | null };
   traced: Set<string> = new Set<string>();
   constructor(
     engine: IComponentEngine,
-    entryRef: { info: IStructuredPathInfo, listIndex: IListIndex | null },
+    entryRef: { info: IStructuredPathInfo, listIndex: IListIndex2 | null },
   ) {
     this.engine = engine;
     this.entryRef = entryRef;
@@ -62,7 +62,7 @@ class dependencyWalker {
 
 export function createDependencyWalker(
   engine: IComponentEngine,
-  entryRef: { info: IStructuredPathInfo, listIndex: IListIndex | null },
+  entryRef: { info: IStructuredPathInfo, listIndex: IListIndex2 | null },
 ) {
   return new dependencyWalker(engine, entryRef);
 }
