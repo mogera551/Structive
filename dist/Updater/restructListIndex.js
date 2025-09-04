@@ -1,5 +1,5 @@
 import { createDependencyWalker } from "../DependencyWalker/createDependencyWalker";
-import { createListIndex } from "../ListIndex/createListIndex";
+import { createListIndex2 } from "../ListIndex2/ListIndex2";
 import { listWalker } from "../ListWalker/listWalker";
 import { GetByRefSymbol } from "../StateClass/symbols";
 import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
@@ -16,7 +16,7 @@ function buildListIndexTree(engine, info, listIndex, value) {
     for (let i = 0; i < value.length; i++) {
         // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
         // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
-        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex2(listIndex, i);
         if (curListIndex.index !== i) {
             curListIndex.index = i;
             // リストインデックスのインデックスを更新したので、リストインデックスを登録する

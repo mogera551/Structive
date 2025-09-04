@@ -5,7 +5,7 @@ export function getContextListIndex(handler, structuredPath) {
     }
     const index = info.indexByWildcardPath[structuredPath];
     if (index >= 0) {
-        const listIndex = handler.listIndexStack[handler.refIndex];
+        const listIndex = handler.listIndex2Stack[handler.refIndex];
         if (typeof listIndex === "undefined") {
             return null;
         }

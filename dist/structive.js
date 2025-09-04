@@ -455,9 +455,9 @@ const builtinFilters = {
 const outputBuiltinFilters = builtinFilters;
 const inputBuiltinFilters = builtinFilters;
 
-let id = 0;
+let id$1 = 0;
 function generateId() {
-    return ++id;
+    return ++id$1;
 }
 
 function raiseError(message) {
@@ -883,6 +883,7 @@ const createBindingNodeEvent = (name, filterTexts, decorates) => (binding, node,
 const DATA_BIND_ATTRIBUTE = "data-bind";
 const COMMENT_EMBED_MARK = "@@:"; // 埋め込み変数のマーク
 const COMMENT_TEMPLATE_MARK = "@@|"; // テンプレートのマーク
+const MAX_WILDCARD_DEPTH = 32; // ワイルドカードの最大深度
 
 const COMMENT_TEMPLATE_MARK_LEN$1 = COMMENT_TEMPLATE_MARK.length;
 /**
@@ -2535,92 +2536,95 @@ function createDependencyWalker(engine, entryRef) {
     return new dependencyWalker(engine, entryRef);
 }
 
-class ListIndex {
-    static id = 0;
-    id = ++ListIndex.id;
-    sid = this.id.toString();
+let version = 0;
+let id = 0;
+class ListIndex2 {
     #parentListIndex = null;
+    #pos = 0;
+    #index = 0;
+    #version;
+    #id = ++id;
+    #sid = this.#id.toString();
+    constructor(parentListIndex, index) {
+        this.#parentListIndex = parentListIndex;
+        this.#pos = parentListIndex ? parentListIndex.position + 1 : 0;
+        this.#index = index;
+        this.#version = version;
+    }
     get parentListIndex() {
         return this.#parentListIndex;
     }
-    index;
-    get indexes() {
-        const indexes = this.parentListIndex?.indexes ?? [];
-        indexes.push(this.index);
-        return indexes;
+    get id() {
+        return this.#id;
+    }
+    get sid() {
+        return this.#sid;
     }
     get position() {
-        return (this.parentListIndex?.position ?? -1) + 1;
+        return this.#pos;
     }
     get length() {
-        return (this.parentListIndex?.length ?? 0) + 1;
+        return this.#pos + 1;
     }
-    constructor(parentListIndex, index) {
-        this.#parentListIndex = parentListIndex;
-        this.index = index;
+    get index() {
+        return this.#index;
     }
-    truncate(length) {
-        let listIndex = this;
-        while (listIndex !== null) {
-            if (listIndex.position < length)
-                return listIndex;
-            listIndex = listIndex.parentListIndex;
+    set index(value) {
+        this.#index = value;
+        this.#version = ++version;
+        this.indexes[this.#pos] = value;
+    }
+    get version() {
+        return this.#version;
+    }
+    get dirty() {
+        if (this.#parentListIndex === null) {
+            return false;
         }
-        return null;
-    }
-    add(value) {
-        return new ListIndex(this, value);
-    }
-    *reverseIterator() {
-        yield this;
-        if (this.parentListIndex !== null) {
-            yield* this.parentListIndex.reverseIterator();
+        else {
+            return this.#parentListIndex.dirty || this.#parentListIndex.version > this.#version;
         }
-        return;
     }
-    *iterator() {
-        if (this.parentListIndex !== null) {
-            yield* this.parentListIndex.iterator();
-        }
-        yield this;
-        return;
-    }
-    toString() {
-        const parentListIndex = this.parentListIndex?.toString();
-        return (parentListIndex !== null) ? parentListIndex + "," + this.index.toString() : this.index.toString();
-    }
-    #atcache = {};
-    at(position) {
-        const value = this.#atcache[position];
-        if (typeof value !== "undefined") {
-            return value ? (value.deref() ?? null) : null;
-        }
-        let listIndex = null;
-        if (position >= 0) {
-            let count = this.length - position - 1;
-            listIndex = this;
-            while (count > 0 && listIndex !== null) {
-                listIndex = listIndex.parentListIndex;
-                count--;
+    #indexes;
+    get indexes() {
+        if (this.#parentListIndex === null) {
+            if (typeof this.#indexes === "undefined") {
+                this.#indexes = [this.#index];
             }
         }
         else {
-            let iterator;
-            position = -position - 1;
-            iterator = this.reverseIterator();
-            let next;
-            while (position >= 0) {
-                next = iterator.next();
-                position--;
+            if (typeof this.#indexes === "undefined" || this.dirty) {
+                this.#indexes = [...this.#parentListIndex.indexes, this.#index];
+                this.#version = version;
             }
-            listIndex = next?.value ?? null;
         }
-        this.#atcache[position] = listIndex ? new WeakRef(listIndex) : null;
-        return listIndex;
+        return this.#indexes;
+    }
+    #listIndexes;
+    get listIndexes() {
+        if (this.#parentListIndex === null) {
+            if (typeof this.#listIndexes === "undefined") {
+                this.#listIndexes = [new WeakRef(this)];
+            }
+        }
+        else {
+            if (typeof this.#listIndexes === "undefined") {
+                this.#listIndexes = [...this.#parentListIndex.listIndexes, new WeakRef(this)];
+            }
+        }
+        return this.#listIndexes;
+    }
+    at(pos) {
+        if (pos >= 0) {
+            return this.listIndexes[pos]?.deref() || null;
+        }
+        else {
+            return this.listIndexes[this.listIndexes.length + pos]?.deref() || null;
+        }
     }
 }
-function createListIndex(parentListIndex, index) {
-    return new ListIndex(parentListIndex, index);
+function createListIndex2(parentListIndex, index) {
+    return new ListIndex2(parentListIndex, index);
 }
 
 function listWalkerSub(engine, info, listIndex, callback) {
@@ -2656,7 +2660,7 @@ function buildListIndexTree$1(engine, info, listIndex, value) {
     for (let i = 0; i < value.length; i++) {
         // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
         // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
-        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex2(listIndex, i);
         if (curListIndex.index !== i) {
             curListIndex.index = i;
             // リストインデックスのインデックスを更新したので、リストインデックスを登録する
@@ -2938,7 +2942,7 @@ function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
     for (let i = 0; i < value.length; i++) {
         // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
         // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
-        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex2(listIndex, i);
         if (curListIndex.index !== i) {
             curListIndex.index = i;
             // リストインデックスのインデックスを更新したので、リストインデックスを登録する
@@ -3054,7 +3058,7 @@ function getContextListIndex(handler, structuredPath) {
     }
     const index = info.indexByWildcardPath[structuredPath];
     if (index >= 0) {
-        const listIndex = handler.listIndexStack[handler.refIndex];
+        const listIndex = handler.listIndex2Stack[handler.refIndex];
         if (typeof listIndex === "undefined") {
             return null;
         }
@@ -3090,16 +3094,16 @@ function setStatePropertyRef(handler, info, listIndex, callback) {
     handler.refIndex++;
     if (handler.refIndex >= handler.structuredPathInfoStack.length) {
         handler.structuredPathInfoStack.push(null);
-        handler.listIndexStack.push(null);
+        handler.listIndex2Stack.push(null);
     }
     handler.structuredPathInfoStack[handler.refIndex] = info;
-    handler.listIndexStack[handler.refIndex] = listIndex;
+    handler.listIndex2Stack[handler.refIndex] = listIndex;
     try {
         return callback();
     }
     finally {
         handler.structuredPathInfoStack[handler.refIndex] = null;
-        handler.listIndexStack[handler.refIndex] = null;
+        handler.listIndex2Stack[handler.refIndex] = null;
         handler.refIndex--;
     }
 }
@@ -3205,6 +3209,23 @@ function getByRefReadonly(target, info, listIndex, receiver, handler) {
     });
 }
 
+/**
+ * resolve.ts
+ *
+ * StateClassのAPIとして、パス（path）とインデックス（indexes）を指定して
+ * Stateの値を取得・設定するための関数（resolve）の実装です。
+ *
+ * 主な役割:
+ * - 文字列パス（path）とインデックス配列（indexes）から、該当するState値の取得・設定を行う
+ * - ワイルドカードや多重ループを含むパスにも対応
+ * - value未指定時は取得（getByRef）、指定時は設定（setByRef）を実行
+ *
+ * 設計ポイント:
+ * - getStructuredPathInfoでパスを解析し、ワイルドカード階層ごとにリストインデックスを解決
+ * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
+ * - getByRef/setByRefで値の取得・設定を一元的に処理
+ * - 柔軟なバインディングやAPI経由での利用が可能
+ */
 function resolveReadonly(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
@@ -3241,6 +3262,24 @@ function setCacheable(handler, callback) {
     }
 }
 
+/**
+ * getAll.ts
+ *
+ * StateClassのAPIとして、ワイルドカードを含むStateプロパティパスに対応した
+ * 全要素取得関数（getAll）の実装です。
+ *
+ * 主な役割:
+ * - 指定パス（path）に一致する全てのState要素を配列で取得
+ * - 多重ループやワイルドカード（*）を含むパスにも対応
+ * - indexes未指定時は現在のループコンテキストから自動でインデックスを解決
+ *
+ * 設計ポイント:
+ * - getStructuredPathInfoでパス情報を解析し、依存関係も自動で登録
+ * - walkWildcardPatternでワイルドカード階層を再帰的に探索し、全インデックス組み合わせを列挙
+ * - resolveで各インデックス組み合わせに対応する値を取得し、配列で返却
+ * - getContextListIndexで現在のループインデックスを取得
+ * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
+ */
 function getAllReadonly(target, prop, receiver, handler) {
     const resolve = resolveReadonly(target, prop, receiver, handler);
     return (path, indexes) => {
@@ -3308,17 +3347,18 @@ function trackDependency(target, prop, receiver, handler) {
     };
 }
 
-const indexByIndexName = {
-    "$1": 0,
-    "$2": 1,
-    "$3": 2,
-    "$4": 3,
-    "$5": 4,
-    "$6": 5,
-    "$7": 6,
-    "$8": 7,
-    "$9": 8,
-};
+/**
+ * stackIndexByIndexName
+ * インデックス名からスタックインデックスへのマッピング
+ * $1 => 0
+ * $2 => 1
+ * :
+ * ${MAX_WILDCARD_DEPTH} => MAX_WILDCARD_DEPTH - 1
+ */
+const indexByIndexName2 = {};
+for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
+    indexByIndexName2[`$${i + 1}`] = i;
+}
 
 /**
  * get.ts
@@ -3339,10 +3379,10 @@ const indexByIndexName = {
  * - シンボルAPIやReflect.getで拡張性・互換性も確保
  */
 function getReadonly(target, prop, receiver, handler) {
-    const index = indexByIndexName[prop];
+    const index = indexByIndexName2[prop];
     if (typeof index !== "undefined") {
-        const listIndex = handler.listIndexStack[handler.refIndex];
-        return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop.toString()}`);
+        const listIndex = handler.listIndex2Stack[handler.refIndex];
+        return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
     }
     if (typeof prop === "string") {
         if (prop[0] === "$") {
@@ -3384,7 +3424,7 @@ let StateHandler$1 = class StateHandler {
     trackingStack = Array(STACK_DEPTH$1).fill(null);
     trackingIndex = -1;
     structuredPathInfoStack = Array(STACK_DEPTH$1).fill(null);
-    listIndexStack = Array(STACK_DEPTH$1).fill(null);
+    listIndex2Stack = Array(STACK_DEPTH$1).fill(null);
     refIndex = -1;
     loopContext = null;
     constructor(engine) {
@@ -3486,6 +3526,23 @@ function setByRef(target, info, listIndex, value, receiver, handler) {
     }
 }
 
+/**
+ * resolve.ts
+ *
+ * StateClassのAPIとして、パス（path）とインデックス（indexes）を指定して
+ * Stateの値を取得・設定するための関数（resolve）の実装です。
+ *
+ * 主な役割:
+ * - 文字列パス（path）とインデックス配列（indexes）から、該当するState値の取得・設定を行う
+ * - ワイルドカードや多重ループを含むパスにも対応
+ * - value未指定時は取得（getByRef）、指定時は設定（setByRef）を実行
+ *
+ * 設計ポイント:
+ * - getStructuredPathInfoでパスを解析し、ワイルドカード階層ごとにリストインデックスを解決
+ * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
+ * - getByRef/setByRefで値の取得・設定を一元的に処理
+ * - 柔軟なバインディングやAPI経由での利用が可能
+ */
 function resolveWritable(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
@@ -3511,6 +3568,24 @@ function resolveWritable(target, prop, receiver, handler) {
     };
 }
 
+/**
+ * getAll.ts
+ *
+ * StateClassのAPIとして、ワイルドカードを含むStateプロパティパスに対応した
+ * 全要素取得関数（getAll）の実装です。
+ *
+ * 主な役割:
+ * - 指定パス（path）に一致する全てのState要素を配列で取得
+ * - 多重ループやワイルドカード（*）を含むパスにも対応
+ * - indexes未指定時は現在のループコンテキストから自動でインデックスを解決
+ *
+ * 設計ポイント:
+ * - getStructuredPathInfoでパス情報を解析し、依存関係も自動で登録
+ * - walkWildcardPatternでワイルドカード階層を再帰的に探索し、全インデックス組み合わせを列挙
+ * - resolveで各インデックス組み合わせに対応する値を取得し、配列で返却
+ * - getContextListIndexで現在のループインデックスを取得
+ * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
+ */
 function getAllWritable(target, prop, receiver, handler) {
     const resolve = resolveWritable(target, prop, receiver, handler);
     return (path, indexes) => {
@@ -3582,6 +3657,18 @@ async function disconnectedCallback(target, prop, receiver, handler) {
     }
 }
 
+const indexByIndexName = {
+    "$1": 0,
+    "$2": 1,
+    "$3": 2,
+    "$4": 3,
+    "$5": 4,
+    "$6": 5,
+    "$7": 6,
+    "$8": 7,
+    "$9": 8,
+};
+
 /**
  * get.ts
  *
@@ -3603,8 +3690,8 @@ async function disconnectedCallback(target, prop, receiver, handler) {
 function getWritable(target, prop, receiver, handler) {
     const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
-        const listIndex = handler.listIndexStack[handler.refIndex];
-        return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop.toString()}`);
+        const listIndex = handler.listIndex2Stack[handler.refIndex];
+        return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
     }
     if (typeof prop === "string") {
         if (prop[0] === "$") {
@@ -3682,16 +3769,16 @@ async function asyncSetStatePropertyRef(handler, info, listIndex, callback) {
     handler.refIndex++;
     if (handler.refIndex >= handler.structuredPathInfoStack.length) {
         handler.structuredPathInfoStack.push(null);
-        handler.listIndexStack.push(null);
+        handler.listIndex2Stack.push(null);
     }
     handler.structuredPathInfoStack[handler.refIndex] = info;
-    handler.listIndexStack[handler.refIndex] = listIndex;
+    handler.listIndex2Stack[handler.refIndex] = listIndex;
     try {
         await callback();
     }
     finally {
         handler.structuredPathInfoStack[handler.refIndex] = null;
-        handler.listIndexStack[handler.refIndex] = null;
+        handler.listIndex2Stack[handler.refIndex] = null;
         handler.refIndex--;
     }
 }
@@ -3721,7 +3808,7 @@ class StateHandler {
     trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;
     structuredPathInfoStack = Array(STACK_DEPTH).fill(null);
-    listIndexStack = Array(STACK_DEPTH).fill(null);
+    listIndex2Stack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
     loopContext = null;
     constructor(engine) {

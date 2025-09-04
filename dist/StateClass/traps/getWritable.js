@@ -32,8 +32,8 @@ import { indexByIndexName } from "./indexByIndexName.js";
 export function getWritable(target, prop, receiver, handler) {
     const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
-        const listIndex = handler.listIndexStack[handler.refIndex];
-        return listIndex?.at(index)?.index ?? raiseError(`ListIndex not found: ${prop.toString()}`);
+        const listIndex = handler.listIndex2Stack[handler.refIndex];
+        return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
     }
     if (typeof prop === "string") {
         if (prop[0] === "$") {

@@ -1,5 +1,5 @@
-import { createListIndex } from "../ListIndex/createListIndex.js";
 import { GetByRefSymbol } from "./symbols.js";
+import { createListIndex2 } from "../ListIndex2/ListIndex2.js";
 const BLANK_LISTINDEXES_SET = new Set();
 function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
     const oldValue = engine.getList(info, listIndex) ?? [];
@@ -12,7 +12,7 @@ function buildListIndexTreeSub(engine, listInfos, info, listIndex, value) {
     for (let i = 0; i < value.length; i++) {
         // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
         // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
-        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex(listIndex, i);
+        let curListIndex = oldListIndexesByItem.get(value[i])?.shift() ?? createListIndex2(listIndex, i);
         if (curListIndex.index !== i) {
             curListIndex.index = i;
             // リストインデックスのインデックスを更新したので、リストインデックスを登録する

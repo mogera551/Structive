@@ -89,9 +89,9 @@ class ListIndex2 implements IListIndex2 {
 
   at(pos: number): IListIndex2 | null {
     if (pos >= 0) {
-      return this.listIndexes[pos].deref() || null;
+      return this.listIndexes[pos]?.deref() || null;
     } else {
-      return this.listIndexes[this.listIndexes.length + pos].deref() || null;
+      return this.listIndexes[this.listIndexes.length + pos]?.deref() || null;
     }
   }
 }
