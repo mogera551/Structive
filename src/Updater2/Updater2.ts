@@ -7,6 +7,7 @@ import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
+import { raiseError } from "../utils";
 import { IUpdateInfo, IUpdater2 } from "./types";
 
 /**
@@ -59,9 +60,11 @@ class Updater2 implements IUpdater2 {
 
   renderItems(items: Array<IUpdateInfo>): void {
     // 実際のレンダリングロジックをここに実装
-    if (!this.#readonlyState) return;
-    // 
+    if (!this.#readonlyState) raiseError("Readonly state is not initialized.");
+    // 更新したバインディングを保存しておく
     const updatedBindings: Set<IBinding> = new Set();
   }
+
+  
 
 }
