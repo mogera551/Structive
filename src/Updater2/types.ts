@@ -20,3 +20,10 @@ export interface IUpdater2 {
   // レンダリング
   rendering(): void;
 }
+
+export type IListIndexResults = {
+  adds?: Set<IListIndex2>,
+  updates?: Set<IListIndex2>,
+  removes?: Set<IListIndex2>,
+  newListIndexesSet?: Set<IListIndex2>
+}
