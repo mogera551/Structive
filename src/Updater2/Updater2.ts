@@ -67,6 +67,40 @@ class Updater2 implements IUpdater2 {
     const updatedBindings: Set<IBinding> = new Set();
   }
 
+  isListValue(info: IStructuredPathInfo): boolean {
+    return true; // 仮実装、実際にはinfoを解析してリストかどうかを判断
+  }
+
+  getOldListIndexesSet(info: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IListIndex2> | null {
+    // 仮実装、実際にはエンジンから古いリストインデックスセットを取得
+    return new Set<IListIndex2>();
+  }
+
+  getOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null): any[] | null {
+    // 仮実装、実際にはエンジンから古い値を取得
+    return [];
+  }
+
+  getBindings(info: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IBinding> {
+    // 仮実装、実際にはエンジンからバインディングを取得
+    return new Set<IBinding>();
+  }
+
+  renderItem(item: IUpdateInfo, updatedBindings: Set<IBinding>, readonlyState: IReadonlyStateProxy): void {
+    // 単一のレンダリングロジックをここに実装
+    if (this.isListValue(item.info)) {
+      // リストの場合の処理
+      const oldListIndexesSet = this.getOldListIndexesSet(item.info, item.listIndex);
+      const oldValue = this.getOldValue(item.info, item.listIndex);
+      const diffResults = this.listDiff(oldValue, oldListIndexesSet, item.value, item.listIndex);
+    } else {
+      // 単一値の場合の処理
+      this.getBindings(item.info, item.listIndex).forEach(binding => {
+        updatedBindings.add(binding);
+      });
+    }
+  }
+
   listDiffNew(
     newValue: any[],
     parentListIndex: IListIndex2 | null,
