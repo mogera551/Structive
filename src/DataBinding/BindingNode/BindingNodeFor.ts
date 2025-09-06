@@ -2,6 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { FilterWithOptions } from "../../Filter/types";
 import { IListIndex2 } from "../../ListIndex2/types.js";
+import { IListIndexResults, IUpdateInfo } from "../../Updater2/types.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
 import { IBindContent, IBinding } from "../types";
@@ -198,6 +199,48 @@ class BindingNodeFor extends BindingNodeBlock {
       this.binding.bindingState.listIndex, 
       this.binding.bindingState.value.slice(0)
     );
+  }
+
+  assignValue2(listIndexResults: IListIndexResults) {
+    const newBindContentsSet = new Set<IBindContent>();
+    // 削除を先にする
+    const removeBindContentsSet = new Set<IBindContent>();
+    for(const listIndex of listIndexResults.removes ?? []) {
+      const bindContent = this.#bindContentByListIndex.get(listIndex);
+      if (bindContent) {
+        this.deleteBindContent(bindContent);
+        removeBindContentsSet.add(bindContent);
+      }
+    }
+    this.#bindContentPool.push(...removeBindContentsSet);
+
+    let lastBindContent = null;
+    const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
+    const firstNode = this.node;
+    this.bindContentLastIndex = this.poolLength - 1;
+    for(const listIndex of listIndexResults.newListIndexesSet ?? []) {
+      const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
+      let bindContent;
+      if (listIndexResults.adds?.has(listIndex) === false) {
+        bindContent = this.createBindContent(listIndex);
+        bindContent.mountAfter(parentNode, lastNode);
+        bindContent.render();
+      } else {
+        bindContent = this.#bindContentByListIndex.get(listIndex);
+        if (typeof bindContent === "undefined") {
+          raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+        }
+        if (lastNode?.nextSibling !== bindContent.firstChildNode) {
+          bindContent.mountAfter(parentNode, lastNode);
+        }
+      }
+      newBindContentsSet.add(bindContent);
+      lastBindContent = bindContent;
+    }
+    // プールの長さを更新する
+    // プールの長さは、プールの最後の要素のインデックス+1であるため、
+    this.poolLength = this.bindContentLastIndex + 1;
+    this.#bindContentsSet = newBindContentsSet;
   }
 }
 
