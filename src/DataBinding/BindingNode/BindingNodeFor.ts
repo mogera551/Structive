@@ -201,7 +201,7 @@ class BindingNodeFor extends BindingNodeBlock {
     );
   }
 
-  assignValue2(listIndexResults: IListIndexResults) {
+  applyChange(listIndexResults: IListIndexResults) {
     const newBindContentsSet = new Set<IBindContent>();
     // 削除を先にする
     const removeBindContentsSet = new Set<IBindContent>();
