@@ -22,6 +22,7 @@ class Updater2 implements IUpdater2 {
   #updating: boolean = false;
   #rendering: boolean = false;
   #readonlyState: IReadonlyStateProxy | null = null;
+  #engine: IComponentEngine | null = null;
   
   // Ref情報をキューに追加
   enqueueRef(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any): void {
@@ -37,6 +38,7 @@ class Updater2 implements IUpdater2 {
     try {
       this.#updating = true;
       this.#readonlyState = createReadonlyStateProxy(engine, state);
+      this.#engine = engine;
       await useWritableStateProxy(engine, state, loopContext, async (state:IWritableStateProxy) => {
         // 状態更新処理
         await callback(state);
