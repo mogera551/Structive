@@ -156,7 +156,14 @@ class Updater2 implements IUpdater2 {
   ): IListIndexResults {
     if (oldValue != null && newValue != null) {
       if (!oldListIndexesSet) raiseError("Old list indexes set is not provided for existing old value.");
-      return this.listDiffUpdate(oldValue, oldListIndexesSet, newValue, parentListIndex);
+      if (oldValue.length > 0 && newValue.length > 0) {
+        return this.listDiffUpdate(oldValue, oldListIndexesSet, newValue, parentListIndex);
+      } else if (newValue.length > 0) {
+        return this.listDiffNew(newValue, parentListIndex);
+      } else { // oldValue.length > 0
+        const removes: Set<IListIndex2> = oldListIndexesSet ? new Set(oldListIndexesSet) : new Set();
+        return { removes };
+      }
     } else if (newValue != null) {
       return this.listDiffNew(newValue, parentListIndex);
     } else { // oldValue != null
