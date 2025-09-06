@@ -38,6 +38,8 @@ import { config as globalConfig } from "./getGlobalConfig.js";
 import { raiseError } from "../utils.js";
 import { IComponentStateInput } from "../ComponentStateInput/types.js";
 import { findStructiveParent } from "./findStructiveParent.js";
+import { IPathManager } from "../PathManager/types.js";
+import { createPathManager } from "../PathManager/PathManager.js";
 
 
 export function createComponentClass(componentData: IUserComponentData): StructiveComponentClass {
@@ -119,6 +121,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       this.#html = value;
       registerHtml(this.id, value);
       this.#template = null;
+      this.#pathManager = null;
     }
 
     static #css:string = css;
@@ -159,11 +162,19 @@ export function createComponentClass(componentData: IUserComponentData): Structi
     static get outputFilters():FilterWithOptions {
       return this.#outputFilters;
     }
+    static #pathManager: IPathManager | null = null;
+    static get pathManager(): IPathManager {
+      if (!this.#pathManager) {
+        this.#pathManager = createPathManager(this as StructiveComponentClass);
+      }
+      return this.#pathManager;
+    }
+
     static get listPaths(): Set<string> {
-      return getListPathsSetById(this.id);
+      return this.#pathManager.lists;
     }
     static get paths(): Set<string> {
-      return getPathsSetById(this.id);
+      return this.#pathManager.alls;
     }
     static #getters: Set<string> = new Set<string>();
     static get getters(): Set<string> {
