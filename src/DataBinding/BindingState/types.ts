@@ -27,6 +27,8 @@ export interface IBindingState {
   readonly filteredValue: any;
   init(): void;
   assignValue(writeState:IWritableStateProxy, value:any): void;
+  getValue(state:IReadonlyStateProxy): any; // 現在の値を返す
+  getFilteredValue(state:IReadonlyStateProxy): any; // フィルタを適用して値を返す
 }
 
 /**

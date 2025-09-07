@@ -72,6 +72,16 @@ class BindingStateIndex implements IBindingState {
     }
     return value;
   }
+  getValue(state: IReadonlyStateProxy) {
+    return this.listIndex?.index ?? raiseError("listIndex is null");
+  }
+  getFilteredValue(state: IReadonlyStateProxy) {
+    let value = this.getValue(state);
+    for(let i = 0; i < this.#filters.length; i++) {
+      value = this.#filters[i](value);
+    }
+    return value;
+  }
   init(): void {
     const loopContext = this.binding.parentBindContent.currentLoopContext ??
       raiseError(`BindingState.init: loopContext is null`);

@@ -10,6 +10,7 @@ import { render } from "../Updater/render.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap.js";
 import { IListIndex2 } from "../ListIndex2/types.js";
+import { IReadonlyStateProxy } from "../StateClass/types.js";
 
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 
@@ -177,6 +178,12 @@ class BindContent implements IBindContent {
     if (this.loopContext == null) raiseError(`BindContent: loopContext is null`);
     this.loopContext.assignListIndex(listIndex);
     this.init();
+  }
+  applyChange(state: IReadonlyStateProxy, updatedBinds: Set<IBinding>): void {
+    for(const binding of this.bindings) {
+      binding.applyChange(state, updatedBinds);
+    }
+
   }
 }
 

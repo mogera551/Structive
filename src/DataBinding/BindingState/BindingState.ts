@@ -73,6 +73,16 @@ class BindingState implements IBindingState {
     }
     return value;
   }
+  getValue(state:IReadonlyStateProxy): any {
+    return state[GetByRefSymbol](this.info, this.listIndex);
+  }
+  getFilteredValue(state:IReadonlyStateProxy): any {
+    let value = this.getValue(state);
+    for(let i = 0; i < this.#filters.length; i++) {
+      value = this.#filters[i](value);
+    }
+    return value;
+  }
   init(): void {
     if (this.info.wildcardCount > 0) {
       const lastWildcardPath = this.info.lastWildcardPath ?? 

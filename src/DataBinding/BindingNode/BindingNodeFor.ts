@@ -2,6 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { FilterWithOptions } from "../../Filter/types";
 import { IListIndex2 } from "../../ListIndex2/types.js";
+import { IReadonlyStateProxy } from "../../StateClass/types.js";
 import { IListIndexResults, IUpdateInfo } from "../../Updater2/types.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
@@ -201,7 +202,7 @@ class BindingNodeFor extends BindingNodeBlock {
     );
   }
 
-  applyChangeForList(listIndexResults: IListIndexResults) {
+  applyChangeForList(state:IReadonlyStateProxy, listIndexResults: IListIndexResults, updatedBinds: Set<IBinding>): void {
     const newBindContentsSet = new Set<IBindContent>();
     // 削除を先にする
     const removeBindContentsSet = new Set<IBindContent>();
@@ -224,7 +225,7 @@ class BindingNodeFor extends BindingNodeBlock {
       if (listIndexResults.adds?.has(listIndex) === false) {
         bindContent = this.createBindContent(listIndex);
         bindContent.mountAfter(parentNode, lastNode);
-        bindContent.render();
+        bindContent.applyChange(state, updatedBinds);
       } else {
         bindContent = this.#bindContentByListIndex.get(listIndex);
         if (typeof bindContent === "undefined") {

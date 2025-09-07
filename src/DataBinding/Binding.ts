@@ -66,6 +66,11 @@ class Binding implements IBinding {
   notifyRedraw(refs: IStatePropertyRef[]) {
     this.bindingNode.notifyRedraw(refs);
   }
+
+  applyChange(state: IReadonlyStateProxy, updatedBinds: Set<IBinding>): void {
+    if (!updatedBinds.has(this)) return;
+    this.bindingNode.applyChange(state, updatedBinds);
+  }
 }
 
 /**

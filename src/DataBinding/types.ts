@@ -2,7 +2,7 @@ import { ILoopContext } from "../LoopContext/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
-import { IWritableStateProxy } from "../StateClass/types";
+import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { IListIndex2 } from "../ListIndex2/types";
 /**
@@ -48,6 +48,7 @@ export interface IBindContent {
   init(): void;
   assignListIndex(listIndex: IListIndex2): void;
   getLastNode(parentNode: Node): Node | null;
+  applyChange(state: IReadonlyStateProxy, updatedBinds: Set<IBinding>): void; // バインディングの変更を適用する
 }
 
 // バインドプロパティ情報
@@ -63,6 +64,7 @@ export interface IBinding {
   init(): void;
   updateStateValue(writeState: IWritableStateProxy, value: any): void;
   notifyRedraw(refs: IStatePropertyRef[]): void;
+  applyChange(state: IReadonlyStateProxy, updatedBinds: Set<IBinding>): void; // バインディングの変更を適用する
 }
 
 export type StateBindSummary = Map<string, WeakMap<ILoopContext, IBindContent>>;
