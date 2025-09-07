@@ -121,7 +121,7 @@ class Updater implements IUpdater {
           bindingsByListIndex.push(...bindings);
         } else {
           updatedRefs.push(item as IStatePropertyRef);
-          if (engine.elementInfoSet.has(item.info)) {
+          if (engine.pathManager.elements.has(item.info.pattern)) {
             const parentInfo = item.info.parentInfo ?? raiseError("info is null"); // リストのパス情報
             const parentListIndex = item.listIndex?.at(-2) ?? null; // リストのインデックス
             const parentRef = {info: parentInfo, listIndex: parentListIndex};

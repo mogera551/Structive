@@ -26,6 +26,7 @@ import { IComponentStateOutput } from "../ComponentStateOutput/types.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 import { registerStructiveComponent } from "../WebComponents/findStructiveParent.js";
 import { IListIndex2 } from "../ListIndex2/types.js";
+import { IPathManager } from "../PathManager/types.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
@@ -73,8 +74,6 @@ export class ComponentEngine implements IComponentEngine {
   getters       : Set<string>;
   setters       : Set<string>;
 
-  listInfoSet         : Set<IStructuredPathInfo> = new Set();
-  elementInfoSet      : Set<IStructuredPathInfo> = new Set();
   bindingsByListIndex : WeakMap<IListIndex2, Set<IBinding>> = new WeakMap();
   dependentTree       : Map<IStructuredPathInfo, Set<IDependencyEdge>> = new Map();
 
@@ -122,20 +121,16 @@ export class ComponentEngine implements IComponentEngine {
       const info = getStructuredPathInfo(path);
       checkDependentProp(info);
     }
-    // 配列のプロパティ、配列要素のプロパティを登録する
-    for(const listPath of componentClass.listPaths) {
-      this.listInfoSet.add(getStructuredPathInfo(listPath));
-      this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
-    }
-    for(const listPath of this.stateClass.$listProperties ?? []) {
-      this.listInfoSet.add(getStructuredPathInfo(listPath));
-      this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
-    }
+  }
+
+  get pathManager(): IPathManager {
+    return (this.owner.constructor as IComponentStatic).pathManager;
   }
 
   setup(): void {
     const componentClass = this.owner.constructor as IComponentStatic;
-    for(const info of this.listInfoSet) {
+    for(const path of this.pathManager.lists) {
+      const info = getStructuredPathInfo(path);
       if (info.wildcardCount > 0) continue;
       const value = this.readonlyState[GetByRefSymbol](info, null)
       buildListIndexTree(this, info, null, value);

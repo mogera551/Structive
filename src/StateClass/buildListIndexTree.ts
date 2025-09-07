@@ -3,12 +3,13 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { GetByRefSymbol } from "./symbols.js";
 import { IListIndex2 } from "../ListIndex2/types.js";
 import { createListIndex2 } from "../ListIndex2/ListIndex2.js";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 
 const BLANK_LISTINDEXES_SET = new Set<IListIndex2>();
 
 function buildListIndexTreeSub(
   engine   : IComponentEngine, 
-  listInfos: Set<IStructuredPathInfo>,
+  lists: Set<string>,
   info     : IStructuredPathInfo,
   listIndex: IListIndex2 | null, 
   value: any[]
@@ -38,7 +39,8 @@ function buildListIndexTreeSub(
 
   // サブ要素のリストインデックスを構築する
   const searchPath = info.pattern + ".*";
-  for(const info of listInfos) {
+  for(const path of lists) {
+    const info = getStructuredPathInfo(path);
     if (searchPath !== info.lastWildcardPath) {
       continue;
     }
@@ -46,7 +48,7 @@ function buildListIndexTreeSub(
       const subValue = engine.readonlyState[GetByRefSymbol](info, subListIndex);
       buildListIndexTreeSub(
         engine, 
-        listInfos, 
+        lists, 
         info, 
         subListIndex, 
         subValue ?? []
@@ -62,15 +64,14 @@ export function buildListIndexTree(
   listIndex: IListIndex2 | null, 
   value    : any
 ): void {
-  const listInfos = engine.listInfoSet;
   // 配列じゃなければ何もしない
-  if (!engine.listInfoSet.has(info)) {
+  if (!engine.pathManager.lists.has(info.pattern)) {
     return;
   }
   const values = (value ?? []) as any[];
   buildListIndexTreeSub(
     engine, 
-    engine.listInfoSet, 
+    engine.pathManager.lists, 
     info, 
     listIndex, 
     values

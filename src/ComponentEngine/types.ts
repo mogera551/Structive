@@ -5,6 +5,7 @@ import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex2 } from "../ListIndex2/types";
 import { ILoopContext } from "../LoopContext/types";
+import { IPathManager } from "../PathManager/types";
 import { IState, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IUpdater } from "../Updater/types";
@@ -35,7 +36,8 @@ export interface IComponentEngine {
   updater       : IUpdater;
   inputFilters  : FilterWithOptions;
   outputFilters : FilterWithOptions;
-  readonly  bindContent   : IBindContent;
+  readonly bindContent   : IBindContent;
+  readonly pathManager   : IPathManager;
   baseClass     : typeof HTMLElement;
   owner         : StructiveComponent;
   trackedGetters: Set<string>;
@@ -43,8 +45,6 @@ export interface IComponentEngine {
   setters       : Set<string>;
   waitForInitialize: PromiseWithResolvers<void>;
 
-  listInfoSet        : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列を持つもの
-  elementInfoSet     : Set<IStructuredPathInfo>; // プロパティ名パターンのユニークな一覧のうち、配列の要素を持つもの
   bindingsByListIndex: WeakMap<IListIndex2, Set<IBinding>>; // リストインデックスからバインディングを取得する
   dependentTree      : Map<IStructuredPathInfo, Set<IDependencyEdge>>; // 依存関係の木を取得する
 

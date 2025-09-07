@@ -70,12 +70,12 @@ export function restructListIndexes(
   cache: Map<IStructuredPathInfo, Set<IListIndex2|null>>,
 ) {
   for(const {info, listIndex} of infos) {
-    if (config.optimizeListElements && engine.elementInfoSet.has(info)) {
+    if (config.optimizeListElements && engine.pathManager.elements.has(info.pattern)) {
       // スワップ処理のためスキップ
       continue;
     }
     const dependentWalker = createDependencyWalker(engine, {info, listIndex});
-    const nowOnList = config.optimizeList && engine.listInfoSet.has(info);
+    const nowOnList = config.optimizeList && engine.pathManager.lists.has(info.pattern);
     // 依存関係を辿る
     dependentWalker.walk((ref, refInfo, type) => {
       if (nowOnList && type === "structured" && ref.info !== refInfo) {
@@ -102,7 +102,7 @@ export function restructListIndexes(
           return;
         }
         refKeys.add(refKey);
-        if (engine.listInfoSet.has(_info)) {
+        if (engine.pathManager.lists.has(_info.pattern)) {
           const values = updateValues[refKey] ?? engine.readonlyState[GetByRefSymbol](_info, _listIndex);
           buildListIndexTree(engine, _info, _listIndex, values);
         }
