@@ -21,8 +21,8 @@ export function setTracking(info: IStructuredPathInfo, handler: IStateHandler, c
   // 依存関係の自動登録
   const lastTrackingStack = handler.trackingStack[handler.trackingIndex] ?? null;
   if (lastTrackingStack != null) {
-    // trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
-    if (handler.engine.trackedGetters.has(lastTrackingStack.pattern)) {
+    // gettersに含まれる場合はsetTrackingで依存追跡を有効化
+    if (handler.engine.pathManager.getters.has(lastTrackingStack.pattern)) {
       handler.engine.addDependentProp(lastTrackingStack, info, "reference");
     }
   }

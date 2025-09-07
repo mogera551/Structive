@@ -40,9 +40,6 @@ export interface IComponentEngine {
   readonly pathManager   : IPathManager;
   baseClass     : typeof HTMLElement;
   owner         : StructiveComponent;
-  trackedGetters: Set<string>;
-  getters       : Set<string>;
-  setters       : Set<string>;
   waitForInitialize: PromiseWithResolvers<void>;
 
   bindingsByListIndex: WeakMap<IListIndex2, Set<IBinding>>; // リストインデックスからバインディングを取得する

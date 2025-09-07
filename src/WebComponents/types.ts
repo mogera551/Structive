@@ -42,11 +42,6 @@ export interface IComponentStatic {
   readonly inputFilters  : FilterWithOptions;
   readonly outputFilters : FilterWithOptions;
   readonly pathManager   : IPathManager;
-  readonly listPaths     : Set<string>;
-  readonly paths         : Set<string>;
-  readonly trackedGetters: Set<string>;
-  readonly getters       : Set<string>;
-  readonly setters       : Set<string>;
   html:string;
   css:string;
   define(tagName:string):void;

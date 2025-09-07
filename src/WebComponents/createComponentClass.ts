@@ -121,7 +121,7 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       this.#html = value;
       registerHtml(this.id, value);
       this.#template = null;
-      this.#pathManager = null;
+      this.#pathManager = null; // パス情報をリセット
     }
 
     static #css:string = css;
@@ -170,64 +170,5 @@ export function createComponentClass(componentData: IUserComponentData): Structi
       return this.#pathManager;
     }
 
-    static get listPaths(): Set<string> {
-      return this.#pathManager.lists;
-    }
-    static get paths(): Set<string> {
-      return this.#pathManager.alls;
-    }
-    static #getters: Set<string> = new Set<string>();
-    static get getters(): Set<string> {
-      return this.#getters;
-    }
-    static #setters: Set<string> = new Set<string>();
-    static get setters(): Set<string> {
-      return this.#setters;
-    }
-    static #trackedGetters: Set<string> | null = null;
-    static get trackedGetters(): Set<string> {
-      if(this.#trackedGetters === null) {
-        this.#trackedGetters = new Set<string>();
-        let currentProto = this.stateClass.prototype;
-        while (currentProto && currentProto !== Object.prototype) {
-          const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
-          if (trackedGetters) {
-            for (const [key, desc] of Object.entries(trackedGetters)) {
-              const hasGetter = (desc as PropertyDescriptor).get !== undefined;
-              const hasSetter = (desc as PropertyDescriptor).set !== undefined;
-              if (hasGetter) {
-                this.#getters.add(key);
-                // Getterを設定しているプロパティが対象
-                this.#trackedGetters.add(key);
-                if (hasSetter) {
-                  this.#setters?.add(key);
-                }
-              }
-            }
-          }
-          currentProto = Object.getPrototypeOf(currentProto);
-        }
-        if (globalConfig.optimizeAccessor) {
-          for(const path of this.paths) {
-            const info = getStructuredPathInfo(path);
-            if (info.pathSegments.length === 1) {
-              continue;
-            }
-            if (this.#getters.has(path)) {
-              continue;
-            }
-            const funcs = createAccessorFunctions(info, this.#getters);
-            Object.defineProperty(this.stateClass.prototype, path, {
-              get: funcs.get,
-              set: funcs.set,
-              enumerable: true,
-              configurable: true,
-            });
-          }
-        }
-      }
-      return this.#trackedGetters;
-
-    }
   } as StructiveComponentClass;
 }

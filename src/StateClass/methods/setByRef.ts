@@ -33,7 +33,7 @@ export function setByRef(
   try {
     // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-    if (handler.engine.stateOutput.startsWith(info) && handler.engine.setters.intersection(info.cumulativePathSet).size === 0) {
+    if (handler.engine.stateOutput.startsWith(info) && handler.engine.pathManager.setters.intersection(info.cumulativePathSet).size === 0) {
       return handler.engine.stateOutput.set(info, listIndex,value);
     }
     if (info.pattern in target) {

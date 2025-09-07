@@ -70,9 +70,6 @@ export class ComponentEngine implements IComponentEngine {
   }
   baseClass     : typeof HTMLElement = HTMLElement;
   owner         : StructiveComponent;
-  trackedGetters: Set<string>;
-  getters       : Set<string>;
-  setters       : Set<string>;
 
   bindingsByListIndex : WeakMap<IListIndex2, Set<IBinding>> = new WeakMap();
   dependentTree       : Map<IStructuredPathInfo, Set<IDependencyEdge>> = new Map();
@@ -105,22 +102,8 @@ export class ComponentEngine implements IComponentEngine {
     this.inputFilters = componentClass.inputFilters;
     this.outputFilters = componentClass.outputFilters;
     this.owner =  owner;
-    this.trackedGetters = componentClass.trackedGetters;
-    this.getters = componentClass.getters;
-    this.setters = componentClass.setters;
     this.stateInput = createComponentStateInput(this, this.#stateBinding);
     this.stateOutput = createComponentStateOutput(this.#stateBinding);
-    // 依存関係の木を作成する
-    const checkDependentProp = (info: IStructuredPathInfo) => {
-      const parentInfo = info.parentInfo;
-      if (parentInfo === null) return;
-      this.addDependentProp(info, parentInfo, "structured");
-      checkDependentProp(parentInfo);
-    }
-    for(const path of componentClass.paths) {
-      const info = getStructuredPathInfo(path);
-      checkDependentProp(info);
-    }
   }
 
   get pathManager(): IPathManager {
