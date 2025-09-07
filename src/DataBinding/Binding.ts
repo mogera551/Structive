@@ -1,6 +1,7 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
+import { IListIndexResults } from "../Updater2/types";
 import { CreateBindingNodeByNodeFn, IBindingNode } from "./BindingNode/types";
 import { CreateBindingStateByStateFn, IBindingState } from "./BindingState/types";
 import { IBindContent, IBinding } from "./types";
@@ -71,6 +72,12 @@ class Binding implements IBinding {
     if (!updatedBinds.has(this)) return;
     this.bindingNode.applyChange(state, updatedBinds);
   }
+
+  applyChangeForList(state:IReadonlyStateProxy, listIndexResults: IListIndexResults, updatedBinds: Set<IBinding>): void {
+    if (!updatedBinds.has(this)) return;
+    this.bindingNode.applyChangeForList(state, listIndexResults, updatedBinds);
+  }
+
 }
 
 /**

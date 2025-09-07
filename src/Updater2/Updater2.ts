@@ -4,9 +4,12 @@ import { createListIndex2 } from "../ListIndex2/ListIndex2";
 import { IListIndex2 } from "../ListIndex2/types";
 import { ILoopContext } from "../LoopContext/types";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
+import { GetByRefSymbol } from "../StateClass/symbols";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
+import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
 import { IListIndexResults, IUpdateInfo, IUpdater2 } from "./types";
@@ -67,10 +70,14 @@ class Updater2 implements IUpdater2 {
     if (!this.#readonlyState) raiseError("Readonly state is not initialized.");
     // 更新したバインディングを保存しておく
     const updatedBindings: Set<IBinding> = new Set();
+    const trackedRefKeys: Set<string> = new Set();
+    for(const item of items) {
+      this.renderItem(item.info, item.listIndex, trackedRefKeys, updatedBindings, this.#readonlyState);
+    }
   }
 
   isListValue(info: IStructuredPathInfo): boolean {
-    return true; // 仮実装、実際にはinfoを解析してリストかどうかを判断
+    return this.#engine?.pathManager.lists.has(info.pattern) ?? raiseError("Engine is not initialized.");
   }
 
   getOldListIndexesSet(info: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IListIndex2> | null {
@@ -88,18 +95,73 @@ class Updater2 implements IUpdater2 {
     return new Set<IBinding>();
   }
 
-  renderItem(item: IUpdateInfo, updatedBindings: Set<IBinding>, readonlyState: IReadonlyStateProxy): void {
+  renderItem(
+    info: IStructuredPathInfo, 
+    listIndex: IListIndex2 | null, 
+    trackedRefKeys: Set<string>,
+    updatedBindings: Set<IBinding>, 
+    readonlyState: IReadonlyStateProxy
+  ): void {
+    const refKey = createRefKey(info, listIndex);
+    if (trackedRefKeys.has(refKey)) {
+      return; // すでに処理済みのRef情報はスキップ
+    }
+    trackedRefKeys.add(refKey);
+
+    const newValue = readonlyState[GetByRefSymbol](info, listIndex);
+    const isList = this.isListValue(info);
     // 単一のレンダリングロジックをここに実装
-    if (this.isListValue(item.info)) {
+    let diffResults: IListIndexResults | null = null;
+    if (isList) {
       // リストの場合の処理
-      const oldListIndexesSet = this.getOldListIndexesSet(item.info, item.listIndex);
-      const oldValue = this.getOldValue(item.info, item.listIndex);
-      const diffResults = this.listDiff(oldValue, oldListIndexesSet, item.value, item.listIndex);
-    } else {
-      // 単一値の場合の処理
-      this.getBindings(item.info, item.listIndex).forEach(binding => {
-        updatedBindings.add(binding);
-      });
+      const oldListIndexesSet = this.getOldListIndexesSet(info, listIndex);
+      const oldValue = this.getOldValue(info, listIndex);
+      diffResults = this.listDiff(oldValue, oldListIndexesSet, newValue, listIndex);
+    }
+    // バインディングに変更を適用する
+    // 変更があったバインディングだけを更新する
+    // 変更があったバインディングはupdatedBindingsに追加する
+    const bindings = this.getBindings(info, listIndex);
+    for(const binding of bindings) {
+      if (updatedBindings.has(binding)) {
+        continue; // すでに更新済みのバインディングはスキップ
+      }
+      if (binding.bindingNode.isFor) {
+        if (diffResults === null) raiseError("List diff results is null for list binding.");
+        binding.applyChangeForList(readonlyState, diffResults, updatedBindings);
+      } else {
+        binding.applyChange(readonlyState, updatedBindings);
+      }
+    }
+    // サブ要素のレンダリング
+    const elementPath = isList ? info.pattern + ".*" : null;
+    for(const subPath of this.#engine?.pathManager.staticDependencies.get(info.pattern) ?? []) {
+      const subInfo = getStructuredPathInfo(subPath);
+      if (elementPath && subInfo.wildcardPathSet.has(elementPath)) {
+        // リストのサブ要素の場合
+        for(const subListIndex of diffResults?.newListIndexesSet ?? []) {
+          this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+        }
+      } else {
+        this.renderItem(subInfo, listIndex, trackedRefKeys, updatedBindings, readonlyState);
+      }
+    }
+    for(const subPath of this.#engine?.pathManager.dynamicDependencies.get(info.pattern) ?? []) {
+      const subInfo = getStructuredPathInfo(subPath);
+      if (elementPath && subInfo.wildcardPathSet.has(elementPath)) {
+        // リストのサブ要素の場合
+        for(const subListIndex of diffResults?.newListIndexesSet ?? []) {
+          this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+        }
+      } else {
+        if (subInfo.wildcardPathSet.has(info.pattern)) {
+          const pathSets = subInfo.wildcardPathSet.intersection(info.wildcardPathSet);
+          const subListIndex = listIndex?.at(pathSets.size - 1) ?? null;
+          this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+        } else {
+          this.renderItem(subInfo, null, trackedRefKeys, updatedBindings, readonlyState);
+        }
+      }
     }
   }
 
