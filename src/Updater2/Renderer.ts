@@ -2,6 +2,7 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
 import { IListIndex2 } from "../ListIndex2/types";
 import { GetByRefSymbol } from "../StateClass/symbols";
+import { set } from "../StateClass/traps/set";
 import { IReadonlyStateProxy } from "../StateClass/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
@@ -53,6 +54,16 @@ class Renderer implements IRenderer {
       const oldListIndexesSet = this.getOldListIndexesSet(info, listIndex);
       listDiffResults = getListDiffResults(oldValue, oldListIndexesSet, newValue, listIndex);
       this.#listDiffResultsByRefKey.set(refKey, listDiffResults);
+      /**
+       * ToDo: undefinedの場合の扱いをどうするか検討
+       * - 現状はundefinedを空配列として扱う
+       */
+      this.setOldValue(info, listIndex, newValue ?? []);
+      /**
+       * ToDo: undefinedの扱いをどうするか検討
+       * - 現状はundefinedを空Setとして扱う
+       */
+      this.setOldListIndexesSet(info, listIndex, listDiffResults.newListIndexesSet ?? new Set());
     }
     return listDiffResults;
   }
@@ -66,9 +77,17 @@ class Renderer implements IRenderer {
     return new Set<IListIndex2>();
   }
 
+  setOldListIndexesSet(info: IStructuredPathInfo, listIndex: IListIndex2 | null, listIndexesSet: Set<IListIndex2>): void {
+    // 仮実装、実際にはエンジンに古いリストインデックスセットを保存
+  }
+
   getOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null): any[] | null {
     // 仮実装、実際にはエンジンから古い値を取得
     return [];
+  }
+
+  setOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any[]): void {
+    // 仮実装、実際にはエンジンに古い値を保存
   }
 
   getBindings(info: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IBinding> {
