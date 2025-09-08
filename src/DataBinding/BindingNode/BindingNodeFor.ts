@@ -2,8 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { FilterWithOptions } from "../../Filter/types";
 import { IListIndex2 } from "../../ListIndex2/types.js";
-import { IReadonlyStateProxy } from "../../StateClass/types.js";
-import { IListIndexResults, IUpdateInfo } from "../../Updater2/types.js";
+import { IRenderer } from "../../Updater2/types.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
 import { IBindContent, IBinding } from "../types";
@@ -202,10 +201,14 @@ class BindingNodeFor extends BindingNodeBlock {
     );
   }
 
-  applyChangeForList(state:IReadonlyStateProxy, listIndexResults: IListIndexResults, updatedBinds: Set<IBinding>): void {
+  applyChange(renderer: IRenderer): void {
+    if (!renderer.updatedBindings.has(this.binding)) return;
     const newBindContentsSet = new Set<IBindContent>();
     // 削除を先にする
     const removeBindContentsSet = new Set<IBindContent>();
+    const info = this.binding.bindingState.info;
+    const listIndex = this.binding.bindingState.listIndex;
+    const listIndexResults = renderer.getListDiffResults(info, listIndex);
     for(const listIndex of listIndexResults.removes ?? []) {
       const bindContent = this.#bindContentByListIndex.get(listIndex);
       if (bindContent) {
@@ -225,7 +228,7 @@ class BindingNodeFor extends BindingNodeBlock {
       if (listIndexResults.adds?.has(listIndex) === false) {
         bindContent = this.createBindContent(listIndex);
         bindContent.mountAfter(parentNode, lastNode);
-        bindContent.applyChange(state, updatedBinds);
+        bindContent.applyChange(renderer);
       } else {
         bindContent = this.#bindContentByListIndex.get(listIndex);
         if (typeof bindContent === "undefined") {

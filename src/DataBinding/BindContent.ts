@@ -11,6 +11,7 @@ import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAtt
 import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap.js";
 import { IListIndex2 } from "../ListIndex2/types.js";
 import { IReadonlyStateProxy } from "../StateClass/types.js";
+import { IRenderer } from "../Updater2/types.js";
 
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 
@@ -179,11 +180,10 @@ class BindContent implements IBindContent {
     this.loopContext.assignListIndex(listIndex);
     this.init();
   }
-  applyChange(state: IReadonlyStateProxy, updatedBinds: Set<IBinding>): void {
+  applyChange(renderer: IRenderer): void {
     for(const binding of this.bindings) {
-      binding.applyChange(state, updatedBinds);
+      binding.applyChange(renderer);
     }
-
   }
 }
 

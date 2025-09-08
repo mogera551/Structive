@@ -3,6 +3,7 @@ import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { GetByRefSymbol } from "../../StateClass/symbols.js";
 import { IReadonlyStateProxy } from "../../StateClass/types.js";
+import { IRenderer } from "../../Updater2/types.js";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
@@ -42,13 +43,6 @@ class BindingNodeAttribute extends BindingNode {
     }
     const element = this.node as Element;
     element.setAttribute(this.subName, value.toString());
-  }
-
-  applyChange(state: IReadonlyStateProxy, updatedBinds: Set<IBinding>): void {
-    if (!updatedBinds.has(this.binding)) return;
-    const filteredValue = this.binding.bindingState.getFilteredValue(state);
-    this.assignValue(filteredValue);
-    updatedBinds.add(this.binding);
   }
 }
 

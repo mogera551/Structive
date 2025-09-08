@@ -2,7 +2,7 @@ import { Filters } from "../../Filter/types";
 import { IListIndex2 } from "../../ListIndex2/types";
 import { IReadonlyStateProxy } from "../../StateClass/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
-import { IListIndexResults } from "../../Updater2/types";
+import { IRenderer } from "../../Updater2/types";
 import { raiseError } from "../../utils.js";
 import { IBindContent, IBinding } from "../types";
 import { IBindingNode } from "./types";
@@ -78,14 +78,11 @@ export class BindingNode implements IBindingNode {
   notifyRedraw(refs: IStatePropertyRef[]): void {
     // サブクラスで親子関係を考慮してバインディングの更新を通知する実装が可能
   }
-  applyChangeForList(state:IReadonlyStateProxy, listIndexResults: IListIndexResults, updatedBinds: Set<IBinding>): void {
-    raiseError(`BindingNode: applyChangeForList not implemented`);
-  }
-  applyChange(state: IReadonlyStateProxy, updatedBinds: Set<IBinding>): void {
-    if (!updatedBinds.has(this.binding)) return;
-    const filteredValue = this.binding.bindingState.getFilteredValue(state);
+  applyChange(renderer: IRenderer): void {
+    if (renderer.updatedBindings.has(this.binding)) return;
+    const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
     this.assignValue(filteredValue);
-    updatedBinds.add(this.binding);
+    renderer.updatedBindings.add(this.binding);
   }
 
   get isSelectElement(): boolean {

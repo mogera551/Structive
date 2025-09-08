@@ -5,7 +5,7 @@ import { IBindingState } from "./BindingState/types";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { IListIndex2 } from "../ListIndex2/types";
-import { IListIndexResults } from "../Updater2/types";
+import { IRenderer } from "../Updater2/types";
 /**
  * DataBinding/types.ts
  *
@@ -49,7 +49,7 @@ export interface IBindContent {
   init(): void;
   assignListIndex(listIndex: IListIndex2): void;
   getLastNode(parentNode: Node): Node | null;
-  applyChange(state: IReadonlyStateProxy, updatedBinds: Set<IBinding>): void; // バインディングの変更を適用する
+  applyChange(renderer: IRenderer): void; // バインディングの変更を適用する
 }
 
 // バインドプロパティ情報
@@ -65,8 +65,7 @@ export interface IBinding {
   init(): void;
   updateStateValue(writeState: IWritableStateProxy, value: any): void;
   notifyRedraw(refs: IStatePropertyRef[]): void;
-  applyChange(state: IReadonlyStateProxy, updatedBinds: Set<IBinding>): void; // バインディングの変更を適用する
-  applyChangeForList(state:IReadonlyStateProxy, listIndexResults: IListIndexResults, updatedBinds: Set<IBinding>): void; // リストバインディングの変更を適用する（多重ループ対応）
+  applyChange(renderer: IRenderer): void; // バインディングの変更を適用する
 }
 
 export type StateBindSummary = Map<string, WeakMap<ILoopContext, IBindContent>>;

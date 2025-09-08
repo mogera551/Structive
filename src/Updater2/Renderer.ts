@@ -1,0 +1,140 @@
+import { IComponentEngine } from "../ComponentEngine/types";
+import { IBinding } from "../DataBinding/types";
+import { IListIndex2 } from "../ListIndex2/types";
+import { GetByRefSymbol } from "../StateClass/symbols";
+import { IReadonlyStateProxy } from "../StateClass/types";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { IStructuredPathInfo } from "../StateProperty/types";
+import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
+import { raiseError } from "../utils";
+import { getListDiffResults } from "./getListDiffResults";
+import { IListDiffResults, IRenderer, IUpdateInfo } from "./types";
+
+class Renderer implements IRenderer {
+  #updatedBindings: Set<IBinding> = new Set();
+  #trackedRefKeys: Set<string> = new Set();
+  #readonlyState: IReadonlyStateProxy;
+  #listDiffResultsByRefKey: Map<string, IListDiffResults> = new Map();
+  #engine: IComponentEngine;
+
+  constructor(engine: IComponentEngine, readonlyState: IReadonlyStateProxy) {
+    this.#engine = engine;
+    this.#readonlyState = readonlyState;
+  }
+
+  get updatedBindings(): Set<IBinding> {
+    return this.#updatedBindings;
+  }
+
+  get trackedRefKeys(): Set<string> {
+    return this.#trackedRefKeys;
+  }
+
+  get readonlyState(): IReadonlyStateProxy {
+    return this.#readonlyState;
+  }
+
+  render(items: IUpdateInfo[]): void {
+    // 実際のレンダリングロジックを実装
+    for(const item of items) {
+      this.renderItem(item.info, item.listIndex, this.trackedRefKeys, this.updatedBindings, this.readonlyState);
+    }
+
+  }
+  getListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListDiffResults {
+    if (this.isListValue(info) === false) {
+      raiseError("The specified info is not a list value.");
+    }
+    const refKey = createRefKey(info, listIndex);
+    let listDiffResults = this.#listDiffResultsByRefKey.get(refKey);
+    if (!listDiffResults) {
+      const newValue = this.readonlyState[GetByRefSymbol](info, listIndex);
+      const oldValue = this.getOldValue(info, listIndex);
+      const oldListIndexesSet = this.getOldListIndexesSet(info, listIndex);
+      listDiffResults = getListDiffResults(oldValue, oldListIndexesSet, newValue, listIndex);
+      this.#listDiffResultsByRefKey.set(refKey, listDiffResults);
+    }
+    return listDiffResults;
+  }
+
+  isListValue(info: IStructuredPathInfo): boolean {
+    return this.#engine?.pathManager.lists.has(info.pattern) ?? raiseError("Engine is not initialized.");
+  }
+
+  getOldListIndexesSet(info: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IListIndex2> | null {
+    // 仮実装、実際にはエンジンから古いリストインデックスセットを取得
+    return new Set<IListIndex2>();
+  }
+
+  getOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null): any[] | null {
+    // 仮実装、実際にはエンジンから古い値を取得
+    return [];
+  }
+
+  getBindings(info: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IBinding> {
+    // 仮実装、実際にはエンジンからバインディングを取得
+    return new Set<IBinding>();
+  }
+
+  renderItem(
+    info: IStructuredPathInfo, 
+    listIndex: IListIndex2 | null, 
+    trackedRefKeys: Set<string>,
+    updatedBindings: Set<IBinding>, 
+    readonlyState: IReadonlyStateProxy
+  ): void {
+    const refKey = createRefKey(info, listIndex);
+    if (trackedRefKeys.has(refKey)) {
+      return; // すでに処理済みのRef情報はスキップ
+    }
+    trackedRefKeys.add(refKey);
+
+    // バインディングに変更を適用する
+    // 変更があったバインディングはupdatedBindingsに追加する
+    const bindings = this.getBindings(info, listIndex);
+    for(const binding of bindings) {
+      if (updatedBindings.has(binding)) {
+        continue; // すでに更新済みのバインディングはスキップ
+      }
+      binding.applyChange(this);
+    }
+    const isList = this.isListValue(info);
+    const diffResults = isList ? this.getListDiffResults(info, listIndex) : null;
+    const elementPath = isList ? info.pattern + ".*" : null;
+    // 静的依存要素のレンダリング
+    for(const subPath of this.#engine?.pathManager.staticDependencies.get(info.pattern) ?? []) {
+      const subInfo = getStructuredPathInfo(subPath);
+      if (elementPath && subInfo.wildcardPathSet.has(elementPath)) {
+        // リストの依存要素の場合
+        for(const subListIndex of diffResults?.newListIndexesSet ?? []) {
+          this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+        }
+      } else {
+        this.renderItem(subInfo, listIndex, trackedRefKeys, updatedBindings, readonlyState);
+      }
+    }
+    // 動的依存要素のレンダリング
+    for(const subPath of this.#engine?.pathManager.dynamicDependencies.get(info.pattern) ?? []) {
+      const subInfo = getStructuredPathInfo(subPath);
+      if (elementPath && subInfo.wildcardPathSet.has(elementPath)) {
+        // リストの依存要素の場合
+        for(const subListIndex of diffResults?.newListIndexesSet ?? []) {
+          this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+        }
+      } else {
+        if (subInfo.wildcardPathSet.has(info.pattern)) {
+          const pathSets = subInfo.wildcardPathSet.intersection(info.wildcardPathSet);
+          const subListIndex = listIndex?.at(pathSets.size - 1) ?? null;
+          this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+        } else {
+          this.renderItem(subInfo, null, trackedRefKeys, updatedBindings, readonlyState);
+        }
+      }
+    }
+  }
+}
+
+export function render(items: IUpdateInfo[], engine: IComponentEngine, readonlyState: IReadonlyStateProxy): void {
+  const renderer = new Renderer(engine, readonlyState);
+  renderer.render(items);
+}

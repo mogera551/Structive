@@ -3,7 +3,7 @@ import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex2 } from "../../ListIndex2/types";
 import { IReadonlyStateProxy } from "../../StateClass/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
-import { IListIndexResults } from "../../Updater2/types";
+import { IRenderer } from "../../Updater2/types";
 import { IBindContent, IBinding } from "../types";
 
 /**
@@ -35,9 +35,8 @@ export interface IBindingNode {
   assignValue(value: any): void;
   updateElements(listIndexes: IListIndex2[], values: any[]): void;
   notifyRedraw(refs: IStatePropertyRef[]): void; // 親子関係を考慮してバインディングの更新を通知する
-  
-  applyChange(state:IReadonlyStateProxy, updatedBinds: Set<IBinding>): void; // バインディングの変更を適用する
-  applyChangeForList(state:IReadonlyStateProxy, listIndexResults: IListIndexResults, updatedBinds: Set<IBinding>): void; // リストバインディングの変更を適用する（多重ループ対応）
+
+  applyChange(renderer: IRenderer): void; // バインディングの変更を適用する
 }
 
 /**
