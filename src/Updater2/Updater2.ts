@@ -25,7 +25,6 @@ class Updater2 implements IUpdater2 {
   queue: Array<IUpdateInfo> = [];
   #updating: boolean = false;
   #rendering: boolean = false;
-  #readonlyState: IReadonlyStateProxy | null = null;
   #engine: IComponentEngine | null = null;
 
   // Ref情報をキューに追加
@@ -37,12 +36,11 @@ class Updater2 implements IUpdater2 {
       this.rendering();
     });
   }
-  
+
   // 状態更新開始
   async beginUpdate(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (state: IWritableStateProxy) => Promise<void>): Promise<void> {
     try {
       this.#updating = true;
-      this.#readonlyState = createReadonlyStateProxy(engine, engine.state);
       this.#engine = engine;
       await useWritableStateProxy(engine, engine.state, loopContext, async (state:IWritableStateProxy) => {
         // 状態更新処理
@@ -62,8 +60,7 @@ class Updater2 implements IUpdater2 {
         this.queue = [];
         // 各キューに対してレンダリング処理を実行
         if (!this.#engine) raiseError("Engine is not initialized.");
-        if (!this.#readonlyState) raiseError("Readonly state is not initialized.");
-        render(queue, this.#engine, this.#readonlyState);
+        render(queue, this.#engine);
       }
     } finally {
       this.#rendering = false;

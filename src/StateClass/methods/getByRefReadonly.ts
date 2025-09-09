@@ -59,6 +59,9 @@ function _getByRef(
     }
     refKey = key;
   }
+  if (handler.engine.pathManager.lists.has(info.pattern)) {
+    handler.renderer.createListDiffResults(info, listIndex);
+  }
 
   let value;
   try {
@@ -89,7 +92,7 @@ function _getByRef(
     }
   } finally {
     // キャッシュが有効な場合は取得値をキャッシュ
-    if (handler.cacheable && !(refKey in handler.cache)) {
+    if (handler.cacheable) {
       handler.cache[refKey] = value;
     }
   }

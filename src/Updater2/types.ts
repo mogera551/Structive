@@ -34,5 +34,5 @@ export interface IRenderer {
   trackedRefKeys : Set<string>;
   readonlyState  : IReadonlyStateProxy;
   render(items: IUpdateInfo[]): void;
-  getListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListDiffResults;
+  createListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListDiffResults;
 }
