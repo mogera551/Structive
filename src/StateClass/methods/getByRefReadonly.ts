@@ -59,9 +59,6 @@ function _getByRef(
     }
     refKey = key;
   }
-  if (handler.engine.pathManager.lists.has(info.pattern)) {
-    handler.renderer.createListDiffResults(info, listIndex);
-  }
 
   let value;
   try {

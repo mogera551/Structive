@@ -64,10 +64,6 @@ export interface IComponentEngine {
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null): any; // プロパティの値を取得する
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null, value: any): void; // プロパティの値を設定する
-  useWritableStateProxy(
-    loopContext: ILoopContext | null,
-    callback: (stateProxy: IWritableStateProxy) => (Promise<void> | void)
-  ): Promise<void>;
   registerChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録する
   unregisterChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録解除する
 }

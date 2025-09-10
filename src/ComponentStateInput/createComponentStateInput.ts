@@ -17,17 +17,11 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
   }
 
   assignState(object: any): void {
-    update2(this.engine, this.engine.state, async (state) => {
+    update2(this.engine, null, async (updater, stateProxy) => {
       for(const [key, value] of Object.entries(object)) {
         const childPathInfo = getStructuredPathInfo(key);
-        state[SetByRefSymbol](childPathInfo, null, value);
+        stateProxy[SetByRefSymbol](childPathInfo, null, value);
       }     
-    )
-    this.engine.useWritableStateProxy(null, async (state) => {
-      for(const [key, value] of Object.entries(object)) {
-        const childPathInfo = getStructuredPathInfo(key);
-        this.engine.setPropertyValue(childPathInfo, null, value);
-      }
     });
   }
 
@@ -41,8 +35,11 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
         const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathRef.info.pattern);
         const childPathInfo = getStructuredPathInfo(childPath);
         const childListIndex = parentPathRef.listIndex;
-        const value = this.engine.getPropertyValue(childPathInfo, childListIndex)
-        this.engine.updater.addUpdatedStatePropertyRefValue(childPathInfo, childListIndex, value)
+        const value = this.engine.getPropertyValue(childPathInfo, childListIndex);
+        // Ref情報をもとに状態更新キューに追加
+        update2(this.engine, null, async (updater, stateProxy) => {
+          updater.enqueueRef(childPathInfo, childListIndex, value);
+        });
       } catch(e) {
         // 対象でないものは何もしない
       }

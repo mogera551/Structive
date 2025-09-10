@@ -47,9 +47,18 @@ class Renderer implements IRenderer {
 
   render(items: IUpdateInfo[]): void {
     // 実際のレンダリングロジックを実装
-    const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this, this.#engine.state);
+    const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#engine.state);
     try {
       readonlyState[SetCacheableSymbol](() => {
+        // リストの差分計算実行
+        for(const item of items) {
+          if (this.engine.pathManager.lists.has(item.info.pattern)) {
+            this.updateListIndexes(item.info, item.listIndex);
+          }
+        }
+        // 各Ref情報に対してレンダリングを実行
+        // trackedRefKeysに追加されているRef情報はスキップ
+        // updatedBindingsに追加されているバインディングはスキップ
         for(const item of items) {
           this.renderItem(item.info, item.listIndex, this.trackedRefKeys, this.updatedBindings, readonlyState);
         }
@@ -110,13 +119,30 @@ class Renderer implements IRenderer {
 
   setOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any[]): void {
     // 仮実装、実際にはエンジンに古い値を保存
+    this.engine.saveList(info, listIndex, value);
   }
 
-  getBindings(info: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IBinding> {
+  getBindings(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IBinding[] {
     // 仮実装、実際にはエンジンからバインディングを取得
-    return new Set<IBinding>();
+    return this.engine.getBindings(info, listIndex) ?? [];
   }
 
+  updateListIndexes(
+    info: IStructuredPathInfo, 
+    listIndex: IListIndex2 | null, 
+  ) {
+    const diffResult = this.createListDiffResults(info, listIndex);
+    for(const path of this.engine.pathManager.lists) {
+      const pathInfo = getStructuredPathInfo(path);
+      const wildcardInfo = pathInfo.wildcardParentInfos.at(-2);
+      if (typeof wildcardInfo === "undefined" || wildcardInfo !== info) {
+        continue;
+      }
+      for(const subListIndex of diffResult.adds ?? []) {
+        this.updateListIndexes(pathInfo, subListIndex);
+      }
+    }
+  }
   renderItem(
     info: IStructuredPathInfo, 
     listIndex: IListIndex2 | null, 
@@ -139,8 +165,10 @@ class Renderer implements IRenderer {
       }
       binding.applyChange(this);
     }
+
+    // 静的・動的依存要素のレンダリング
     const isList = this.isListValue(info);
-    const diffResults = isList ? this.createListDiffResults(info, listIndex) : null;
+    const diffResults = isList ? this.#listDiffResultsByRefKey.get(refKey) : null;
     const elementPath = isList ? info.pattern + ".*" : null;
     // 静的依存要素のレンダリング
     for(const subPath of this.#engine?.pathManager.staticDependencies.get(info.pattern) ?? []) {

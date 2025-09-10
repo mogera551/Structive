@@ -68,7 +68,9 @@ class Updater2 implements IUpdater2 {
   }
 }
 
-export async function update2(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (state: IWritableStateProxy) => Promise<void>): Promise<void> {
+export async function update2(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (updater: IUpdater2, state: IWritableStateProxy) => Promise<void>): Promise<void> {
   const updater = new Updater2();
-  await updater.beginUpdate(engine, loopContext, callback);
+  await updater.beginUpdate(engine, loopContext, async (state) => {
+    await callback(updater, state);
+  });
 }

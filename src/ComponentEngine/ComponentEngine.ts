@@ -8,7 +8,6 @@ import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent }
 import { attachShadow } from "./attachShadow.js";
 import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { ILoopContext } from "../LoopContext/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
@@ -16,7 +15,6 @@ import { raiseError } from "../utils.js";
 import { DependencyType, IDependencyEdge } from "../DependencyWalker/types.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
-import { useWritableStateProxy } from "../StateClass/useWritableStateProxy.js";
 import { IComponentStateBinding } from "../ComponentStateBinding/types.js";
 import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
@@ -158,12 +156,16 @@ export class ComponentEngine implements IComponentEngine {
       this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
     }
 
-    this.readonlyState[SetCacheableSymbol](() => {
-      this.bindContent.render();
-    }); // キャッシュ可能にする
-    await this.useWritableStateProxy(null, async (stateProxy) => {
+    await update2(this, null, async (updater, stateProxy) => {
+      // 状態のリスト構造を構築する
+      for(const path of this.pathManager.alls) {
+        const info = getStructuredPathInfo(path);
+        if (info.pathSegments.length !== 1) continue; // ルートプロパティのみ
+        updater.enqueueRef(info, null, null); 
+      }
       await stateProxy[ConnectedCallbackSymbol]();
     });
+
     // レンダリングが終わってから実行する
     queueMicrotask(() => {
       this.#waitForInitialize.resolve();
@@ -174,7 +176,7 @@ export class ComponentEngine implements IComponentEngine {
     this.#waitForDisconnected = Promise.withResolvers<void>();
     try {
       if (this.#ignoreDissconnectedCallback) return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-      await this.useWritableStateProxy(null, async (stateProxy) => {
+      await update2(this, null, async (updater, stateProxy) => {
         await stateProxy[DisconnectedCallbackSymbol]();
       });
       // 親コンポーネントから登録を解除する
@@ -296,23 +298,14 @@ export class ComponentEngine implements IComponentEngine {
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null): any {
     // プロパティの値を取得する
-    return await update2(this, null, async (state) => {
-      return await state[GetByRefSymbol](info, listIndex);
-    });
-    return this.readonlyState[GetByRefSymbol](info, listIndex);
+    const stateProxy = createReadonlyStateProxy(this, this.state);
+    return stateProxy[GetByRefSymbol](info, listIndex);
   }
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null, value: any): void {
     // プロパティの値を設定する
-    update2(this, null, async (state) => {
-      state[SetByRefSymbol](info, listIndex, value);
+    update2(this, null, async (updater, stateProxy) => {
+      stateProxy[SetByRefSymbol](info, listIndex, value);
     });
-  }
-  // 書き込み可能な状態プロキシを作成する
-  async useWritableStateProxy(
-    loopContext: ILoopContext | null,
-    callback: (stateProxy: IWritableStateProxy) => Promise<void>
-  ): Promise<void> {
-    return useWritableStateProxy(this, this.state, loopContext, callback);
   }
   // Structive子コンポーネントを登録する
   registerChildComponent(component: StructiveComponent): void {

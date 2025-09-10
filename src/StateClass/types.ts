@@ -71,7 +71,6 @@ export interface IReadonlyStateHandler {
   structuredPathInfoStack: (IStructuredPathInfo | null)[];
   listIndex2Stack: (IListIndex2 | null)[];
   refIndex         : number;
-  renderer: IRenderer;
   get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IReadonlyStateProxy): boolean;
 }
