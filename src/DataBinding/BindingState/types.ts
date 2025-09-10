@@ -21,19 +21,16 @@ export interface IBindingState {
   readonly pattern      : string | never;
   readonly info         : IStructuredPathInfo | never;
   readonly listIndex    : IListIndex2 | null;
-  readonly state        : IReadonlyStateProxy;
   readonly filters      : Filters;
-  readonly value        : any;
-  readonly filteredValue: any;
   init(): void;
   assignValue(writeState:IWritableStateProxy, value:any): void;
-  getValue(state:IReadonlyStateProxy): any; // 現在の値を返す
-  getFilteredValue(state:IReadonlyStateProxy): any; // フィルタを適用して値を返す
+  getValue(state:IReadonlyStateProxy | IWritableStateProxy): any; // 現在の値を返す
+  getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy): any; // フィルタを適用して値を返す
 }
 
 /**
  * バインディング状態生成ファクトリ型
  * - バインディング名・フィルタ情報からBindingState生成関数を返す
  */
-export type CreateBindingStateByStateFn = (binding:IBinding, state: IReadonlyStateProxy, filters: FilterWithOptions) => IBindingState;
+export type CreateBindingStateByStateFn = (binding:IBinding, filters: FilterWithOptions) => IBindingState;
 export type CreateBindingStateFn = (name: string, filterTexts: IFilterText[]) => CreateBindingStateByStateFn;

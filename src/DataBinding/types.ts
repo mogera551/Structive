@@ -45,7 +45,6 @@ export interface IBindContent {
   fragment: DocumentFragment; // unmount時にchildNodesをfragmentに移動する
   childNodes: Node[];
   bindings: IBinding[];
-  render(): void;
   init(): void;
   assignListIndex(listIndex: IListIndex2): void;
   getLastNode(parentNode: Node): Node | null;
@@ -61,7 +60,6 @@ export interface IBinding {
   bindingNode      : IBindingNode;
   bindingState     : IBindingState;
   bindContents     : Set<IBindContent>;
-  render(): void;
   init(): void;
   updateStateValue(writeState: IWritableStateProxy, value: any): void;
   notifyRedraw(refs: IStatePropertyRef[]): void;

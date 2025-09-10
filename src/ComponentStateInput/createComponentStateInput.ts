@@ -1,7 +1,9 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IComponentStateBinding } from "../ComponentStateBinding/types";
+import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
+import { update2 } from "../Updater2/Updater2";
 import { raiseError } from "../utils";
 import { AssignStateSymbol, NotifyRedrawSymbol } from "./symbols";
 import { IComponentStateInput, IComponentStateInputHandler } from "./types";
@@ -15,6 +17,12 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
   }
 
   assignState(object: any): void {
+    update2(this.engine, this.engine.state, async (state) => {
+      for(const [key, value] of Object.entries(object)) {
+        const childPathInfo = getStructuredPathInfo(key);
+        state[SetByRefSymbol](childPathInfo, null, value);
+      }     
+    )
     this.engine.useWritableStateProxy(null, async (state) => {
       for(const [key, value] of Object.entries(object)) {
         const childPathInfo = getStructuredPathInfo(key);

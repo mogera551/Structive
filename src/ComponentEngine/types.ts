@@ -32,8 +32,6 @@ export interface IComponentEngine {
   styleSheet    : CSSStyleSheet;
   stateClass    : IStructiveState;
   state         : IState;
-  readonlyState : IReadonlyStateProxy;
-  updater       : IUpdater;
   inputFilters  : FilterWithOptions;
   outputFilters : FilterWithOptions;
   readonly bindContent   : IBindContent;

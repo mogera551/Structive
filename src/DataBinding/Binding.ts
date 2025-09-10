@@ -38,7 +38,7 @@ class Binding implements IBinding {
     this.node = node;
     this.engine = engine
     this.bindingNode = createBindingNode(this, node, engine.inputFilters);
-    this.bindingState = createBindingState(this, engine.readonlyState, engine.outputFilters);
+    this.bindingState = createBindingState(this, engine.outputFilters);
   }
 
   get bindContents() {
@@ -48,16 +48,6 @@ class Binding implements IBinding {
   init() {
     this.bindingNode.init();
     this.bindingState.init();
-  }
-
-  render() {
-    if (this.version !== this.engine.updater.version) {
-      try {
-        this.bindingNode.update();
-      } finally {
-        this.version = this.engine.updater.version;
-      }
-    }
   }
 
   updateStateValue(writeState:IWritableStateProxy, value: any) {

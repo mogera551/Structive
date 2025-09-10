@@ -26,7 +26,6 @@ class BindingStateIndex implements IBindingState {
   #binding     : IBinding;
   #indexNumber : number;
   #listIndexRef: WeakRef<IListIndex2> | null = null;
-  #state       : IReadonlyStateProxy;
   #filters     : Filters;
   get pattern(): string {
     return raiseError("Not implemented");
@@ -38,9 +37,6 @@ class BindingStateIndex implements IBindingState {
     if (this.#listIndexRef === null) return null;
     return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
   }
-  get state() {
-    return this.#state;
-  }
   get filters() {
     return this.#filters;
   }
@@ -49,7 +45,6 @@ class BindingStateIndex implements IBindingState {
   }
   constructor(
     binding: IBinding, 
-    state  : IReadonlyStateProxy, 
     pattern: string, 
     filters: Filters
   ) {
@@ -59,23 +54,12 @@ class BindingStateIndex implements IBindingState {
       raiseError("BindingStateIndex: pattern is not a number");
     }
     this.#indexNumber = indexNumber;
-    this.#state = state;
     this.#filters = filters;
   }
-  get value(): any {
+  getValue(state: IReadonlyStateProxy | IWritableStateProxy) {
     return this.listIndex?.index ?? raiseError("listIndex is null");
   }
-  get filteredValue(): any {
-    let value = this.value;
-    for(let i = 0; i < this.#filters.length; i++) {
-      value = this.#filters[i](value);
-    }
-    return value;
-  }
-  getValue(state: IReadonlyStateProxy) {
-    return this.listIndex?.index ?? raiseError("listIndex is null");
-  }
-  getFilteredValue(state: IReadonlyStateProxy) {
+  getFilteredValue(state: IReadonlyStateProxy | IWritableStateProxy) {
     let value = this.getValue(state);
     for(let i = 0; i < this.#filters.length; i++) {
       value = this.#filters[i](value);
@@ -103,8 +87,8 @@ class BindingStateIndex implements IBindingState {
 
 export const createBindingStateIndex: CreateBindingStateFn = 
 (name: string, filterTexts: IFilterText[]) => 
-  (binding:IBinding, state: IReadonlyStateProxy, filters:FilterWithOptions) => {
+  (binding:IBinding, filters:FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts); // ToDo:ここは、メモ化できる
 
-    return new BindingStateIndex(binding, state, name, filterFns);
+    return new BindingStateIndex(binding, name, filterFns);
   }

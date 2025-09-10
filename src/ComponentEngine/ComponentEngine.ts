@@ -27,6 +27,7 @@ import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 import { registerStructiveComponent } from "../WebComponents/findStructiveParent.js";
 import { IListIndex2 } from "../ListIndex2/types.js";
 import { IPathManager } from "../PathManager/types.js";
+import { update2 } from "../Updater2/Updater2.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
@@ -57,8 +58,6 @@ export class ComponentEngine implements IComponentEngine {
   styleSheet    : CSSStyleSheet;
   stateClass    : IStructiveState;
   state         : IState;
-  readonlyState : IReadonlyStateProxy;
-  updater       : IUpdater;
   inputFilters  : FilterWithOptions;
   outputFilters : FilterWithOptions;
   #bindContent  :IBindContent | null = null;
@@ -97,8 +96,6 @@ export class ComponentEngine implements IComponentEngine {
     this.styleSheet = componentClass.styleSheet;
     this.stateClass = componentClass.stateClass;
     this.state = new this.stateClass();
-    this.readonlyState = createReadonlyStateProxy(this, this.state);
-    this.updater = createUpdater(this);
     this.inputFilters = componentClass.inputFilters;
     this.outputFilters = componentClass.outputFilters;
     this.owner =  owner;
@@ -112,12 +109,6 @@ export class ComponentEngine implements IComponentEngine {
 
   setup(): void {
     const componentClass = this.owner.constructor as IComponentStatic;
-    for(const path of this.pathManager.lists) {
-      const info = getStructuredPathInfo(path);
-      if (info.wildcardCount > 0) continue;
-      const value = this.readonlyState[GetByRefSymbol](info, null)
-      buildListIndexTree(this, info, null, value);
-    }
     this.#bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
   }
 
@@ -166,6 +157,7 @@ export class ComponentEngine implements IComponentEngine {
       const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
       this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
     }
+
     this.readonlyState[SetCacheableSymbol](() => {
       this.bindContent.render();
     }); // キャッシュ可能にする
@@ -304,14 +296,15 @@ export class ComponentEngine implements IComponentEngine {
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null): any {
     // プロパティの値を取得する
+    return await update2(this, null, async (state) => {
+      return await state[GetByRefSymbol](info, listIndex);
+    });
     return this.readonlyState[GetByRefSymbol](info, listIndex);
   }
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null, value: any): void {
     // プロパティの値を設定する
-    this.updater.addProcess(() => {
-      this.useWritableStateProxy(null, async (stateProxy) => {
-        stateProxy[SetByRefSymbol](info, listIndex, value);
-      });
+    update2(this, null, async (state) => {
+      state[SetByRefSymbol](info, listIndex, value);
     });
   }
   // 書き込み可能な状態プロキシを作成する

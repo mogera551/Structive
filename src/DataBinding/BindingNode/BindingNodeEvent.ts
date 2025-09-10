@@ -1,6 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { update2 } from "../../Updater2/Updater2.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
@@ -47,20 +48,19 @@ class BindingNodeEvent extends BindingNode {
     const loopContext = this.binding.parentBindContent.currentLoopContext;
     const indexes = loopContext?.serialize().map((context) => context.listIndex.index) ?? [];
     const options = this.decorates;
-    const value = this.binding.bindingState.value;
-    const typeOfValue = typeof value;
-    if (typeOfValue !== "function") {
-      raiseError(`BindingNodeEvent: ${this.name} is not a function.`);
-    }
     if (options.includes("preventDefault")) {
       e.preventDefault();
     }
     if (options.includes("stopPropagation")) {
       e.stopPropagation();
     }
-    await engine.useWritableStateProxy(loopContext, async (stateProxy) => {
+    await update2(engine, loopContext, async (state) => {
       // stateProxyを生成し、バインディング値を実行
-      await Reflect.apply(value, stateProxy, [e, ...indexes]);
+      const func = this.binding.bindingState.getValue(state);
+      if (typeof func !== "function") {
+        raiseError(`BindingNodeEvent: ${this.name} is not a function.`);
+      }
+      await Reflect.apply(func, state, [e, ...indexes]);
     });
   }
 }

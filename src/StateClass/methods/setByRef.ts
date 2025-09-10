@@ -53,6 +53,6 @@ export function setByRef(
       }
     }
   } finally {
-    handler.engine.updater.addUpdatedStatePropertyRefValue(info, listIndex, value);
+    handler.updater.enqueueRef(info, listIndex, value);
   }
 }

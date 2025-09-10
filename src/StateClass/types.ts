@@ -20,7 +20,7 @@ import { IListIndex2 } from "../ListIndex2/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { Constructor } from "../types";
-import { IRenderer } from "../Updater2/types";
+import { IRenderer, IUpdater2 } from "../Updater2/types";
 import { IUserConfig } from "../WebComponents/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
 
@@ -78,6 +78,7 @@ export interface IReadonlyStateHandler {
 
 export interface IWritableStateHandler {
   engine           : IComponentEngine;
+  updater          : IUpdater2;
   lastTrackingStack: IStructuredPathInfo | null;
   trackingStack    : (IStructuredPathInfo | null)[];
   trackingIndex    : number;

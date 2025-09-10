@@ -42,7 +42,7 @@ class Updater2 implements IUpdater2 {
     try {
       this.#updating = true;
       this.#engine = engine;
-      await useWritableStateProxy(engine, engine.state, loopContext, async (state:IWritableStateProxy) => {
+      await useWritableStateProxy(engine, this, engine.state, loopContext, async (state:IWritableStateProxy) => {
         // 状態更新処理
         await callback(state);
       });

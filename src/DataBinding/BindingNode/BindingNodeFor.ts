@@ -89,116 +89,7 @@ class BindingNodeFor extends BindingNodeBlock {
   }
 
   assignValue(value:any) {
-    if (!Array.isArray(value)) {
-      raiseError(`BindingNodeFor.assignValue: value is not array`);
-    }
-    const listIndexesSet = this.binding.engine.getListIndexesSet(
-      this.binding.bindingState.info, 
-      this.binding.bindingState.listIndex
-    );
-    if (listIndexesSet === null) {
-      raiseError(`BindingNodeFor.assignValue: listIndexes is not found`);
-    }
-    const newBindContensSet = new Set<IBindContent>();
-    let lastBindContent = null;
-    // 削除を先にする
-    const removeBindContentsSet = new Set<IBindContent>();
-    const diff = this.#lastListIndexSet.difference(listIndexesSet);
-    for(const listIndex of diff) {
-      const bindContent = this.#bindContentByListIndex.get(listIndex);
-      if (bindContent) {
-        this.deleteBindContent(bindContent);
-        removeBindContentsSet.add(bindContent);
-      }
-    }
-    this.#bindContentPool.push(...removeBindContentsSet);
-
-    const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
-    const firstNode = this.node;
-
-    this.bindContentLastIndex = this.poolLength - 1;
-    for(const listIndex of listIndexesSet) {
-      const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
-      let bindContent = this.#bindContentByListIndex.get(listIndex);
-      if (typeof bindContent === "undefined") {
-        bindContent = this.createBindContent(listIndex);
-        bindContent.mountAfter(parentNode, lastNode);
-        bindContent.render();
-      } else {
-        if (lastNode?.nextSibling !== bindContent.firstChildNode) {
-          bindContent.mountAfter(parentNode, lastNode);
-        }
-      }
-      newBindContensSet.add(bindContent);
-      lastBindContent = bindContent;
-    }
-    // プールの長さを更新する
-    // プールの長さは、プールの最後の要素のインデックス+1であるため、
-    this.poolLength = this.bindContentLastIndex + 1;
-    this.#bindContentsSet = newBindContensSet;
-    this.#lastListIndexSet = new Set<IListIndex2>(listIndexesSet);
-  }
-
-  /**
-   * SWAP処理を想定
-   * 
-   * @param listIndexes 
-   * @param values 
-   * @returns 
-   */
-  updateElements(listIndexes: IListIndex2[], values: any[]) {
-    if (typeof values[0] !== "object") return;
-    const engine = this.binding.engine;
-    const oldListValues = 
-      engine.getList(
-        this.binding.bindingState.info, 
-        this.binding.bindingState.listIndex
-      ) ?? raiseError(`BindingNodeFor.updateElements: oldValues is not found`); 
-    const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
-
-    // DOMから削除
-    const currentBindContents = Array.from(this.#bindContentsSet);
-    const targetBindContents: IBindContent[] = [];
-    for(let i = 0; i < listIndexes.length; i++) {
-      const listIndex = listIndexes[i];
-      const bindContent = currentBindContents[listIndex.index];
-      bindContent.unmount();
-      targetBindContents.push(bindContent);
-    }
-
-    // DOMに追加、listIndexを更新
-    for(let i = 0; i < listIndexes.length; i++) {
-      const listIndex = listIndexes[i];
-      const index = listIndex.index;
-
-      const lastBindContent = currentBindContents[index - 1] ?? null;
-      const lastNode = lastBindContent?.lastChildNode ?? this.node;
-
-      const oldValue = oldListValues[index];
-      const targetIndex = values.indexOf(oldValue);
-      const prevBindContent = targetBindContents[targetIndex];
-
-      if (typeof prevBindContent === "undefined") {
-        // 入れ替えるBindContentがない場合は再描画
-        const bindContent = targetBindContents[index];
-        bindContent.render();
-        bindContent.mountAfter(parentNode, lastNode);
-      } else {
-        prevBindContent.assignListIndex(listIndex);
-        prevBindContent.mountAfter(parentNode, lastNode);
-        this.#bindContentByListIndex.set(listIndex, prevBindContent);
-        currentBindContents[index] = prevBindContent;
-      }
-      if (targetIndex >= 0) {
-        values[targetIndex] = -1;
-      }
-    }
-    this.#bindContentsSet = new Set<IBindContent>(currentBindContents);
-    engine.saveList(
-      this.binding.bindingState.info, 
-      this.binding.bindingState.listIndex, 
-      this.binding.bindingState.value.slice(0)
-    );
+    raiseError("BindingNodeFor.assignValue: Not implemented. Use update or applyChange.");
   }
 
   applyChange(renderer: IRenderer): void {
@@ -208,7 +99,7 @@ class BindingNodeFor extends BindingNodeBlock {
     const removeBindContentsSet = new Set<IBindContent>();
     const info = this.binding.bindingState.info;
     const listIndex = this.binding.bindingState.listIndex;
-    const listIndexResults = renderer.getListDiffResults(info, listIndex);
+    const listIndexResults = renderer.createListDiffResults(info, listIndex);
     for(const listIndex of listIndexResults.removes ?? []) {
       const bindContent = this.#bindContentByListIndex.get(listIndex);
       if (bindContent) {

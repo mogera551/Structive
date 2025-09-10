@@ -30,7 +30,6 @@ class BindingState implements IBindingState {
   #pattern     : string;
   #info        : IStructuredPathInfo;
   #listIndexRef: WeakRef<IListIndex2> | null = null;
-  #state       : IReadonlyStateProxy;
   #filters     : Filters;
   get pattern(): string {
     return this.#pattern;
@@ -42,9 +41,6 @@ class BindingState implements IBindingState {
     if (this.#listIndexRef === null) return null;
     return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
   }
-  get state() {
-    return this.#state;
-  }
   get filters() {
     return this.#filters;
   }
@@ -53,30 +49,18 @@ class BindingState implements IBindingState {
   }
   constructor(
     binding: IBinding, 
-    state  : IReadonlyStateProxy, 
     pattern: string, 
     filters: Filters
   ) {
     this.#binding = binding;
     this.#pattern = pattern;
     this.#info = getStructuredPathInfo(pattern);
-    this.#state = state;
     this.#filters = filters;
   }
-  get value(): any {
-    return this.#state[GetByRefSymbol](this.info, this.listIndex);
-  }
-  get filteredValue(): any {
-    let value = this.value;
-    for(let i = 0; i < this.#filters.length; i++) {
-      value = this.#filters[i](value);
-    }
-    return value;
-  }
-  getValue(state:IReadonlyStateProxy): any {
+  getValue(state:IReadonlyStateProxy | IWritableStateProxy): any {
     return state[GetByRefSymbol](this.info, this.listIndex);
   }
-  getFilteredValue(state:IReadonlyStateProxy): any {
+  getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy): any {
     let value = this.getValue(state);
     for(let i = 0; i < this.#filters.length; i++) {
       value = this.#filters[i](value);
@@ -100,7 +84,7 @@ class BindingState implements IBindingState {
 
 export const createBindingState: CreateBindingStateFn = 
 (name: string, filterTexts: IFilterText[]) => 
-  (binding:IBinding, state: IReadonlyStateProxy, filters:FilterWithOptions) => {
+  (binding:IBinding, filters:FilterWithOptions) => {
     const filterFns = createFilters(filters, filterTexts); // ToDo:ここは、メモ化できる
-    return new BindingState(binding, state, name, filterFns);
+    return new BindingState(binding, name, filterFns);
   }

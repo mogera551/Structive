@@ -169,9 +169,6 @@ class BindContent implements IBindContent {
     }
   }
   bindings: IBinding[] = [];
-  render() {
-    render(this.bindings);
-  }
   init() {
     this.bindings.forEach(binding => binding.init());
   }

@@ -23,6 +23,7 @@ import { raiseError } from "../utils";
 import { ILoopContext } from "../LoopContext/types";
 import { IListIndex2 } from "../ListIndex2/types";
 import { IRenderer } from "../Updater2/types";
+import { useWritableStateProxy } from "./useWritableStateProxy";
 
 const STACK_DEPTH = 32;
 
@@ -69,4 +70,3 @@ export function createReadonlyStateProxy(
 ): IReadonlyStateProxy {
   return new Proxy<IState>(state, new StateHandler(engine, renderer)) as IReadonlyStateProxy;
 }
-
