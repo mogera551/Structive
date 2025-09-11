@@ -132,6 +132,19 @@ class BindingNodeFor extends BindingNodeBlock {
       newBindContentsSet.add(bindContent);
       lastBindContent = bindContent;
     }
+    // ToDo:以下の処理を行う
+    // リストインデックスの並び替え・要素の置き換えに対応する
+    // リストインデックスの並び替え時、インデックスの更新だけなので、要素の再描画はしたくない
+    // ただし、要素の置き換え（SWAP）が発生した場合は、要素の再描画が必要
+    if (listIndexResults.updates) {
+      for (const listIndex of listIndexResults.updates) {
+        const bindContent = this.#bindContentByListIndex.get(listIndex);
+        if (typeof bindContent === "undefined") {
+          raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+        }
+        bindContent.applyChange(renderer);
+      }
+    }
     // プールの長さを更新する
     // プールの長さは、プールの最後の要素のインデックス+1であるため、
     this.poolLength = this.bindContentLastIndex + 1;
