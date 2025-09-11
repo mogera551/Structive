@@ -40,7 +40,7 @@ class Binding {
         this.bindingNode.notifyRedraw(refs);
     }
     applyChange(renderer) {
-        if (!renderer.updatedBindings.has(this))
+        if (renderer.updatedBindings.has(this))
             return;
         this.bindingNode.applyChange(renderer);
     }

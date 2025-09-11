@@ -93,7 +93,7 @@ class BindingNodeFor extends BindingNodeBlock {
   }
 
   applyChange(renderer: IRenderer): void {
-    if (!renderer.updatedBindings.has(this.binding)) return;
+    if (renderer.updatedBindings.has(this.binding)) return;
     const newBindContentsSet = new Set<IBindContent>();
     // 削除を先にする
     const removeBindContentsSet = new Set<IBindContent>();
@@ -116,7 +116,7 @@ class BindingNodeFor extends BindingNodeBlock {
     for(const listIndex of listIndexResults.newListIndexesSet ?? []) {
       const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
       let bindContent;
-      if (listIndexResults.adds?.has(listIndex) === false) {
+      if (listIndexResults.adds?.has(listIndex)) {
         bindContent = this.createBindContent(listIndex);
         bindContent.mountAfter(parentNode, lastNode);
         bindContent.applyChange(renderer);

@@ -177,6 +177,7 @@ class BindContent implements IBindContent {
   }
   applyChange(renderer: IRenderer): void {
     for(const binding of this.bindings) {
+      if (renderer.updatedBindings.has(binding)) continue;
       binding.applyChange(renderer);
     }
   }

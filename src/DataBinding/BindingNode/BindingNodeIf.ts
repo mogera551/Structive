@@ -48,6 +48,10 @@ class BindingNodeIf extends BindingNodeBlock {
     this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
   }
 
+  assignValue(value: any): void {
+    raiseError(`BindingNodeIf.assignValue: not implemented`);
+  }
+  
   applyChange(renderer: IRenderer): void {
     if (renderer.updatedBindings.has(this.binding)) return;
     const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);

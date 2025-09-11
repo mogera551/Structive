@@ -138,6 +138,8 @@ export class ComponentEngine {
                 const info = getStructuredPathInfo(path);
                 if (info.pathSegments.length !== 1)
                     continue; // ルートプロパティのみ
+                if (this.pathManager.funcs.has(path))
+                    continue; // 関数は除外
                 updater.enqueueRef(info, null, null);
             }
             await stateProxy[ConnectedCallbackSymbol]();

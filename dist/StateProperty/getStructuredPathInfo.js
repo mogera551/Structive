@@ -111,7 +111,7 @@ class StructuredPathInfo {
         }
     }
 }
-const reservedWords = new Set([
+export const reservedWords = new Set([
     "constructor", "prototype", "__proto__", "toString",
     "valueOf", "hasOwnProperty", "isPrototypeOf",
     "watch", "unwatch", "eval", "arguments",
@@ -119,13 +119,13 @@ const reservedWords = new Set([
     "null", "true", "false", "new", "return",
 ]);
 export function getStructuredPathInfo(structuredPath) {
+    if (reservedWords.has(structuredPath)) {
+        raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
+    }
     let info;
     info = _cache[structuredPath];
     if (typeof info !== "undefined") {
         return info;
-    }
-    if (reservedWords.has(structuredPath)) {
-        raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
     }
     return (_cache[structuredPath] = new StructuredPathInfo(structuredPath));
 }

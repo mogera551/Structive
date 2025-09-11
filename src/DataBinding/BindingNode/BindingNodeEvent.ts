@@ -1,6 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { IRenderer } from "../../Updater2/types.js";
 import { update2 } from "../../Updater2/Updater2.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
@@ -62,6 +63,9 @@ class BindingNodeEvent extends BindingNode {
       }
       await Reflect.apply(func, state, [e, ...indexes]);
     });
+  }
+  applyChange(renderer: IRenderer): void {
+    // イベントバインディングは初期化時のみで、状態変更時に何もしない
   }
 }
 

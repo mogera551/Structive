@@ -59,7 +59,7 @@ class Binding implements IBinding {
   }
 
   applyChange(renderer: IRenderer): void {
-    if (!renderer.updatedBindings.has(this)) return;
+    if (renderer.updatedBindings.has(this)) return;
     this.bindingNode.applyChange(renderer);
   }
 }

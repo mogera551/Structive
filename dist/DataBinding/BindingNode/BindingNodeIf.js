@@ -27,6 +27,9 @@ class BindingNodeIf extends BindingNodeBlock {
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
         this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
     }
+    assignValue(value) {
+        raiseError(`BindingNodeIf.assignValue: not implemented`);
+    }
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;

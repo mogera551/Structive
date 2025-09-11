@@ -150,6 +150,8 @@ class BindContent {
     }
     applyChange(renderer) {
         for (const binding of this.bindings) {
+            if (renderer.updatedBindings.has(binding))
+                continue;
             binding.applyChange(renderer);
         }
     }

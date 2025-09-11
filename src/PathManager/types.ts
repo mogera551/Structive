@@ -5,6 +5,7 @@ export interface IPathManager {
   alls: Set<string>;
   lists: Set<string>;
   elements: Set<string>;
+  funcs: Set<string>;
   getters: Set<string>;
   setters: Set<string>;
   optimizes: Set<string>;

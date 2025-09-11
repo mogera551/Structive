@@ -944,13 +944,13 @@ const reservedWords = new Set([
     "null", "true", "false", "new", "return",
 ]);
 function getStructuredPathInfo(structuredPath) {
+    if (reservedWords.has(structuredPath)) {
+        raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
+    }
     let info;
     info = _cache$3[structuredPath];
     if (typeof info !== "undefined") {
         return info;
-    }
-    if (reservedWords.has(structuredPath)) {
-        raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
     }
     return (_cache$3[structuredPath] = new StructuredPathInfo(structuredPath));
 }
@@ -2249,6 +2249,9 @@ class BindingNodeEvent extends BindingNode {
             await Reflect.apply(func, state, [e, ...indexes]);
         });
     }
+    applyChange(renderer) {
+        // イベントバインディングは初期化時のみで、状態変更時に何もしない
+    }
 }
 /**
  * イベントバインディングノード生成用ファクトリ関数
@@ -2309,6 +2312,9 @@ class BindingNodeIf extends BindingNodeBlock {
         super(binding, node, name, filters, decorates);
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
         this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
+    }
+    assignValue(value) {
+        raiseError(`BindingNodeIf.assignValue: not implemented`);
     }
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
@@ -2413,7 +2419,7 @@ class BindingNodeFor extends BindingNodeBlock {
         raiseError("BindingNodeFor.assignValue: Not implemented. Use update or applyChange.");
     }
     applyChange(renderer) {
-        if (!renderer.updatedBindings.has(this.binding))
+        if (renderer.updatedBindings.has(this.binding))
             return;
         const newBindContentsSet = new Set();
         // 削除を先にする
@@ -2436,7 +2442,7 @@ class BindingNodeFor extends BindingNodeBlock {
         for (const listIndex of listIndexResults.newListIndexesSet ?? []) {
             const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
             let bindContent;
-            if (listIndexResults.adds?.has(listIndex) === false) {
+            if (listIndexResults.adds?.has(listIndex)) {
                 bindContent = this.createBindContent(listIndex);
                 bindContent.mountAfter(parentNode, lastNode);
                 bindContent.applyChange(renderer);
@@ -3404,7 +3410,7 @@ class Binding {
         this.bindingNode.notifyRedraw(refs);
     }
     applyChange(renderer) {
-        if (!renderer.updatedBindings.has(this))
+        if (renderer.updatedBindings.has(this))
             return;
         this.bindingNode.applyChange(renderer);
     }
@@ -3645,6 +3651,8 @@ class BindContent {
     }
     applyChange(renderer) {
         for (const binding of this.bindings) {
+            if (renderer.updatedBindings.has(binding))
+                continue;
             binding.applyChange(renderer);
         }
     }
@@ -4072,6 +4080,8 @@ class ComponentEngine {
                 const info = getStructuredPathInfo(path);
                 if (info.pathSegments.length !== 1)
                     continue; // ルートプロパティのみ
+                if (this.pathManager.funcs.has(path))
+                    continue; // 関数は除外
                 updater.enqueueRef(info, null, null);
             }
             await stateProxy[ConnectedCallbackSymbol]();
@@ -4456,6 +4466,7 @@ class PathManager {
     alls = new Set();
     lists = new Set();
     elements = new Set();
+    funcs = new Set();
     getters = new Set();
     setters = new Set();
     optimizes = new Set();
@@ -4482,6 +4493,13 @@ class PathManager {
             const getters = Object.getOwnPropertyDescriptors(currentProto);
             if (getters) {
                 for (const [key, desc] of Object.entries(getters)) {
+                    if (reservedWords.has(key)) {
+                        continue;
+                    }
+                    if (typeof desc.value === "function") {
+                        this.funcs.add(key);
+                        continue;
+                    }
                     const hasGetter = desc.get !== undefined;
                     const hasSetter = desc.set !== undefined;
                     const info = getStructuredPathInfo(key);

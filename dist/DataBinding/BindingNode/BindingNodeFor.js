@@ -73,7 +73,7 @@ class BindingNodeFor extends BindingNodeBlock {
         raiseError("BindingNodeFor.assignValue: Not implemented. Use update or applyChange.");
     }
     applyChange(renderer) {
-        if (!renderer.updatedBindings.has(this.binding))
+        if (renderer.updatedBindings.has(this.binding))
             return;
         const newBindContentsSet = new Set();
         // 削除を先にする
@@ -96,7 +96,7 @@ class BindingNodeFor extends BindingNodeBlock {
         for (const listIndex of listIndexResults.newListIndexesSet ?? []) {
             const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
             let bindContent;
-            if (listIndexResults.adds?.has(listIndex) === false) {
+            if (listIndexResults.adds?.has(listIndex)) {
                 bindContent = this.createBindContent(listIndex);
                 bindContent.mountAfter(parentNode, lastNode);
                 bindContent.applyChange(renderer);

@@ -51,6 +51,9 @@ class BindingNodeEvent extends BindingNode {
             await Reflect.apply(func, state, [e, ...indexes]);
         });
     }
+    applyChange(renderer) {
+        // イベントバインディングは初期化時のみで、状態変更時に何もしない
+    }
 }
 /**
  * イベントバインディングノード生成用ファクトリ関数

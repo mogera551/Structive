@@ -1,10 +1,11 @@
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes";
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { getStructuredPathInfo, reservedWords } from "../StateProperty/getStructuredPathInfo";
 class PathManager {
     alls = new Set();
     lists = new Set();
     elements = new Set();
+    funcs = new Set();
     getters = new Set();
     setters = new Set();
     optimizes = new Set();
@@ -31,6 +32,13 @@ class PathManager {
             const getters = Object.getOwnPropertyDescriptors(currentProto);
             if (getters) {
                 for (const [key, desc] of Object.entries(getters)) {
+                    if (reservedWords.has(key)) {
+                        continue;
+                    }
+                    if (typeof desc.value === "function") {
+                        this.funcs.add(key);
+                        continue;
+                    }
                     const hasGetter = desc.get !== undefined;
                     const hasSetter = desc.set !== undefined;
                     const info = getStructuredPathInfo(key);
