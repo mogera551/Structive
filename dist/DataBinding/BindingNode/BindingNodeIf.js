@@ -27,23 +27,27 @@ class BindingNodeIf extends BindingNodeBlock {
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
         this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
     }
-    assignValue(value) {
-        if (typeof value !== "boolean") {
+    applyChange(renderer) {
+        if (renderer.updatedBindings.has(this.binding))
+            return;
+        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
+        if (typeof filteredValue !== "boolean") {
             raiseError(`BindingNodeIf.update: value is not boolean`);
         }
         const parentNode = this.node.parentNode;
         if (parentNode == null) {
             raiseError(`BindingNodeIf.update: parentNode is null`);
         }
-        if (value) {
+        if (filteredValue) {
             this.#bindContent.mountAfter(parentNode, this.node);
-            this.#bindContent.render();
+            this.#bindContent.applyChange(renderer);
             this.#bindContents = this.#trueBindContents;
         }
         else {
             this.#bindContent.unmount();
             this.#bindContents = this.#falseBindContents;
         }
+        renderer.updatedBindings.add(this.binding);
     }
 }
 /**

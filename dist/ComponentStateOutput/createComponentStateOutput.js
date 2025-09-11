@@ -1,5 +1,6 @@
-import { GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols";
+import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { update2 } from "../Updater2/Updater2";
 import { raiseError } from "../utils";
 class ComponentStateOutput {
     binding;
@@ -16,7 +17,7 @@ class ComponentStateOutput {
             raiseError(`No binding found for child path "${childPath}".`);
         }
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
-        return binding.engine.readonlyState[GetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex);
+        return binding.engine.getPropertyValue(parentPathInfo, listIndex ?? binding.bindingState.listIndex);
     }
     set(pathInfo, listIndex, value) {
         const childPath = this.binding.startsWithByChildPath(pathInfo);
@@ -29,8 +30,8 @@ class ComponentStateOutput {
         }
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
         const engine = binding.engine;
-        engine.useWritableStateProxy(null, async (state) => {
-            state[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
+        update2(engine, null, async (updater, stateProxy) => {
+            stateProxy[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
         });
         return true;
     }

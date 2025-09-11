@@ -30,7 +30,6 @@ export interface IBindingNode {
   readonly bindContents   : Set<IBindContent>;
   readonly value        : any;
   readonly filteredValue: any;
-  update(): void;
   init(): void;
   assignValue(value: any): void;
   updateElements(listIndexes: IListIndex2[], values: any[]): void;

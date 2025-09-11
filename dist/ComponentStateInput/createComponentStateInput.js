@@ -1,4 +1,6 @@
+import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { update2 } from "../Updater2/Updater2";
 import { raiseError } from "../utils";
 import { AssignStateSymbol, NotifyRedrawSymbol } from "./symbols";
 class ComponentStateInputHandler {
@@ -9,10 +11,10 @@ class ComponentStateInputHandler {
         this.engine = engine;
     }
     assignState(object) {
-        this.engine.useWritableStateProxy(null, async (state) => {
+        update2(this.engine, null, async (updater, stateProxy) => {
             for (const [key, value] of Object.entries(object)) {
                 const childPathInfo = getStructuredPathInfo(key);
-                this.engine.setPropertyValue(childPathInfo, null, value);
+                stateProxy[SetByRefSymbol](childPathInfo, null, value);
             }
         });
     }
@@ -27,7 +29,10 @@ class ComponentStateInputHandler {
                 const childPathInfo = getStructuredPathInfo(childPath);
                 const childListIndex = parentPathRef.listIndex;
                 const value = this.engine.getPropertyValue(childPathInfo, childListIndex);
-                this.engine.updater.addUpdatedStatePropertyRefValue(childPathInfo, childListIndex, value);
+                // Ref情報をもとに状態更新キューに追加
+                update2(this.engine, null, async (updater, stateProxy) => {
+                    updater.enqueueRef(childPathInfo, childListIndex, value);
+                });
             }
             catch (e) {
                 // 対象でないものは何もしない

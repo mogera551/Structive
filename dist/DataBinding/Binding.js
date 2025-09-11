@@ -24,7 +24,7 @@ class Binding {
         this.node = node;
         this.engine = engine;
         this.bindingNode = createBindingNode(this, node, engine.inputFilters);
-        this.bindingState = createBindingState(this, engine.readonlyState, engine.outputFilters);
+        this.bindingState = createBindingState(this, engine.outputFilters);
     }
     get bindContents() {
         return this.bindingNode.bindContents;
@@ -33,21 +33,16 @@ class Binding {
         this.bindingNode.init();
         this.bindingState.init();
     }
-    render() {
-        if (this.version !== this.engine.updater.version) {
-            try {
-                this.bindingNode.update();
-            }
-            finally {
-                this.version = this.engine.updater.version;
-            }
-        }
-    }
     updateStateValue(writeState, value) {
         return this.bindingState.assignValue(writeState, value);
     }
     notifyRedraw(refs) {
         this.bindingNode.notifyRedraw(refs);
+    }
+    applyChange(renderer) {
+        if (!renderer.updatedBindings.has(this))
+            return;
+        this.bindingNode.applyChange(renderer);
     }
 }
 /**

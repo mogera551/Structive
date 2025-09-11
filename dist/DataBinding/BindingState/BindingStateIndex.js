@@ -19,7 +19,6 @@ class BindingStateIndex {
     #binding;
     #indexNumber;
     #listIndexRef = null;
-    #state;
     #filters;
     get pattern() {
         return raiseError("Not implemented");
@@ -32,30 +31,26 @@ class BindingStateIndex {
             return null;
         return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
     }
-    get state() {
-        return this.#state;
-    }
     get filters() {
         return this.#filters;
     }
     get binding() {
         return this.#binding;
     }
-    constructor(binding, state, pattern, filters) {
+    constructor(binding, pattern, filters) {
         this.#binding = binding;
         const indexNumber = Number(pattern.slice(1));
         if (isNaN(indexNumber)) {
             raiseError("BindingStateIndex: pattern is not a number");
         }
         this.#indexNumber = indexNumber;
-        this.#state = state;
         this.#filters = filters;
     }
-    get value() {
+    getValue(state) {
         return this.listIndex?.index ?? raiseError("listIndex is null");
     }
-    get filteredValue() {
-        let value = this.value;
+    getFilteredValue(state) {
+        let value = this.getValue(state);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -80,7 +75,7 @@ class BindingStateIndex {
         raiseError("BindingStateIndex: assignValue is not implemented");
     }
 }
-export const createBindingStateIndex = (name, filterTexts) => (binding, state, filters) => {
+export const createBindingStateIndex = (name, filterTexts) => (binding, filters) => {
     const filterFns = createFilters(filters, filterTexts); // ToDo:ここは、メモ化できる
-    return new BindingStateIndex(binding, state, name, filterFns);
+    return new BindingStateIndex(binding, name, filterFns);
 };

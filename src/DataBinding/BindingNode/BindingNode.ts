@@ -66,9 +66,6 @@ export class BindingNode implements IBindingNode {
   init():void {
     // サブクラスで初期化処理を実装可能
   }
-  update(): void {
-    this.assignValue(this.binding.bindingState.filteredValue);
-  }
   assignValue(value: any): void {
     raiseError(`BindingNode: assignValue not implemented`);
   }

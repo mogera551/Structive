@@ -11,8 +11,10 @@ class StateHandler {
     listIndex2Stack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
     loopContext = null;
-    constructor(engine) {
+    updater;
+    constructor(engine, updater) {
         this.engine = engine;
+        this.updater = updater;
     }
     get(target, prop, receiver) {
         return trapGet(target, prop, receiver, this);
@@ -21,8 +23,8 @@ class StateHandler {
         return trapSet(target, prop, value, receiver, this);
     }
 }
-export async function useWritableStateProxy(engine, state, loopContext = null, callback) {
-    const handler = new StateHandler(engine);
+export async function useWritableStateProxy(engine, updater, state, loopContext, callback) {
+    const handler = new StateHandler(engine, updater);
     const stateProxy = new Proxy(state, handler);
     return setLoopContext(handler, loopContext, async () => {
         await callback(stateProxy);

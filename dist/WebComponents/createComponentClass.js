@@ -26,11 +26,8 @@ import { registerHtml } from "../Template/registerHtml.js";
 import { getTemplateById } from "../Template/registerTemplate.js";
 import { getBaseClass } from "./getBaseClass.js";
 import { getComponentConfig } from "./getComponentConfig.js";
-import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes.js";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
-import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions.js";
-import { config as globalConfig } from "./getGlobalConfig.js";
 import { findStructiveParent } from "./findStructiveParent.js";
+import { createPathManager } from "../PathManager/PathManager.js";
 export function createComponentClass(componentData) {
     const config = (componentData.stateClass.$config ?? {});
     const componentConfig = getComponentConfig(config);
@@ -101,6 +98,7 @@ export function createComponentClass(componentData) {
             this.#html = value;
             registerHtml(this.id, value);
             this.#template = null;
+            this.#pathManager = null; // パス情報をリセット
         }
         static #css = css;
         static get css() {
@@ -140,63 +138,12 @@ export function createComponentClass(componentData) {
         static get outputFilters() {
             return this.#outputFilters;
         }
-        static get listPaths() {
-            return getListPathsSetById(this.id);
-        }
-        static get paths() {
-            return getPathsSetById(this.id);
-        }
-        static #getters = new Set();
-        static get getters() {
-            return this.#getters;
-        }
-        static #setters = new Set();
-        static get setters() {
-            return this.#setters;
-        }
-        static #trackedGetters = null;
-        static get trackedGetters() {
-            if (this.#trackedGetters === null) {
-                this.#trackedGetters = new Set();
-                let currentProto = this.stateClass.prototype;
-                while (currentProto && currentProto !== Object.prototype) {
-                    const trackedGetters = Object.getOwnPropertyDescriptors(currentProto);
-                    if (trackedGetters) {
-                        for (const [key, desc] of Object.entries(trackedGetters)) {
-                            const hasGetter = desc.get !== undefined;
-                            const hasSetter = desc.set !== undefined;
-                            if (hasGetter) {
-                                this.#getters.add(key);
-                                // Getterを設定しているプロパティが対象
-                                this.#trackedGetters.add(key);
-                                if (hasSetter) {
-                                    this.#setters?.add(key);
-                                }
-                            }
-                        }
-                    }
-                    currentProto = Object.getPrototypeOf(currentProto);
-                }
-                if (globalConfig.optimizeAccessor) {
-                    for (const path of this.paths) {
-                        const info = getStructuredPathInfo(path);
-                        if (info.pathSegments.length === 1) {
-                            continue;
-                        }
-                        if (this.#getters.has(path)) {
-                            continue;
-                        }
-                        const funcs = createAccessorFunctions(info, this.#getters);
-                        Object.defineProperty(this.stateClass.prototype, path, {
-                            get: funcs.get,
-                            set: funcs.set,
-                            enumerable: true,
-                            configurable: true,
-                        });
-                    }
-                }
+        static #pathManager = null;
+        static get pathManager() {
+            if (!this.#pathManager) {
+                this.#pathManager = createPathManager(this);
             }
-            return this.#trackedGetters;
+            return this.#pathManager;
         }
     };
 }

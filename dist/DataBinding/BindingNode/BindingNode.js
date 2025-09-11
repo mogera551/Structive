@@ -52,9 +52,6 @@ export class BindingNode {
     init() {
         // サブクラスで初期化処理を実装可能
     }
-    update() {
-        this.assignValue(this.binding.bindingState.filteredValue);
-    }
     assignValue(value) {
         raiseError(`BindingNode: assignValue not implemented`);
     }
@@ -63,6 +60,13 @@ export class BindingNode {
     }
     notifyRedraw(refs) {
         // サブクラスで親子関係を考慮してバインディングの更新を通知する実装が可能
+    }
+    applyChange(renderer) {
+        if (renderer.updatedBindings.has(this.binding))
+            return;
+        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
+        this.assignValue(filteredValue);
+        renderer.updatedBindings.add(this.binding);
     }
     get isSelectElement() {
         return this.node instanceof HTMLSelectElement;

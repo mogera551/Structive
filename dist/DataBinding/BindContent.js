@@ -3,7 +3,6 @@ import { getTemplateById } from "../Template/registerTemplate.js";
 import { raiseError } from "../utils.js";
 import { createBinding } from "./Binding.js";
 import { createLoopContext } from "../LoopContext/createLoopContext.js";
-import { render } from "../Updater/render.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap.js";
 function createContent(id) {
@@ -140,9 +139,6 @@ class BindContent {
         }
     }
     bindings = [];
-    render() {
-        render(this.bindings);
-    }
     init() {
         this.bindings.forEach(binding => binding.init());
     }
@@ -151,6 +147,11 @@ class BindContent {
             raiseError(`BindContent: loopContext is null`);
         this.loopContext.assignListIndex(listIndex);
         this.init();
+    }
+    applyChange(renderer) {
+        for (const binding of this.bindings) {
+            binding.applyChange(renderer);
+        }
     }
 }
 export function createBindContent(parentBinding, id, engine, loopContext, listIndex) {

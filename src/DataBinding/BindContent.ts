@@ -6,11 +6,9 @@ import { raiseError } from "../utils.js";
 import { createBinding } from "./Binding.js";
 import { IBindContent, IBinding } from "./types";
 import { createLoopContext } from "../LoopContext/createLoopContext.js";
-import { render } from "../Updater/render.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap.js";
 import { IListIndex2 } from "../ListIndex2/types.js";
-import { IReadonlyStateProxy } from "../StateClass/types.js";
 import { IRenderer } from "../Updater2/types.js";
 
 function createContent(id: number): DocumentFragment {

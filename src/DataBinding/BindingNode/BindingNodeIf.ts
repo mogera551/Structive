@@ -1,6 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { IRenderer } from "../../Updater2/types.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
 import { IBindContent, IBinding } from "../types";
@@ -47,22 +48,25 @@ class BindingNodeIf extends BindingNodeBlock {
     this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
   }
 
-  assignValue(value:any) {
-    if (typeof value !== "boolean") {
+  applyChange(renderer: IRenderer): void {
+    if (renderer.updatedBindings.has(this.binding)) return;
+    const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
+    if (typeof filteredValue !== "boolean") {
       raiseError(`BindingNodeIf.update: value is not boolean`);
     }
     const parentNode = this.node.parentNode;
     if (parentNode == null) {
       raiseError(`BindingNodeIf.update: parentNode is null`);
     }
-    if (value) {
+    if (filteredValue) {
       this.#bindContent.mountAfter(parentNode, this.node);
-      this.#bindContent.render();
+      this.#bindContent.applyChange(renderer);
       this.#bindContents = this.#trueBindContents;
     } else {
       this.#bindContent.unmount();
       this.#bindContents = this.#falseBindContents;
     }
+    renderer.updatedBindings.add(this.binding);
   }
 }
 

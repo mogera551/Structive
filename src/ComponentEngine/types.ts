@@ -4,11 +4,9 @@ import { IBindContent, IBinding } from "../DataBinding/types";
 import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex2 } from "../ListIndex2/types";
-import { ILoopContext } from "../LoopContext/types";
 import { IPathManager } from "../PathManager/types";
-import { IState, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
+import { IState, IStructiveState } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { IUpdater } from "../Updater/types";
 import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";
 
 /**

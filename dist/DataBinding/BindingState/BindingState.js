@@ -22,7 +22,6 @@ class BindingState {
     #pattern;
     #info;
     #listIndexRef = null;
-    #state;
     #filters;
     get pattern() {
         return this.#pattern;
@@ -35,27 +34,23 @@ class BindingState {
             return null;
         return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
     }
-    get state() {
-        return this.#state;
-    }
     get filters() {
         return this.#filters;
     }
     get binding() {
         return this.#binding;
     }
-    constructor(binding, state, pattern, filters) {
+    constructor(binding, pattern, filters) {
         this.#binding = binding;
         this.#pattern = pattern;
         this.#info = getStructuredPathInfo(pattern);
-        this.#state = state;
         this.#filters = filters;
     }
-    get value() {
-        return this.#state[GetByRefSymbol](this.info, this.listIndex);
+    getValue(state) {
+        return state[GetByRefSymbol](this.info, this.listIndex);
     }
-    get filteredValue() {
-        let value = this.value;
+    getFilteredValue(state) {
+        let value = this.getValue(state);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -75,7 +70,7 @@ class BindingState {
         writeState[SetByRefSymbol](this.info, this.listIndex, value);
     }
 }
-export const createBindingState = (name, filterTexts) => (binding, state, filters) => {
+export const createBindingState = (name, filterTexts) => (binding, filters) => {
     const filterFns = createFilters(filters, filterTexts); // ToDo:ここは、メモ化できる
-    return new BindingState(binding, state, name, filterFns);
+    return new BindingState(binding, name, filterFns);
 };

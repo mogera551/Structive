@@ -71,7 +71,7 @@ class BindingNodeProperty extends BindingNode {
     this.node.addEventListener(eventName, async () => {
       const loopContext = this.binding.parentBindContent.currentLoopContext;
       const value = this.filteredValue;
-      await update2(engine, loopContext, async (state) => {
+      await update2(engine, loopContext, async (updater, state) => {
         binding.updateStateValue(state, value);
       });
     });

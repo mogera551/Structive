@@ -1,17 +1,15 @@
 import { createBindContent } from "../DataBinding/BindContent.js";
-import { createUpdater } from "../Updater/updater.js";
 import { attachShadow } from "./attachShadow.js";
-import { buildListIndexTree } from "../StateClass/buildListIndexTree.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
 import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
-import { useWritableStateProxy } from "../StateClass/useWritableStateProxy.js";
 import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
 import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
+import { update2 } from "../Updater2/Updater2.js";
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
  * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
@@ -41,8 +39,6 @@ export class ComponentEngine {
     styleSheet;
     stateClass;
     state;
-    readonlyState;
-    updater;
     inputFilters;
     outputFilters;
     #bindContent = null;
@@ -54,11 +50,6 @@ export class ComponentEngine {
     }
     baseClass = HTMLElement;
     owner;
-    trackedGetters;
-    getters;
-    setters;
-    listInfoSet = new Set();
-    elementInfoSet = new Set();
     bindingsByListIndex = new WeakMap();
     dependentTree = new Map();
     bindingsByComponent = new WeakMap();
@@ -81,46 +72,17 @@ export class ComponentEngine {
         this.styleSheet = componentClass.styleSheet;
         this.stateClass = componentClass.stateClass;
         this.state = new this.stateClass();
-        this.readonlyState = createReadonlyStateProxy(this, this.state);
-        this.updater = createUpdater(this);
         this.inputFilters = componentClass.inputFilters;
         this.outputFilters = componentClass.outputFilters;
         this.owner = owner;
-        this.trackedGetters = componentClass.trackedGetters;
-        this.getters = componentClass.getters;
-        this.setters = componentClass.setters;
         this.stateInput = createComponentStateInput(this, this.#stateBinding);
         this.stateOutput = createComponentStateOutput(this.#stateBinding);
-        // 依存関係の木を作成する
-        const checkDependentProp = (info) => {
-            const parentInfo = info.parentInfo;
-            if (parentInfo === null)
-                return;
-            this.addDependentProp(info, parentInfo, "structured");
-            checkDependentProp(parentInfo);
-        };
-        for (const path of componentClass.paths) {
-            const info = getStructuredPathInfo(path);
-            checkDependentProp(info);
-        }
-        // 配列のプロパティ、配列要素のプロパティを登録する
-        for (const listPath of componentClass.listPaths) {
-            this.listInfoSet.add(getStructuredPathInfo(listPath));
-            this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
-        }
-        for (const listPath of this.stateClass.$listProperties ?? []) {
-            this.listInfoSet.add(getStructuredPathInfo(listPath));
-            this.elementInfoSet.add(getStructuredPathInfo(listPath + ".*"));
-        }
+    }
+    get pathManager() {
+        return this.owner.constructor.pathManager;
     }
     setup() {
         const componentClass = this.owner.constructor;
-        for (const info of this.listInfoSet) {
-            if (info.wildcardCount > 0)
-                continue;
-            const value = this.readonlyState[GetByRefSymbol](info, null);
-            buildListIndexTree(this, info, null, value);
-        }
         this.#bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
     }
     get waitForInitialize() {
@@ -170,10 +132,14 @@ export class ComponentEngine {
             const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
             this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
         }
-        this.readonlyState[SetCacheableSymbol](() => {
-            this.bindContent.render();
-        }); // キャッシュ可能にする
-        await this.useWritableStateProxy(null, async (stateProxy) => {
+        await update2(this, null, async (updater, stateProxy) => {
+            // 状態のリスト構造を構築する
+            for (const path of this.pathManager.alls) {
+                const info = getStructuredPathInfo(path);
+                if (info.pathSegments.length !== 1)
+                    continue; // ルートプロパティのみ
+                updater.enqueueRef(info, null, null);
+            }
             await stateProxy[ConnectedCallbackSymbol]();
         });
         // レンダリングが終わってから実行する
@@ -186,7 +152,7 @@ export class ComponentEngine {
         try {
             if (this.#ignoreDissconnectedCallback)
                 return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-            await this.useWritableStateProxy(null, async (stateProxy) => {
+            await update2(this, null, async (updater, stateProxy) => {
                 await stateProxy[DisconnectedCallbackSymbol]();
             });
             // 親コンポーネントから登録を解除する
@@ -280,19 +246,14 @@ export class ComponentEngine {
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する
-        return this.readonlyState[GetByRefSymbol](info, listIndex);
+        const stateProxy = createReadonlyStateProxy(this, this.state);
+        return stateProxy[GetByRefSymbol](info, listIndex);
     }
     setPropertyValue(info, listIndex, value) {
         // プロパティの値を設定する
-        this.updater.addProcess(() => {
-            this.useWritableStateProxy(null, async (stateProxy) => {
-                stateProxy[SetByRefSymbol](info, listIndex, value);
-            });
+        update2(this, null, async (updater, stateProxy) => {
+            stateProxy[SetByRefSymbol](info, listIndex, value);
         });
-    }
-    // 書き込み可能な状態プロキシを作成する
-    async useWritableStateProxy(loopContext, callback) {
-        return useWritableStateProxy(this, this.state, loopContext, callback);
     }
     // Structive子コンポーネントを登録する
     registerChildComponent(component) {
