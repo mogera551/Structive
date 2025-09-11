@@ -21,8 +21,8 @@ import { IListIndex2 } from "../../ListIndex2/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils";
 import { IWritableStateHandler, IWritableStateProxy } from "../types";
+import { checkDependency } from "./checkDependency";
 import { setStatePropertyRef } from "./setStatePropertyRef";
-import { setTracking } from "./setTracking.js";
 
 /**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
@@ -75,7 +75,6 @@ function _getByRef(
 }
 
 /**
- * trackedGettersに含まれる場合は依存追跡(setTracking)を有効化し、値取得を行う。
  * それ以外は通常の_getByRefで取得。
  */
 export function getByRefWritable(
@@ -85,7 +84,6 @@ export function getByRefWritable(
   receiver : IWritableStateProxy,
   handler  : IWritableStateHandler
 ): any {
-  return setTracking(info, handler, () => {
-    return _getByRef(target, info, listIndex, receiver, handler);
-  });
+  checkDependency(handler, info, listIndex);
+  return _getByRef(target, info, listIndex, receiver, handler);
 }

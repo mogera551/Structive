@@ -7,11 +7,8 @@ import { attachShadow } from "./attachShadow.js";
 import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
-import { ILoopContext } from "../LoopContext/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
-import { DependencyType, IDependencyEdge } from "../DependencyWalker/types.js";
-import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
 import { IComponentStateBinding } from "../ComponentStateBinding/types.js";
 import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
@@ -20,7 +17,6 @@ import { createComponentStateOutput } from "../ComponentStateOutput/createCompon
 import { IComponentStateInput } from "../ComponentStateInput/types.js";
 import { IComponentStateOutput } from "../ComponentStateOutput/types.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
-import { registerStructiveComponent } from "../WebComponents/findStructiveParent.js";
 import { IListIndex2 } from "../ListIndex2/types.js";
 import { IPathManager } from "../PathManager/types.js";
 import { update2 } from "../Updater2/Updater2.js";
@@ -67,7 +63,6 @@ export class ComponentEngine implements IComponentEngine {
   owner         : StructiveComponent;
 
   bindingsByListIndex : WeakMap<IListIndex2, Set<IBinding>> = new WeakMap();
-  dependentTree       : Map<IStructuredPathInfo, Set<IDependencyEdge>> = new Map();
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
   structiveChildComponents: Set<StructiveComponent> = new Set();
@@ -283,16 +278,6 @@ export class ComponentEngine implements IComponentEngine {
   ): any[] | null {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     return saveInfo.list;
-  }
-
-  addDependentProp(info: IStructuredPathInfo, refInfo: IStructuredPathInfo, type: DependencyType) {
-    let dependents = this.dependentTree.get(refInfo);
-    if (typeof dependents === "undefined") {
-      dependents = new Set<IDependencyEdge>();
-      this.dependentTree.set(refInfo, dependents);
-    }
-    const edge = createDependencyEdge(info, type);
-    dependents.add(edge);
   }
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null): any {

@@ -30,10 +30,11 @@ export function resolveWritable(
 ): Function {
   return (path: string, indexes: number[], value?: any): any => {
     const info = getStructuredPathInfo(path);
-    if (handler.lastTrackingStack != null) {
-      // gettersに含まれる場合はsetTrackingで依存追跡を有効化
-      if (handler.engine.pathManager.getters.has(handler.lastTrackingStack.pattern)) {
-        handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+    const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+    if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
+      // gettersに含まれる場合は依存関係を登録
+      if (handler.engine.pathManager.getters.has(lastInfo.pattern)) {
+        handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
       }
     }
 

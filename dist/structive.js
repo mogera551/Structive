@@ -573,7 +573,7 @@ function textToFilter(filters, text) {
         raiseError(`outputBuiltinFiltersFn: filter not found: ${name}`);
     return filter(text.options);
 }
-const cache$2 = new Map();
+const cache$1 = new Map();
 /**
  * フィルターテキスト配列（texts）からフィルター関数配列（Filters）を生成する。
  * すでに同じtextsがキャッシュされていればそれを返す。
@@ -583,13 +583,13 @@ const cache$2 = new Map();
  * @returns       フィルター関数配列
  */
 function createFilters(filters, texts) {
-    let result = cache$2.get(texts);
+    let result = cache$1.get(texts);
     if (typeof result === "undefined") {
         result = [];
         for (let i = 0; i < texts.length; i++) {
             result.push(textToFilter(filters, texts[i]));
         }
-        cache$2.set(texts, result);
+        cache$1.set(texts, result);
     }
     return result;
 }
@@ -1076,6 +1076,19 @@ const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
 const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
 const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
 
+function checkDependency(handler, info, listIndex) {
+    // 動的依存関係の登録
+    if (handler.refIndex >= 0) {
+        const lastInfo = handler.structuredPathInfoStack[handler.refIndex];
+        if (lastInfo !== null) {
+            if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
+                lastInfo.pattern !== info.pattern) {
+                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
+            }
+        }
+    }
+}
+
 function setStatePropertyRef(handler, info, listIndex, callback) {
     handler.refIndex++;
     if (handler.refIndex >= handler.structuredPathInfoStack.length) {
@@ -1091,31 +1104,6 @@ function setStatePropertyRef(handler, info, listIndex, callback) {
         handler.structuredPathInfoStack[handler.refIndex] = null;
         handler.listIndex2Stack[handler.refIndex] = null;
         handler.refIndex--;
-    }
-}
-
-function setTracking(info, handler, callback) {
-    // 依存関係の自動登録
-    const lastTrackingStack = handler.trackingStack[handler.trackingIndex] ?? null;
-    if (lastTrackingStack != null) {
-        // gettersに含まれる場合はsetTrackingで依存追跡を有効化
-        if (handler.engine.pathManager.getters.has(lastTrackingStack.pattern)) {
-            handler.engine.addDependentProp(lastTrackingStack, info, "reference");
-        }
-    }
-    handler.trackingIndex++;
-    if (handler.trackingIndex >= handler.trackingStack.length) {
-        handler.trackingStack.push(null);
-    }
-    handler.trackingStack[handler.trackingIndex] = info;
-    handler.lastTrackingStack = handler.trackingStack[handler.trackingIndex] ?? null;
-    try {
-        return callback();
-    }
-    finally {
-        handler.trackingStack[handler.trackingIndex] = null;
-        handler.trackingIndex--;
-        handler.lastTrackingStack = handler.trackingStack[handler.trackingIndex] ?? null;
     }
 }
 
@@ -1164,13 +1152,11 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
     }
 }
 /**
- * trackedGettersに含まれる場合は依存追跡(setTracking)を有効化し、値取得を行う。
  * それ以外は通常の_getByRefで取得。
  */
 function getByRefWritable(target, info, listIndex, receiver, handler) {
-    return setTracking(info, handler, () => {
-        return _getByRef$1(target, info, listIndex, receiver, handler);
-    });
+    checkDependency(handler, info);
+    return _getByRef$1(target, info, listIndex, receiver, handler);
 }
 
 function setByRef(target, info, listIndex, value, receiver, handler) {
@@ -1224,10 +1210,11 @@ function setByRef(target, info, listIndex, value, receiver, handler) {
 function resolveWritable(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
-        if (handler.lastTrackingStack != null) {
-            // gettersに含まれる場合はsetTrackingで依存追跡を有効化
-            if (handler.engine.pathManager.getters.has(handler.lastTrackingStack.pattern)) {
-                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+        if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
+            // gettersに含まれる場合は依存関係を登録
+            if (handler.engine.pathManager.getters.has(lastInfo.pattern)) {
+                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
             }
         }
         let listIndex = null;
@@ -1268,10 +1255,11 @@ function getAllWritable(target, prop, receiver, handler) {
     const resolve = resolveWritable(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
-        if (handler.lastTrackingStack != null) {
-            // gettersに含まれる場合はsetTrackingで依存追跡を有効化
-            if (handler.engine.pathManager.getters.has(handler.lastTrackingStack.pattern)) {
-                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+        if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
+            // gettersに含まれる場合は依存関係を登録
+            if (handler.engine.pathManager.getters.has(lastInfo.pattern)) {
+                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
             }
         }
         if (typeof indexes === "undefined") {
@@ -1337,12 +1325,10 @@ async function disconnectedCallback(target, prop, receiver, handler) {
 
 function trackDependency(target, prop, receiver, handler) {
     return (path) => {
-        const info = getStructuredPathInfo(path);
-        if (handler.lastTrackingStack != null) {
-            // gettersに含まれる場合はsetTrackingで依存追跡を有効化
-            if (handler.engine.pathManager.getters.has(handler.lastTrackingStack.pattern)) {
-                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
-            }
+        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? raiseError("Internal error: structuredPathInfoStack is null.");
+        if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
+            lastInfo.pattern !== path) {
+            handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, path);
         }
     };
 }
@@ -1528,6 +1514,23 @@ async function useWritableStateProxy(engine, updater, state, loopContext, callba
     });
 }
 
+function listWalkerSub(engine, info, listIndex, callback) {
+    const listIndexLen = listIndex?.length ?? 0;
+    if (info.wildcardCount === listIndexLen) {
+        callback(info, listIndex);
+    }
+    else {
+        const parentInfo = info.wildcardParentInfos[listIndexLen] ?? raiseError("Invalid state property info");
+        const listIndexes = engine.getListIndexesSet(parentInfo, listIndex);
+        for (const subListIndex of listIndexes ?? []) {
+            listWalkerSub(engine, info, subListIndex, callback);
+        }
+    }
+}
+function listWalker(engine, info, listIndex, callback) {
+    listWalkerSub(engine, info, listIndex, callback);
+}
+
 /**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
  *
@@ -1595,13 +1598,11 @@ function _getByRef(target, info, listIndex, receiver, handler) {
     }
 }
 /**
- * trackedGettersに含まれる場合は依存追跡(setTracking)を有効化し、値取得を行う。
  * それ以外は通常の_getByRefで取得。
  */
 function getByRefReadonly(target, info, listIndex, receiver, handler) {
-    return setTracking(info, handler, () => {
-        return _getByRef(target, info, listIndex, receiver, handler);
-    });
+    checkDependency(handler, info);
+    return _getByRef(target, info, listIndex, receiver, handler);
 }
 
 /**
@@ -1624,10 +1625,11 @@ function getByRefReadonly(target, info, listIndex, receiver, handler) {
 function resolveReadonly(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
-        if (handler.lastTrackingStack != null) {
-            // gettersに含まれる場合はsetTrackingで依存追跡を有効化
-            if (handler.engine.pathManager.getters.has(handler.lastTrackingStack.pattern)) {
-                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+        if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
+            // gettersに含まれる場合は依存関係を登録
+            if (handler.engine.pathManager.getters.has(lastInfo.pattern)) {
+                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
             }
         }
         let listIndex = null;
@@ -1679,10 +1681,11 @@ function getAllReadonly(target, prop, receiver, handler) {
     const resolve = resolveReadonly(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
-        if (handler.lastTrackingStack != null) {
-            // gettersに含まれる場合はsetTrackingで依存追跡を有効化
-            if (handler.engine.pathManager.getters.has(handler.lastTrackingStack.pattern)) {
-                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
+        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+        if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
+            // gettersに含まれる場合は依存関係を登録
+            if (handler.engine.pathManager.getters.has(lastInfo.pattern)) {
+                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
             }
         }
         if (typeof indexes === "undefined") {
@@ -2100,11 +2103,11 @@ class Renderer {
         // 静的・動的依存要素のレンダリング
         const isList = this.isListValue(info);
         const diffResults = isList ? this.#listDiffResultsByRefKey.get(refKey) : null;
-        const elementPath = isList ? info.pattern + ".*" : null;
+        const elementInfo = isList ? getStructuredPathInfo(info.pattern + ".*") : null;
         // 静的依存要素のレンダリング
         for (const subPath of this.#engine?.pathManager.staticDependencies.get(info.pattern) ?? []) {
             const subInfo = getStructuredPathInfo(subPath);
-            if (elementPath && subInfo.wildcardPathSet.has(elementPath)) {
+            if (elementInfo?.pattern && subInfo.wildcardPathSet.has(elementInfo.pattern)) {
                 // リストの依存要素の場合
                 for (const subListIndex of diffResults?.newListIndexesSet ?? []) {
                     this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
@@ -2117,21 +2120,38 @@ class Renderer {
         // 動的依存要素のレンダリング
         for (const subPath of this.#engine?.pathManager.dynamicDependencies.get(info.pattern) ?? []) {
             const subInfo = getStructuredPathInfo(subPath);
-            if (elementPath && subInfo.wildcardPathSet.has(elementPath)) {
-                // リストの依存要素の場合
-                for (const subListIndex of diffResults?.newListIndexesSet ?? []) {
-                    this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+            // リストの依存要素の場合は、静的依存で処理済み
+            if (subInfo.wildcardCount > 0) {
+                const parentMatchPaths = subInfo.wildcardPathSet.intersection(elementInfo?.wildcardPathSet ?? new Set());
+                if (parentMatchPaths.size > 0) {
+                    if (diffResults?.newListIndexesSet?.size === parentMatchPaths.size) {
+                        // リストパスが完全に一致する場合
+                        for (const subListIndex of diffResults?.newListIndexesSet ?? []) {
+                            listWalker(this.engine, subInfo, subListIndex, (_info, _listIndex) => {
+                                this.renderItem(_info, _listIndex, trackedRefKeys, updatedBindings, readonlyState);
+                            });
+                        }
+                    }
+                    else {
+                        // リストパスが一部一致する場合
+                        const lastMatchPath = Array.from(parentMatchPaths).at(-1); // 共通パスを取得
+                        const lastMatchInfo = getStructuredPathInfo(lastMatchPath); // ワイルドカードのパス情報を取得
+                        // 共通パスのワイルドカードの深さまでlistIndexを辿る
+                        const subListIndex = listIndex?.at(lastMatchInfo.wildcardCount - 1) ?? null;
+                        listWalker(this.engine, subInfo, subListIndex, (_info, _listIndex) => {
+                            this.renderItem(_info, _listIndex, trackedRefKeys, updatedBindings, readonlyState);
+                        });
+                    }
+                }
+                else {
+                    // まったく無関係なリストの場合リストを展開しながらレンダリング
+                    listWalker(this.engine, subInfo, null, (subInfo, subListIndex) => {
+                        this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+                    });
                 }
             }
             else {
-                if (subInfo.wildcardPathSet.has(info.pattern)) {
-                    const pathSets = subInfo.wildcardPathSet.intersection(info.wildcardPathSet);
-                    const subListIndex = listIndex?.at(pathSets.size - 1) ?? null;
-                    this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
-                }
-                else {
-                    this.renderItem(subInfo, null, trackedRefKeys, updatedBindings, readonlyState);
-                }
+                this.renderItem(subInfo, null, trackedRefKeys, updatedBindings, readonlyState);
             }
         }
     }
@@ -3120,7 +3140,7 @@ const parseExpression = (expression) => {
 const parseExpressions = (text) => {
     return text.split(";").map(trim).filter(has).map(s => parseExpression(s));
 };
-const cache$1 = {};
+const cache = {};
 /**
  * バインドテキスト（data-bind属性やコメント等から取得した文字列）を解析し、
  * バインディング情報（IBindText[]）に変換するユーティリティ関数群。
@@ -3137,7 +3157,7 @@ function parseBindText(text) {
     if (text.trim() === "") {
         return [];
     }
-    return cache$1[text] ?? (cache$1[text] = parseExpressions(text));
+    return cache[text] ?? (cache[text] = parseExpressions(text));
 }
 
 const DATASET_BIND_PROPERTY = 'data-bind';
@@ -3733,21 +3753,6 @@ function attachShadow(element, config, styleSheet) {
     }
 }
 
-/**
- * infoとtypeから依存関係エッジの一意キーを生成
- */
-function createDependencyKey(info, type) {
-    return `${info.pattern}@${type}`;
-}
-const cache = {};
-/**
- * 依存関係エッジ（IDependencyEdge）を生成・キャッシュして返す
- */
-function createDependencyEdge(info, type) {
-    const key = createDependencyKey(info, type);
-    return cache[key] ?? (cache[key] = { info, type });
-}
-
 class ComponentStateBinding {
     parentPaths = new Set();
     childPaths = new Set();
@@ -3993,7 +3998,6 @@ class ComponentEngine {
     baseClass = HTMLElement;
     owner;
     bindingsByListIndex = new WeakMap();
-    dependentTree = new Map();
     bindingsByComponent = new WeakMap();
     structiveChildComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
@@ -4178,15 +4182,6 @@ class ComponentEngine {
     getList(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.list;
-    }
-    addDependentProp(info, refInfo, type) {
-        let dependents = this.dependentTree.get(refInfo);
-        if (typeof dependents === "undefined") {
-            dependents = new Set();
-            this.dependentTree.set(refInfo, dependents);
-        }
-        const edge = createDependencyEdge(info, type);
-        dependents.add(edge);
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する

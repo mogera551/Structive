@@ -1,12 +1,10 @@
-import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo";
+import { raiseError } from "../../utils";
 export function trackDependency(target, prop, receiver, handler) {
     return (path) => {
-        const info = getStructuredPathInfo(path);
-        if (handler.lastTrackingStack != null) {
-            // gettersに含まれる場合はsetTrackingで依存追跡を有効化
-            if (handler.engine.pathManager.getters.has(handler.lastTrackingStack.pattern)) {
-                handler.engine.addDependentProp(handler.lastTrackingStack, info, "reference");
-            }
+        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? raiseError("Internal error: structuredPathInfoStack is null.");
+        if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
+            lastInfo.pattern !== path) {
+            handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, path);
         }
     };
 }

@@ -3,7 +3,6 @@ import { attachShadow } from "./attachShadow.js";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
-import { createDependencyEdge } from "../DependencyWalker/createDependencyEdge.js";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
 import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
@@ -51,7 +50,6 @@ export class ComponentEngine {
     baseClass = HTMLElement;
     owner;
     bindingsByListIndex = new WeakMap();
-    dependentTree = new Map();
     bindingsByComponent = new WeakMap();
     structiveChildComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
@@ -236,15 +234,6 @@ export class ComponentEngine {
     getList(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.list;
-    }
-    addDependentProp(info, refInfo, type) {
-        let dependents = this.dependentTree.get(refInfo);
-        if (typeof dependents === "undefined") {
-            dependents = new Set();
-            this.dependentTree.set(refInfo, dependents);
-        }
-        const edge = createDependencyEdge(info, type);
-        dependents.add(edge);
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する

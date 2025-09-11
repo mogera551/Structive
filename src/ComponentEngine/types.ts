@@ -1,7 +1,6 @@
 import { IComponentStateInput } from "../ComponentStateInput/types";
 import { IComponentStateOutput } from "../ComponentStateOutput/types";
 import { IBindContent, IBinding } from "../DataBinding/types";
-import { DependencyType, IDependencyEdge } from "../DependencyWalker/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex2 } from "../ListIndex2/types";
 import { IPathManager } from "../PathManager/types";
@@ -39,7 +38,6 @@ export interface IComponentEngine {
   waitForInitialize: PromiseWithResolvers<void>;
 
   bindingsByListIndex: WeakMap<IListIndex2, Set<IBinding>>; // リストインデックスからバインディングを取得する
-  dependentTree      : Map<IStructuredPathInfo, Set<IDependencyEdge>>; // 依存関係の木を取得する
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // Structive子コンポーネントからバインディングを取得する
   structiveChildComponents: Set<StructiveComponent>; // Structive子コンポーネントのセット
@@ -58,7 +56,6 @@ export interface IComponentEngine {
   existsBindingsByInfo(info: IStructuredPathInfo): boolean;
   getListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): Set<IListIndex2> | null;
   getList(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): any[] | null;
-  addDependentProp(pattern:IStructuredPathInfo, dependentPattern:IStructuredPathInfo, type:DependencyType): void;
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null): any; // プロパティの値を取得する
   setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null, value: any): void; // プロパティの値を設定する

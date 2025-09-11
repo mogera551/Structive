@@ -11,4 +11,5 @@ export interface IPathManager {
   optimizes: Set<string>;
   staticDependencies: Dependencies<string>;
   dynamicDependencies: Dependencies<string>;
+  addDynamicDependency(target: string, source: string): void;
 }

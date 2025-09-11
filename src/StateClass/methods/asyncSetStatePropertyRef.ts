@@ -15,6 +15,7 @@
  */
 import { IListIndex2 } from "../../ListIndex2/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
+import { raiseError } from "../../utils";
 import { IStateHandler } from "../types";
 
 /**

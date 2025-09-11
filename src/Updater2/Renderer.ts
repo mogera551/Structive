@@ -1,6 +1,7 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
 import { IListIndex2 } from "../ListIndex2/types";
+import { listWalker } from "../ListWalker/listWalker";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
 import { set } from "../StateClass/traps/set";
@@ -169,11 +170,11 @@ class Renderer implements IRenderer {
     // 静的・動的依存要素のレンダリング
     const isList = this.isListValue(info);
     const diffResults = isList ? this.#listDiffResultsByRefKey.get(refKey) : null;
-    const elementPath = isList ? info.pattern + ".*" : null;
+    const elementInfo = isList ? getStructuredPathInfo(info.pattern + ".*") : null;
     // 静的依存要素のレンダリング
     for(const subPath of this.#engine?.pathManager.staticDependencies.get(info.pattern) ?? []) {
       const subInfo = getStructuredPathInfo(subPath);
-      if (elementPath && subInfo.wildcardPathSet.has(elementPath)) {
+      if (elementInfo?.pattern && subInfo.wildcardPathSet.has(elementInfo.pattern)) {
         // リストの依存要素の場合
         for(const subListIndex of diffResults?.newListIndexesSet ?? []) {
           this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
@@ -185,19 +186,36 @@ class Renderer implements IRenderer {
     // 動的依存要素のレンダリング
     for(const subPath of this.#engine?.pathManager.dynamicDependencies.get(info.pattern) ?? []) {
       const subInfo = getStructuredPathInfo(subPath);
-      if (elementPath && subInfo.wildcardPathSet.has(elementPath)) {
-        // リストの依存要素の場合
-        for(const subListIndex of diffResults?.newListIndexesSet ?? []) {
-          this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
-        }
-      } else {
-        if (subInfo.wildcardPathSet.has(info.pattern)) {
-          const pathSets = subInfo.wildcardPathSet.intersection(info.wildcardPathSet);
-          const subListIndex = listIndex?.at(pathSets.size - 1) ?? null;
-          this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+      // リストの依存要素の場合は、静的依存で処理済み
+      if (subInfo.wildcardCount > 0) {
+        const parentMatchPaths = subInfo.wildcardPathSet.intersection(elementInfo?.wildcardPathSet ?? new Set());
+        if (parentMatchPaths.size > 0) {
+          if (diffResults?.newListIndexesSet?.size === parentMatchPaths.size) {
+            // リストパスが完全に一致する場合
+            for(const subListIndex of diffResults?.newListIndexesSet ?? []) {
+              listWalker(this.engine, subInfo, subListIndex, (_info, _listIndex) => {
+                this.renderItem(_info, _listIndex, trackedRefKeys, updatedBindings, readonlyState);
+              });
+            }
+          } else {
+            // リストパスが一部一致する場合
+            const lastMatchPath = Array.from(parentMatchPaths).at(-1) as string; // 共通パスを取得
+            const lastMatchInfo = getStructuredPathInfo(lastMatchPath); // ワイルドカードのパス情報を取得
+            // 共通パスのワイルドカードの深さまでlistIndexを辿る
+            const subListIndex = listIndex?.at(lastMatchInfo.wildcardCount - 1) ?? null;
+            listWalker(this.engine, subInfo, subListIndex, (_info, _listIndex) => {
+              this.renderItem(_info, _listIndex, trackedRefKeys, updatedBindings, readonlyState);
+            });
+          }
         } else {
-          this.renderItem(subInfo, null, trackedRefKeys, updatedBindings, readonlyState);
+          // まったく無関係なリストの場合リストを展開しながらレンダリング
+          listWalker(this.engine, subInfo, null, (subInfo, subListIndex) => {
+            this.renderItem(subInfo, subListIndex, trackedRefKeys, updatedBindings, readonlyState);
+          });
         }
+
+      } else {
+        this.renderItem(subInfo, null, trackedRefKeys, updatedBindings, readonlyState);
       }
     }
   }
