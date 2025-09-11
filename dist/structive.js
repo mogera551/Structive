@@ -1947,6 +1947,14 @@ function listDiffUpdate(oldValue, oldListIndexesSet, newValue, parentListIndex) 
     const removes = oldListIndexesSet.difference(newListIndexesSet);
     return { adds, updates, removes, newListIndexesSet };
 }
+/**
+ * リストの差分結果を取得する
+ * @param oldValue 古い値
+ * @param oldListIndexesSet 古いリストインデックスセット
+ * @param newValue 新しい値
+ * @param parentListIndex 親リストインデックス
+ * @returns リストの差分結果
+ */
 function getListDiffResults(oldValue, oldListIndexesSet, newValue, parentListIndex) {
     if (oldValue != null && newValue != null) {
         if (!oldListIndexesSet)
@@ -2024,7 +2032,7 @@ class Renderer {
             this.#updatedBindings.clear();
         }
     }
-    createListDiffResults(info, listIndex) {
+    getListDiffResults(info, listIndex) {
         if (this.isListValue(info) === false) {
             raiseError("The specified info is not a list value.");
         }
@@ -2073,7 +2081,7 @@ class Renderer {
         return this.engine.getBindings(info, listIndex) ?? [];
     }
     updateListIndexes(info, listIndex) {
-        const diffResult = this.createListDiffResults(info, listIndex);
+        const diffResult = this.getListDiffResults(info, listIndex);
         for (const path of this.engine.pathManager.lists) {
             const pathInfo = getStructuredPathInfo(path);
             const wildcardInfo = pathInfo.wildcardParentInfos.at(-2);
@@ -2199,12 +2207,12 @@ class Updater2 {
     rendering() {
         try {
             while (this.queue.length > 0) {
-                // レンダリング処理
+                // キュー取得
                 const queue = this.queue;
                 this.queue = [];
-                // 各キューに対してレンダリング処理を実行
                 if (!this.#engine)
                     raiseError("Engine is not initialized.");
+                // レンダリング実行
                 render(queue, this.#engine);
             }
         }
@@ -2446,7 +2454,7 @@ class BindingNodeFor extends BindingNodeBlock {
         const removeBindContentsSet = new Set();
         const info = this.binding.bindingState.info;
         const listIndex = this.binding.bindingState.listIndex;
-        const listIndexResults = renderer.createListDiffResults(info, listIndex);
+        const listIndexResults = renderer.getListDiffResults(info, listIndex);
         for (const listIndex of listIndexResults.removes ?? []) {
             const bindContent = this.#bindContentByListIndex.get(listIndex);
             if (bindContent) {
@@ -2478,6 +2486,19 @@ class BindingNodeFor extends BindingNodeBlock {
             }
             newBindContentsSet.add(bindContent);
             lastBindContent = bindContent;
+        }
+        // ToDo:以下の処理を行う
+        // リストインデックスの並び替え・要素の置き換えに対応する
+        // リストインデックスの並び替え時、インデックスの更新だけなので、要素の再描画はしたくない
+        // ただし、要素の置き換え（SWAP）が発生した場合は、要素の再描画が必要
+        if (listIndexResults.updates) {
+            for (const listIndex of listIndexResults.updates) {
+                const bindContent = this.#bindContentByListIndex.get(listIndex);
+                if (typeof bindContent === "undefined") {
+                    raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+                }
+                bindContent.applyChange(renderer);
+            }
         }
         // プールの長さを更新する
         // プールの長さは、プールの最後の要素のインデックス+1であるため、

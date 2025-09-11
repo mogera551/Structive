@@ -55,11 +55,11 @@ class Updater2 implements IUpdater2 {
   rendering(): void {
     try {
       while( this.queue.length > 0 ) {
-        // レンダリング処理
+        // キュー取得
         const queue = this.queue;
         this.queue = [];
-        // 各キューに対してレンダリング処理を実行
         if (!this.#engine) raiseError("Engine is not initialized.");
+        // レンダリング実行
         render(queue, this.#engine);
       }
     } finally {

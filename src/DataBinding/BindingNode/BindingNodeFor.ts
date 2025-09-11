@@ -99,7 +99,7 @@ class BindingNodeFor extends BindingNodeBlock {
     const removeBindContentsSet = new Set<IBindContent>();
     const info = this.binding.bindingState.info;
     const listIndex = this.binding.bindingState.listIndex;
-    const listIndexResults = renderer.createListDiffResults(info, listIndex);
+    const listIndexResults = renderer.getListDiffResults(info, listIndex);
     for(const listIndex of listIndexResults.removes ?? []) {
       const bindContent = this.#bindContentByListIndex.get(listIndex);
       if (bindContent) {

@@ -73,7 +73,7 @@ class Renderer implements IRenderer {
     }
   }
 
-  createListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListDiffResults {
+  getListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListDiffResults {
     if (this.isListValue(info) === false) {
       raiseError("The specified info is not a list value.");
     }
@@ -132,7 +132,7 @@ class Renderer implements IRenderer {
     info: IStructuredPathInfo, 
     listIndex: IListIndex2 | null, 
   ) {
-    const diffResult = this.createListDiffResults(info, listIndex);
+    const diffResult = this.getListDiffResults(info, listIndex);
     for(const path of this.engine.pathManager.lists) {
       const pathInfo = getStructuredPathInfo(path);
       const wildcardInfo = pathInfo.wildcardParentInfos.at(-2);

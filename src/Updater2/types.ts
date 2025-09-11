@@ -12,27 +12,73 @@ export type IUpdateInfo = {
   value: any;
 }
 
+/**
+ * 状態管理を更新し、必要に応じてレンダリングを行うインターフェース
+ */
 export interface IUpdater2 {
-  queue: Array<IUpdateInfo>;
-  // Ref情報をキュー
+  /**
+   * 更新したRef情報をキューに追加します。
+   * @param info 更新パス
+   * @param listIndex 更新リストインデックス
+   * @param value 新しい値
+   */
   enqueueRef(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any): void;
-  // 状態更新開始
-  beginUpdate(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (state: IWritableStateProxy) => Promise<void> | void): Promise<void>;
-  // レンダリング
-  rendering(): void;
 }
 
+/**
+ * リストの差分結果
+ */
 export type IListDiffResults = {
+  /**
+   * 追加された要素のリストインデックスの配列
+   */
   adds?: Set<IListIndex2>,
+
+  /**
+   * 更新された要素のリストインデックスの配列
+   */
   updates?: Set<IListIndex2>,
+
+  /**
+   * 削除された要素のリストインデックスの配列
+   */
   removes?: Set<IListIndex2>,
+
+  /**
+   * 新しい全ての要素のリストインデックスの配列
+   */
   newListIndexesSet?: Set<IListIndex2>
 }
 
+/**
+ * レンダラー
+ */
 export interface IRenderer {
+  /**
+   * 更新済みのBindingのセット
+   */
   updatedBindings: Set<IBinding>;
+
+  /**
+   * 処理済みのRefのキーのセット
+   */
   trackedRefKeys : Set<string>;
+
+  /**
+   * 読み取り専用状態プロキシ
+   */
   readonlyState  : IReadonlyStateProxy;
+
+  /**
+   * レンダリング開始
+   * @param items 更新情報の配列
+   */
   render(items: IUpdateInfo[]): void;
-  createListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListDiffResults;
+
+  /**
+   * リストの差分結果を取得する
+   * @param info パス情報
+   * @param listIndex リストインデックス
+   */
+  getListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListDiffResults;
 }

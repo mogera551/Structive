@@ -38,6 +38,14 @@ function listDiffUpdate(oldValue, oldListIndexesSet, newValue, parentListIndex) 
     const removes = oldListIndexesSet.difference(newListIndexesSet);
     return { adds, updates, removes, newListIndexesSet };
 }
+/**
+ * リストの差分結果を取得する
+ * @param oldValue 古い値
+ * @param oldListIndexesSet 古いリストインデックスセット
+ * @param newValue 新しい値
+ * @param parentListIndex 親リストインデックス
+ * @returns リストの差分結果
+ */
 export function getListDiffResults(oldValue, oldListIndexesSet, newValue, parentListIndex) {
     if (oldValue != null && newValue != null) {
         if (!oldListIndexesSet)
