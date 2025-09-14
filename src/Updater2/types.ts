@@ -45,6 +45,11 @@ export type IListDiffResults = {
   removes?: Set<IListIndex2>,
 
   /**
+   * 置き換えられた要素のリストインデックスの配列
+   */
+  replaces?: Set<IListIndex2>,
+
+  /**
    * 新しい全ての要素のリストインデックスの配列
    */
   newListIndexesSet?: Set<IListIndex2>

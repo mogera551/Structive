@@ -104,27 +104,27 @@ class Renderer implements IRenderer {
   }
 
   getOldListIndexesSet(info: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IListIndex2> | null {
-    // 仮実装、実際にはエンジンから古いリストインデックスセットを取得
+    // エンジンから古いリストインデックスセットを取得
     return this.engine.getListIndexesSet(info, listIndex) ?? null;
   }
 
   setOldListIndexesSet(info: IStructuredPathInfo, listIndex: IListIndex2 | null, listIndexesSet: Set<IListIndex2>): void {
-    // 仮実装、実際にはエンジンに古いリストインデックスセットを保存
+    // エンジンに古いリストインデックスセットを保存
     this.engine.saveListIndexesSet(info, listIndex, listIndexesSet);
   }
 
   getOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null): any[] | null {
-    // 仮実装、実際にはエンジンから古い値を取得
+    // エンジンから古い値を取得
     return this.engine.getList(info, listIndex) ?? null;
   }
 
   setOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any[]): void {
-    // 仮実装、実際にはエンジンに古い値を保存
+    // エンジンに古い値を保存
     this.engine.saveList(info, listIndex, value);
   }
 
   getBindings(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IBinding[] {
-    // 仮実装、実際にはエンジンからバインディングを取得
+    // エンジンからバインディングを取得
     return this.engine.getBindings(info, listIndex) ?? [];
   }
 
