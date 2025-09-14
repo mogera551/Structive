@@ -171,6 +171,18 @@ class Renderer implements IRenderer {
     const isList = this.isListValue(info);
     const diffResults = isList ? this.#listDiffResultsByRefKey.get(refKey) : null;
     const elementInfo = isList ? getStructuredPathInfo(info.pattern + ".*") : null;
+    // インデックス更新があったバインディングに変更を適用する
+    for(const updateListIndex of diffResults?.updates ?? []) {
+      const info = getStructuredPathInfo(updateListIndex.varName);
+      const bindings = this.getBindings(info, updateListIndex);
+      for(const binding of bindings) {
+        if (updatedBindings.has(binding)) {
+          continue; // すでに更新済みのバインディングはスキップ
+        }
+        binding.applyChange(this);
+      }
+    }
+
     // 静的依存要素のレンダリング
     for(const subPath of this.#engine?.pathManager.staticDependencies.get(info.pattern) ?? []) {
       const subInfo = getStructuredPathInfo(subPath);
@@ -183,6 +195,7 @@ class Renderer implements IRenderer {
         this.renderItem(subInfo, listIndex, trackedRefKeys, updatedBindings, readonlyState);
       }
     }
+
     // 動的依存要素のレンダリング
     for(const subPath of this.#engine?.pathManager.dynamicDependencies.get(info.pattern) ?? []) {
       const subInfo = getStructuredPathInfo(subPath);

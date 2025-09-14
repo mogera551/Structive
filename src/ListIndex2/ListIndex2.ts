@@ -87,7 +87,7 @@ class ListIndex2 implements IListIndex2 {
     return this.#listIndexes;
   }
 
-  get verName(): string {
+  get varName(): string {
     return `${this.position + 1}`;
   }
 
