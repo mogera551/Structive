@@ -87,6 +87,10 @@ class ListIndex2 implements IListIndex2 {
     return this.#listIndexes;
   }
 
+  get verName(): string {
+    return `${this.position + 1}`;
+  }
+
   at(pos: number): IListIndex2 | null {
     if (pos >= 0) {
       return this.listIndexes[pos]?.deref() || null;

@@ -10,5 +10,6 @@ export interface IListIndex2 {
   readonly dirty: boolean;
   readonly indexes: number[];
   readonly listIndexes: WeakRef<IListIndex2>[];
+  readonly verName: string;
   at(position: number): IListIndex2 | null;
 }
