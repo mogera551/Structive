@@ -1,15 +1,14 @@
-
 /**
  * リスト要素への直接操作によるリスト差分結果
  * ex.
  * swap
  * [this["list.1"], this["list.5"]] = [this["list.5"], this["list.1"]];
- * 
+ *
  * updateItemsには[
  * {info: IStructuredPathInfo("list.*"), listIndex: IListIndex2(1)} // 置き換えられた要素の情報
  * {info: IStructuredPathInfo("list.*"), listIndex: IListIndex2(5)} // 置き換えられた要素の情報
  * ]
- * 
+ *
  * replace
  * this["list.1"] = newValue;
  *
@@ -18,15 +17,11 @@
  * ]
  *
  */
-
-import { IListIndex2 } from "../ListIndex2/types";
 import { raiseError } from "../utils";
-import { IListDiffResults } from "./types";
-
 /**
  * list[1]には旧list[5]の値が入る
  * list[5]には旧list[1]の値が入る
- * 
+ *
  * newlist[0] -> oldlist[0] (oldIndex:0)
  * newlist[1] -> oldlist[5] (oldIndex:5) *
  * newlist[2] -> oldlist[2] (oldIndex:2)
@@ -35,21 +30,15 @@ import { IListDiffResults } from "./types";
  * newlist[5] -> oldlist[1] (oldIndex:1) *
  * newlist[6] -> oldlist[6] (oldIndex:6)
  */
-
-export function elementDiffUpdate(
-  elementValue: any,
-  elementListIndex: IListIndex2,
-  oldValue: any[], 
-  oldListIndexesSet: Set<IListIndex2>,
-): IListDiffResults {
-  const oldIndex = oldValue.indexOf(elementValue);
-  const setElement = new Set([elementListIndex]);
-  if (oldIndex === -1) {
-    return { replaces: setElement };
-  }
-  const oldListIndex = Array.from(oldListIndexesSet)[oldIndex];
-  if (!oldListIndex) {
-    raiseError(`elementDiffUpdate: oldListIndex is not found`);
-  }
-  return { swapTargets: setElement, swapSources: new Set([oldListIndex]), updates: setElement };
+export function elementDiffUpdate(elementValue, elementListIndex, oldValue, oldListIndexesSet) {
+    const oldIndex = oldValue.indexOf(elementValue);
+    const setElement = new Set([elementListIndex]);
+    if (oldIndex === -1) {
+        return { replaces: setElement };
+    }
+    const oldListIndex = Array.from(oldListIndexesSet)[oldIndex];
+    if (!oldListIndex) {
+        raiseError(`elementDiffUpdate: oldListIndex is not found`);
+    }
+    return { swapTargets: setElement, swapSources: new Set([oldListIndex]), updates: setElement };
 }

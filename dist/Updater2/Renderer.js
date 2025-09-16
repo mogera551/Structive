@@ -4,6 +4,7 @@ import { GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../utils";
+import { elementDiffUpdate } from "./getElementsDiffResults";
 import { getListDiffResults } from "./getListDiffResults";
 class Renderer {
     #updatedBindings = new Set();
@@ -41,6 +42,12 @@ class Renderer {
                 for (const item of items) {
                     if (this.engine.pathManager.lists.has(item.info.pattern)) {
                         this.updateListIndexes(item.info, item.listIndex);
+                    }
+                    if (this.engine.pathManager.elements.has(item.info.pattern)) {
+                        if (!item.listIndex) {
+                            raiseError(`Renderer.render: listIndex is null for element ${item.info.pattern}`);
+                        }
+                        this.updateElements(item.info, item.listIndex);
                     }
                 }
                 // 各Ref情報に対してレンダリングを実行
@@ -87,23 +94,23 @@ class Renderer {
         return this.engine.pathManager.lists.has(info.pattern);
     }
     getOldListIndexesSet(info, listIndex) {
-        // 仮実装、実際にはエンジンから古いリストインデックスセットを取得
+        // エンジンから古いリストインデックスセットを取得
         return this.engine.getListIndexesSet(info, listIndex) ?? null;
     }
     setOldListIndexesSet(info, listIndex, listIndexesSet) {
-        // 仮実装、実際にはエンジンに古いリストインデックスセットを保存
+        // エンジンに古いリストインデックスセットを保存
         this.engine.saveListIndexesSet(info, listIndex, listIndexesSet);
     }
     getOldValue(info, listIndex) {
-        // 仮実装、実際にはエンジンから古い値を取得
+        // エンジンから古い値を取得
         return this.engine.getList(info, listIndex) ?? null;
     }
     setOldValue(info, listIndex, value) {
-        // 仮実装、実際にはエンジンに古い値を保存
+        // エンジンに古い値を保存
         this.engine.saveList(info, listIndex, value);
     }
     getBindings(info, listIndex) {
-        // 仮実装、実際にはエンジンからバインディングを取得
+        // エンジンからバインディングを取得
         return this.engine.getBindings(info, listIndex) ?? [];
     }
     updateListIndexes(info, listIndex) {
@@ -117,6 +124,30 @@ class Renderer {
             for (const subListIndex of diffResult.adds ?? []) {
                 this.updateListIndexes(pathInfo, subListIndex);
             }
+        }
+    }
+    updateElements(info, listIndex) {
+        const parentInfo = info.parentInfo;
+        if (!parentInfo) {
+            raiseError(`Renderer.render: parentInfo is not found for element ${info.pattern}`);
+        }
+        const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? listIndex?.at(-1) ?? null : listIndex;
+        const elementValue = this.readonlyState[GetByRefSymbol](info, listIndex);
+        const elementIndex = listIndex;
+        const oldValue = this.getOldValue(parentInfo, parentListIndex) ?? [];
+        const oldListIndexesSet = this.getOldListIndexesSet(parentInfo, parentListIndex) ?? new Set();
+        const elementResult = elementDiffUpdate(elementValue, elementIndex, oldValue, oldListIndexesSet);
+        const diffResult = this.getListDiffResults(parentInfo, parentListIndex);
+        // 差分結果をマージする
+        if (elementResult.replaces) {
+            diffResult.replaces = diffResult.replaces ? diffResult.replaces.union(elementResult.replaces) : elementResult.replaces;
+        }
+        if (elementResult.swapTargets && elementResult.swapSources) {
+            diffResult.swapTargets = diffResult.swapTargets ? diffResult.swapTargets.union(elementResult.swapTargets) : elementResult.swapTargets;
+            diffResult.swapSources = diffResult.swapSources ? diffResult.swapSources.union(elementResult.swapSources) : elementResult.swapSources;
+        }
+        if (elementResult.updates) {
+            diffResult.updates = diffResult.updates ? diffResult.updates.union(elementResult.updates) : elementResult.updates;
         }
     }
     renderItem(info, listIndex, trackedRefKeys, updatedBindings, readonlyState) {
@@ -138,6 +169,17 @@ class Renderer {
         const isList = this.isListValue(info);
         const diffResults = isList ? this.#listDiffResultsByRefKey.get(refKey) : null;
         const elementInfo = isList ? getStructuredPathInfo(info.pattern + ".*") : null;
+        // インデックス更新があったバインディングに変更を適用する
+        for (const updateListIndex of diffResults?.updates ?? []) {
+            const info = getStructuredPathInfo(updateListIndex.varName);
+            const bindings = this.getBindings(info, updateListIndex);
+            for (const binding of bindings) {
+                if (updatedBindings.has(binding)) {
+                    continue; // すでに更新済みのバインディングはスキップ
+                }
+                binding.applyChange(this);
+            }
+        }
         // 静的依存要素のレンダリング
         for (const subPath of this.#engine?.pathManager.staticDependencies.get(info.pattern) ?? []) {
             const subInfo = getStructuredPathInfo(subPath);

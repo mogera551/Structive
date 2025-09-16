@@ -167,8 +167,8 @@ export class ComponentEngine {
             this.#waitForDisconnected.resolve(); // disconnectedCallbackが呼ばれたことを通知   
         }
     }
-    #saveInfoByListIndexByResolvedPathInfoId = {};
     #saveInfoByStructuredPathId = {};
+    #saveInfoByResolvedPathInfoIdByListIndex = new WeakMap();
     createSaveInfo() {
         return {
             list: null,
@@ -186,15 +186,15 @@ export class ComponentEngine {
             return saveInfo;
         }
         else {
-            let saveInfoByListIndex = this.#saveInfoByListIndexByResolvedPathInfoId[info.id];
-            if (typeof saveInfoByListIndex === "undefined") {
-                saveInfoByListIndex = new WeakMap();
-                this.#saveInfoByListIndexByResolvedPathInfoId[info.id] = saveInfoByListIndex;
+            let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(listIndex);
+            if (typeof saveInfoByResolvedPathInfoId === "undefined") {
+                saveInfoByResolvedPathInfoId = {};
+                this.#saveInfoByResolvedPathInfoIdByListIndex.set(listIndex, saveInfoByResolvedPathInfoId);
             }
-            let saveInfo = saveInfoByListIndex.get(listIndex);
+            let saveInfo = saveInfoByResolvedPathInfoId[info.id];
             if (typeof saveInfo === "undefined") {
                 saveInfo = this.createSaveInfo();
-                saveInfoByListIndex.set(listIndex, saveInfo);
+                saveInfoByResolvedPathInfoId[info.id] = saveInfo;
             }
             return saveInfo;
         }
@@ -214,15 +214,6 @@ export class ComponentEngine {
     getBindings(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.bindings;
-    }
-    existsBindingsByInfo(info) {
-        if (typeof this.#saveInfoByStructuredPathId[info.id] !== "undefined") {
-            return true;
-        }
-        if (typeof this.#saveInfoByListIndexByResolvedPathInfoId[info.id] !== "undefined") {
-            return true;
-        }
-        return false;
     }
     getListIndexesSet(info, listIndex) {
         if (this.stateOutput.startsWith(info)) {

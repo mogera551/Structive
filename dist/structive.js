@@ -1818,6 +1818,50 @@ function createRefKey(info, listIndex) {
     return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
 }
 
+/**
+ * リスト要素への直接操作によるリスト差分結果
+ * ex.
+ * swap
+ * [this["list.1"], this["list.5"]] = [this["list.5"], this["list.1"]];
+ *
+ * updateItemsには[
+ * {info: IStructuredPathInfo("list.*"), listIndex: IListIndex2(1)} // 置き換えられた要素の情報
+ * {info: IStructuredPathInfo("list.*"), listIndex: IListIndex2(5)} // 置き換えられた要素の情報
+ * ]
+ *
+ * replace
+ * this["list.1"] = newValue;
+ *
+ * updateItemsには[
+ * {info: IStructuredPathInfo("list.*"), listIndex: IListIndex2(1)} // 置き換えられた要素の情報
+ * ]
+ *
+ */
+/**
+ * list[1]には旧list[5]の値が入る
+ * list[5]には旧list[1]の値が入る
+ *
+ * newlist[0] -> oldlist[0] (oldIndex:0)
+ * newlist[1] -> oldlist[5] (oldIndex:5) *
+ * newlist[2] -> oldlist[2] (oldIndex:2)
+ * newlist[3] -> oldlist[3] (oldIndex:3)
+ * newlist[4] -> oldlist[4] (oldIndex:4)
+ * newlist[5] -> oldlist[1] (oldIndex:1) *
+ * newlist[6] -> oldlist[6] (oldIndex:6)
+ */
+function elementDiffUpdate(elementValue, elementListIndex, oldValue, oldListIndexesSet) {
+    const oldIndex = oldValue.indexOf(elementValue);
+    const setElement = new Set([elementListIndex]);
+    if (oldIndex === -1) {
+        return { replaces: setElement };
+    }
+    const oldListIndex = Array.from(oldListIndexesSet)[oldIndex];
+    if (!oldListIndex) {
+        raiseError(`elementDiffUpdate: oldListIndex is not found`);
+    }
+    return { swapTargets: setElement, swapSources: new Set([oldListIndex]), updates: setElement };
+}
+
 let version = 0;
 let id = 0;
 class ListIndex2 {
@@ -1895,6 +1939,9 @@ class ListIndex2 {
             }
         }
         return this.#listIndexes;
+    }
+    get varName() {
+        return `${this.position + 1}`;
     }
     at(pos) {
         if (pos >= 0) {
@@ -2016,6 +2063,12 @@ class Renderer {
                     if (this.engine.pathManager.lists.has(item.info.pattern)) {
                         this.updateListIndexes(item.info, item.listIndex);
                     }
+                    if (this.engine.pathManager.elements.has(item.info.pattern)) {
+                        if (!item.listIndex) {
+                            raiseError(`Renderer.render: listIndex is null for element ${item.info.pattern}`);
+                        }
+                        this.updateElements(item.info, item.listIndex);
+                    }
                 }
                 // 各Ref情報に対してレンダリングを実行
                 // trackedRefKeysに追加されているRef情報はスキップ
@@ -2061,23 +2114,23 @@ class Renderer {
         return this.engine.pathManager.lists.has(info.pattern);
     }
     getOldListIndexesSet(info, listIndex) {
-        // 仮実装、実際にはエンジンから古いリストインデックスセットを取得
+        // エンジンから古いリストインデックスセットを取得
         return this.engine.getListIndexesSet(info, listIndex) ?? null;
     }
     setOldListIndexesSet(info, listIndex, listIndexesSet) {
-        // 仮実装、実際にはエンジンに古いリストインデックスセットを保存
+        // エンジンに古いリストインデックスセットを保存
         this.engine.saveListIndexesSet(info, listIndex, listIndexesSet);
     }
     getOldValue(info, listIndex) {
-        // 仮実装、実際にはエンジンから古い値を取得
+        // エンジンから古い値を取得
         return this.engine.getList(info, listIndex) ?? null;
     }
     setOldValue(info, listIndex, value) {
-        // 仮実装、実際にはエンジンに古い値を保存
+        // エンジンに古い値を保存
         this.engine.saveList(info, listIndex, value);
     }
     getBindings(info, listIndex) {
-        // 仮実装、実際にはエンジンからバインディングを取得
+        // エンジンからバインディングを取得
         return this.engine.getBindings(info, listIndex) ?? [];
     }
     updateListIndexes(info, listIndex) {
@@ -2091,6 +2144,30 @@ class Renderer {
             for (const subListIndex of diffResult.adds ?? []) {
                 this.updateListIndexes(pathInfo, subListIndex);
             }
+        }
+    }
+    updateElements(info, listIndex) {
+        const parentInfo = info.parentInfo;
+        if (!parentInfo) {
+            raiseError(`Renderer.render: parentInfo is not found for element ${info.pattern}`);
+        }
+        const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? listIndex?.at(-1) ?? null : listIndex;
+        const elementValue = this.readonlyState[GetByRefSymbol](info, listIndex);
+        const elementIndex = listIndex;
+        const oldValue = this.getOldValue(parentInfo, parentListIndex) ?? [];
+        const oldListIndexesSet = this.getOldListIndexesSet(parentInfo, parentListIndex) ?? new Set();
+        const elementResult = elementDiffUpdate(elementValue, elementIndex, oldValue, oldListIndexesSet);
+        const diffResult = this.getListDiffResults(parentInfo, parentListIndex);
+        // 差分結果をマージする
+        if (elementResult.replaces) {
+            diffResult.replaces = diffResult.replaces ? diffResult.replaces.union(elementResult.replaces) : elementResult.replaces;
+        }
+        if (elementResult.swapTargets && elementResult.swapSources) {
+            diffResult.swapTargets = diffResult.swapTargets ? diffResult.swapTargets.union(elementResult.swapTargets) : elementResult.swapTargets;
+            diffResult.swapSources = diffResult.swapSources ? diffResult.swapSources.union(elementResult.swapSources) : elementResult.swapSources;
+        }
+        if (elementResult.updates) {
+            diffResult.updates = diffResult.updates ? diffResult.updates.union(elementResult.updates) : elementResult.updates;
         }
     }
     renderItem(info, listIndex, trackedRefKeys, updatedBindings, readonlyState) {
@@ -2112,6 +2189,17 @@ class Renderer {
         const isList = this.isListValue(info);
         const diffResults = isList ? this.#listDiffResultsByRefKey.get(refKey) : null;
         const elementInfo = isList ? getStructuredPathInfo(info.pattern + ".*") : null;
+        // インデックス更新があったバインディングに変更を適用する
+        for (const updateListIndex of diffResults?.updates ?? []) {
+            const info = getStructuredPathInfo(updateListIndex.varName);
+            const bindings = this.getBindings(info, updateListIndex);
+            for (const binding of bindings) {
+                if (updatedBindings.has(binding)) {
+                    continue; // すでに更新済みのバインディングはスキップ
+                }
+                binding.applyChange(this);
+            }
+        }
         // 静的依存要素のレンダリング
         for (const subPath of this.#engine?.pathManager.staticDependencies.get(info.pattern) ?? []) {
             const subInfo = getStructuredPathInfo(subPath);
@@ -2487,12 +2575,29 @@ class BindingNodeFor extends BindingNodeBlock {
             newBindContentsSet.add(bindContent);
             lastBindContent = bindContent;
         }
-        // ToDo:以下の処理を行う
-        // リストインデックスの並び替え・要素の置き換えに対応する
-        // リストインデックスの並び替え時、インデックスの更新だけなので、要素の再描画はしたくない
-        // ただし、要素の置き換え（SWAP）が発生した場合は、要素の再描画が必要
-        if (listIndexResults.updates) {
-            for (const listIndex of listIndexResults.updates) {
+        // リストインデックスの並び替え
+        // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
+        // 並べ替えはするが、要素の内容は変わらないため
+        if (listIndexResults.swapTargets && listIndexResults.swapSources) {
+            const bindContents = Array.from(this.#bindContentsSet);
+            const targets = Array.from(listIndexResults.swapTargets);
+            const sources = Array.from(listIndexResults.swapSources);
+            for (let i = 0; i < targets.length; i++) {
+                const targetListIndex = targets[i];
+                const sourceListIndex = sources[i];
+                const sourceBindContent = this.#bindContentByListIndex.get(sourceListIndex);
+                if (typeof sourceBindContent === "undefined") {
+                    raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+                }
+                bindContents[targetListIndex.index] = sourceBindContent;
+                this.#bindContentByListIndex.set(targetListIndex, sourceBindContent);
+                const lastNode = bindContents[targetListIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
+                sourceBindContent.mountAfter(parentNode, lastNode);
+            }
+        }
+        // リスト要素の上書き
+        if (listIndexResults.replaces) {
+            for (const listIndex of listIndexResults.replaces) {
                 const bindContent = this.#bindContentByListIndex.get(listIndex);
                 if (typeof bindContent === "undefined") {
                     raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
@@ -4136,8 +4241,8 @@ class ComponentEngine {
             this.#waitForDisconnected.resolve(); // disconnectedCallbackが呼ばれたことを通知   
         }
     }
-    #saveInfoByListIndexByResolvedPathInfoId = {};
     #saveInfoByStructuredPathId = {};
+    #saveInfoByResolvedPathInfoIdByListIndex = new WeakMap();
     createSaveInfo() {
         return {
             list: null,
@@ -4155,15 +4260,15 @@ class ComponentEngine {
             return saveInfo;
         }
         else {
-            let saveInfoByListIndex = this.#saveInfoByListIndexByResolvedPathInfoId[info.id];
-            if (typeof saveInfoByListIndex === "undefined") {
-                saveInfoByListIndex = new WeakMap();
-                this.#saveInfoByListIndexByResolvedPathInfoId[info.id] = saveInfoByListIndex;
+            let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(listIndex);
+            if (typeof saveInfoByResolvedPathInfoId === "undefined") {
+                saveInfoByResolvedPathInfoId = {};
+                this.#saveInfoByResolvedPathInfoIdByListIndex.set(listIndex, saveInfoByResolvedPathInfoId);
             }
-            let saveInfo = saveInfoByListIndex.get(listIndex);
+            let saveInfo = saveInfoByResolvedPathInfoId[info.id];
             if (typeof saveInfo === "undefined") {
                 saveInfo = this.createSaveInfo();
-                saveInfoByListIndex.set(listIndex, saveInfo);
+                saveInfoByResolvedPathInfoId[info.id] = saveInfo;
             }
             return saveInfo;
         }
@@ -4183,15 +4288,6 @@ class ComponentEngine {
     getBindings(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.bindings;
-    }
-    existsBindingsByInfo(info) {
-        if (typeof this.#saveInfoByStructuredPathId[info.id] !== "undefined") {
-            return true;
-        }
-        if (typeof this.#saveInfoByListIndexByResolvedPathInfoId[info.id] !== "undefined") {
-            return true;
-        }
-        return false;
     }
     getListIndexesSet(info, listIndex) {
         if (this.stateOutput.startsWith(info)) {

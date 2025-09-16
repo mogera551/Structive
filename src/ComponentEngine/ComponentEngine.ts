@@ -185,8 +185,8 @@ export class ComponentEngine implements IComponentEngine {
     }
   }
 
-  #saveInfoByListIndexByResolvedPathInfoId: { [id:number]: WeakMap<IListIndex2,ISaveInfoByResolvedPathInfo> } = {};
   #saveInfoByStructuredPathId: { [id:number]: ISaveInfoByResolvedPathInfo } = {};
+  #saveInfoByResolvedPathInfoIdByListIndex: WeakMap<IListIndex2, { [id:number]: ISaveInfoByResolvedPathInfo }> = new WeakMap();
 
   createSaveInfo():ISaveInfoByResolvedPathInfo {
     return {
@@ -205,15 +205,15 @@ export class ComponentEngine implements IComponentEngine {
       }
       return saveInfo;
     } else {
-      let saveInfoByListIndex = this.#saveInfoByListIndexByResolvedPathInfoId[info.id];
-      if (typeof saveInfoByListIndex === "undefined") {
-        saveInfoByListIndex = new WeakMap<IListIndex2, ISaveInfoByResolvedPathInfo>();
-        this.#saveInfoByListIndexByResolvedPathInfoId[info.id] = saveInfoByListIndex;
+      let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(listIndex);
+      if (typeof saveInfoByResolvedPathInfoId === "undefined") {
+        saveInfoByResolvedPathInfoId = {};
+        this.#saveInfoByResolvedPathInfoIdByListIndex.set(listIndex, saveInfoByResolvedPathInfoId);
       }
-      let saveInfo = saveInfoByListIndex.get(listIndex);
+      let saveInfo = saveInfoByResolvedPathInfoId[info.id];
       if (typeof saveInfo === "undefined") {
         saveInfo = this.createSaveInfo();
-        saveInfoByListIndex.set(listIndex, saveInfo);
+        saveInfoByResolvedPathInfoId[info.id] = saveInfo;
       }
       return saveInfo;
     }
@@ -252,16 +252,6 @@ export class ComponentEngine implements IComponentEngine {
   ): IBinding[] {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     return saveInfo.bindings;
-  }
-
-  existsBindingsByInfo(info: IStructuredPathInfo): boolean {
-    if (typeof this.#saveInfoByStructuredPathId[info.id] !== "undefined") {
-      return true;
-    }
-    if (typeof this.#saveInfoByListIndexByResolvedPathInfoId[info.id] !== "undefined") {
-      return true;
-    }
-    return false;
   }
 
   getListIndexesSet(info:IStructuredPathInfo, listIndex:IListIndex2 | null): Set<IListIndex2> | null {

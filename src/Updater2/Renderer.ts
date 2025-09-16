@@ -10,6 +10,7 @@ import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../utils";
+import { elementDiffUpdate } from "./getElementsDiffResults";
 import { getListDiffResults } from "./getListDiffResults";
 import { IListDiffResults, IRenderer, IUpdateInfo } from "./types";
 
@@ -55,6 +56,12 @@ class Renderer implements IRenderer {
         for(const item of items) {
           if (this.engine.pathManager.lists.has(item.info.pattern)) {
             this.updateListIndexes(item.info, item.listIndex);
+          }
+          if (this.engine.pathManager.elements.has(item.info.pattern)) {
+            if (!item.listIndex) {
+              raiseError(`Renderer.render: listIndex is null for element ${item.info.pattern}`);
+            }
+            this.updateElements(item.info, item.listIndex);
           }
         }
         // 各Ref情報に対してレンダリングを実行
@@ -142,6 +149,40 @@ class Renderer implements IRenderer {
       for(const subListIndex of diffResult.adds ?? []) {
         this.updateListIndexes(pathInfo, subListIndex);
       }
+    }
+  }
+  updateElements(
+    info: IStructuredPathInfo, 
+    listIndex: IListIndex2,
+  ) {
+    const parentInfo = info.parentInfo;
+    if (!parentInfo) {
+      raiseError(`Renderer.render: parentInfo is not found for element ${info.pattern}`);
+    }
+    const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? listIndex?.at(-1) ?? null : listIndex;
+    const elementValue = this.readonlyState[GetByRefSymbol](info, listIndex);
+    const elementIndex = listIndex;
+    const oldValue = this.getOldValue(parentInfo, parentListIndex) ?? [];
+    const oldListIndexesSet = this.getOldListIndexesSet(parentInfo, parentListIndex) ?? new Set();
+
+    const elementResult = elementDiffUpdate(
+      elementValue,
+      elementIndex,
+      oldValue,
+      oldListIndexesSet,
+    );
+    const diffResult = this.getListDiffResults(parentInfo, parentListIndex);
+    // 差分結果をマージする
+    if (elementResult.replaces) {
+      diffResult.replaces = diffResult.replaces ? diffResult.replaces.union(elementResult.replaces) : elementResult.replaces;
+    }
+    if (elementResult.swapTargets && elementResult.swapSources) {
+      diffResult.swapTargets = diffResult.swapTargets ? diffResult.swapTargets.union(elementResult.swapTargets) : elementResult.swapTargets;
+      diffResult.swapSources = diffResult.swapSources ? diffResult.swapSources.union(elementResult.swapSources) : elementResult.swapSources;
+
+    }
+    if (elementResult.updates) {
+      diffResult.updates = diffResult.updates ? diffResult.updates.union(elementResult.updates) : elementResult.updates;
     }
   }
   renderItem(

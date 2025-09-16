@@ -132,12 +132,29 @@ class BindingNodeFor extends BindingNodeBlock {
       newBindContentsSet.add(bindContent);
       lastBindContent = bindContent;
     }
-    // ToDo:以下の処理を行う
-    // リストインデックスの並び替え・要素の置き換えに対応する
-    // リストインデックスの並び替え時、インデックスの更新だけなので、要素の再描画はしたくない
-    // ただし、要素の置き換え（SWAP）が発生した場合は、要素の再描画が必要
-    if (listIndexResults.updates) {
-      for (const listIndex of listIndexResults.updates) {
+    // リストインデックスの並び替え
+    // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
+    // 並べ替えはするが、要素の内容は変わらないため
+    if (listIndexResults.swapTargets && listIndexResults.swapSources) {
+      const bindContents = Array.from(this.#bindContentsSet);
+      const targets = Array.from(listIndexResults.swapTargets);
+      const sources = Array.from(listIndexResults.swapSources);
+      for(let i = 0; i < targets.length; i++) {
+        const targetListIndex = targets[i];
+        const sourceListIndex = sources[i];
+        const sourceBindContent = this.#bindContentByListIndex.get(sourceListIndex);
+        if (typeof sourceBindContent === "undefined") {
+          raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+        }
+        bindContents[targetListIndex.index] = sourceBindContent;
+        this.#bindContentByListIndex.set(targetListIndex, sourceBindContent);
+        const lastNode = bindContents[targetListIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
+        sourceBindContent.mountAfter(parentNode, lastNode);
+      }
+    }
+    // リスト要素の上書き
+    if (listIndexResults.replaces) {
+      for (const listIndex of listIndexResults.replaces) {
         const bindContent = this.#bindContentByListIndex.get(listIndex);
         if (typeof bindContent === "undefined") {
           raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);

@@ -50,6 +50,15 @@ export type IListDiffResults = {
   replaces?: Set<IListIndex2>,
 
   /**
+   * 入れ替え先の要素のリストインデックスの配列
+   */
+  swapTargets?: Set<IListIndex2>,
+  /**
+   * 入れ替え元の要素のリストインデックスの配列
+   */
+  swapSources?: Set<IListIndex2>,
+
+  /**
    * 新しい全ての要素のリストインデックスの配列
    */
   newListIndexesSet?: Set<IListIndex2>

@@ -53,7 +53,6 @@ export interface IComponentEngine {
   saveListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, saveListIndexesSet:Set<IListIndex2>): void;
   saveList(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, list:any[]): void;
   getBindings(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): IBinding[];
-  existsBindingsByInfo(info: IStructuredPathInfo): boolean;
   getListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): Set<IListIndex2> | null;
   getList(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): any[] | null;
 

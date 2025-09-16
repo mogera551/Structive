@@ -76,6 +76,9 @@ class ListIndex2 {
         }
         return this.#listIndexes;
     }
+    get varName() {
+        return `${this.position + 1}`;
+    }
     at(pos) {
         if (pos >= 0) {
             return this.listIndexes[pos]?.deref() || null;
