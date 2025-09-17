@@ -29,9 +29,11 @@ function listWalkerSub(
     callback(info, listIndex);
   } else {
     const parentInfo = info.wildcardParentInfos[listIndexLen] ?? raiseError("Invalid state property info");
-    const listIndexes = engine.getListIndexesSet(parentInfo, listIndex);
-    for(const subListIndex of listIndexes ?? []) {
-      listWalkerSub(engine, info, subListIndex, callback);
+    const listIndexes = engine.getListIndexes(parentInfo, listIndex);
+    if (listIndexes) {
+      for(const subListIndex of listIndexes) {
+        listWalkerSub(engine, info, subListIndex, callback);
+      }
     }
   }
 }

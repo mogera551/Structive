@@ -38,7 +38,7 @@ class ComponentStateOutput {
     startsWith(pathInfo) {
         return this.binding.startsWithByChildPath(pathInfo) !== null;
     }
-    getListIndexesSet(pathInfo, listIndex) {
+    getListIndexes(pathInfo, listIndex) {
         const childPath = this.binding.startsWithByChildPath(pathInfo);
         if (childPath === null) {
             raiseError(`No child path found for path "${pathInfo.toString()}".`);
@@ -48,7 +48,7 @@ class ComponentStateOutput {
             raiseError(`No binding found for child path "${childPath}".`);
         }
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
-        return binding.engine.getListIndexesSet(parentPathInfo, listIndex);
+        return binding.engine.getListIndexes(parentPathInfo, listIndex);
     }
 }
 export function createComponentStateOutput(binding) {

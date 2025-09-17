@@ -42,7 +42,7 @@ export function resolveWritable(
     let listIndex: IListIndex2 | null = null;
     for(let i = 0; i < info.wildcardParentInfos.length; i++) {
       const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
-      const listIndexes: IListIndex2[] = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? []);
+      const listIndexes: IListIndex2[] = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? [];
       const index = indexes[i] ?? raiseError(`index is null`);
       listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
     }

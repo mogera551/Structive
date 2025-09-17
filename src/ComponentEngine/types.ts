@@ -50,10 +50,10 @@ export interface IComponentEngine {
   disconnectedCallback(): Promise<void>;
 
   saveBinding(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, binding: IBinding): void;
-  saveListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, saveListIndexesSet:Set<IListIndex2>): void;
+  saveListIndexes(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, saveListIndexes: IListIndex2[]): void;
   saveList(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, list:any[]): void;
   getBindings(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): IBinding[];
-  getListIndexesSet(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): Set<IListIndex2> | null;
+  getListIndexes(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): IListIndex2[] | null;
   getList(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): any[] | null;
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null): any; // プロパティの値を取得する
@@ -67,6 +67,6 @@ export interface IComponentEngine {
  */
 export interface ISaveInfoByResolvedPathInfo {
   list          : any[] | null;
-  listIndexesSet: Set<IListIndex2> | null;
+  listIndexes   : IListIndex2[] | null;
   bindings      : IBinding[];
 }

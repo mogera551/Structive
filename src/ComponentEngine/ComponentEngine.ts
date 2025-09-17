@@ -191,7 +191,7 @@ export class ComponentEngine implements IComponentEngine {
   createSaveInfo():ISaveInfoByResolvedPathInfo {
     return {
       list          : null,
-      listIndexesSet: null,
+      listIndexes   : null,
       bindings      : [],
     }
   }
@@ -228,13 +228,13 @@ export class ComponentEngine implements IComponentEngine {
     saveInfo.bindings.push(binding);
   }
 
-  saveListIndexesSet(
-    info              :IStructuredPathInfo, 
-    listIndex         :IListIndex2 | null, 
-    saveListIndexesSet:Set<IListIndex2>
+  saveListIndexes(
+    info              : IStructuredPathInfo, 
+    listIndex         : IListIndex2 | null, 
+    saveListIndexes   : IListIndex2[]
   ): void {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-    saveInfo.listIndexesSet = saveListIndexesSet;
+    saveInfo.listIndexes = saveListIndexes;
   }
 
   saveList(
@@ -254,12 +254,12 @@ export class ComponentEngine implements IComponentEngine {
     return saveInfo.bindings;
   }
 
-  getListIndexesSet(info:IStructuredPathInfo, listIndex:IListIndex2 | null): Set<IListIndex2> | null {
+  getListIndexes(info:IStructuredPathInfo, listIndex:IListIndex2 | null): IListIndex2[] | null {
     if (this.stateOutput.startsWith(info)) {
-      return this.stateOutput.getListIndexesSet(info, listIndex);
+      return this.stateOutput.getListIndexes(info, listIndex);
     }
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-    return saveInfo.listIndexesSet;
+    return saveInfo.listIndexes;
   }
     
   getList(

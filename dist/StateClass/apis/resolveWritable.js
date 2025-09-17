@@ -33,7 +33,7 @@ export function resolveWritable(target, prop, receiver, handler) {
         let listIndex = null;
         for (let i = 0; i < info.wildcardParentInfos.length; i++) {
             const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
-            const listIndexes = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? []);
+            const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? [];
             const index = indexes[i] ?? raiseError(`index is null`);
             listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }

@@ -5,6 +5,6 @@ export interface IComponentStateOutput {
   get(pathInfo: IStructuredPathInfo, listIndex: IListIndex2 | null): any;
   set(pathInfo: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any): boolean;
   startsWith(pathInfo: IStructuredPathInfo): boolean;
-  getListIndexesSet(pathInfo: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IListIndex2> | null;
+  getListIndexes(pathInfo: IStructuredPathInfo, listIndex: IListIndex2 | null): IListIndex2[] | null;
 }
 

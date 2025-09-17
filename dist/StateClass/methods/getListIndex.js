@@ -1,24 +1,28 @@
 import { raiseError } from "../../utils.js";
 import { getContextListIndex } from "./getContextListIndex";
-export function getListIndex(info, receiver, handler) {
-    switch (info.wildcardType) {
+export function getListIndex(resolvedPath, receiver, handler) {
+    switch (resolvedPath.wildcardType) {
         case "none":
             return null;
         case "context":
-            const lastWildcardPath = info.info.lastWildcardPath ??
+            const lastWildcardPath = resolvedPath.info.lastWildcardPath ??
                 raiseError(`lastWildcardPath is null`);
             return getContextListIndex(handler, lastWildcardPath) ??
-                raiseError(`ListIndex not found: ${info.info.pattern}`);
+                raiseError(`ListIndex not found: ${resolvedPath.info.pattern}`);
         case "all":
             let parentListIndex = null;
-            for (let i = 0; i < info.info.wildcardCount; i++) {
-                const wildcardParentPattern = info.info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPattern is null`);
-                const listIndexes = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
-                const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
-                parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+            for (let i = 0; i < resolvedPath.info.wildcardCount; i++) {
+                const wildcardParentPattern = resolvedPath.info.wildcardParentInfos[i] ??
+                    raiseError(`wildcardParentPattern is null`);
+                const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, parentListIndex) ??
+                    raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+                const wildcardIndex = resolvedPath.wildcardIndexes[i] ??
+                    raiseError(`wildcardIndex is null`);
+                parentListIndex = listIndexes[wildcardIndex] ??
+                    raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
             }
             return parentListIndex;
         case "partial":
-            raiseError(`Partial wildcard type is not supported yet: ${info.info.pattern}`);
+            raiseError(`Partial wildcard type is not supported yet: ${resolvedPath.info.pattern}`);
     }
 }

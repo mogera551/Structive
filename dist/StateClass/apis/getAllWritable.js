@@ -51,8 +51,7 @@ export function getAllWritable(target, prop, receiver, handler) {
                 results.push(parentIndexes);
                 return;
             }
-            const listIndexSet = handler.engine.getListIndexesSet(wildcardParentPattern, listIndex) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
-            const listIndexes = Array.from(listIndexSet);
+            const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
             const index = indexes[indexPos] ?? null;
             if (index === null) {
                 for (let i = 0; i < listIndexes.length; i++) {

@@ -172,7 +172,7 @@ export class ComponentEngine {
     createSaveInfo() {
         return {
             list: null,
-            listIndexesSet: null,
+            listIndexes: null,
             bindings: [],
         };
     }
@@ -203,9 +203,9 @@ export class ComponentEngine {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         saveInfo.bindings.push(binding);
     }
-    saveListIndexesSet(info, listIndex, saveListIndexesSet) {
+    saveListIndexes(info, listIndex, saveListIndexes) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-        saveInfo.listIndexesSet = saveListIndexesSet;
+        saveInfo.listIndexes = saveListIndexes;
     }
     saveList(info, listIndex, list) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
@@ -215,12 +215,12 @@ export class ComponentEngine {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.bindings;
     }
-    getListIndexesSet(info, listIndex) {
+    getListIndexes(info, listIndex) {
         if (this.stateOutput.startsWith(info)) {
-            return this.stateOutput.getListIndexesSet(info, listIndex);
+            return this.stateOutput.getListIndexes(info, listIndex);
         }
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-        return saveInfo.listIndexesSet;
+        return saveInfo.listIndexes;
     }
     getList(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);

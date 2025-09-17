@@ -22,28 +22,32 @@ import { IStateHandler, IReadonlyStateProxy, IStateProxy } from "../types";
 import { getContextListIndex } from "./getContextListIndex";
 
 export function getListIndex(
-  info: IResolvedPathInfo, 
+  resolvedPath: IResolvedPathInfo, 
   receiver: IStateProxy,
   handler: IStateHandler
 ): IListIndex2 | null {
-  switch (info.wildcardType) {
+  switch (resolvedPath.wildcardType) {
     case "none":
       return null;
     case "context":
-      const lastWildcardPath = info.info.lastWildcardPath ?? 
+      const lastWildcardPath = resolvedPath.info.lastWildcardPath ?? 
         raiseError(`lastWildcardPath is null`);
       return getContextListIndex(handler, lastWildcardPath) ?? 
-        raiseError(`ListIndex not found: ${info.info.pattern}`);
+        raiseError(`ListIndex not found: ${resolvedPath.info.pattern}`);
     case "all":
-      let parentListIndex = null;
-      for(let i = 0; i < info.info.wildcardCount; i++) {
-        const wildcardParentPattern = info.info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPattern is null`);
-        const listIndexes: IListIndex2[] = Array.from(handler.engine.getListIndexesSet(wildcardParentPattern, parentListIndex) ?? []);
-        const wildcardIndex = info.wildcardIndexes[i] ?? raiseError(`wildcardIndex is null`);
-        parentListIndex = listIndexes[wildcardIndex] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+      let parentListIndex: IListIndex2 | null = null;
+      for(let i = 0; i < resolvedPath.info.wildcardCount; i++) {
+        const wildcardParentPattern = resolvedPath.info.wildcardParentInfos[i] ?? 
+          raiseError(`wildcardParentPattern is null`);
+        const listIndexes: IListIndex2[] = handler.engine.getListIndexes(wildcardParentPattern, parentListIndex) ?? 
+          raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+        const wildcardIndex = resolvedPath.wildcardIndexes[i] ?? 
+          raiseError(`wildcardIndex is null`);
+        parentListIndex = listIndexes[wildcardIndex] ?? 
+          raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
       }
       return parentListIndex;
     case "partial":
-      raiseError(`Partial wildcard type is not supported yet: ${info.info.pattern}`);
+      raiseError(`Partial wildcard type is not supported yet: ${resolvedPath.info.pattern}`);
   }
 }

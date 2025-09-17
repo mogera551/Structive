@@ -23,16 +23,16 @@ export function getContextListIndex(
   structuredPath: string
 ): IListIndex2 | null {
   const info = handler.structuredPathInfoStack[handler.refIndex];
-  if (typeof info === "undefined" || info === null) {
+  if (info == null) {
+    return null;
+  }
+  const listIndex = handler.listIndex2Stack[handler.refIndex];
+  if (listIndex == null) {
     return null;
   }
   const index = info.indexByWildcardPath[structuredPath];
-  if (index >= 0) {
-    const listIndex = handler.listIndex2Stack[handler.refIndex];
-    if (typeof listIndex === "undefined") {
-      return null;
-    }
-    return listIndex?.at(index) ?? null;
+  if (typeof index !== "undefined") {
+    return listIndex.at(index);
   }
   return null;
 }

@@ -99,7 +99,7 @@ class Renderer implements IRenderer {
     if (!listDiffResults) {
       const newValue = this.readonlyState[GetByRefSymbol](info, listIndex);
       const oldValue = this.getOldValue(info, listIndex);
-      const oldListIndexesSet = this.getOldListIndexesSet(info, listIndex);
+      const oldListIndexesSet = new Set(this.getOldListIndexes(info, listIndex));
       listDiffResults = getListDiffResults(oldValue, oldListIndexesSet, newValue, listIndex);
       this.#listDiffResultsByRefKey.set(refKey, listDiffResults);
       /**
@@ -111,7 +111,7 @@ class Renderer implements IRenderer {
        * ToDo: undefinedの扱いをどうするか検討
        * - 現状はundefinedを空Setとして扱う
        */
-      this.setOldListIndexesSet(info, listIndex, listDiffResults.newListIndexesSet ?? new Set());
+      this.setOldListIndexes(info, listIndex, Array.from(listDiffResults.newListIndexesSet ?? new Set()));
     }
     return listDiffResults;
   }
@@ -120,14 +120,14 @@ class Renderer implements IRenderer {
     return this.engine.pathManager.lists.has(info.pattern);
   }
 
-  getOldListIndexesSet(info: IStructuredPathInfo, listIndex: IListIndex2 | null): Set<IListIndex2> | null {
+  getOldListIndexes(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListIndex2[] | null {
     // エンジンから古いリストインデックスセットを取得
-    return this.engine.getListIndexesSet(info, listIndex) ?? null;
+    return this.engine.getListIndexes(info, listIndex) ?? null;
   }
 
-  setOldListIndexesSet(info: IStructuredPathInfo, listIndex: IListIndex2 | null, listIndexesSet: Set<IListIndex2>): void {
+  setOldListIndexes(info: IStructuredPathInfo, listIndex: IListIndex2 | null, listIndexes: IListIndex2[]): void {
     // エンジンに古いリストインデックスセットを保存
-    this.engine.saveListIndexesSet(info, listIndex, listIndexesSet);
+    this.engine.saveListIndexes(info, listIndex, listIndexes);
   }
 
   getOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null): any[] | null {
