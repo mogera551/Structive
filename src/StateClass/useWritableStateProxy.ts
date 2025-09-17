@@ -23,7 +23,7 @@ import { set as trapSet } from "./traps/set.js";
 import { ILoopContext } from "../LoopContext/types";
 import { setLoopContext } from "./methods/setLoopContext";
 import { IListIndex2 } from "../ListIndex2/types";
-import { IUpdater2 } from "../Updater2/types";
+import { IUpdater } from "../Updater/types";
 
 const STACK_DEPTH = 32;
 
@@ -36,9 +36,9 @@ class StateHandler implements IWritableStateHandler {
   listIndex2Stack: (IListIndex2 | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   loopContext: ILoopContext | null = null;
-  updater: IUpdater2;
+  updater: IUpdater;
   
-  constructor(engine: IComponentEngine, updater: IUpdater2) {
+  constructor(engine: IComponentEngine, updater: IUpdater) {
     this.engine = engine;
     this.updater = updater;
   }
@@ -63,7 +63,7 @@ class StateHandler implements IWritableStateHandler {
 
 export async function useWritableStateProxy(
   engine: IComponentEngine, 
-  updater: IUpdater2,
+  updater: IUpdater,
   state: Object,
   loopContext: ILoopContext | null,
   callback: (stateProxy: IWritableStateProxy) => Promise<void>

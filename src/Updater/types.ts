@@ -15,7 +15,7 @@ export type IUpdateInfo = {
 /**
  * 状態管理を更新し、必要に応じてレンダリングを行うインターフェース
  */
-export interface IUpdater2 {
+export interface IUpdater {
   /**
    * 更新したRef情報をキューに追加します。
    * @param info 更新パス

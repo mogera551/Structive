@@ -3,7 +3,7 @@ import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { GetByRefSymbol } from "../../StateClass/symbols.js";
 import { IReadonlyStateProxy } from "../../StateClass/types.js";
-import { IRenderer } from "../../Updater2/types.js";
+import { IRenderer } from "../../Updater/types.js";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";

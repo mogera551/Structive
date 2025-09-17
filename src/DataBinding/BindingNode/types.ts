@@ -3,7 +3,7 @@ import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex2 } from "../../ListIndex2/types";
 import { IReadonlyStateProxy } from "../../StateClass/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
-import { IRenderer } from "../../Updater2/types";
+import { IRenderer } from "../../Updater/types";
 import { IBindContent, IBinding } from "../types";
 
 /**

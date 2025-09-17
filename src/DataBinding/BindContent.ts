@@ -9,7 +9,7 @@ import { createLoopContext } from "../LoopContext/createLoopContext.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap.js";
 import { IListIndex2 } from "../ListIndex2/types.js";
-import { IRenderer } from "../Updater2/types.js";
+import { IRenderer } from "../Updater/types.js";
 
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 

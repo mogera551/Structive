@@ -5,7 +5,7 @@ import { IBindingState } from "./BindingState/types";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { IListIndex2 } from "../ListIndex2/types";
-import { IRenderer } from "../Updater2/types";
+import { IRenderer } from "../Updater/types";
 /**
  * DataBinding/types.ts
  *

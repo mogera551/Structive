@@ -2,7 +2,7 @@ import { Filters } from "../../Filter/types";
 import { IListIndex2 } from "../../ListIndex2/types";
 import { IReadonlyStateProxy } from "../../StateClass/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
-import { IRenderer } from "../../Updater2/types";
+import { IRenderer } from "../../Updater/types";
 import { raiseError } from "../../utils.js";
 import { IBindContent, IBinding } from "../types";
 import { IBindingNode } from "./types";

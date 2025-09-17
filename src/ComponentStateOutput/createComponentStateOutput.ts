@@ -3,7 +3,7 @@ import { IListIndex2 } from "../ListIndex2/types";
 import { GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { update2 } from "../Updater2/Updater2";
+import { update2 } from "../Updater/Updater";
 import { raiseError } from "../utils";
 import { IComponentStateOutput } from "./types";
 

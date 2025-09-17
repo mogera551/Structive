@@ -13,7 +13,7 @@ import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
 import { render } from "./Renderer";
-import { IUpdateInfo, IUpdater2 } from "./types";
+import { IUpdateInfo, IUpdater } from "./types";
 
 
 /**
@@ -21,7 +21,7 @@ import { IUpdateInfo, IUpdater2 } from "./types";
  * 状態更新が必要な場合に、都度インスタンスを作成して使用します。
  * 主な機能は以下の通りです:
  */
-class Updater2 implements IUpdater2 {
+class Updater implements IUpdater {
   queue: Array<IUpdateInfo> = [];
   #updating: boolean = false;
   #rendering: boolean = false;
@@ -68,8 +68,8 @@ class Updater2 implements IUpdater2 {
   }
 }
 
-export async function update2(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (updater: IUpdater2, state: IWritableStateProxy) => Promise<void>): Promise<void> {
-  const updater = new Updater2();
+export async function update2(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (updater: IUpdater, state: IWritableStateProxy) => Promise<void>): Promise<void> {
+  const updater = new Updater();
   await updater.beginUpdate(engine, loopContext, async (state) => {
     await callback(updater, state);
   });

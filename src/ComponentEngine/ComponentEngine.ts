@@ -19,7 +19,7 @@ import { IComponentStateOutput } from "../ComponentStateOutput/types.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 import { IListIndex2 } from "../ListIndex2/types.js";
 import { IPathManager } from "../PathManager/types.js";
-import { update2 } from "../Updater2/Updater2.js";
+import { update2 } from "../Updater/Updater.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
