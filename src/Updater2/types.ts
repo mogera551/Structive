@@ -59,9 +59,19 @@ export type IListDiffResults = {
   swapSources?: Set<IListIndex2>,
 
   /**
+   * 古い全ての要素のリストインデックスの配列
+   */
+  oldListIndexesSet: Set<IListIndex2>,
+
+  /**
    * 新しい全ての要素のリストインデックスの配列
    */
-  newListIndexesSet?: Set<IListIndex2>
+  newListIndexesSet: Set<IListIndex2>,
+
+  oldValue: any[],
+  newValue: any[],
+
+  onlySwap: boolean,
 }
 
 /**

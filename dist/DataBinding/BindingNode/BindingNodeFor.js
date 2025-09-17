@@ -75,7 +75,7 @@ class BindingNodeFor extends BindingNodeBlock {
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;
-        const newBindContentsSet = new Set();
+        let newBindContentsSet = new Set();
         // 削除を先にする
         const removeBindContentsSet = new Set();
         const info = this.binding.bindingState.info;
@@ -93,44 +93,47 @@ class BindingNodeFor extends BindingNodeBlock {
         const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
         const firstNode = this.node;
         this.bindContentLastIndex = this.poolLength - 1;
-        for (const listIndex of listIndexResults.newListIndexesSet ?? []) {
-            const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
-            let bindContent;
-            if (listIndexResults.adds?.has(listIndex)) {
-                bindContent = this.createBindContent(listIndex);
-                bindContent.mountAfter(parentNode, lastNode);
-                bindContent.applyChange(renderer);
-            }
-            else {
-                bindContent = this.#bindContentByListIndex.get(listIndex);
-                if (typeof bindContent === "undefined") {
-                    raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
-                }
-                if (lastNode?.nextSibling !== bindContent.firstChildNode) {
+        if (!listIndexResults.onlySwap) {
+            for (const listIndex of listIndexResults.newListIndexesSet ?? []) {
+                const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
+                let bindContent;
+                if (listIndexResults.adds?.has(listIndex)) {
+                    bindContent = this.createBindContent(listIndex);
                     bindContent.mountAfter(parentNode, lastNode);
+                    bindContent.applyChange(renderer);
                 }
+                else {
+                    bindContent = this.#bindContentByListIndex.get(listIndex);
+                    if (typeof bindContent === "undefined") {
+                        raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+                    }
+                    if (lastNode?.nextSibling !== bindContent.firstChildNode) {
+                        bindContent.mountAfter(parentNode, lastNode);
+                    }
+                }
+                newBindContentsSet.add(bindContent);
+                lastBindContent = bindContent;
             }
-            newBindContentsSet.add(bindContent);
-            lastBindContent = bindContent;
         }
-        // リストインデックスの並び替え
-        // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
-        // 並べ替えはするが、要素の内容は変わらないため
-        if (listIndexResults.swapTargets && listIndexResults.swapSources) {
-            const bindContents = Array.from(this.#bindContentsSet);
-            const targets = Array.from(listIndexResults.swapTargets);
-            const sources = Array.from(listIndexResults.swapSources);
-            for (let i = 0; i < targets.length; i++) {
-                const targetListIndex = targets[i];
-                const sourceListIndex = sources[i];
-                const sourceBindContent = this.#bindContentByListIndex.get(sourceListIndex);
-                if (typeof sourceBindContent === "undefined") {
-                    raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+        else {
+            // リストインデックスの並び替え
+            // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
+            // 並べ替えはするが、要素の内容は変わらないため
+            if (listIndexResults.swapTargets) {
+                const bindContents = Array.from(this.#bindContentsSet);
+                const targets = Array.from(listIndexResults.swapTargets);
+                targets.sort((a, b) => a.index - b.index);
+                for (let i = 0; i < targets.length; i++) {
+                    const targetListIndex = targets[i];
+                    const targetBindContent = this.#bindContentByListIndex.get(targetListIndex);
+                    if (typeof targetBindContent === "undefined") {
+                        raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+                    }
+                    bindContents[targetListIndex.index] = targetBindContent;
+                    const lastNode = bindContents[targetListIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
+                    targetBindContent.mountAfter(parentNode, lastNode);
                 }
-                bindContents[targetListIndex.index] = sourceBindContent;
-                this.#bindContentByListIndex.set(targetListIndex, sourceBindContent);
-                const lastNode = bindContents[targetListIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
-                sourceBindContent.mountAfter(parentNode, lastNode);
+                newBindContentsSet = new Set(bindContents);
             }
         }
         // リスト要素の上書き

@@ -4,6 +4,7 @@ export function checkDependency(handler, info, listIndex) {
         const lastInfo = handler.structuredPathInfoStack[handler.refIndex];
         if (lastInfo !== null) {
             if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
+                !handler.engine.pathManager.setters.has(lastInfo.pattern) &&
                 lastInfo.pattern !== info.pattern) {
                 handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
             }

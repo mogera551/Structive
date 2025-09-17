@@ -4,13 +4,11 @@ import { IListIndex2 } from "../ListIndex2/types";
 import { listWalker } from "../ListWalker/listWalker";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
-import { set } from "../StateClass/traps/set";
 import { IReadonlyStateProxy } from "../StateClass/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { raiseError } from "../utils";
-import { elementDiffUpdate } from "./getElementsDiffResults";
 import { getListDiffResults } from "./getListDiffResults";
 import { IListDiffResults, IRenderer, IUpdateInfo } from "./types";
 
@@ -53,21 +51,33 @@ class Renderer implements IRenderer {
     try {
       readonlyState[SetCacheableSymbol](() => {
         // リストの差分計算実行
+        const updatingItems = new Map<string, IUpdateInfo>();
         for(const item of items) {
+          const refKey = createRefKey(item.info, item.listIndex);
           if (this.engine.pathManager.lists.has(item.info.pattern)) {
             this.updateListIndexes(item.info, item.listIndex);
-          }
-          if (this.engine.pathManager.elements.has(item.info.pattern)) {
+            updatingItems.set(refKey, item);
+          } else if (this.engine.pathManager.elements.has(item.info.pattern)) {
             if (!item.listIndex) {
               raiseError(`Renderer.render: listIndex is null for element ${item.info.pattern}`);
             }
-            this.updateElements(item.info, item.listIndex);
+            const listInfo = item.info.parentInfo;
+            if (!listInfo) {
+              raiseError(`Renderer.render: parentInfo is not found for element ${item.info.pattern}`);
+            }
+            const listListIndex = listInfo.wildcardCount < item.info.wildcardCount ? item.listIndex?.at(-2) ?? null : item.listIndex;
+
+            this.updateElements(item.info, item.listIndex, item.value, listInfo, listListIndex);
+            const refKey = createRefKey(listInfo, listListIndex);
+            updatingItems.set(refKey, {info: listInfo, listIndex: listListIndex, value: null });
+          } else {
+            updatingItems.set(refKey, item);
           }
         }
         // 各Ref情報に対してレンダリングを実行
         // trackedRefKeysに追加されているRef情報はスキップ
         // updatedBindingsに追加されているバインディングはスキップ
-        for(const item of items) {
+        for(const [refKey, item] of updatingItems.entries()) {
           this.renderItem(item.info, item.listIndex, this.trackedRefKeys, this.updatedBindings, readonlyState);
         }
       });
@@ -127,7 +137,7 @@ class Renderer implements IRenderer {
 
   setOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any[]): void {
     // エンジンに古い値を保存
-    this.engine.saveList(info, listIndex, value);
+    this.engine.saveList(info, listIndex, Array.from(value));
   }
 
   getBindings(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IBinding[] {
@@ -140,6 +150,7 @@ class Renderer implements IRenderer {
     listIndex: IListIndex2 | null, 
   ) {
     const diffResult = this.getListDiffResults(info, listIndex);
+    diffResult.onlySwap = false;
     for(const path of this.engine.pathManager.lists) {
       const pathInfo = getStructuredPathInfo(path);
       const wildcardInfo = pathInfo.wildcardParentInfos.at(-2);
@@ -154,35 +165,23 @@ class Renderer implements IRenderer {
   updateElements(
     info: IStructuredPathInfo, 
     listIndex: IListIndex2,
+    value: any[] | undefined | null,
+    listInfo: IStructuredPathInfo,
+    listListIndex: IListIndex2 | null = null,
   ) {
-    const parentInfo = info.parentInfo;
-    if (!parentInfo) {
-      raiseError(`Renderer.render: parentInfo is not found for element ${info.pattern}`);
-    }
-    const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? listIndex?.at(-1) ?? null : listIndex;
-    const elementValue = this.readonlyState[GetByRefSymbol](info, listIndex);
+    const diffResult = this.getListDiffResults(listInfo, listListIndex);
+    const elementValue = value;
     const elementIndex = listIndex;
-    const oldValue = this.getOldValue(parentInfo, parentListIndex) ?? [];
-    const oldListIndexesSet = this.getOldListIndexesSet(parentInfo, parentListIndex) ?? new Set();
-
-    const elementResult = elementDiffUpdate(
-      elementValue,
-      elementIndex,
-      oldValue,
-      oldListIndexesSet,
-    );
-    const diffResult = this.getListDiffResults(parentInfo, parentListIndex);
-    // 差分結果をマージする
-    if (elementResult.replaces) {
-      diffResult.replaces = diffResult.replaces ? diffResult.replaces.union(elementResult.replaces) : elementResult.replaces;
-    }
-    if (elementResult.swapTargets && elementResult.swapSources) {
-      diffResult.swapTargets = diffResult.swapTargets ? diffResult.swapTargets.union(elementResult.swapTargets) : elementResult.swapTargets;
-      diffResult.swapSources = diffResult.swapSources ? diffResult.swapSources.union(elementResult.swapSources) : elementResult.swapSources;
-
-    }
-    if (elementResult.updates) {
-      diffResult.updates = diffResult.updates ? diffResult.updates.union(elementResult.updates) : elementResult.updates;
+    const oldValueIndexOf = diffResult.oldValue.indexOf(elementValue);
+    if (oldValueIndexOf === -1) {
+      // 値が見つからない場合は置き換え扱いにする
+      diffResult.replaces = diffResult.replaces ? diffResult.replaces.add(elementIndex) : new Set([elementIndex]);
+    } else {
+      const swapTarget = new Set([elementIndex]);
+      if (swapTarget) {
+        diffResult.swapTargets = diffResult.swapTargets ? diffResult.swapTargets.union(swapTarget) : swapTarget;
+        diffResult.updates = diffResult.updates ? diffResult.updates.union(swapTarget) : new Set(swapTarget);
+      }
     }
   }
   renderItem(

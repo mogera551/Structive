@@ -31,12 +31,8 @@ import { raiseError } from "../utils";
  * newlist[6] -> oldlist[6] (oldIndex:6)
  */
 export function elementDiffUpdate(elementValue, elementListIndex, oldValue, oldListIndexesSet) {
-    const oldIndex = oldValue.indexOf(elementValue);
     const setElement = new Set([elementListIndex]);
-    if (oldIndex === -1) {
-        return { replaces: setElement };
-    }
-    const oldListIndex = Array.from(oldListIndexesSet)[oldIndex];
+    const oldListIndex = Array.from(oldListIndexesSet)[elementListIndex.index];
     if (!oldListIndex) {
         raiseError(`elementDiffUpdate: oldListIndex is not found`);
     }

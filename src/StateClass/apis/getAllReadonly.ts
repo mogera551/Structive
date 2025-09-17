@@ -36,7 +36,8 @@ export function getAllReadonly(
       const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
       if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
         // gettersに含まれる場合は依存関係を登録
-        if (handler.engine.pathManager.getters.has(lastInfo.pattern)) {
+        if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
+          !handler.engine.pathManager.setters.has(lastInfo.pattern)) {
           handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
         }
       }
