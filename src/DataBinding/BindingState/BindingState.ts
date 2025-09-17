@@ -1,7 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
-import { IListIndex2 } from "../../ListIndex2/types.js";
+import { IListIndex } from "../../ListIndex/types.js";
 import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
@@ -29,7 +29,7 @@ class BindingState implements IBindingState {
   #binding     : IBinding;
   #pattern     : string;
   #info        : IStructuredPathInfo;
-  #listIndexRef: WeakRef<IListIndex2> | null = null;
+  #listIndexRef: WeakRef<IListIndex> | null = null;
   #filters     : Filters;
   get pattern(): string {
     return this.#pattern;

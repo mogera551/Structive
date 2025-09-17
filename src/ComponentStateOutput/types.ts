@@ -1,10 +1,10 @@
-import { IListIndex2 } from "../ListIndex2/types";
+import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 
 export interface IComponentStateOutput {
-  get(pathInfo: IStructuredPathInfo, listIndex: IListIndex2 | null): any;
-  set(pathInfo: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any): boolean;
+  get(pathInfo: IStructuredPathInfo, listIndex: IListIndex | null): any;
+  set(pathInfo: IStructuredPathInfo, listIndex: IListIndex | null, value: any): boolean;
   startsWith(pathInfo: IStructuredPathInfo): boolean;
-  getListIndexes(pathInfo: IStructuredPathInfo, listIndex: IListIndex2 | null): IListIndex2[] | null;
+  getListIndexes(pathInfo: IStructuredPathInfo, listIndex: IListIndex | null): IListIndex[] | null;
 }
 

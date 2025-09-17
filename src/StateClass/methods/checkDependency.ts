@@ -1,11 +1,11 @@
-import { IListIndex2 } from "../../ListIndex2/types";
+import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { IStateHandler } from "../types";
 
 export function checkDependency(
   handler: IStateHandler,
   info: IStructuredPathInfo,
-  listIndex: IListIndex2 | null,
+  listIndex: IListIndex | null,
 ): void {
   // 動的依存関係の登録
   if (handler.refIndex >= 0) {

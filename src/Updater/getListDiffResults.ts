@@ -1,13 +1,13 @@
-import { createListIndex2 } from "../ListIndex2/ListIndex2";
-import { IListIndex2 } from "../ListIndex2/types";
+import { createListIndex2 } from "../ListIndex/ListIndex";
+import { IListIndex } from "../ListIndex/types";
 import { raiseError } from "../utils";
 import { IListDiffResults } from "./types";
 
 function listDiffNew(
   newValue: any[],
-  parentListIndex: IListIndex2 | null,
+  parentListIndex: IListIndex | null,
 ): IListDiffResults {
-  const adds: Set<IListIndex2> = new Set();
+  const adds: Set<IListIndex> = new Set();
   for(let i = 0; i < newValue.length; i++) {
     // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
     // もし古いリストインデックスがなければ、新しいリストインデックスを作成する
@@ -26,14 +26,14 @@ function listDiffNew(
 
 function listDiffUpdate(
   oldValue: any[], 
-  oldListIndexesSet: Set<IListIndex2>,
+  oldListIndexesSet: Set<IListIndex>,
   newValue: any[],
-  parentListIndex: IListIndex2 | null,
+  parentListIndex: IListIndex | null,
 ): IListDiffResults {
-  const adds: Set<IListIndex2> = new Set();
-  const updates: Set<IListIndex2> = new Set();
+  const adds: Set<IListIndex> = new Set();
+  const updates: Set<IListIndex> = new Set();
   // 新しいリスト要素に基づいて、リストインデックスを再構築する
-  const newListIndexesSet:Set<IListIndex2> = new Set();
+  const newListIndexesSet:Set<IListIndex> = new Set();
   const oldListIndexesByValue = Map.groupBy(oldListIndexesSet, listIndex => oldValue[listIndex.index]);
   for(let i = 0; i < newValue.length; i++) {
     // リスト要素から古いリストインデックスを取得して、リストインデックスを更新する
@@ -51,7 +51,7 @@ function listDiffUpdate(
       newListIndexesSet.add(newListIndex);
     }
   }
-  const removes: Set<IListIndex2> = oldListIndexesSet.difference(newListIndexesSet);
+  const removes: Set<IListIndex> = oldListIndexesSet.difference(newListIndexesSet);
   return { 
     newValue, 
     oldValue, 
@@ -74,9 +74,9 @@ function listDiffUpdate(
  */
 export function getListDiffResults(
   oldValue: any[] | undefined | null,
-  oldListIndexesSet: Set<IListIndex2> | undefined | null,
+  oldListIndexesSet: Set<IListIndex> | undefined | null,
   newValue: any[] | undefined | null,
-  parentListIndex: IListIndex2 | null,
+  parentListIndex: IListIndex | null,
 ): IListDiffResults {
   if (oldValue != null && newValue != null) {
     if (!oldListIndexesSet) raiseError("Old list indexes set is not provided for existing old value.");
@@ -86,21 +86,21 @@ export function getListDiffResults(
     } else if (newValue.length > 0) {
       listDiffResults = listDiffNew(newValue, parentListIndex);
     } else if (oldValue.length > 0) { // oldValue.length > 0
-      const removes: Set<IListIndex2> = oldListIndexesSet ? new Set(oldListIndexesSet) : new Set();
+      const removes: Set<IListIndex> = oldListIndexesSet ? new Set(oldListIndexesSet) : new Set();
       listDiffResults = { 
         oldValue, 
         newValue:[], 
         removes,
-        oldListIndexesSet: new Set<IListIndex2>(removes),
-        newListIndexesSet: new Set<IListIndex2>(),
+        oldListIndexesSet: new Set<IListIndex>(removes),
+        newListIndexesSet: new Set<IListIndex>(),
         onlySwap: true 
       };
     } else {
       listDiffResults = { 
         oldValue:[], 
         newValue:[],
-        oldListIndexesSet: new Set<IListIndex2>(),
-        newListIndexesSet: new Set<IListIndex2>(),
+        oldListIndexesSet: new Set<IListIndex>(),
+        newListIndexesSet: new Set<IListIndex>(),
         onlySwap: true 
       };
     }
@@ -108,21 +108,21 @@ export function getListDiffResults(
   } else if (newValue != null) {
     return listDiffNew(newValue, parentListIndex);
   } else if (oldValue != null) { // oldValue != null
-    const removes: Set<IListIndex2> = oldListIndexesSet ? new Set(oldListIndexesSet) : new Set();
+    const removes: Set<IListIndex> = oldListIndexesSet ? new Set(oldListIndexesSet) : new Set();
     return { 
       oldValue, 
       newValue:[], 
       removes,
-      oldListIndexesSet: new Set<IListIndex2>(removes),
-      newListIndexesSet: new Set<IListIndex2>(),
+      oldListIndexesSet: new Set<IListIndex>(removes),
+      newListIndexesSet: new Set<IListIndex>(),
       onlySwap: true 
     };
   } else {
     return { 
       oldValue:[], 
       newValue:[],
-      oldListIndexesSet: new Set<IListIndex2>(),
-      newListIndexesSet: new Set<IListIndex2>(),
+      oldListIndexesSet: new Set<IListIndex>(),
+      newListIndexesSet: new Set<IListIndex>(),
       onlySwap: true 
     };
   }

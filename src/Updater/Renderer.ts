@@ -1,6 +1,6 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
-import { IListIndex2 } from "../ListIndex2/types";
+import { IListIndex } from "../ListIndex/types";
 import { listWalker } from "../ListWalker/listWalker";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
@@ -90,7 +90,7 @@ class Renderer implements IRenderer {
     }
   }
 
-  getListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListDiffResults {
+  getListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex | null): IListDiffResults {
     if (this.isListValue(info) === false) {
       raiseError("The specified info is not a list value.");
     }
@@ -120,34 +120,34 @@ class Renderer implements IRenderer {
     return this.engine.pathManager.lists.has(info.pattern);
   }
 
-  getOldListIndexes(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListIndex2[] | null {
+  getOldListIndexes(info: IStructuredPathInfo, listIndex: IListIndex | null): IListIndex[] | null {
     // エンジンから古いリストインデックスセットを取得
     return this.engine.getListIndexes(info, listIndex) ?? null;
   }
 
-  setOldListIndexes(info: IStructuredPathInfo, listIndex: IListIndex2 | null, listIndexes: IListIndex2[]): void {
+  setOldListIndexes(info: IStructuredPathInfo, listIndex: IListIndex | null, listIndexes: IListIndex[]): void {
     // エンジンに古いリストインデックスセットを保存
     this.engine.saveListIndexes(info, listIndex, listIndexes);
   }
 
-  getOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null): any[] | null {
+  getOldValue(info: IStructuredPathInfo, listIndex: IListIndex | null): any[] | null {
     // エンジンから古い値を取得
     return this.engine.getList(info, listIndex) ?? null;
   }
 
-  setOldValue(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any[]): void {
+  setOldValue(info: IStructuredPathInfo, listIndex: IListIndex | null, value: any[]): void {
     // エンジンに古い値を保存
     this.engine.saveList(info, listIndex, Array.from(value));
   }
 
-  getBindings(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IBinding[] {
+  getBindings(info: IStructuredPathInfo, listIndex: IListIndex | null): IBinding[] {
     // エンジンからバインディングを取得
     return this.engine.getBindings(info, listIndex) ?? [];
   }
 
   updateListIndexes(
     info: IStructuredPathInfo, 
-    listIndex: IListIndex2 | null, 
+    listIndex: IListIndex | null, 
   ) {
     const diffResult = this.getListDiffResults(info, listIndex);
     diffResult.onlySwap = false;
@@ -164,10 +164,10 @@ class Renderer implements IRenderer {
   }
   updateElements(
     info: IStructuredPathInfo, 
-    listIndex: IListIndex2,
+    listIndex: IListIndex,
     value: any[] | undefined | null,
     listInfo: IStructuredPathInfo,
-    listListIndex: IListIndex2 | null = null,
+    listListIndex: IListIndex | null = null,
   ) {
     const diffResult = this.getListDiffResults(listInfo, listListIndex);
     const elementValue = value;
@@ -186,7 +186,7 @@ class Renderer implements IRenderer {
   }
   renderItem(
     info: IStructuredPathInfo, 
-    listIndex: IListIndex2 | null, 
+    listIndex: IListIndex | null, 
     trackedRefKeys: Set<string>,
     updatedBindings: Set<IBinding>, 
     readonlyState: IReadonlyStateProxy

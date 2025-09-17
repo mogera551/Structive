@@ -8,7 +8,7 @@ import { IBindContent, IBinding } from "./types";
 import { createLoopContext } from "../LoopContext/createLoopContext.js";
 import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAttributes.js";
 import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap.js";
-import { IListIndex2 } from "../ListIndex2/types.js";
+import { IListIndex } from "../ListIndex/types.js";
 import { IRenderer } from "../Updater/types.js";
 
 function createContent(id: number): DocumentFragment {
@@ -126,7 +126,7 @@ class BindContent implements IBindContent {
     id           : number, 
     engine       : IComponentEngine, 
     loopContext  : string | null,
-    listIndex    : IListIndex2 | null
+    listIndex    : IListIndex | null
   ) {
     this.parentBinding = parentBinding;
     this.#id = id;
@@ -170,7 +170,7 @@ class BindContent implements IBindContent {
   init() {
     this.bindings.forEach(binding => binding.init());
   }
-  assignListIndex(listIndex: IListIndex2): void {
+  assignListIndex(listIndex: IListIndex): void {
     if (this.loopContext == null) raiseError(`BindContent: loopContext is null`);
     this.loopContext.assignListIndex(listIndex);
     this.init();
@@ -188,7 +188,7 @@ export function createBindContent(
   id           : number, 
   engine       :IComponentEngine, 
   loopContext  : string | null, 
-  listIndex    :IListIndex2 | null
+  listIndex    :IListIndex | null
 ):IBindContent {
   const bindContent = new BindContent(
     parentBinding, 

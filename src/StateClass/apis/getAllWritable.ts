@@ -22,7 +22,7 @@ import { raiseError } from "../../utils.js";
 import { IWritableStateHandler, IWritableStateProxy } from "../types";
 import { resolveWritable } from "./resolveWritable.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
-import { IListIndex2 } from "../../ListIndex2/types";
+import { IListIndex } from "../../ListIndex/types.js";
 
 export function getAllWritable(
   target: Object, 
@@ -58,7 +58,7 @@ export function getAllWritable(
       const walkWildcardPattern = (
         wildcardParentInfos: IStructuredPathInfo[],
         wildardIndexPos: number,
-        listIndex: IListIndex2 | null,
+        listIndex: IListIndex | null,
         indexes: number[],
         indexPos: number,
         parentIndexes: number[],

@@ -2,7 +2,7 @@ import { IComponentStateInput } from "../ComponentStateInput/types";
 import { IComponentStateOutput } from "../ComponentStateOutput/types";
 import { IBindContent, IBinding } from "../DataBinding/types";
 import { FilterWithOptions } from "../Filter/types";
-import { IListIndex2 } from "../ListIndex2/types";
+import { IListIndex } from "../ListIndex/types";
 import { IPathManager } from "../PathManager/types";
 import { IState, IStructiveState } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
@@ -37,7 +37,7 @@ export interface IComponentEngine {
   owner         : StructiveComponent;
   waitForInitialize: PromiseWithResolvers<void>;
 
-  bindingsByListIndex: WeakMap<IListIndex2, Set<IBinding>>; // リストインデックスからバインディングを取得する
+  bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // Structive子コンポーネントからバインディングを取得する
   structiveChildComponents: Set<StructiveComponent>; // Structive子コンポーネントのセット
@@ -49,15 +49,15 @@ export interface IComponentEngine {
   connectedCallback(): Promise<void>;
   disconnectedCallback(): Promise<void>;
 
-  saveBinding(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, binding: IBinding): void;
-  saveListIndexes(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, saveListIndexes: IListIndex2[]): void;
-  saveList(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null, list:any[]): void;
-  getBindings(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): IBinding[];
-  getListIndexes(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): IListIndex2[] | null;
-  getList(pattern:IStructuredPathInfo, listIndex:IListIndex2 | null): any[] | null;
+  saveBinding(pattern:IStructuredPathInfo, listIndex:IListIndex | null, binding: IBinding): void;
+  saveListIndexes(pattern:IStructuredPathInfo, listIndex:IListIndex | null, saveListIndexes: IListIndex[]): void;
+  saveList(pattern:IStructuredPathInfo, listIndex:IListIndex | null, list:any[]): void;
+  getBindings(pattern:IStructuredPathInfo, listIndex:IListIndex | null): IBinding[];
+  getListIndexes(pattern:IStructuredPathInfo, listIndex:IListIndex | null): IListIndex[] | null;
+  getList(pattern:IStructuredPathInfo, listIndex:IListIndex | null): any[] | null;
 
-  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null): any; // プロパティの値を取得する
-  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null, value: any): void; // プロパティの値を設定する
+  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
+  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する
   registerChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録する
   unregisterChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録解除する
 }
@@ -67,6 +67,6 @@ export interface IComponentEngine {
  */
 export interface ISaveInfoByResolvedPathInfo {
   list          : any[] | null;
-  listIndexes   : IListIndex2[] | null;
+  listIndexes   : IListIndex[] | null;
   bindings      : IBinding[];
 }

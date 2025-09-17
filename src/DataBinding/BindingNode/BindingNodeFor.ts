@@ -1,7 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { FilterWithOptions } from "../../Filter/types";
-import { IListIndex2 } from "../../ListIndex2/types.js";
+import { IListIndex } from "../../ListIndex/types.js";
 import { IRenderer } from "../../Updater/types.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
@@ -28,10 +28,10 @@ import { CreateBindingNodeFn } from "./types";
  */
 class BindingNodeFor extends BindingNodeBlock {
   #bindContentsSet       : Set<IBindContent> = new Set<IBindContent>();
-  #bindContentByListIndex: WeakMap<IListIndex2, IBindContent> = new WeakMap();
+  #bindContentByListIndex: WeakMap<IListIndex, IBindContent> = new WeakMap();
   #bindContentPool       : IBindContent[] = [];
   #bindContentLastIndex  : number = 0;
-  #lastListIndexSet      : Set<IListIndex2> = new Set<IListIndex2>();
+  #lastListIndexSet      : Set<IListIndex> = new Set<IListIndex>();
 
   get bindContents(): Set<IBindContent> {
     return this.#bindContentsSet;
@@ -44,7 +44,7 @@ class BindingNodeFor extends BindingNodeBlock {
   init() {
   }
 
-  createBindContent(listIndex: IListIndex2): IBindContent {
+  createBindContent(listIndex: IListIndex): IBindContent {
     let bindContent: IBindContent;
     if (this.#bindContentLastIndex >= 0) {
       // プールの最後の要素を取得して、プールの長さをあとで縮減する

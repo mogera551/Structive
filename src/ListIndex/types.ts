@@ -1,6 +1,6 @@
 
-export interface IListIndex2 {
-  readonly parentListIndex: IListIndex2 | null;
+export interface IListIndex {
+  readonly parentListIndex: IListIndex | null;
   readonly id: number;
   readonly sid: string;
   readonly position: number;
@@ -9,7 +9,7 @@ export interface IListIndex2 {
   readonly version: number;
   readonly dirty: boolean;
   readonly indexes: number[];
-  readonly listIndexes: WeakRef<IListIndex2>[];
+  readonly listIndexes: WeakRef<IListIndex>[];
   readonly varName: string;
-  at(position: number): IListIndex2 | null;
+  at(position: number): IListIndex | null;
 }

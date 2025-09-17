@@ -1,5 +1,5 @@
 import { Filters } from "../../Filter/types";
-import { IListIndex2 } from "../../ListIndex2/types";
+import { IListIndex } from "../../ListIndex/types";
 import { IReadonlyStateProxy } from "../../StateClass/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { IRenderer } from "../../Updater/types";
@@ -69,7 +69,7 @@ export class BindingNode implements IBindingNode {
   assignValue(value: any): void {
     raiseError(`BindingNode: assignValue not implemented`);
   }
-  updateElements(listIndexes: IListIndex2[], values: any[]) {
+  updateElements(listIndexes: IListIndex[], values: any[]) {
     raiseError(`BindingNode: updateElements not implemented`);
   }
   notifyRedraw(refs: IStatePropertyRef[]): void {

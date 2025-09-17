@@ -13,14 +13,14 @@
  * - コールバック実行中のみスコープを切り替え、例外発生時も状態復元を保証
  * - ネストしたスコープにも対応可能
  */
-import { IListIndex2 } from "../../ListIndex2/types";
+import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { IStateHandler } from "../types";
 
 export function setStatePropertyRef(
   handler: IStateHandler,
   info: IStructuredPathInfo,
-  listIndex: IListIndex2 | null,
+  listIndex: IListIndex | null,
   callback: () => void
 ): void {
   handler.refIndex++;

@@ -13,7 +13,7 @@
  * - ネストした非同期処理にも対応可能
  * - スコープのpush/popは例外発生時も確実に実行される
  */
-import { IListIndex2 } from "../../ListIndex2/types";
+import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils";
 import { IStateHandler } from "../types";
@@ -32,7 +32,7 @@ import { IStateHandler } from "../types";
 export async function asyncSetStatePropertyRef(
   handler: IStateHandler,
   info: IStructuredPathInfo,
-  listIndex: IListIndex2 | null,
+  listIndex: IListIndex | null,
   callback: () => Promise<void>
 ): Promise<void> {
   handler.refIndex++;

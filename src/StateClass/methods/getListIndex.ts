@@ -15,7 +15,7 @@
  * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
  * - エラー時はraiseErrorで詳細な例外を投げる
  */
-import { IListIndex2 } from "../../ListIndex2/types";
+import { IListIndex } from "../../ListIndex/types";
 import { IResolvedPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
 import { IStateHandler, IReadonlyStateProxy, IStateProxy } from "../types";
@@ -25,7 +25,7 @@ export function getListIndex(
   resolvedPath: IResolvedPathInfo, 
   receiver: IStateProxy,
   handler: IStateHandler
-): IListIndex2 | null {
+): IListIndex | null {
   switch (resolvedPath.wildcardType) {
     case "none":
       return null;
@@ -35,11 +35,11 @@ export function getListIndex(
       return getContextListIndex(handler, lastWildcardPath) ?? 
         raiseError(`ListIndex not found: ${resolvedPath.info.pattern}`);
     case "all":
-      let parentListIndex: IListIndex2 | null = null;
+      let parentListIndex: IListIndex | null = null;
       for(let i = 0; i < resolvedPath.info.wildcardCount; i++) {
         const wildcardParentPattern = resolvedPath.info.wildcardParentInfos[i] ?? 
           raiseError(`wildcardParentPattern is null`);
-        const listIndexes: IListIndex2[] = handler.engine.getListIndexes(wildcardParentPattern, parentListIndex) ?? 
+        const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardParentPattern, parentListIndex) ?? 
           raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         const wildcardIndex = resolvedPath.wildcardIndexes[i] ?? 
           raiseError(`wildcardIndex is null`);

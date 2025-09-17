@@ -19,7 +19,7 @@ import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo
 import { raiseError } from "../../utils.js";
 import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
 import { getByRefReadonly } from "../methods/getByRefReadonly";
-import { IListIndex2 } from "../../ListIndex2/types";
+import { IListIndex } from "../../ListIndex/types.js";
 
 export function resolveReadonly(
   target: Object, 
@@ -38,10 +38,10 @@ export function resolveReadonly(
       }
     }
 
-    let listIndex: IListIndex2 | null = null;
+    let listIndex: IListIndex | null = null;
     for(let i = 0; i < info.wildcardParentInfos.length; i++) {
       const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
-      const listIndexes: IListIndex2[] = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? [];
+      const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? [];
       const index = indexes[i] ?? raiseError(`index is null`);
       listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
     }

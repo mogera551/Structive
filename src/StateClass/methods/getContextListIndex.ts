@@ -15,13 +15,13 @@
  * - listIndex.at(index)で該当階層のリストインデックスを取得
  * - パスが一致しない場合や参照が存在しない場合はnullを返す
  */
-import { IListIndex2 } from "../../ListIndex2/types";
+import { IListIndex } from "../../ListIndex/types";
 import { IStateHandler } from "../types";
 
 export function getContextListIndex(
   handler: IStateHandler,
   structuredPath: string
-): IListIndex2 | null {
+): IListIndex | null {
   const info = handler.structuredPathInfoStack[handler.refIndex];
   if (info == null) {
     return null;

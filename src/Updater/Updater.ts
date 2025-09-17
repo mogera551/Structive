@@ -1,7 +1,7 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
-import { createListIndex2 } from "../ListIndex2/ListIndex2";
-import { IListIndex2 } from "../ListIndex2/types";
+import { createListIndex2 } from "../ListIndex/ListIndex";
+import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetByRefSymbol } from "../StateClass/symbols";
@@ -28,7 +28,7 @@ class Updater implements IUpdater {
   #engine: IComponentEngine | null = null;
 
   // Ref情報をキューに追加
-  enqueueRef(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any): void {
+  enqueueRef(info: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void {
     this.queue.push({ info, listIndex, value });
     if (this.#rendering) return;
     this.#rendering = true;

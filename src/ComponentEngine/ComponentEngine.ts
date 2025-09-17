@@ -17,7 +17,7 @@ import { createComponentStateOutput } from "../ComponentStateOutput/createCompon
 import { IComponentStateInput } from "../ComponentStateInput/types.js";
 import { IComponentStateOutput } from "../ComponentStateOutput/types.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
-import { IListIndex2 } from "../ListIndex2/types.js";
+import { IListIndex } from "../ListIndex/types.js";
 import { IPathManager } from "../PathManager/types.js";
 import { update2 } from "../Updater/Updater.js";
 
@@ -62,7 +62,7 @@ export class ComponentEngine implements IComponentEngine {
   baseClass     : typeof HTMLElement = HTMLElement;
   owner         : StructiveComponent;
 
-  bindingsByListIndex : WeakMap<IListIndex2, Set<IBinding>> = new WeakMap();
+  bindingsByListIndex : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
   structiveChildComponents: Set<StructiveComponent> = new Set();
@@ -186,7 +186,7 @@ export class ComponentEngine implements IComponentEngine {
   }
 
   #saveInfoByStructuredPathId: { [id:number]: ISaveInfoByResolvedPathInfo } = {};
-  #saveInfoByResolvedPathInfoIdByListIndex: WeakMap<IListIndex2, { [id:number]: ISaveInfoByResolvedPathInfo }> = new WeakMap();
+  #saveInfoByResolvedPathInfoIdByListIndex: WeakMap<IListIndex, { [id:number]: ISaveInfoByResolvedPathInfo }> = new WeakMap();
 
   createSaveInfo():ISaveInfoByResolvedPathInfo {
     return {
@@ -196,7 +196,7 @@ export class ComponentEngine implements IComponentEngine {
     }
   }
 
-  getSaveInfoByStatePropertyRef(info:IStructuredPathInfo, listIndex:IListIndex2 | null): ISaveInfoByResolvedPathInfo {
+  getSaveInfoByStatePropertyRef(info:IStructuredPathInfo, listIndex:IListIndex | null): ISaveInfoByResolvedPathInfo {
     if (listIndex === null) {
       let saveInfo = this.#saveInfoByStructuredPathId[info.id];
       if (typeof saveInfo === "undefined") {
@@ -221,7 +221,7 @@ export class ComponentEngine implements IComponentEngine {
   
   saveBinding(
     info     : IStructuredPathInfo, 
-    listIndex: IListIndex2 | null, 
+    listIndex: IListIndex | null, 
     binding  : IBinding
   ): void {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
@@ -230,8 +230,8 @@ export class ComponentEngine implements IComponentEngine {
 
   saveListIndexes(
     info              : IStructuredPathInfo, 
-    listIndex         : IListIndex2 | null, 
-    saveListIndexes   : IListIndex2[]
+    listIndex         : IListIndex | null, 
+    saveListIndexes   : IListIndex[]
   ): void {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     saveInfo.listIndexes = saveListIndexes;
@@ -239,7 +239,7 @@ export class ComponentEngine implements IComponentEngine {
 
   saveList(
     info     :IStructuredPathInfo, 
-    listIndex:IListIndex2 | null, 
+    listIndex:IListIndex | null, 
     list     :any[]
   ): void {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
@@ -248,13 +248,13 @@ export class ComponentEngine implements IComponentEngine {
 
   getBindings(
     info     :IStructuredPathInfo, 
-    listIndex:IListIndex2 | null
+    listIndex:IListIndex | null
   ): IBinding[] {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     return saveInfo.bindings;
   }
 
-  getListIndexes(info:IStructuredPathInfo, listIndex:IListIndex2 | null): IListIndex2[] | null {
+  getListIndexes(info:IStructuredPathInfo, listIndex:IListIndex | null): IListIndex[] | null {
     if (this.stateOutput.startsWith(info)) {
       return this.stateOutput.getListIndexes(info, listIndex);
     }
@@ -264,18 +264,18 @@ export class ComponentEngine implements IComponentEngine {
     
   getList(
     info     :IStructuredPathInfo, 
-    listIndex:IListIndex2 | null
+    listIndex:IListIndex | null
   ): any[] | null {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     return saveInfo.list;
   }
 
-  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null): any {
+  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any {
     // プロパティの値を取得する
     const stateProxy = createReadonlyStateProxy(this, this.state);
     return stateProxy[GetByRefSymbol](info, listIndex);
   }
-  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex2 | null, value: any): void {
+  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void {
     // プロパティの値を設定する
     update2(this, null, async (updater, stateProxy) => {
       stateProxy[SetByRefSymbol](info, listIndex, value);

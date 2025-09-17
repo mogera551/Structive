@@ -1,6 +1,6 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
-import { IListIndex2 } from "../ListIndex2/types";
+import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
@@ -8,7 +8,7 @@ import { IStatePropertyRef } from "../StatePropertyRef/types";
 
 export type IUpdateInfo = {
   info: IStructuredPathInfo;
-  listIndex: IListIndex2 | null;
+  listIndex: IListIndex | null;
   value: any;
 }
 
@@ -22,7 +22,7 @@ export interface IUpdater {
    * @param listIndex 更新リストインデックス
    * @param value 新しい値
    */
-  enqueueRef(info: IStructuredPathInfo, listIndex: IListIndex2 | null, value: any): void;
+  enqueueRef(info: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void;
 }
 
 /**
@@ -32,41 +32,41 @@ export type IListDiffResults = {
   /**
    * 追加された要素のリストインデックスの配列
    */
-  adds?: Set<IListIndex2>,
+  adds?: Set<IListIndex>,
 
   /**
    * 更新された要素のリストインデックスの配列
    */
-  updates?: Set<IListIndex2>,
+  updates?: Set<IListIndex>,
 
   /**
    * 削除された要素のリストインデックスの配列
    */
-  removes?: Set<IListIndex2>,
+  removes?: Set<IListIndex>,
 
   /**
    * 置き換えられた要素のリストインデックスの配列
    */
-  replaces?: Set<IListIndex2>,
+  replaces?: Set<IListIndex>,
 
   /**
    * 入れ替え先の要素のリストインデックスの配列
    */
-  swapTargets?: Set<IListIndex2>,
+  swapTargets?: Set<IListIndex>,
   /**
    * 入れ替え元の要素のリストインデックスの配列
    */
-  swapSources?: Set<IListIndex2>,
+  swapSources?: Set<IListIndex>,
 
   /**
    * 古い全ての要素のリストインデックスの配列
    */
-  oldListIndexesSet: Set<IListIndex2>,
+  oldListIndexesSet: Set<IListIndex>,
 
   /**
    * 新しい全ての要素のリストインデックスの配列
    */
-  newListIndexesSet: Set<IListIndex2>,
+  newListIndexesSet: Set<IListIndex>,
 
   oldValue: any[],
   newValue: any[],
@@ -104,5 +104,5 @@ export interface IRenderer {
    * @param info パス情報
    * @param listIndex リストインデックス
    */
-  getListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex2 | null): IListDiffResults;
+  getListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex | null): IListDiffResults;
 }

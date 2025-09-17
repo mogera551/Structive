@@ -1,16 +1,16 @@
-import { IListIndex2 } from "./types";
+import { IListIndex } from "./types";
 
 
 let version = 0;
 let id = 0;
-class ListIndex2 implements IListIndex2 {
-  #parentListIndex: IListIndex2 | null = null;
+class ListIndex implements IListIndex {
+  #parentListIndex: IListIndex | null = null;
   #pos: number = 0;
   #index: number = 0;
   #version: number;
   #id = ++id;
   #sid = this.#id.toString();
-  constructor(parentListIndex: IListIndex2 | null, index: number) {
+  constructor(parentListIndex: IListIndex | null, index: number) {
     this.#parentListIndex = parentListIndex;
     this.#pos = parentListIndex ? parentListIndex.position + 1 : 0;
     this.#index = index;
@@ -73,8 +73,8 @@ class ListIndex2 implements IListIndex2 {
     return this.#indexes;
   }
 
-  #listIndexes: WeakRef<IListIndex2>[] | undefined;
-  get listIndexes(): WeakRef<IListIndex2>[] {
+  #listIndexes: WeakRef<IListIndex>[] | undefined;
+  get listIndexes(): WeakRef<IListIndex>[] {
     if (this.#parentListIndex === null) {
       if (typeof this.#listIndexes === "undefined") {
         this.#listIndexes = [new WeakRef(this)];
@@ -91,7 +91,7 @@ class ListIndex2 implements IListIndex2 {
     return `${this.position + 1}`;
   }
 
-  at(pos: number): IListIndex2 | null {
+  at(pos: number): IListIndex | null {
     if (pos >= 0) {
       return this.listIndexes[pos]?.deref() || null;
     } else {
@@ -100,6 +100,6 @@ class ListIndex2 implements IListIndex2 {
   }
 }
 
-export function createListIndex2(parentListIndex: IListIndex2 | null, index: number): IListIndex2 {
-  return new ListIndex2(parentListIndex, index);
+export function createListIndex2(parentListIndex: IListIndex | null, index: number): IListIndex {
+  return new ListIndex(parentListIndex, index);
 }

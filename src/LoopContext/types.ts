@@ -21,17 +21,17 @@
  * - 親子関係や階層構造の探索・列挙・検索を効率的に行うためのインターフェース
  */
 import { IBindContent } from "../DataBinding/types";
-import { IListIndex2 } from "../ListIndex2/types";
+import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 
 export interface ILoopContext {
   readonly path             : string;
   readonly info             : IStructuredPathInfo;
   readonly bindContent      : IBindContent;
-  readonly listIndex        : IListIndex2;
-  readonly listIndexRef     : WeakRef<IListIndex2>;
+  readonly listIndex        : IListIndex;
+  readonly listIndexRef     : WeakRef<IListIndex>;
   readonly parentLoopContext: ILoopContext | null;
-  assignListIndex(listIndex: IListIndex2): void;
+  assignListIndex(listIndex: IListIndex): void;
   clearListIndex(): void;
   find(name: string): ILoopContext | null;
   walk(callback: (loopContext: ILoopContext) => void): void;

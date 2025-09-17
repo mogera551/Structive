@@ -14,15 +14,15 @@
  * - 多重ループやネストした配列バインディングにも柔軟に対応
  */
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IListIndex2 } from "../ListIndex2/types";
+import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { raiseError } from "../utils";
 
 function listWalkerSub(
   engine: IComponentEngine,
   info: IStructuredPathInfo, 
-  listIndex: IListIndex2 | null, 
-  callback:(info: IStructuredPathInfo, listIndex: IListIndex2 | null)=> void
+  listIndex: IListIndex | null, 
+  callback:(info: IStructuredPathInfo, listIndex: IListIndex | null)=> void
 ) {
   const listIndexLen = listIndex?.length ?? 0;
   if (info.wildcardCount === listIndexLen) {
@@ -41,8 +41,8 @@ function listWalkerSub(
 export function listWalker(
   engine: IComponentEngine,
   info:IStructuredPathInfo, 
-  listIndex: IListIndex2 | null,
-  callback:(info: IStructuredPathInfo, listIndex: IListIndex2 | null)=> void
+  listIndex: IListIndex | null,
+  callback:(info: IStructuredPathInfo, listIndex: IListIndex | null)=> void
 ) {
   listWalkerSub(engine, info, listIndex, callback);
 }

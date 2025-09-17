@@ -4,7 +4,7 @@ import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
-import { IListIndex2 } from "../ListIndex2/types";
+import { IListIndex } from "../ListIndex/types";
 import { IRenderer } from "../Updater/types";
 /**
  * DataBinding/types.ts
@@ -46,7 +46,7 @@ export interface IBindContent {
   childNodes: Node[];
   bindings: IBinding[];
   init(): void;
-  assignListIndex(listIndex: IListIndex2): void;
+  assignListIndex(listIndex: IListIndex): void;
   getLastNode(parentNode: Node): Node | null;
   applyChange(renderer: IRenderer): void; // バインディングの変更を適用する
 }

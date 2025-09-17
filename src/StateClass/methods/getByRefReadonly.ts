@@ -17,7 +17,7 @@
  * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
  * - finallyでキャッシュへの格納を保証
  */
-import { IListIndex2 } from "../../ListIndex2/types";
+import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils";
 import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
@@ -42,7 +42,7 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
 function _getByRef(
   target   : Object, 
   info     : IStructuredPathInfo,
-  listIndex: IListIndex2 | null,
+  listIndex: IListIndex | null,
   receiver : IReadonlyStateProxy,
   handler  : IReadonlyStateHandler
 ): any {
@@ -101,7 +101,7 @@ function _getByRef(
 export function getByRefReadonly(
   target   : Object, 
   info     : IStructuredPathInfo,
-  listIndex: IListIndex2 | null,
+  listIndex: IListIndex | null,
   receiver : IReadonlyStateProxy,
   handler  : IReadonlyStateHandler
 ): any {
