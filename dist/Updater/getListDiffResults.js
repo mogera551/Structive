@@ -1,4 +1,4 @@
-import { createListIndex2 } from "../ListIndex2/ListIndex2";
+import { createListIndex2 } from "../ListIndex/ListIndex";
 import { raiseError } from "../utils";
 function listDiffNew(newValue, parentListIndex) {
     const adds = new Set();

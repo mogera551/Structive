@@ -1,6 +1,6 @@
 let version = 0;
 let id = 0;
-class ListIndex2 {
+class ListIndex {
     #parentListIndex = null;
     #pos = 0;
     #index = 0;
@@ -89,5 +89,5 @@ class ListIndex2 {
     }
 }
 export function createListIndex2(parentListIndex, index) {
-    return new ListIndex2(parentListIndex, index);
+    return new ListIndex(parentListIndex, index);
 }

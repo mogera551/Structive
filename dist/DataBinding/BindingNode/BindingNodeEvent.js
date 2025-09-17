@@ -1,5 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
-import { update2 } from "../../Updater2/Updater2.js";
+import { update2 } from "../../Updater/Updater.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 /**

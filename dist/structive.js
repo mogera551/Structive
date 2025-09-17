@@ -1829,7 +1829,7 @@ function createRefKey(info, listIndex) {
 
 let version = 0;
 let id = 0;
-class ListIndex2 {
+class ListIndex {
     #parentListIndex = null;
     #pos = 0;
     #index = 0;
@@ -1918,7 +1918,7 @@ class ListIndex2 {
     }
 }
 function createListIndex2(parentListIndex, index) {
-    return new ListIndex2(parentListIndex, index);
+    return new ListIndex(parentListIndex, index);
 }
 
 function listDiffNew(newValue, parentListIndex) {
@@ -2282,7 +2282,7 @@ function render(items, engine) {
  * 状態更新が必要な場合に、都度インスタンスを作成して使用します。
  * 主な機能は以下の通りです:
  */
-class Updater2 {
+class Updater {
     queue = [];
     #updating = false;
     #rendering = false;
@@ -2330,7 +2330,7 @@ class Updater2 {
     }
 }
 async function update2(engine, loopContext, callback) {
-    const updater = new Updater2();
+    const updater = new Updater();
     await updater.beginUpdate(engine, loopContext, async (state) => {
         await callback(updater, state);
     });

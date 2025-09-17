@@ -8,7 +8,7 @@ import { createComponentStateBinding } from "../ComponentStateBinding/createComp
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
 import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
-import { update2 } from "../Updater2/Updater2.js";
+import { update2 } from "../Updater/Updater.js";
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
  * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。

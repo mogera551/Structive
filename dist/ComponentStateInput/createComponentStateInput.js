@@ -1,6 +1,6 @@
 import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { update2 } from "../Updater2/Updater2";
+import { update2 } from "../Updater/Updater";
 import { raiseError } from "../utils";
 import { AssignStateSymbol, NotifyRedrawSymbol } from "./symbols";
 class ComponentStateInputHandler {

@@ -6,7 +6,7 @@ import { render } from "./Renderer";
  * 状態更新が必要な場合に、都度インスタンスを作成して使用します。
  * 主な機能は以下の通りです:
  */
-class Updater2 {
+class Updater {
     queue = [];
     #updating = false;
     #rendering = false;
@@ -54,7 +54,7 @@ class Updater2 {
     }
 }
 export async function update2(engine, loopContext, callback) {
-    const updater = new Updater2();
+    const updater = new Updater();
     await updater.beginUpdate(engine, loopContext, async (state) => {
         await callback(updater, state);
     });
