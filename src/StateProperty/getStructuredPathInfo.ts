@@ -124,13 +124,13 @@ export const reservedWords = new Set([
 ]);
 
 export function getStructuredPathInfo(structuredPath: string): IStructuredPathInfo {
-  if (reservedWords.has(structuredPath)) {
-    raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
-  }
   let info: IStructuredPathInfo | undefined;
   info = _cache[structuredPath];
   if (typeof info !== "undefined") {
     return info;
+  }
+  if (reservedWords.has(structuredPath)) {
+    raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
   }
   return (_cache[structuredPath] = new StructuredPathInfo(structuredPath));
 }

@@ -943,13 +943,13 @@ const reservedWords = new Set([
     "null", "true", "false", "new", "return",
 ]);
 function getStructuredPathInfo(structuredPath) {
-    if (reservedWords.has(structuredPath)) {
-        raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
-    }
     let info;
     info = _cache$3[structuredPath];
     if (typeof info !== "undefined") {
         return info;
+    }
+    if (reservedWords.has(structuredPath)) {
+        raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
     }
     return (_cache$3[structuredPath] = new StructuredPathInfo(structuredPath));
 }
