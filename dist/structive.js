@@ -943,8 +943,7 @@ const reservedWords = new Set([
     "null", "true", "false", "new", "return",
 ]);
 function getStructuredPathInfo(structuredPath) {
-    let info;
-    info = _cache$3[structuredPath];
+    const info = _cache$3[structuredPath];
     if (typeof info !== "undefined") {
         return info;
     }

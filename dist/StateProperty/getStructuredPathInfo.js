@@ -118,8 +118,7 @@ export const reservedWords = new Set([
     "null", "true", "false", "new", "return",
 ]);
 export function getStructuredPathInfo(structuredPath) {
-    let info;
-    info = _cache[structuredPath];
+    const info = _cache[structuredPath];
     if (typeof info !== "undefined") {
         return info;
     }
