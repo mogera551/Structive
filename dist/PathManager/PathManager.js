@@ -79,7 +79,7 @@ class PathManager {
             const info = getStructuredPathInfo(path);
             if (info.parentPath) {
                 this.staticDependencies.get(info.parentPath)?.add(path) ??
-                    this.staticDependencies.set(info.parentPath, new Set());
+                    this.staticDependencies.set(info.parentPath, new Set([path]));
             }
         }
     }
