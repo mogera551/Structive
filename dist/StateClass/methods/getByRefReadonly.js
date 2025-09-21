@@ -22,11 +22,11 @@ export function getByRefReadonly(target, info, listIndex, receiver, handler) {
     let refKey = '';
     if (handler.cacheable) {
         const key = (listIndex === null) ? info.sid : (info.sid + "#" + listIndex.sid);
-        const value = handler.cache[key];
+        const value = handler.cache.get(key);
         if (typeof value !== "undefined") {
             return value;
         }
-        if (key in handler.cache) {
+        if (handler.cache.has(key)) {
             return undefined;
         }
         refKey = key;
@@ -64,7 +64,7 @@ export function getByRefReadonly(target, info, listIndex, receiver, handler) {
     finally {
         // キャッシュが有効な場合は取得値をキャッシュ
         if (handler.cacheable) {
-            handler.cache[refKey] = value;
+            handler.cache.set(refKey, value);
         }
     }
 }

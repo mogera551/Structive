@@ -4,8 +4,7 @@ import { getStructuredPathInfo } from './getStructuredPathInfo.js';
  * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
  * 指定することはないと考え、Mapを使わないことにした。
  */
-const _cache = {};
-//const _cache: Map<string, IResolvedPathInfo> = new Map();
+const _cache = new Map();
 class ResolvedPathInfo {
     static id = 0;
     id = ++ResolvedPathInfo.id;
@@ -71,6 +70,5 @@ class ResolvedPathInfo {
 }
 export function getResolvedPathInfo(name) {
     let nameInfo;
-    //  return _cache.get(name) ?? (_cache.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
-    return _cache[name] ?? (_cache[name] = new ResolvedPathInfo(name));
+    return _cache.get(name) ?? (_cache.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
 }

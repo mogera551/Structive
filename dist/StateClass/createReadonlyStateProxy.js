@@ -4,7 +4,7 @@ const STACK_DEPTH = 32;
 class StateHandler {
     engine;
     cacheable = false;
-    cache = {};
+    cache = new Map();
     lastTrackingStack = null;
     trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;

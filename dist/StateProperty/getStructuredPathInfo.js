@@ -22,7 +22,6 @@ import { raiseError } from '../utils.js';
  * 指定することはないと考え、Mapを使わないことにした。
  */
 const _cache = {};
-//const _cache: Map<string, IStructuredPathInfo> = new Map();
 /**
  * パターン情報を取得します
  * @param pattern パターン

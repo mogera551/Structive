@@ -847,7 +847,6 @@ const createBindingNodeClassName = (name, filterTexts, decorates) => (binding, n
  * 指定することはないと考え、Mapを使わないことにした。
  */
 const _cache$3 = {};
-//const _cache: Map<string, IStructuredPathInfo> = new Map();
 /**
  * パターン情報を取得します
  * @param pattern パターン
@@ -960,8 +959,7 @@ function getStructuredPathInfo(structuredPath) {
  * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
  * 指定することはないと考え、Mapを使わないことにした。
  */
-const _cache$2 = {};
-//const _cache: Map<string, IResolvedPathInfo> = new Map();
+const _cache$2 = new Map();
 class ResolvedPathInfo {
     static id = 0;
     id = ++ResolvedPathInfo.id;
@@ -1026,8 +1024,8 @@ class ResolvedPathInfo {
     }
 }
 function getResolvedPathInfo(name) {
-    //  return _cache.get(name) ?? (_cache.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
-    return _cache$2[name] ?? (_cache$2[name] = new ResolvedPathInfo(name));
+    let nameInfo;
+    return _cache$2.get(name) ?? (_cache$2.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
 }
 
 function getContextListIndex(handler, structuredPath) {
@@ -1554,11 +1552,11 @@ function getByRefReadonly(target, info, listIndex, receiver, handler) {
     let refKey = '';
     if (handler.cacheable) {
         const key = (listIndex === null) ? info.sid : (info.sid + "#" + listIndex.sid);
-        const value = handler.cache[key];
+        const value = handler.cache.get(key);
         if (typeof value !== "undefined") {
             return value;
         }
-        if (key in handler.cache) {
+        if (handler.cache.has(key)) {
             return undefined;
         }
         refKey = key;
@@ -1596,7 +1594,7 @@ function getByRefReadonly(target, info, listIndex, receiver, handler) {
     finally {
         // キャッシュが有効な場合は取得値をキャッシュ
         if (handler.cacheable) {
-            handler.cache[refKey] = value;
+            handler.cache.set(refKey, value);
         }
     }
 }
@@ -1647,7 +1645,7 @@ function resolveReadonly(target, prop, receiver, handler) {
 
 function setCacheable(handler, callback) {
     handler.cacheable = true;
-    handler.cache = {};
+    handler.cache = new Map();
     try {
         callback();
     }
@@ -1789,7 +1787,7 @@ const STACK_DEPTH = 32;
 class StateHandler {
     engine;
     cacheable = false;
-    cache = {};
+    cache = new Map();
     lastTrackingStack = null;
     trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;

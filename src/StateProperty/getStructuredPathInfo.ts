@@ -24,7 +24,6 @@ import { IStructuredPathInfo } from './types';
  * 指定することはないと考え、Mapを使わないことにした。
  */
 const _cache: { [key:string]: IStructuredPathInfo } = {};
-//const _cache: Map<string, IStructuredPathInfo> = new Map();
 
 /**
  * パターン情報を取得します
