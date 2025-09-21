@@ -2192,6 +2192,10 @@ class Renderer {
             return; // すでに処理済みのRef情報はスキップ
         }
         trackedRefKeys.add(refKey);
+        // applyChangeで使用するために、リストの差分情報を取得
+        const isList = this.isListValue(info);
+        const diffResults = isList ? this.#listDiffResultsByRefKey.get(refKey) : null;
+        const elementInfo = isList ? getStructuredPathInfo(info.pattern + ".*") : null;
         // バインディングに変更を適用する
         // 変更があったバインディングはupdatedBindingsに追加する
         const bindings = this.getBindings(info, listIndex);
@@ -2203,9 +2207,6 @@ class Renderer {
             binding.applyChange(this);
         }
         // 静的・動的依存要素のレンダリング
-        const isList = this.isListValue(info);
-        const diffResults = isList ? this.#listDiffResultsByRefKey.get(refKey) : null;
-        const elementInfo = isList ? getStructuredPathInfo(info.pattern + ".*") : null;
         // インデックス更新があったバインディングに変更を適用する
         for (const updateListIndex of diffResults?.updates ?? []) {
             const info = getStructuredPathInfo(updateListIndex.varName);
