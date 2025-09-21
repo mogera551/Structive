@@ -20,13 +20,12 @@ import { BindingNodeBlock } from "./BindingNodeBlock.js";
  * ファクトリ関数 createBindingNodeFor でフィルタ・デコレータ適用済みインスタンスを生成
  */
 class BindingNodeFor extends BindingNodeBlock {
-    #bindContentsSet = new Set();
+    #bindContents = [];
     #bindContentByListIndex = new WeakMap();
     #bindContentPool = [];
     #bindContentLastIndex = 0;
-    #lastListIndexSet = new Set();
     get bindContents() {
-        return this.#bindContentsSet;
+        return this.#bindContents;
     }
     get isFor() {
         return true;
@@ -75,31 +74,67 @@ class BindingNodeFor extends BindingNodeBlock {
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;
-        let newBindContentsSet = new Set();
+        let newBindContents = [];
         // 削除を先にする
         const removeBindContentsSet = new Set();
         const info = this.binding.bindingState.info;
         const listIndex = this.binding.bindingState.listIndex;
         const listIndexResults = renderer.getListDiffResults(info, listIndex);
-        for (const listIndex of listIndexResults.removes ?? []) {
-            const bindContent = this.#bindContentByListIndex.get(listIndex);
-            if (bindContent) {
-                this.deleteBindContent(bindContent);
-                removeBindContentsSet.add(bindContent);
+        const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
+        // 全削除最適化のフラグ
+        const isAllRemove = (listIndexResults.oldValue.length === listIndexResults.removes?.size && listIndexResults.oldValue.length > 0);
+        // 親ノードこのノードだけ持つかのチェック
+        let isParentNodeHasOnlyThisNode = false;
+        if (isAllRemove) {
+            const parentChildNodes = Array.from(parentNode.childNodes);
+            const lastContent = this.#bindContents.at(-1) ?? raiseError(`BindingNodeFor.update: lastContent is null`);
+            // ブランクノードを飛ばす
+            let firstNode = parentChildNodes[0];
+            while (firstNode && firstNode.nodeType === Node.TEXT_NODE && firstNode.textContent?.trim() === "") {
+                firstNode = firstNode.nextSibling;
+            }
+            let lastNode = parentChildNodes.at(-1) ?? null;
+            while (lastNode && lastNode.nodeType === Node.TEXT_NODE && lastNode.textContent?.trim() === "") {
+                lastNode = lastNode.previousSibling;
+            }
+            if (firstNode === this.node && lastNode === lastContent.getLastNode(parentNode)) {
+                isParentNodeHasOnlyThisNode = true;
             }
         }
-        this.#bindContentPool.push(...removeBindContentsSet);
+        if (isAllRemove && isParentNodeHasOnlyThisNode) {
+            // 全削除最適化
+            parentNode.textContent = "";
+            parentNode.append(this.node);
+            for (let i = 0; i < this.#bindContents.length; i++) {
+                const bindContent = this.#bindContents[i];
+                bindContent.loopContext?.clearListIndex();
+            }
+            this.#bindContentPool.push(...this.#bindContents);
+        }
+        else {
+            for (const listIndex of listIndexResults.removes ?? []) {
+                const bindContent = this.#bindContentByListIndex.get(listIndex);
+                if (bindContent) {
+                    this.deleteBindContent(bindContent);
+                    removeBindContentsSet.add(bindContent);
+                }
+            }
+            this.#bindContentPool.push(...removeBindContentsSet);
+        }
         let lastBindContent = null;
-        const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
         const firstNode = this.node;
         this.bindContentLastIndex = this.poolLength - 1;
+        const isAllAppend = listIndexResults.newValue.length === listIndexResults.adds?.size && listIndexResults.newValue.length > 0;
         if (!listIndexResults.onlySwap) {
+            // 全追加の場合、バッファリングしてから一括追加する
+            const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
+            const fragmentFirstNode = isAllAppend ? null : firstNode;
             for (const listIndex of listIndexResults.newListIndexesSet ?? []) {
-                const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
+                const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
                 let bindContent;
                 if (listIndexResults.adds?.has(listIndex)) {
                     bindContent = this.createBindContent(listIndex);
-                    bindContent.mountAfter(parentNode, lastNode);
+                    bindContent.mountAfter(fragmentParentNode, lastNode);
                     bindContent.applyChange(renderer);
                 }
                 else {
@@ -108,11 +143,16 @@ class BindingNodeFor extends BindingNodeBlock {
                         raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
                     }
                     if (lastNode?.nextSibling !== bindContent.firstChildNode) {
-                        bindContent.mountAfter(parentNode, lastNode);
+                        bindContent.mountAfter(fragmentParentNode, lastNode);
                     }
                 }
-                newBindContentsSet.add(bindContent);
+                newBindContents.push(bindContent);
                 lastBindContent = bindContent;
+            }
+            // 全追加最適化
+            if (isAllAppend) {
+                const beforeNode = firstNode.nextSibling;
+                parentNode.insertBefore(fragmentParentNode, beforeNode);
             }
         }
         else {
@@ -120,7 +160,7 @@ class BindingNodeFor extends BindingNodeBlock {
             // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
             // 並べ替えはするが、要素の内容は変わらないため
             if (listIndexResults.swapTargets) {
-                const bindContents = Array.from(this.#bindContentsSet);
+                const bindContents = Array.from(this.#bindContents);
                 const targets = Array.from(listIndexResults.swapTargets);
                 targets.sort((a, b) => a.index - b.index);
                 for (let i = 0; i < targets.length; i++) {
@@ -133,7 +173,7 @@ class BindingNodeFor extends BindingNodeBlock {
                     const lastNode = bindContents[targetListIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
                     targetBindContent.mountAfter(parentNode, lastNode);
                 }
-                newBindContentsSet = new Set(bindContents);
+                newBindContents = bindContents;
             }
         }
         // リスト要素の上書き
@@ -149,7 +189,7 @@ class BindingNodeFor extends BindingNodeBlock {
         // プールの長さを更新する
         // プールの長さは、プールの最後の要素のインデックス+1であるため、
         this.poolLength = this.bindContentLastIndex + 1;
-        this.#bindContentsSet = newBindContentsSet;
+        this.#bindContents = newBindContents;
     }
 }
 export const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, filters) => {

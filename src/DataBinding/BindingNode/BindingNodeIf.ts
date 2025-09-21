@@ -22,11 +22,11 @@ import { CreateBindingNodeFn } from "./types";
  */
 class BindingNodeIf extends BindingNodeBlock {
   #bindContent: IBindContent;
-  #trueBindContents: Set<IBindContent>;
-  #falseBindContents: Set<IBindContent> = new Set();
-  #bindContents: Set<IBindContent>;
+  #trueBindContents: IBindContent[];
+  #falseBindContents: IBindContent[] = [];
+  #bindContents: IBindContent[];
 
-  get bindContents(): Set<IBindContent> {
+  get bindContents(): IBindContent[] {
     return this.#bindContents;
   }
 
@@ -45,7 +45,7 @@ class BindingNodeIf extends BindingNodeBlock {
       "", 
       null
     );
-    this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
+    this.#trueBindContents = this.#bindContents = [this.#bindContent];
   }
 
   assignValue(value: any): void {

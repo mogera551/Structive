@@ -1,5 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
-import { update2 } from "../../Updater/Updater.js";
+import { update } from "../../Updater/Updater.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 /**
@@ -42,7 +42,7 @@ class BindingNodeEvent extends BindingNode {
         if (options.includes("stopPropagation")) {
             e.stopPropagation();
         }
-        await update2(engine, loopContext, async (updater, state) => {
+        await update(engine, loopContext, async (updater, state) => {
             // stateProxyを生成し、バインディング値を実行
             const func = this.binding.bindingState.getValue(state);
             if (typeof func !== "function") {

@@ -539,7 +539,16 @@ function registerCss(id, css) {
  * @returns     パスで指定されたノード、またはnull
  */
 function resolveNodeFromPath(root, path) {
-    return path.reduce((node, index) => node?.childNodes[index] ?? null, root);
+    let node = root;
+    if (path.length === 0)
+        return node;
+    // path.reduce()だと途中でnullになる可能性があるので、
+    for (let i = 0; i < path.length; i++) {
+        node = node?.childNodes[path[i]] ?? null;
+        if (node === null)
+            break;
+    }
+    return node;
 }
 
 /**
@@ -615,7 +624,7 @@ class BindingNode {
     #name;
     #filters;
     #decorates;
-    #bindContents = new Set();
+    #bindContents = [];
     get node() {
         return this.#node;
     }
@@ -1520,7 +1529,8 @@ function listWalkerSub(engine, info, listIndex, callback) {
         const parentInfo = info.wildcardParentInfos[listIndexLen] ?? raiseError("Invalid state property info");
         const listIndexes = engine.getListIndexes(parentInfo, listIndex);
         if (listIndexes) {
-            for (const subListIndex of listIndexes) {
+            for (let i = 0; i < listIndexes.length; i++) {
+                const subListIndex = listIndexes[i];
                 listWalkerSub(engine, info, subListIndex, callback);
             }
         }
@@ -2058,7 +2068,8 @@ class Renderer {
             readonlyState[SetCacheableSymbol](() => {
                 // リストの差分計算実行
                 const updatingItems = new Map();
-                for (const item of items) {
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
                     const refKey = createRefKey(item.info, item.listIndex);
                     if (this.engine.pathManager.lists.has(item.info.pattern)) {
                         this.updateListIndexes(item.info, item.listIndex);
@@ -2184,7 +2195,8 @@ class Renderer {
         // バインディングに変更を適用する
         // 変更があったバインディングはupdatedBindingsに追加する
         const bindings = this.getBindings(info, listIndex);
-        for (const binding of bindings) {
+        for (let i = 0; i < bindings.length; i++) {
+            const binding = bindings[i];
             if (updatedBindings.has(binding)) {
                 continue; // すでに更新済みのバインディングはスキップ
             }
@@ -2198,7 +2210,8 @@ class Renderer {
         for (const updateListIndex of diffResults?.updates ?? []) {
             const info = getStructuredPathInfo(updateListIndex.varName);
             const bindings = this.getBindings(info, updateListIndex);
-            for (const binding of bindings) {
+            for (let i = 0; i < bindings.length; i++) {
+                const binding = bindings[i];
                 if (updatedBindings.has(binding)) {
                     continue; // すでに更新済みのバインディングはスキップ
                 }
@@ -2314,7 +2327,7 @@ class Updater {
         }
     }
 }
-async function update2(engine, loopContext, callback) {
+async function update(engine, loopContext, callback) {
     const updater = new Updater();
     await updater.beginUpdate(engine, loopContext, async (state) => {
         await callback(updater, state);
@@ -2361,7 +2374,7 @@ class BindingNodeEvent extends BindingNode {
         if (options.includes("stopPropagation")) {
             e.stopPropagation();
         }
-        await update2(engine, loopContext, async (updater, state) => {
+        await update(engine, loopContext, async (updater, state) => {
             // stateProxyを生成し、バインディング値を実行
             const func = this.binding.bindingState.getValue(state);
             if (typeof func !== "function") {
@@ -2424,7 +2437,7 @@ class BindingNodeBlock extends BindingNode {
 class BindingNodeIf extends BindingNodeBlock {
     #bindContent;
     #trueBindContents;
-    #falseBindContents = new Set();
+    #falseBindContents = [];
     #bindContents;
     get bindContents() {
         return this.#bindContents;
@@ -2432,7 +2445,7 @@ class BindingNodeIf extends BindingNodeBlock {
     constructor(binding, node, name, filters, decorates) {
         super(binding, node, name, filters, decorates);
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
-        this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
+        this.#trueBindContents = this.#bindContents = [this.#bindContent];
     }
     assignValue(value) {
         raiseError(`BindingNodeIf.assignValue: not implemented`);
@@ -2487,13 +2500,12 @@ const createBindingNodeIf = (name, filterTexts, decorates) => (binding, node, fi
  * ファクトリ関数 createBindingNodeFor でフィルタ・デコレータ適用済みインスタンスを生成
  */
 class BindingNodeFor extends BindingNodeBlock {
-    #bindContentsSet = new Set();
+    #bindContents = [];
     #bindContentByListIndex = new WeakMap();
     #bindContentPool = [];
     #bindContentLastIndex = 0;
-    #lastListIndexSet = new Set();
     get bindContents() {
-        return this.#bindContentsSet;
+        return this.#bindContents;
     }
     get isFor() {
         return true;
@@ -2542,31 +2554,67 @@ class BindingNodeFor extends BindingNodeBlock {
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;
-        let newBindContentsSet = new Set();
+        let newBindContents = [];
         // 削除を先にする
         const removeBindContentsSet = new Set();
         const info = this.binding.bindingState.info;
         const listIndex = this.binding.bindingState.listIndex;
         const listIndexResults = renderer.getListDiffResults(info, listIndex);
-        for (const listIndex of listIndexResults.removes ?? []) {
-            const bindContent = this.#bindContentByListIndex.get(listIndex);
-            if (bindContent) {
-                this.deleteBindContent(bindContent);
-                removeBindContentsSet.add(bindContent);
+        const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
+        // 全削除最適化のフラグ
+        const isAllRemove = (listIndexResults.oldValue.length === listIndexResults.removes?.size && listIndexResults.oldValue.length > 0);
+        // 親ノードこのノードだけ持つかのチェック
+        let isParentNodeHasOnlyThisNode = false;
+        if (isAllRemove) {
+            const parentChildNodes = Array.from(parentNode.childNodes);
+            const lastContent = this.#bindContents.at(-1) ?? raiseError(`BindingNodeFor.update: lastContent is null`);
+            // ブランクノードを飛ばす
+            let firstNode = parentChildNodes[0];
+            while (firstNode && firstNode.nodeType === Node.TEXT_NODE && firstNode.textContent?.trim() === "") {
+                firstNode = firstNode.nextSibling;
+            }
+            let lastNode = parentChildNodes.at(-1) ?? null;
+            while (lastNode && lastNode.nodeType === Node.TEXT_NODE && lastNode.textContent?.trim() === "") {
+                lastNode = lastNode.previousSibling;
+            }
+            if (firstNode === this.node && lastNode === lastContent.getLastNode(parentNode)) {
+                isParentNodeHasOnlyThisNode = true;
             }
         }
-        this.#bindContentPool.push(...removeBindContentsSet);
+        if (isAllRemove && isParentNodeHasOnlyThisNode) {
+            // 全削除最適化
+            parentNode.textContent = "";
+            parentNode.append(this.node);
+            for (let i = 0; i < this.#bindContents.length; i++) {
+                const bindContent = this.#bindContents[i];
+                bindContent.loopContext?.clearListIndex();
+            }
+            this.#bindContentPool.push(...this.#bindContents);
+        }
+        else {
+            for (const listIndex of listIndexResults.removes ?? []) {
+                const bindContent = this.#bindContentByListIndex.get(listIndex);
+                if (bindContent) {
+                    this.deleteBindContent(bindContent);
+                    removeBindContentsSet.add(bindContent);
+                }
+            }
+            this.#bindContentPool.push(...removeBindContentsSet);
+        }
         let lastBindContent = null;
-        const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
         const firstNode = this.node;
         this.bindContentLastIndex = this.poolLength - 1;
+        const isAllAppend = listIndexResults.newValue.length === listIndexResults.adds?.size && listIndexResults.newValue.length > 0;
         if (!listIndexResults.onlySwap) {
+            // 全追加の場合、バッファリングしてから一括追加する
+            const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
+            const fragmentFirstNode = isAllAppend ? null : firstNode;
             for (const listIndex of listIndexResults.newListIndexesSet ?? []) {
-                const lastNode = lastBindContent?.getLastNode(parentNode) ?? firstNode;
+                const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
                 let bindContent;
                 if (listIndexResults.adds?.has(listIndex)) {
                     bindContent = this.createBindContent(listIndex);
-                    bindContent.mountAfter(parentNode, lastNode);
+                    bindContent.mountAfter(fragmentParentNode, lastNode);
                     bindContent.applyChange(renderer);
                 }
                 else {
@@ -2575,11 +2623,16 @@ class BindingNodeFor extends BindingNodeBlock {
                         raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
                     }
                     if (lastNode?.nextSibling !== bindContent.firstChildNode) {
-                        bindContent.mountAfter(parentNode, lastNode);
+                        bindContent.mountAfter(fragmentParentNode, lastNode);
                     }
                 }
-                newBindContentsSet.add(bindContent);
+                newBindContents.push(bindContent);
                 lastBindContent = bindContent;
+            }
+            // 全追加最適化
+            if (isAllAppend) {
+                const beforeNode = firstNode.nextSibling;
+                parentNode.insertBefore(fragmentParentNode, beforeNode);
             }
         }
         else {
@@ -2587,7 +2640,7 @@ class BindingNodeFor extends BindingNodeBlock {
             // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
             // 並べ替えはするが、要素の内容は変わらないため
             if (listIndexResults.swapTargets) {
-                const bindContents = Array.from(this.#bindContentsSet);
+                const bindContents = Array.from(this.#bindContents);
                 const targets = Array.from(listIndexResults.swapTargets);
                 targets.sort((a, b) => a.index - b.index);
                 for (let i = 0; i < targets.length; i++) {
@@ -2600,7 +2653,7 @@ class BindingNodeFor extends BindingNodeBlock {
                     const lastNode = bindContents[targetListIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
                     targetBindContent.mountAfter(parentNode, lastNode);
                 }
-                newBindContentsSet = new Set(bindContents);
+                newBindContents = bindContents;
             }
         }
         // リスト要素の上書き
@@ -2616,7 +2669,7 @@ class BindingNodeFor extends BindingNodeBlock {
         // プールの長さを更新する
         // プールの長さは、プールの最後の要素のインデックス+1であるため、
         this.poolLength = this.bindContentLastIndex + 1;
-        this.#bindContentsSet = newBindContentsSet;
+        this.#bindContents = newBindContents;
     }
 }
 const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, filters) => {
@@ -2722,7 +2775,7 @@ class BindingNodeProperty extends BindingNode {
         this.node.addEventListener(eventName, async () => {
             const loopContext = this.binding.parentBindContent.currentLoopContext;
             const value = this.filteredValue;
-            await update2(engine, loopContext, async (updater, state) => {
+            await update(engine, loopContext, async (updater, state) => {
                 binding.updateStateValue(state, value);
             });
         });
@@ -3733,8 +3786,8 @@ class BindContent {
         const lastBinding = this.bindings[this.bindings.length - 1];
         const lastChildNode = this.lastChildNode;
         if (typeof lastBinding !== "undefined" && lastBinding.node === lastChildNode) {
-            if (lastBinding.bindContents.size > 0) {
-                const childBindContent = Array.from(lastBinding.bindContents).at(-1) ?? raiseError(`BindContent: childBindContent is not found`);
+            if (lastBinding.bindContents.length > 0) {
+                const childBindContent = lastBinding.bindContents.at(-1) ?? raiseError(`BindContent: childBindContent is not found`);
                 const lastNode = childBindContent.getLastNode(parentNode);
                 if (lastNode !== null) {
                     return lastNode;
@@ -3795,7 +3848,9 @@ class BindContent {
     }
     bindings = [];
     init() {
-        this.bindings.forEach(binding => binding.init());
+        for (let i = 0; i < this.bindings.length; i++) {
+            this.bindings[i].init();
+        }
     }
     assignListIndex(listIndex) {
         if (this.loopContext == null)
@@ -3804,7 +3859,8 @@ class BindContent {
         this.init();
     }
     applyChange(renderer) {
-        for (const binding of this.bindings) {
+        for (let i = 0; i < this.bindings.length; i++) {
+            const binding = this.bindings[i];
             if (renderer.updatedBindings.has(binding))
                 continue;
             binding.applyChange(renderer);
@@ -3985,7 +4041,7 @@ class ComponentStateInputHandler {
         this.engine = engine;
     }
     assignState(object) {
-        update2(this.engine, null, async (updater, stateProxy) => {
+        update(this.engine, null, async (updater, stateProxy) => {
             for (const [key, value] of Object.entries(object)) {
                 const childPathInfo = getStructuredPathInfo(key);
                 stateProxy[SetByRefSymbol](childPathInfo, null, value);
@@ -4004,7 +4060,7 @@ class ComponentStateInputHandler {
                 const childListIndex = parentPathRef.listIndex;
                 const value = this.engine.getPropertyValue(childPathInfo, childListIndex);
                 // Ref情報をもとに状態更新キューに追加
-                update2(this.engine, null, async (updater, stateProxy) => {
+                update(this.engine, null, async (updater, stateProxy) => {
                     updater.enqueueRef(childPathInfo, childListIndex, value);
                 });
             }
@@ -4066,7 +4122,7 @@ class ComponentStateOutput {
         }
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
         const engine = binding.engine;
-        update2(engine, null, async (updater, stateProxy) => {
+        update(engine, null, async (updater, stateProxy) => {
             stateProxy[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
         });
         return true;
@@ -4212,7 +4268,7 @@ class ComponentEngine {
             const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
             this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
         }
-        await update2(this, null, async (updater, stateProxy) => {
+        await update(this, null, async (updater, stateProxy) => {
             // 状態のリスト構造を構築する
             for (const path of this.pathManager.alls) {
                 const info = getStructuredPathInfo(path);
@@ -4234,7 +4290,7 @@ class ComponentEngine {
         try {
             if (this.#ignoreDissconnectedCallback)
                 return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-            await update2(this, null, async (updater, stateProxy) => {
+            await update(this, null, async (updater, stateProxy) => {
                 await stateProxy[DisconnectedCallbackSymbol]();
             });
             // 親コンポーネントから登録を解除する
@@ -4315,7 +4371,7 @@ class ComponentEngine {
     }
     setPropertyValue(info, listIndex, value) {
         // プロパティの値を設定する
-        update2(this, null, async (updater, stateProxy) => {
+        update(this, null, async (updater, stateProxy) => {
             stateProxy[SetByRefSymbol](info, listIndex, value);
         });
     }
@@ -4439,7 +4495,9 @@ function replaceTemplateTagWithComment(id, template, rootId = id) {
     if (template.namespaceURI === SVG_NS) {
         // SVGタグ内のtemplateタグを想定
         const newTemplate = document.createElement("template");
-        for (let childNode of Array.from(template.childNodes)) {
+        const childNodes = Array.from(template.childNodes);
+        for (let i = 0; i < childNodes.length; i++) {
+            const childNode = childNodes[i];
             newTemplate.content.appendChild(childNode);
         }
         const bindText = template.getAttribute(DATA_BIND_ATTRIBUTE);
@@ -4562,7 +4620,8 @@ function createAccessorFunctions(info, getters) {
     else {
         const segments = [];
         let count = 0;
-        for (const segment of info.pathSegments) {
+        for (let i = 0; i < info.pathSegments.length; i++) {
+            const segment = info.pathSegments[i];
             if (segment === '*') {
                 segments.push("[this.$" + (count + 1) + "]");
                 count++;

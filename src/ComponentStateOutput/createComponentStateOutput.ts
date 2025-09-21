@@ -3,7 +3,7 @@ import { IListIndex } from "../ListIndex/types";
 import { GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
-import { update2 } from "../Updater/Updater";
+import { update } from "../Updater/Updater";
 import { raiseError } from "../utils";
 import { IComponentStateOutput } from "./types";
 
@@ -37,7 +37,7 @@ class ComponentStateOutput implements IComponentStateOutput {
     }
     const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
     const engine = binding.engine;
-    update2(engine, null, async (updater, stateProxy) => {
+    update(engine, null, async (updater, stateProxy) => {
       stateProxy[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
     });
     return true;

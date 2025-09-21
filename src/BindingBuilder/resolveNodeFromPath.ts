@@ -12,5 +12,12 @@ import { NodePath } from "./types";
  * @returns     パスで指定されたノード、またはnull
  */
 export function resolveNodeFromPath(root: Node, path: NodePath): Node | null {
-  return path.reduce((node, index) => node?.childNodes[index] ?? null, root);
+  let node = root;
+  if (path.length === 0) return node;
+  // path.reduce()だと途中でnullになる可能性があるので、
+  for(let i = 0; i < path.length; i++) {
+    node = node?.childNodes[path[i]] ?? null;
+    if (node === null) break;
+  }
+  return node;
 }

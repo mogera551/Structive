@@ -77,8 +77,8 @@ class BindContent {
         const lastBinding = this.bindings[this.bindings.length - 1];
         const lastChildNode = this.lastChildNode;
         if (typeof lastBinding !== "undefined" && lastBinding.node === lastChildNode) {
-            if (lastBinding.bindContents.size > 0) {
-                const childBindContent = Array.from(lastBinding.bindContents).at(-1) ?? raiseError(`BindContent: childBindContent is not found`);
+            if (lastBinding.bindContents.length > 0) {
+                const childBindContent = lastBinding.bindContents.at(-1) ?? raiseError(`BindContent: childBindContent is not found`);
                 const lastNode = childBindContent.getLastNode(parentNode);
                 if (lastNode !== null) {
                     return lastNode;
@@ -140,7 +140,9 @@ class BindContent {
     }
     bindings = [];
     init() {
-        this.bindings.forEach(binding => binding.init());
+        for (let i = 0; i < this.bindings.length; i++) {
+            this.bindings[i].init();
+        }
     }
     assignListIndex(listIndex) {
         if (this.loopContext == null)
@@ -149,7 +151,8 @@ class BindContent {
         this.init();
     }
     applyChange(renderer) {
-        for (const binding of this.bindings) {
+        for (let i = 0; i < this.bindings.length; i++) {
+            const binding = this.bindings[i];
             if (renderer.updatedBindings.has(binding))
                 continue;
             binding.applyChange(renderer);

@@ -17,7 +17,7 @@ import { BindingNodeBlock } from "./BindingNodeBlock.js";
 class BindingNodeIf extends BindingNodeBlock {
     #bindContent;
     #trueBindContents;
-    #falseBindContents = new Set();
+    #falseBindContents = [];
     #bindContents;
     get bindContents() {
         return this.#bindContents;
@@ -25,7 +25,7 @@ class BindingNodeIf extends BindingNodeBlock {
     constructor(binding, node, name, filters, decorates) {
         super(binding, node, name, filters, decorates);
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
-        this.#trueBindContents = this.#bindContents = new Set([this.#bindContent]);
+        this.#trueBindContents = this.#bindContents = [this.#bindContent];
     }
     assignValue(value) {
         raiseError(`BindingNodeIf.assignValue: not implemented`);

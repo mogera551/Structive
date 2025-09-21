@@ -1,6 +1,6 @@
 import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { update2 } from "../Updater/Updater";
+import { update } from "../Updater/Updater";
 import { raiseError } from "../utils";
 class ComponentStateOutput {
     binding;
@@ -30,7 +30,7 @@ class ComponentStateOutput {
         }
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
         const engine = binding.engine;
-        update2(engine, null, async (updater, stateProxy) => {
+        update(engine, null, async (updater, stateProxy) => {
             stateProxy[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
         });
         return true;

@@ -20,7 +20,7 @@ export class BindingNode {
     #name;
     #filters;
     #decorates;
-    #bindContents = new Set();
+    #bindContents = [];
     get node() {
         return this.#node;
     }

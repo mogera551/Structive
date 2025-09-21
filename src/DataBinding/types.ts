@@ -59,7 +59,7 @@ export interface IBinding {
   node             : Node;
   bindingNode      : IBindingNode;
   bindingState     : IBindingState;
-  bindContents     : Set<IBindContent>;
+  bindContents     : IBindContent[];
   init(): void;
   updateStateValue(writeState: IWritableStateProxy, value: any): void;
   notifyRedraw(refs: IStatePropertyRef[]): void;

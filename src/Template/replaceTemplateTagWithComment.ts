@@ -30,7 +30,9 @@ export function replaceTemplateTagWithComment(
   if (template.namespaceURI === SVG_NS) {
     // SVGタグ内のtemplateタグを想定
     const newTemplate = document.createElement("template");
-    for(let childNode of Array.from(template.childNodes)) {
+    const childNodes = Array.from(template.childNodes);
+    for(let i = 0; i < childNodes.length; i++) {
+      const childNode = childNodes[i];
       newTemplate.content.appendChild(childNode);
     }
     const bindText = template.getAttribute(DATA_BIND_ATTRIBUTE);

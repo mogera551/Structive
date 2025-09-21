@@ -39,7 +39,8 @@ class Renderer {
             readonlyState[SetCacheableSymbol](() => {
                 // リストの差分計算実行
                 const updatingItems = new Map();
-                for (const item of items) {
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
                     const refKey = createRefKey(item.info, item.listIndex);
                     if (this.engine.pathManager.lists.has(item.info.pattern)) {
                         this.updateListIndexes(item.info, item.listIndex);
@@ -165,7 +166,8 @@ class Renderer {
         // バインディングに変更を適用する
         // 変更があったバインディングはupdatedBindingsに追加する
         const bindings = this.getBindings(info, listIndex);
-        for (const binding of bindings) {
+        for (let i = 0; i < bindings.length; i++) {
+            const binding = bindings[i];
             if (updatedBindings.has(binding)) {
                 continue; // すでに更新済みのバインディングはスキップ
             }
@@ -179,7 +181,8 @@ class Renderer {
         for (const updateListIndex of diffResults?.updates ?? []) {
             const info = getStructuredPathInfo(updateListIndex.varName);
             const bindings = this.getBindings(info, updateListIndex);
-            for (const binding of bindings) {
+            for (let i = 0; i < bindings.length; i++) {
+                const binding = bindings[i];
                 if (updatedBindings.has(binding)) {
                     continue; // すでに更新済みのバインディングはスキップ
                 }

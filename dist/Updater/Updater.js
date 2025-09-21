@@ -53,7 +53,7 @@ class Updater {
         }
     }
 }
-export async function update2(engine, loopContext, callback) {
+export async function update(engine, loopContext, callback) {
     const updater = new Updater();
     await updater.beginUpdate(engine, loopContext, async (state) => {
         await callback(updater, state);

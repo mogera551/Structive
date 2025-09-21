@@ -8,7 +8,7 @@ import { createComponentStateBinding } from "../ComponentStateBinding/createComp
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
 import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
-import { update2 } from "../Updater/Updater.js";
+import { update } from "../Updater/Updater.js";
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
  * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
@@ -130,7 +130,7 @@ export class ComponentEngine {
             const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
             this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
         }
-        await update2(this, null, async (updater, stateProxy) => {
+        await update(this, null, async (updater, stateProxy) => {
             // 状態のリスト構造を構築する
             for (const path of this.pathManager.alls) {
                 const info = getStructuredPathInfo(path);
@@ -152,7 +152,7 @@ export class ComponentEngine {
         try {
             if (this.#ignoreDissconnectedCallback)
                 return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-            await update2(this, null, async (updater, stateProxy) => {
+            await update(this, null, async (updater, stateProxy) => {
                 await stateProxy[DisconnectedCallbackSymbol]();
             });
             // 親コンポーネントから登録を解除する
@@ -233,7 +233,7 @@ export class ComponentEngine {
     }
     setPropertyValue(info, listIndex, value) {
         // プロパティの値を設定する
-        update2(this, null, async (updater, stateProxy) => {
+        update(this, null, async (updater, stateProxy) => {
             stateProxy[SetByRefSymbol](info, listIndex, value);
         });
     }

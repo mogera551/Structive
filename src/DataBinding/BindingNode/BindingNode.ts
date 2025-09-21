@@ -28,7 +28,7 @@ export class BindingNode implements IBindingNode {
   #name: string;
   #filters: Filters;
   #decorates: string[];
-  #bindContents: Set<IBindContent> = new Set<IBindContent>();
+  #bindContents: IBindContent[] = [];
   get node(): Node {
     return this.#node;
   }
@@ -47,7 +47,7 @@ export class BindingNode implements IBindingNode {
   get filters(): Filters {
     return this.#filters;
   }
-  get bindContents(): Set<IBindContent> {
+  get bindContents(): IBindContent[] {
     return this.#bindContents;
   }
   constructor(

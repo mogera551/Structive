@@ -41,7 +41,7 @@ class Binding implements IBinding {
     this.bindingState = createBindingState(this, engine.outputFilters);
   }
 
-  get bindContents() {
+  get bindContents(): IBindContent[] {
     return this.bindingNode.bindContents;
   }
 

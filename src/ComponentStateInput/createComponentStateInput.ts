@@ -3,7 +3,7 @@ import { IComponentStateBinding } from "../ComponentStateBinding/types";
 import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
-import { update2 } from "../Updater/Updater";
+import { update } from "../Updater/Updater";
 import { raiseError } from "../utils";
 import { AssignStateSymbol, NotifyRedrawSymbol } from "./symbols";
 import { IComponentStateInput, IComponentStateInputHandler } from "./types";
@@ -17,7 +17,7 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
   }
 
   assignState(object: any): void {
-    update2(this.engine, null, async (updater, stateProxy) => {
+    update(this.engine, null, async (updater, stateProxy) => {
       for(const [key, value] of Object.entries(object)) {
         const childPathInfo = getStructuredPathInfo(key);
         stateProxy[SetByRefSymbol](childPathInfo, null, value);
@@ -37,7 +37,7 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
         const childListIndex = parentPathRef.listIndex;
         const value = this.engine.getPropertyValue(childPathInfo, childListIndex);
         // Ref情報をもとに状態更新キューに追加
-        update2(this.engine, null, async (updater, stateProxy) => {
+        update(this.engine, null, async (updater, stateProxy) => {
           updater.enqueueRef(childPathInfo, childListIndex, value);
         });
       } catch(e) {

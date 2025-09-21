@@ -60,7 +60,8 @@ export function createAccessorFunctions(info, getters) {
     else {
         const segments = [];
         let count = 0;
-        for (const segment of info.pathSegments) {
+        for (let i = 0; i < info.pathSegments.length; i++) {
+            const segment = info.pathSegments[i];
             if (segment === '*') {
                 segments.push("[this.$" + (count + 1) + "]");
                 count++;

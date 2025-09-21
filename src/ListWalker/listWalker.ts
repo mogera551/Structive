@@ -31,7 +31,8 @@ function listWalkerSub(
     const parentInfo = info.wildcardParentInfos[listIndexLen] ?? raiseError("Invalid state property info");
     const listIndexes = engine.getListIndexes(parentInfo, listIndex);
     if (listIndexes) {
-      for(const subListIndex of listIndexes) {
+      for(let i = 0; i < listIndexes.length; i++) {
+        const subListIndex = listIndexes[i];
         listWalkerSub(engine, info, subListIndex, callback);
       }
     }
