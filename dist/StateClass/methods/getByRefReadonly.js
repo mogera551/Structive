@@ -16,7 +16,8 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-function _getByRef(target, info, listIndex, receiver, handler) {
+export function getByRefReadonly(target, info, listIndex, receiver, handler) {
+    checkDependency(handler, info, listIndex);
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
     let refKey = '';
     if (handler.cacheable) {
@@ -66,11 +67,4 @@ function _getByRef(target, info, listIndex, receiver, handler) {
             handler.cache[refKey] = value;
         }
     }
-}
-/**
- * それ以外は通常の_getByRefで取得。
- */
-export function getByRefReadonly(target, info, listIndex, receiver, handler) {
-    checkDependency(handler, info, listIndex);
-    return _getByRef(target, info, listIndex, receiver, handler);
 }

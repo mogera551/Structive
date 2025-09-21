@@ -61,7 +61,7 @@ class BindingState implements IBindingState {
     return state[GetByRefSymbol](this.info, this.listIndex);
   }
   getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy): any {
-    let value = this.getValue(state);
+    let value = state[GetByRefSymbol](this.info, this.listIndex);
     for(let i = 0; i < this.#filters.length; i++) {
       value = this.#filters[i](value);
     }

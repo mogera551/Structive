@@ -39,13 +39,15 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-function _getByRef(
+export function getByRefReadonly(
   target   : Object, 
   info     : IStructuredPathInfo,
   listIndex: IListIndex | null,
   receiver : IReadonlyStateProxy,
   handler  : IReadonlyStateHandler
 ): any {
+  checkDependency(handler, info, listIndex);
+
   // キャッシュが有効な場合はrefKeyで値をキャッシュ
   let refKey = '';
   if (handler.cacheable) {
@@ -93,18 +95,4 @@ function _getByRef(
       handler.cache[refKey] = value;
     }
   }
-}
-
-/**
- * それ以外は通常の_getByRefで取得。
- */
-export function getByRefReadonly(
-  target   : Object, 
-  info     : IStructuredPathInfo,
-  listIndex: IListIndex | null,
-  receiver : IReadonlyStateProxy,
-  handler  : IReadonlyStateHandler
-): any {
-  checkDependency(handler, info, listIndex);
-  return _getByRef(target, info, listIndex, receiver, handler);
 }

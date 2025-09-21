@@ -50,7 +50,7 @@ class BindingStateIndex {
         return this.listIndex?.index ?? raiseError("listIndex is null");
     }
     getFilteredValue(state) {
-        let value = this.getValue(state);
+        let value = this.listIndex?.index ?? raiseError("listIndex is null");
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }

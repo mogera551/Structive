@@ -1127,7 +1127,8 @@ function setStatePropertyRef(handler, info, listIndex, callback) {
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-function _getByRef$1(target, info, listIndex, receiver, handler) {
+function getByRefWritable(target, info, listIndex, receiver, handler) {
+    checkDependency(handler, info);
     // 親子関係のあるgetterが存在する場合は、外部依存から取得
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
     if (handler.engine.stateOutput.startsWith(info) && handler.engine.pathManager.getters.intersection(info.cumulativePathSet).size === 0) {
@@ -1155,13 +1156,6 @@ function _getByRef$1(target, info, listIndex, receiver, handler) {
             return Reflect.get(parentValue, lastSegment);
         }
     }
-}
-/**
- * それ以外は通常の_getByRefで取得。
- */
-function getByRefWritable(target, info, listIndex, receiver, handler) {
-    checkDependency(handler, info);
-    return _getByRef$1(target, info, listIndex, receiver, handler);
 }
 
 function setByRef(target, info, listIndex, value, receiver, handler) {
@@ -1554,7 +1548,8 @@ function listWalker(engine, info, listIndex, callback) {
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-function _getByRef(target, info, listIndex, receiver, handler) {
+function getByRefReadonly(target, info, listIndex, receiver, handler) {
+    checkDependency(handler, info);
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
     let refKey = '';
     if (handler.cacheable) {
@@ -1604,13 +1599,6 @@ function _getByRef(target, info, listIndex, receiver, handler) {
             handler.cache[refKey] = value;
         }
     }
-}
-/**
- * それ以外は通常の_getByRefで取得。
- */
-function getByRefReadonly(target, info, listIndex, receiver, handler) {
-    checkDependency(handler, info);
-    return _getByRef(target, info, listIndex, receiver, handler);
 }
 
 /**
@@ -3061,7 +3049,7 @@ class BindingState {
         return state[GetByRefSymbol](this.info, this.listIndex);
     }
     getFilteredValue(state) {
-        let value = this.getValue(state);
+        let value = state[GetByRefSymbol](this.info, this.listIndex);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -3136,7 +3124,7 @@ class BindingStateIndex {
         return this.listIndex?.index ?? raiseError("listIndex is null");
     }
     getFilteredValue(state) {
-        let value = this.getValue(state);
+        let value = this.listIndex?.index ?? raiseError("listIndex is null");
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }

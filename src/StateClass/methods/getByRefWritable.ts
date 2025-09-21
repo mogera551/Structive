@@ -39,13 +39,15 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-function _getByRef(
+export function getByRefWritable(
   target   : Object, 
   info     : IStructuredPathInfo,
   listIndex: IListIndex | null,
   receiver : IWritableStateProxy,
   handler  : IWritableStateHandler
 ): any {
+  checkDependency(handler, info, listIndex);
+
   // 親子関係のあるgetterが存在する場合は、外部依存から取得
   // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
   if (handler.engine.stateOutput.startsWith(info) && handler.engine.pathManager.getters.intersection(info.cumulativePathSet).size === 0) {
@@ -72,18 +74,4 @@ function _getByRef(
       return Reflect.get(parentValue, lastSegment);
     }
   }
-}
-
-/**
- * それ以外は通常の_getByRefで取得。
- */
-export function getByRefWritable(
-  target   : Object, 
-  info     : IStructuredPathInfo,
-  listIndex: IListIndex | null,
-  receiver : IWritableStateProxy,
-  handler  : IWritableStateHandler
-): any {
-  checkDependency(handler, info, listIndex);
-  return _getByRef(target, info, listIndex, receiver, handler);
 }

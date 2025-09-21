@@ -50,7 +50,7 @@ class BindingState {
         return state[GetByRefSymbol](this.info, this.listIndex);
     }
     getFilteredValue(state) {
-        let value = this.getValue(state);
+        let value = state[GetByRefSymbol](this.info, this.listIndex);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
