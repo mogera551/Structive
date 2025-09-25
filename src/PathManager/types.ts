@@ -1,3 +1,4 @@
+import { IPathNode } from "../PathTree/types";
 
 export type Dependencies<T = string> = Map<T, Set<T>>;
 
@@ -56,4 +57,6 @@ export interface IPathManager {
    * @param source 依存元のパス
    */
   addDynamicDependency(target: string, source: string): void;
+
+  rootNode: IPathNode;
 }

@@ -1,4 +1,6 @@
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes";
+import { createRootNode } from "../PathTree/PathNode";
+import { IPathNode } from "../PathTree/types";
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions";
 import { getStructuredPathInfo, reservedWords } from "../StateProperty/getStructuredPathInfo";
 import { Constructor } from "../types";
@@ -15,6 +17,7 @@ class PathManager implements IPathManager {
   optimizes: Set<string> = new Set<string>();
   staticDependencies: Dependencies<string> = new Map<string, Set<string>>();
   dynamicDependencies: Dependencies<string> = new Map<string, Set<string>>();
+  rootNode: IPathNode = createRootNode();
   #id: number;
   #stateClass: Constructor<any>;
 
@@ -81,6 +84,7 @@ class PathManager implements IPathManager {
     }
     // 静的依存関係の設定
     for(const path of this.alls) {
+      this.rootNode.appendChild(path);
       const info = getStructuredPathInfo(path);
       if (info.parentPath) {
         this.staticDependencies.get(info.parentPath)?.add(path) ?? 

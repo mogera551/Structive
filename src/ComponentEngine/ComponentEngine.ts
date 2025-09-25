@@ -20,6 +20,8 @@ import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 import { IListIndex } from "../ListIndex/types.js";
 import { IPathManager } from "../PathManager/types.js";
 import { update } from "../Updater/Updater.js";
+import { IListIndexTree } from "../ListIndexTree/types.js";
+import { createListIndexTree } from "../ListIndexTree/ListIndexTree.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
@@ -67,6 +69,8 @@ export class ComponentEngine implements IComponentEngine {
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
   structiveChildComponents: Set<StructiveComponent> = new Set();
 
+  listIndexTreeRootByPath: Map<string, IListIndexTree> = new Map();
+  
   #waitForInitialize : PromiseWithResolvers<void> = Promise.withResolvers<void>();
   #waitForDisconnected: PromiseWithResolvers<void> | null = null;
   
@@ -99,6 +103,10 @@ export class ComponentEngine implements IComponentEngine {
   }
 
   setup(): void {
+    for(const listPath of this.pathManager.lists) {
+      const listIndexTreeRoot = createListIndexTree();
+      this.listIndexTreeRootByPath.set(listPath, listIndexTreeRoot);
+    }
     const componentClass = this.owner.constructor as IComponentStatic;
     this.#bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
   }
@@ -246,6 +254,17 @@ export class ComponentEngine implements IComponentEngine {
     saveInfo.list = list;
   }
 
+  saveListAndListIndexes(
+    info              : IStructuredPathInfo, 
+    listIndex         : IListIndex | null,
+    list              : any[] | null,
+    listIndexes       : IListIndex[] | null
+  ): void {
+    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    saveInfo.list = list;
+    saveInfo.listIndexes = listIndexes;
+  }
+
   getBindings(
     info     :IStructuredPathInfo, 
     listIndex:IListIndex | null
@@ -268,6 +287,14 @@ export class ComponentEngine implements IComponentEngine {
   ): any[] | null {
     const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
     return saveInfo.list;
+  }
+
+  getListAndListIndexes(
+    info     :IStructuredPathInfo, 
+    listIndex:IListIndex | null
+  ): [any[] | null, IListIndex[] | null] {
+    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    return [saveInfo.list, saveInfo.listIndexes];
   }
 
   getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any {
