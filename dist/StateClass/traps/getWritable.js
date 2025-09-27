@@ -33,7 +33,7 @@ import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js"
 export function getWritable(target, prop, receiver, handler) {
     const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
-        const listIndex = handler.listIndex2Stack[handler.refIndex];
+        const listIndex = handler.listIndexStack[handler.refIndex];
         return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
     }
     if (typeof prop === "string") {

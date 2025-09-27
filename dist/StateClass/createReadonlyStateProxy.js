@@ -9,7 +9,7 @@ class StateHandler {
     trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;
     structuredPathInfoStack = Array(STACK_DEPTH).fill(null);
-    listIndex2Stack = Array(STACK_DEPTH).fill(null);
+    listIndexStack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
     loopContext = null;
     renderer = null;

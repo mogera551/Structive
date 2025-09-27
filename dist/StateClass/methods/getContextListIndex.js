@@ -3,7 +3,7 @@ export function getContextListIndex(handler, structuredPath) {
     if (info == null) {
         return null;
     }
-    const listIndex = handler.listIndex2Stack[handler.refIndex];
+    const listIndex = handler.listIndexStack[handler.refIndex];
     if (listIndex == null) {
         return null;
     }

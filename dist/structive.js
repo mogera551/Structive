@@ -1047,7 +1047,7 @@ function getContextListIndex(handler, structuredPath) {
     if (info == null) {
         return null;
     }
-    const listIndex = handler.listIndex2Stack[handler.refIndex];
+    const listIndex = handler.listIndexStack[handler.refIndex];
     if (listIndex == null) {
         return null;
     }
@@ -1151,16 +1151,16 @@ function setStatePropertyRef(handler, info, listIndex, callback) {
     handler.refIndex++;
     if (handler.refIndex >= handler.structuredPathInfoStack.length) {
         handler.structuredPathInfoStack.push(null);
-        handler.listIndex2Stack.push(null);
+        handler.listIndexStack.push(null);
     }
     handler.structuredPathInfoStack[handler.refIndex] = info;
-    handler.listIndex2Stack[handler.refIndex] = listIndex;
+    handler.listIndexStack[handler.refIndex] = listIndex;
     try {
         return callback();
     }
     finally {
         handler.structuredPathInfoStack[handler.refIndex] = null;
-        handler.listIndex2Stack[handler.refIndex] = null;
+        handler.listIndexStack[handler.refIndex] = null;
         handler.refIndex--;
     }
 }
@@ -1424,7 +1424,7 @@ for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
 function getWritable(target, prop, receiver, handler) {
     const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
-        const listIndex = handler.listIndex2Stack[handler.refIndex];
+        const listIndex = handler.listIndexStack[handler.refIndex];
         return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
     }
     if (typeof prop === "string") {
@@ -1505,16 +1505,16 @@ async function asyncSetStatePropertyRef(handler, info, listIndex, callback) {
     handler.refIndex++;
     if (handler.refIndex >= handler.structuredPathInfoStack.length) {
         handler.structuredPathInfoStack.push(null);
-        handler.listIndex2Stack.push(null);
+        handler.listIndexStack.push(null);
     }
     handler.structuredPathInfoStack[handler.refIndex] = info;
-    handler.listIndex2Stack[handler.refIndex] = listIndex;
+    handler.listIndexStack[handler.refIndex] = listIndex;
     try {
         await callback();
     }
     finally {
         handler.structuredPathInfoStack[handler.refIndex] = null;
-        handler.listIndex2Stack[handler.refIndex] = null;
+        handler.listIndexStack[handler.refIndex] = null;
         handler.refIndex--;
     }
 }
@@ -1544,7 +1544,7 @@ let StateHandler$1 = class StateHandler {
     trackingStack = Array(STACK_DEPTH$1).fill(null);
     trackingIndex = -1;
     structuredPathInfoStack = Array(STACK_DEPTH$1).fill(null);
-    listIndex2Stack = Array(STACK_DEPTH$1).fill(null);
+    listIndexStack = Array(STACK_DEPTH$1).fill(null);
     refIndex = -1;
     loopContext = null;
     updater;
@@ -2034,7 +2034,7 @@ function getAllReadonly(target, prop, receiver, handler) {
 function getReadonly(target, prop, receiver, handler) {
     const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
-        const listIndex = handler.listIndex2Stack[handler.refIndex];
+        const listIndex = handler.listIndexStack[handler.refIndex];
         return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
     }
     if (typeof prop === "string") {
@@ -2078,7 +2078,7 @@ class StateHandler {
     trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;
     structuredPathInfoStack = Array(STACK_DEPTH).fill(null);
-    listIndex2Stack = Array(STACK_DEPTH).fill(null);
+    listIndexStack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
     loopContext = null;
     renderer = null;

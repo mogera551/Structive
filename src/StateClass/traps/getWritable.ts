@@ -41,7 +41,7 @@ export function getWritable(
 ): any {
   const index = indexByIndexName[prop];
   if (typeof index !== "undefined") {
-    const listIndex = handler.listIndex2Stack[handler.refIndex];
+    const listIndex = handler.listIndexStack[handler.refIndex];
     return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
   }
   if (typeof prop === "string") {

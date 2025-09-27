@@ -33,7 +33,7 @@ class StateHandler implements IWritableStateHandler {
   trackingStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
   trackingIndex: number = -1;
   structuredPathInfoStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
-  listIndex2Stack: (IListIndex | null)[] = Array(STACK_DEPTH).fill(null);
+  listIndexStack: (IListIndex | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   loopContext: ILoopContext | null = null;
   updater: IUpdater;
