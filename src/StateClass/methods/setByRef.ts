@@ -17,6 +17,7 @@
  */
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils.js";
 import { IWritableStateProxy, IWritableStateHandler } from "../types";
 import { getByRefWritable } from "./getByRefWritable";
@@ -53,6 +54,7 @@ export function setByRef(
       }
     }
   } finally {
-    handler.updater.enqueueRef(info, listIndex, value);
+    const ref = getStatePropertyRef(info, listIndex);
+    handler.updater.enqueueRef(ref);
   }
 }

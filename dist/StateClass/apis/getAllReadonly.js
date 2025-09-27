@@ -20,6 +20,7 @@ import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo
 import { raiseError } from "../../utils.js";
 import { resolveReadonly } from "./resolveReadonly.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
+import { GetByRefSymbol } from "../symbols.js";
 export function getAllReadonly(target, prop, receiver, handler) {
     const resolve = resolveReadonly(target, prop, receiver, handler);
     return (path, indexes) => {
@@ -51,7 +52,14 @@ export function getAllReadonly(target, prop, receiver, handler) {
                 results.push(parentIndexes);
                 return;
             }
-            const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+            let listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
+            if (listIndexes === null) {
+                receiver[GetByRefSymbol](wildcardParentPattern, listIndex);
+                listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
+                if (listIndexes === null) {
+                    raiseError(`ListIndex is not found: ${wildcardParentPattern.pattern}`);
+                }
+            }
             const index = indexes[indexPos] ?? null;
             if (index === null) {
                 for (let i = 0; i < listIndexes.length; i++) {

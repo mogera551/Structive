@@ -1,5 +1,6 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { NotifyRedrawSymbol } from "../../ComponentStateInput/symbols.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { registerStructiveComponent } from "../../WebComponents/findStructiveParent.js";
 import { BindingNode } from "./BindingNode.js";
 /**
@@ -55,7 +56,8 @@ class BindingNodeComponent extends BindingNode {
                         if (ref.listIndex !== listIndex?.at(thisAt))
                             continue;
                     }
-                    notifyRefs.push({ info, listIndex });
+                    const newRef = getStatePropertyRef(info, listIndex);
+                    notifyRefs.push(newRef);
                 }
             }
             else {

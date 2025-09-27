@@ -1,5 +1,6 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
+import { IListDiff } from "../ListDiff/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
@@ -18,60 +19,10 @@ export type IUpdateInfo = {
 export interface IUpdater {
   /**
    * 更新したRef情報をキューに追加します。
-   * @param info 更新パス
-   * @param listIndex 更新リストインデックス
+   * @param ref 更新するStateプロパティの参照情報 (IStatePropertyRef)
    * @param value 新しい値
    */
-  enqueueRef(info: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void;
-}
-
-/**
- * リストの差分結果
- */
-export type IListDiffResults = {
-  /**
-   * 追加された要素のリストインデックスの配列
-   */
-  adds?: Set<IListIndex>,
-
-  /**
-   * 更新された要素のリストインデックスの配列
-   */
-  updates?: Set<IListIndex>,
-
-  /**
-   * 削除された要素のリストインデックスの配列
-   */
-  removes?: Set<IListIndex>,
-
-  /**
-   * 置き換えられた要素のリストインデックスの配列
-   */
-  replaces?: Set<IListIndex>,
-
-  /**
-   * 入れ替え先の要素のリストインデックスの配列
-   */
-  swapTargets?: Set<IListIndex>,
-  /**
-   * 入れ替え元の要素のリストインデックスの配列
-   */
-  swapSources?: Set<IListIndex>,
-
-  /**
-   * 古い全ての要素のリストインデックスの配列
-   */
-  oldListIndexesSet: Set<IListIndex>,
-
-  /**
-   * 新しい全ての要素のリストインデックスの配列
-   */
-  newListIndexesSet: Set<IListIndex>,
-
-  oldValue: any[],
-  newValue: any[],
-
-  onlySwap: boolean,
+  enqueueRef(ref: IStatePropertyRef): void;
 }
 
 /**
@@ -86,23 +37,24 @@ export interface IRenderer {
   /**
    * 処理済みのRefのキーのセット
    */
-  trackedRefKeys : Set<string>;
+  trackedRefs: Set<IStatePropertyRef>;
 
   /**
    * 読み取り専用状態プロキシ
    */
-  readonlyState  : IReadonlyStateProxy;
+  readonlyState: IReadonlyStateProxy;
 
   /**
    * レンダリング開始
    * @param items 更新情報の配列
    */
-  render(items: IUpdateInfo[]): void;
+  render(items: IStatePropertyRef[]): void;
 
   /**
    * リストの差分結果を取得する
-   * @param info パス情報
-   * @param listIndex リストインデックス
+   * @param ref 参照情報
+   * @param newListValue 新しいリストの値
+   * @param isNewValue 新しい値をセットしたかどうか
    */
-  getListDiffResults(info: IStructuredPathInfo, listIndex: IListIndex | null): IListDiffResults;
+  calcListDiff(ref: IStatePropertyRef, newListValue?: any[] | undefined | null, isNewValue?: boolean): IListDiff;
 }

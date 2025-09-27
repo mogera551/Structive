@@ -88,6 +88,6 @@ class ListIndex {
         }
     }
 }
-export function createListIndex2(parentListIndex, index) {
+export function createListIndex(parentListIndex, index) {
     return new ListIndex(parentListIndex, index);
 }

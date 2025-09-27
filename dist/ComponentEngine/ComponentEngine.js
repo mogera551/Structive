@@ -9,6 +9,9 @@ import { createComponentStateInput } from "../ComponentStateInput/createComponen
 import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 import { update } from "../Updater/Updater.js";
+import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef.js";
+import { RESERVED_WORD_SET } from "../constants.js";
+import { addPathNode } from "../PathTree/PathNode.js";
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
  * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
@@ -52,6 +55,7 @@ export class ComponentEngine {
     bindingsByListIndex = new WeakMap();
     bindingsByComponent = new WeakMap();
     structiveChildComponents = new Set();
+    listIndexTreeRootByPath = new Map();
     #waitForInitialize = Promise.withResolvers();
     #waitForDisconnected = null;
     #stateBinding = createComponentStateBinding();
@@ -80,6 +84,13 @@ export class ComponentEngine {
         return this.owner.constructor.pathManager;
     }
     setup() {
+        for (const path in this.state) {
+            if (RESERVED_WORD_SET.has(path) || this.pathManager.alls.has(path)) {
+                continue;
+            }
+            this.pathManager.alls.add(path);
+            addPathNode(this.pathManager.rootNode, path);
+        }
         const componentClass = this.owner.constructor;
         this.#bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
     }
@@ -131,14 +142,15 @@ export class ComponentEngine {
             this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
         }
         await update(this, null, async (updater, stateProxy) => {
-            // 状態のリスト構造を構築する
+            // 状態の初期レンダリングを行う
             for (const path of this.pathManager.alls) {
                 const info = getStructuredPathInfo(path);
                 if (info.pathSegments.length !== 1)
                     continue; // ルートプロパティのみ
                 if (this.pathManager.funcs.has(path))
                     continue; // 関数は除外
-                updater.enqueueRef(info, null, null);
+                const ref = getStatePropertyRef(info, null);
+                updater.enqueueRef(ref);
             }
             await stateProxy[ConnectedCallbackSymbol]();
         });
@@ -211,6 +223,11 @@ export class ComponentEngine {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         saveInfo.list = list;
     }
+    saveListAndListIndexes(info, listIndex, list, listIndexes) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+        saveInfo.list = list;
+        saveInfo.listIndexes = listIndexes;
+    }
     getBindings(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.bindings;
@@ -225,6 +242,10 @@ export class ComponentEngine {
     getList(info, listIndex) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
         return saveInfo.list;
+    }
+    getListAndListIndexes(info, listIndex) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+        return [saveInfo.list, saveInfo.listIndexes];
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する

@@ -5,6 +5,7 @@ import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
 import { IListIndexTree } from "../ListIndexTree/types";
 import { IPathManager } from "../PathManager/types";
+import { IPathNode } from "../PathTree/types";
 import { IState, IStructiveState } from "../StateClass/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";

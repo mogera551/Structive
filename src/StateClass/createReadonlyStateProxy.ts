@@ -22,6 +22,7 @@ import { getReadonly as trapGet } from "./traps/getReadonly.js";
 import { raiseError } from "../utils";
 import { ILoopContext } from "../LoopContext/types";
 import { IListIndex } from "../ListIndex/types";
+import { IRenderer } from "../Updater/types";
 
 const STACK_DEPTH = 32;
 
@@ -36,9 +37,11 @@ class StateHandler implements IReadonlyStateHandler {
   listIndex2Stack: (IListIndex | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   loopContext: ILoopContext | null = null;
+  renderer : IRenderer | null = null;
 
-  constructor(engine: IComponentEngine) {
+  constructor(engine: IComponentEngine, renderer: IRenderer | null) {
     this.engine = engine;
+    this.renderer = renderer;
   }
 
   get(
@@ -61,7 +64,8 @@ class StateHandler implements IReadonlyStateHandler {
 
 export function createReadonlyStateProxy(
   engine: IComponentEngine, 
-  state: Object
+  state: Object,
+  renderer: IRenderer | null = null,
 ): IReadonlyStateProxy {
-  return new Proxy<IState>(state, new StateHandler(engine)) as IReadonlyStateProxy;
+  return new Proxy<IState>(state, new StateHandler(engine, renderer)) as IReadonlyStateProxy;
 }

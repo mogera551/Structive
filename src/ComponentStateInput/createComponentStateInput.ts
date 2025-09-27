@@ -2,6 +2,7 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { IComponentStateBinding } from "../ComponentStateBinding/types";
 import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { update } from "../Updater/Updater";
 import { raiseError } from "../utils";
@@ -38,7 +39,8 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
         const value = this.engine.getPropertyValue(childPathInfo, childListIndex);
         // Ref情報をもとに状態更新キューに追加
         update(this.engine, null, async (updater, stateProxy) => {
-          updater.enqueueRef(childPathInfo, childListIndex, value);
+          const childRef = getStatePropertyRef(childPathInfo, childListIndex);
+          updater.enqueueRef(childRef);
         });
       } catch(e) {
         // 対象でないものは何もしない

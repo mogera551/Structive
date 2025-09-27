@@ -15,6 +15,7 @@
  * - childrenプロパティでパス階層のツリー構造も構築
  * - 予約語や危険なパスはraiseErrorで例外を発生
  */
+import { RESERVED_WORD_SET } from '../constants.js';
 import { raiseError } from '../utils.js';
 import { IStructuredPathInfo } from './types';
 
@@ -115,20 +116,13 @@ class StructuredPathInfo implements IStructuredPathInfo {
   }
 }
 
-export const reservedWords = new Set([
-  "constructor", "prototype", "__proto__", "toString",
-  "valueOf", "hasOwnProperty", "isPrototypeOf",
-  "watch", "unwatch", "eval", "arguments",
-  "let", "var", "const", "class", "function",
-  "null", "true", "false", "new", "return",
-]);
 
 export function getStructuredPathInfo(structuredPath: string): IStructuredPathInfo {
   const info = _cache[structuredPath];
   if (typeof info !== "undefined") {
     return info;
   }
-  if (reservedWords.has(structuredPath)) {
+  if (RESERVED_WORD_SET.has(structuredPath)) {
     raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
   }
   return (_cache[structuredPath] = new StructuredPathInfo(structuredPath));

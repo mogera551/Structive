@@ -12,8 +12,8 @@ class Updater {
     #rendering = false;
     #engine = null;
     // Ref情報をキューに追加
-    enqueueRef(info, listIndex, value) {
-        this.queue.push({ info, listIndex, value });
+    enqueueRef(ref) {
+        this.queue.push(ref);
         if (this.#rendering)
             return;
         this.#rendering = true;

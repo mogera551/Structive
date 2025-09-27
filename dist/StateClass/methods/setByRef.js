@@ -1,3 +1,4 @@
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils.js";
 import { getByRefWritable } from "./getByRefWritable";
 import { setStatePropertyRef } from "./setStatePropertyRef";
@@ -28,6 +29,7 @@ export function setByRef(target, info, listIndex, value, receiver, handler) {
         }
     }
     finally {
-        handler.updater.enqueueRef(info, listIndex, value);
+        const ref = getStatePropertyRef(info, listIndex);
+        handler.updater.enqueueRef(ref);
     }
 }

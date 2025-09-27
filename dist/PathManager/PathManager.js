@@ -1,6 +1,8 @@
 import { getListPathsSetById, getPathsSetById } from "../BindingBuilder/registerDataBindAttributes";
+import { RESERVED_WORD_SET } from "../constants";
+import { addPathNode, createRootNode } from "../PathTree/PathNode";
 import { createAccessorFunctions } from "../StateProperty/createAccessorFunctions";
-import { getStructuredPathInfo, reservedWords } from "../StateProperty/getStructuredPathInfo";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 class PathManager {
     alls = new Set();
     lists = new Set();
@@ -11,6 +13,7 @@ class PathManager {
     optimizes = new Set();
     staticDependencies = new Map();
     dynamicDependencies = new Map();
+    rootNode = createRootNode();
     #id;
     #stateClass;
     constructor(componentClass) {
@@ -32,7 +35,7 @@ class PathManager {
             const getters = Object.getOwnPropertyDescriptors(currentProto);
             if (getters) {
                 for (const [key, desc] of Object.entries(getters)) {
-                    if (reservedWords.has(key)) {
+                    if (RESERVED_WORD_SET.has(key)) {
                         continue;
                     }
                     if (typeof desc.value === "function") {
@@ -76,6 +79,7 @@ class PathManager {
         }
         // 静的依存関係の設定
         for (const path of this.alls) {
+            addPathNode(this.rootNode, path);
             const info = getStructuredPathInfo(path);
             if (info.parentPath) {
                 this.staticDependencies.get(info.parentPath)?.add(path) ??

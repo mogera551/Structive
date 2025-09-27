@@ -1,9 +1,8 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
-import { createListIndex2 } from "../ListIndex/ListIndex";
+import { createListIndex } from "../ListIndex/ListIndex";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
-import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetByRefSymbol } from "../StateClass/symbols";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
@@ -22,14 +21,14 @@ import { IUpdateInfo, IUpdater } from "./types";
  * 主な機能は以下の通りです:
  */
 class Updater implements IUpdater {
-  queue: Array<IUpdateInfo> = [];
+  queue: IStatePropertyRef[] = [];
   #updating: boolean = false;
   #rendering: boolean = false;
   #engine: IComponentEngine | null = null;
 
   // Ref情報をキューに追加
-  enqueueRef(info: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void {
-    this.queue.push({ info, listIndex, value });
+  enqueueRef(ref: IStatePropertyRef): void {
+    this.queue.push(ref);
     if (this.#rendering) return;
     this.#rendering = true;
     queueMicrotask(() => {

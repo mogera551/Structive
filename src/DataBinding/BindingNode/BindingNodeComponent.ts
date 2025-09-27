@@ -2,6 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { NotifyRedrawSymbol } from "../../ComponentStateInput/symbols.js";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { registerStructiveComponent } from "../../WebComponents/findStructiveParent.js";
 import { StructiveComponent } from "../../WebComponents/types";
@@ -69,7 +70,8 @@ class BindingNodeComponent extends BindingNode {
             if (listIndex === null) continue;
             if (ref.listIndex !== listIndex?.at(thisAt)) continue;
           }
-          notifyRefs.push({ info, listIndex });
+          const newRef = getStatePropertyRef(info, listIndex);
+          notifyRefs.push(newRef);
         }
       } else {
         // 子パスが更新された

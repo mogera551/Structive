@@ -1,3 +1,4 @@
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils";
 import { checkDependency } from "./checkDependency";
 import { setStatePropertyRef } from "./setStatePropertyRef";
@@ -19,17 +20,15 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
 export function getByRefReadonly(target, info, listIndex, receiver, handler) {
     checkDependency(handler, info, listIndex);
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
-    let refKey = '';
+    const ref = getStatePropertyRef(info, listIndex);
     if (handler.cacheable) {
-        const key = (listIndex === null) ? info.sid : (info.sid + "#" + listIndex.sid);
-        const value = handler.cache.get(key);
+        const value = handler.cache.get(ref.key);
         if (typeof value !== "undefined") {
             return value;
         }
-        if (handler.cache.has(key)) {
+        if (handler.cache.has(ref.key)) {
             return undefined;
         }
-        refKey = key;
     }
     let value;
     try {
@@ -64,7 +63,13 @@ export function getByRefReadonly(target, info, listIndex, receiver, handler) {
     finally {
         // キャッシュが有効な場合は取得値をキャッシュ
         if (handler.cacheable) {
-            handler.cache.set(refKey, value);
+            handler.cache.set(ref.key, value);
+        }
+        if (handler.renderer != null) {
+            if (handler.engine.pathManager.lists.has(info.pattern)) {
+                const ref = getStatePropertyRef(info, listIndex);
+                handler.renderer.calcListDiff(ref, value, true);
+            }
         }
     }
 }

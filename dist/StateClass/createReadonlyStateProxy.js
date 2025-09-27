@@ -12,8 +12,10 @@ class StateHandler {
     listIndex2Stack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
     loopContext = null;
-    constructor(engine) {
+    renderer = null;
+    constructor(engine, renderer) {
         this.engine = engine;
+        this.renderer = renderer;
     }
     get(target, prop, receiver) {
         return trapGet(target, prop, receiver, this);
@@ -22,6 +24,6 @@ class StateHandler {
         raiseError(`Cannot set property ${String(prop)} of readonly state.`);
     }
 }
-export function createReadonlyStateProxy(engine, state) {
-    return new Proxy(state, new StateHandler(engine));
+export function createReadonlyStateProxy(engine, state, renderer = null) {
+    return new Proxy(state, new StateHandler(engine, renderer));
 }

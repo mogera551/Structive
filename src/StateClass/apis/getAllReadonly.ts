@@ -23,6 +23,7 @@ import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
 import { resolveReadonly } from "./resolveReadonly.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
 import { IListIndex } from "../../ListIndex/types.js";
+import { GetByRefSymbol } from "../symbols.js";
 
 export function getAllReadonly(
   target: Object, 
@@ -69,7 +70,14 @@ export function getAllReadonly(
           results.push(parentIndexes);
           return;
         }
-        const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+        let listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
+        if (listIndexes === null) {
+          receiver[GetByRefSymbol](wildcardParentPattern, listIndex);
+          listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
+          if (listIndexes === null) {
+            raiseError(`ListIndex is not found: ${wildcardParentPattern.pattern}`);
+          }
+        }
         const index = indexes[indexPos] ?? null;
         if (index === null) {
           for(let i = 0; i < listIndexes.length; i++) {
