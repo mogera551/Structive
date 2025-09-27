@@ -8,7 +8,7 @@ export function trackDependency(
   handler: IStateHandler
 ):Function {
   return (path: string): void => {
-    const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? raiseError("Internal error: structuredPathInfoStack is null.");
+    const lastInfo = handler.refStack[handler.refIndex]?.info ?? raiseError("Internal error: refStack is null.");
     if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
       lastInfo.pattern !== path) {
       handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, path);

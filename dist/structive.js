@@ -1043,17 +1043,19 @@ function getResolvedPathInfo(name) {
 }
 
 function getContextListIndex(handler, structuredPath) {
-    const info = handler.structuredPathInfoStack[handler.refIndex];
-    if (info == null) {
+    const ref = handler.refStack[handler.refIndex];
+    if (ref == null) {
         return null;
     }
-    const listIndex = handler.listIndexStack[handler.refIndex];
-    if (listIndex == null) {
+    if (ref.info == null) {
         return null;
     }
-    const index = info.indexByWildcardPath[structuredPath];
+    if (ref.listIndex == null) {
+        return null;
+    }
+    const index = ref.info.indexByWildcardPath[structuredPath];
     if (typeof index !== "undefined") {
-        return listIndex.at(index);
+        return ref.listIndex.at(index);
     }
     return null;
 }
@@ -1133,38 +1135,54 @@ function getStatePropertyRef(info, listIndex) {
     }
 }
 
-function checkDependency(handler, info, listIndex) {
+function checkDependency(handler, ref) {
     // 動的依存関係の登録
     if (handler.refIndex >= 0) {
-        const lastInfo = handler.structuredPathInfoStack[handler.refIndex];
+        const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
         if (lastInfo !== null) {
             if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
                 !handler.engine.pathManager.setters.has(lastInfo.pattern) &&
-                lastInfo.pattern !== info.pattern) {
-                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
+                lastInfo.pattern !== ref.info.pattern) {
+                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, ref.info.pattern);
             }
         }
     }
 }
 
-function setStatePropertyRef(handler, info, listIndex, callback) {
+function setStatePropertyRef(handler, ref, callback) {
     handler.refIndex++;
-    if (handler.refIndex >= handler.structuredPathInfoStack.length) {
-        handler.structuredPathInfoStack.push(null);
-        handler.listIndexStack.push(null);
+    if (handler.refIndex >= handler.refStack.length) {
+        handler.refStack.push(null);
     }
-    handler.structuredPathInfoStack[handler.refIndex] = info;
-    handler.listIndexStack[handler.refIndex] = listIndex;
+    handler.refStack[handler.refIndex] = ref;
     try {
         return callback();
     }
     finally {
-        handler.structuredPathInfoStack[handler.refIndex] = null;
-        handler.listIndexStack[handler.refIndex] = null;
+        handler.refStack[handler.refIndex] = null;
         handler.refIndex--;
     }
 }
 
+/**
+ * getByRef.ts
+ *
+ * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
+ * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
+ *
+ * 主な役割:
+ * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
+ * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
+ * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
+ * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
+ * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
+ *
+ * 設計ポイント:
+ * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+ * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
+ * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
+ * - finallyでキャッシュへの格納を保証
+ */
 /**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
  *
@@ -1181,7 +1199,7 @@ function setStatePropertyRef(handler, info, listIndex, callback) {
  * @returns         対象プロパティの値
  */
 function getByRefWritable(target, ref, receiver, handler) {
-    checkDependency(handler, ref.info, ref.listIndex);
+    checkDependency(handler, ref);
     // 親子関係のあるgetterが存在する場合は、外部依存から取得
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
     if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
@@ -1189,7 +1207,7 @@ function getByRefWritable(target, ref, receiver, handler) {
     }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (ref.info.pattern in target) {
-        return setStatePropertyRef(handler, ref.info, ref.listIndex, () => {
+        return setStatePropertyRef(handler, ref, () => {
             return Reflect.get(target, ref.info.pattern, receiver);
         });
     }
@@ -1212,6 +1230,23 @@ function getByRefWritable(target, ref, receiver, handler) {
     }
 }
 
+/**
+ * setByRef.ts
+ *
+ * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
+ * 状態オブジェクト（target）に値を設定するための関数（setByRef）の実装です。
+ *
+ * 主な役割:
+ * - 指定されたパス・インデックスに対応するState値を設定（多重ループやワイルドカードにも対応）
+ * - getter/setter経由で値設定時はSetStatePropertyRefSymbolでスコープを一時設定
+ * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を設定
+ * - 設定後はengine.updater.addUpdatedStatePropertyRefValueで更新情報を登録
+ *
+ * 設計ポイント:
+ * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値設定を実現
+ * - finallyで必ず更新情報を登録し、再描画や依存解決に利用
+ * - getter/setter経由のスコープ切り替えも考慮した設計
+ */
 function setByRef(target, ref, value, receiver, handler) {
     try {
         // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
@@ -1220,7 +1255,7 @@ function setByRef(target, ref, value, receiver, handler) {
             return handler.engine.stateOutput.set(ref.info, ref.listIndex, value);
         }
         if (ref.info.pattern in target) {
-            return setStatePropertyRef(handler, ref.info, ref.listIndex, () => {
+            return setStatePropertyRef(handler, ref, () => {
                 return Reflect.set(target, ref.info.pattern, value, receiver);
             });
         }
@@ -1264,7 +1299,7 @@ function setByRef(target, ref, value, receiver, handler) {
 function resolveWritable(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
-        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+        const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
             if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
@@ -1311,7 +1346,7 @@ function getAllWritable(target, prop, receiver, handler) {
     const resolve = resolveWritable(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
-        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+        const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
             if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
@@ -1381,7 +1416,7 @@ async function disconnectedCallback(target, prop, receiver, handler) {
 
 function trackDependency(target, prop, receiver, handler) {
     return (path) => {
-        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? raiseError("Internal error: structuredPathInfoStack is null.");
+        const lastInfo = handler.refStack[handler.refIndex]?.info ?? raiseError("Internal error: refStack is null.");
         if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
             lastInfo.pattern !== path) {
             handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, path);
@@ -1424,7 +1459,7 @@ for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
 function getWritable(target, prop, receiver, handler) {
     const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
-        const listIndex = handler.listIndexStack[handler.refIndex];
+        const listIndex = handler.refStack[handler.refIndex]?.listIndex;
         return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
     }
     if (typeof prop === "string") {
@@ -1501,20 +1536,17 @@ function set(target, prop, value, receiver, handler) {
  * スタックに info と listIndex をpushし、callback実行後に必ずpopします。
  * これにより、非同期処理中も正しいスコープ情報が維持されます。
  */
-async function asyncSetStatePropertyRef(handler, info, listIndex, callback) {
+async function asyncSetStatePropertyRef(handler, ref, callback) {
     handler.refIndex++;
-    if (handler.refIndex >= handler.structuredPathInfoStack.length) {
-        handler.structuredPathInfoStack.push(null);
-        handler.listIndexStack.push(null);
+    if (handler.refIndex >= handler.refStack.length) {
+        handler.refStack.push(null);
     }
-    handler.structuredPathInfoStack[handler.refIndex] = info;
-    handler.listIndexStack[handler.refIndex] = listIndex;
+    handler.refStack[handler.refIndex] = ref;
     try {
         await callback();
     }
     finally {
-        handler.structuredPathInfoStack[handler.refIndex] = null;
-        handler.listIndexStack[handler.refIndex] = null;
+        handler.refStack[handler.refIndex] = null;
         handler.refIndex--;
     }
 }
@@ -1526,7 +1558,8 @@ async function setLoopContext(handler, loopContext, callback) {
     handler.loopContext = loopContext;
     try {
         if (loopContext) {
-            await asyncSetStatePropertyRef(handler, loopContext.info, loopContext.listIndex, callback);
+            const loopContextRef = getStatePropertyRef(loopContext.info, loopContext.listIndex);
+            await asyncSetStatePropertyRef(handler, loopContextRef, callback);
         }
         else {
             await callback();
@@ -1543,8 +1576,7 @@ let StateHandler$1 = class StateHandler {
     lastTrackingStack = null;
     trackingStack = Array(STACK_DEPTH$1).fill(null);
     trackingIndex = -1;
-    structuredPathInfoStack = Array(STACK_DEPTH$1).fill(null);
-    listIndexStack = Array(STACK_DEPTH$1).fill(null);
+    refStack = Array(STACK_DEPTH$1).fill(null);
     refIndex = -1;
     loopContext = null;
     updater;
@@ -1805,6 +1837,25 @@ function addPathNode(rootNode, path) {
 }
 
 /**
+ * getByRef.ts
+ *
+ * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
+ * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
+ *
+ * 主な役割:
+ * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
+ * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
+ * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
+ * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
+ * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
+ *
+ * 設計ポイント:
+ * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
+ * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
+ * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
+ * - finallyでキャッシュへの格納を保証
+ */
+/**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
  *
  * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
@@ -1820,7 +1871,7 @@ function addPathNode(rootNode, path) {
  * @returns         対象プロパティの値
  */
 function getByRefReadonly(target, ref, receiver, handler) {
-    checkDependency(handler, ref.info, ref.listIndex);
+    checkDependency(handler, ref);
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
     if (handler.cacheable) {
         const value = handler.cache.get(ref.key);
@@ -1840,7 +1891,7 @@ function getByRefReadonly(target, ref, receiver, handler) {
         }
         // パターンがtargetに存在する場合はgetter経由で取得
         if (ref.info.pattern in target) {
-            return (value = setStatePropertyRef(handler, ref.info, ref.listIndex, () => {
+            return (value = setStatePropertyRef(handler, ref, () => {
                 return Reflect.get(target, ref.info.pattern, receiver);
             }));
         }
@@ -1895,7 +1946,7 @@ function getByRefReadonly(target, ref, receiver, handler) {
 function resolveReadonly(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
-        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+        const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
             if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
@@ -1953,7 +2004,7 @@ function getAllReadonly(target, prop, receiver, handler) {
     const resolve = resolveReadonly(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
-        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+        const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
             if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
@@ -2034,7 +2085,7 @@ function getAllReadonly(target, prop, receiver, handler) {
 function getReadonly(target, prop, receiver, handler) {
     const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
-        const listIndex = handler.listIndexStack[handler.refIndex];
+        const listIndex = handler.refStack[handler.refIndex]?.listIndex;
         return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
     }
     if (typeof prop === "string") {
@@ -2077,8 +2128,7 @@ class StateHandler {
     lastTrackingStack = null;
     trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;
-    structuredPathInfoStack = Array(STACK_DEPTH).fill(null);
-    listIndexStack = Array(STACK_DEPTH).fill(null);
+    refStack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
     loopContext = null;
     renderer = null;

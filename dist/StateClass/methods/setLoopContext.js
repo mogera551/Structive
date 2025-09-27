@@ -1,3 +1,4 @@
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils";
 import { asyncSetStatePropertyRef } from "./asyncSetStatePropertyRef";
 export async function setLoopContext(handler, loopContext, callback) {
@@ -7,7 +8,8 @@ export async function setLoopContext(handler, loopContext, callback) {
     handler.loopContext = loopContext;
     try {
         if (loopContext) {
-            await asyncSetStatePropertyRef(handler, loopContext.info, loopContext.listIndex, callback);
+            const loopContextRef = getStatePropertyRef(loopContext.info, loopContext.listIndex);
+            await asyncSetStatePropertyRef(handler, loopContextRef, callback);
         }
         else {
             await callback();

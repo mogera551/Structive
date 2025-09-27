@@ -9,20 +9,17 @@
  * スタックに info と listIndex をpushし、callback実行後に必ずpopします。
  * これにより、非同期処理中も正しいスコープ情報が維持されます。
  */
-export async function asyncSetStatePropertyRef(handler, info, listIndex, callback) {
+export async function asyncSetStatePropertyRef(handler, ref, callback) {
     handler.refIndex++;
-    if (handler.refIndex >= handler.structuredPathInfoStack.length) {
-        handler.structuredPathInfoStack.push(null);
-        handler.listIndexStack.push(null);
+    if (handler.refIndex >= handler.refStack.length) {
+        handler.refStack.push(null);
     }
-    handler.structuredPathInfoStack[handler.refIndex] = info;
-    handler.listIndexStack[handler.refIndex] = listIndex;
+    handler.refStack[handler.refIndex] = ref;
     try {
         await callback();
     }
     finally {
-        handler.structuredPathInfoStack[handler.refIndex] = null;
-        handler.listIndexStack[handler.refIndex] = null;
+        handler.refStack[handler.refIndex] = null;
         handler.refIndex--;
     }
 }

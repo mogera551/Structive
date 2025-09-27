@@ -15,6 +15,7 @@
  */
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
+import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils";
 import { IStateHandler } from "../types";
 
@@ -31,22 +32,18 @@ import { IStateHandler } from "../types";
  */
 export async function asyncSetStatePropertyRef(
   handler: IStateHandler,
-  info: IStructuredPathInfo,
-  listIndex: IListIndex | null,
+  ref: IStatePropertyRef,
   callback: () => Promise<void>
 ): Promise<void> {
   handler.refIndex++;
-  if (handler.refIndex >= handler.structuredPathInfoStack.length) {
-    handler.structuredPathInfoStack.push(null);
-    handler.listIndexStack.push(null);
+  if (handler.refIndex >= handler.refStack.length) {
+    handler.refStack.push(null);
   }
-  handler.structuredPathInfoStack[handler.refIndex] = info;
-  handler.listIndexStack[handler.refIndex] = listIndex;
+  handler.refStack[handler.refIndex] = ref;
   try {
     await callback();
   } finally {
-    handler.structuredPathInfoStack[handler.refIndex] = null;
-    handler.listIndexStack[handler.refIndex] = null;
+    handler.refStack[handler.refIndex] = null;
     handler.refIndex--;
   }
 }

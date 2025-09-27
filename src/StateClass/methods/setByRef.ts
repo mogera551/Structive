@@ -15,8 +15,6 @@
  * - finallyで必ず更新情報を登録し、再描画や依存解決に利用
  * - getter/setter経由のスコープ切り替えも考慮した設計
  */
-import { IListIndex } from "../../ListIndex/types";
-import { IStructuredPathInfo } from "../../StateProperty/types";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils.js";
@@ -38,7 +36,7 @@ export function setByRef(
       return handler.engine.stateOutput.set(ref.info, ref.listIndex, value);
     }
     if (ref.info.pattern in target) {
-      return setStatePropertyRef(handler, ref.info, ref.listIndex, () => {
+      return setStatePropertyRef(handler, ref, () => {
         return Reflect.set(target, ref.info.pattern, value, receiver);
       });
     } else {

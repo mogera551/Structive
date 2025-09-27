@@ -17,8 +17,6 @@
  * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
  * - finallyでキャッシュへの格納を保証
  */
-import { IListIndex } from "../../ListIndex/types";
-import { IStructuredPathInfo } from "../../StateProperty/types";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils";
@@ -47,7 +45,7 @@ export function getByRefReadonly(
   receiver : IReadonlyStateProxy,
   handler  : IReadonlyStateHandler
 ): any {
-  checkDependency(handler, ref.info, ref.listIndex);
+  checkDependency(handler, ref);
 
   // キャッシュが有効な場合はrefKeyで値をキャッシュ
   if (handler.cacheable) {
@@ -69,7 +67,7 @@ export function getByRefReadonly(
     }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (ref.info.pattern in target) {
-      return (value = setStatePropertyRef(handler, ref.info, ref.listIndex, () => {
+      return (value = setStatePropertyRef(handler, ref, () => {
         return Reflect.get(target, ref.info.pattern, receiver);
       }));
     } else {

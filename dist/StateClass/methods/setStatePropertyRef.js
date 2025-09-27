@@ -1,17 +1,14 @@
-export function setStatePropertyRef(handler, info, listIndex, callback) {
+export function setStatePropertyRef(handler, ref, callback) {
     handler.refIndex++;
-    if (handler.refIndex >= handler.structuredPathInfoStack.length) {
-        handler.structuredPathInfoStack.push(null);
-        handler.listIndexStack.push(null);
+    if (handler.refIndex >= handler.refStack.length) {
+        handler.refStack.push(null);
     }
-    handler.structuredPathInfoStack[handler.refIndex] = info;
-    handler.listIndexStack[handler.refIndex] = listIndex;
+    handler.refStack[handler.refIndex] = ref;
     try {
         return callback();
     }
     finally {
-        handler.structuredPathInfoStack[handler.refIndex] = null;
-        handler.listIndexStack[handler.refIndex] = null;
+        handler.refStack[handler.refIndex] = null;
         handler.refIndex--;
     }
 }

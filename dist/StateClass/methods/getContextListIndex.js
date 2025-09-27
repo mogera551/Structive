@@ -1,15 +1,17 @@
 export function getContextListIndex(handler, structuredPath) {
-    const info = handler.structuredPathInfoStack[handler.refIndex];
-    if (info == null) {
+    const ref = handler.refStack[handler.refIndex];
+    if (ref == null) {
         return null;
     }
-    const listIndex = handler.listIndexStack[handler.refIndex];
-    if (listIndex == null) {
+    if (ref.info == null) {
         return null;
     }
-    const index = info.indexByWildcardPath[structuredPath];
+    if (ref.listIndex == null) {
+        return null;
+    }
+    const index = ref.info.indexByWildcardPath[structuredPath];
     if (typeof index !== "undefined") {
-        return listIndex.at(index);
+        return ref.listIndex.at(index);
     }
     return null;
 }

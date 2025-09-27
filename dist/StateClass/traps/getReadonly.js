@@ -31,7 +31,7 @@ import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js"
 export function getReadonly(target, prop, receiver, handler) {
     const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
-        const listIndex = handler.listIndexStack[handler.refIndex];
+        const listIndex = handler.refStack[handler.refIndex]?.listIndex;
         return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
     }
     if (typeof prop === "string") {

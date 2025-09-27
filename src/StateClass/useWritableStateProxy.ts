@@ -24,6 +24,7 @@ import { ILoopContext } from "../LoopContext/types";
 import { setLoopContext } from "./methods/setLoopContext";
 import { IListIndex } from "../ListIndex/types";
 import { IUpdater } from "../Updater/types";
+import { IStatePropertyRef } from "../StatePropertyRef/types";
 
 const STACK_DEPTH = 32;
 
@@ -32,8 +33,7 @@ class StateHandler implements IWritableStateHandler {
   lastTrackingStack: IStructuredPathInfo | null = null;
   trackingStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
   trackingIndex: number = -1;
-  structuredPathInfoStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
-  listIndexStack: (IListIndex | null)[] = Array(STACK_DEPTH).fill(null);
+  refStack: (IStatePropertyRef | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   loopContext: ILoopContext | null = null;
   updater: IUpdater;

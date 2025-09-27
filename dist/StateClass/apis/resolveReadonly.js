@@ -22,7 +22,7 @@ import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js"
 export function resolveReadonly(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
-        const lastInfo = handler.structuredPathInfoStack[handler.refIndex] ?? null;
+        const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
             if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
