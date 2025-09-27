@@ -19,6 +19,7 @@ import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
+import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { Constructor } from "../types";
 import { IRenderer, IUpdater } from "../Updater/types";
 import { IUserConfig } from "../WebComponents/types";
@@ -40,13 +41,13 @@ export interface IState {
 }
 
 export interface IReadonlyStateProxy extends IState {
-  [GetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null): any;
+  [GetByRefSymbol](ref: IStatePropertyRef): any;
   [SetCacheableSymbol](callback: () => void): void;
 }
 
 export interface IWritableStateProxy extends IState {
-  [GetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null): any;
-  [SetByRefSymbol](pattern: IStructuredPathInfo, listIndex: IListIndex | null, value: any): void;
+  [GetByRefSymbol](ref: IStatePropertyRef): any;
+  [SetByRefSymbol](ref: IStatePropertyRef, value: any): void;
   [ConnectedCallbackSymbol](): Promise<void>;
   [DisconnectedCallbackSymbol](): Promise<void>;
 }

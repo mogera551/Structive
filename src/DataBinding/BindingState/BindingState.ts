@@ -6,6 +6,7 @@ import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
@@ -41,6 +42,9 @@ class BindingState implements IBindingState {
     if (this.#listIndexRef === null) return null;
     return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
   }
+  get ref() {
+    return getStatePropertyRef(this.info, this.listIndex);
+  }
   get filters() {
     return this.#filters;
   }
@@ -58,10 +62,10 @@ class BindingState implements IBindingState {
     this.#filters = filters;
   }
   getValue(state:IReadonlyStateProxy | IWritableStateProxy): any {
-    return state[GetByRefSymbol](this.info, this.listIndex);
+    return state[GetByRefSymbol](this.ref);
   }
   getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy): any {
-    let value = state[GetByRefSymbol](this.info, this.listIndex);
+    let value = state[GetByRefSymbol](this.ref);
     for(let i = 0; i < this.#filters.length; i++) {
       value = this.#filters[i](value);
     }
@@ -78,7 +82,7 @@ class BindingState implements IBindingState {
     this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
   }
   assignValue(writeState: IWritableStateProxy, value: any) {
-    writeState[SetByRefSymbol](this.info, this.listIndex, value);
+    writeState[SetByRefSymbol](this.ref, value);
   }
 }
 

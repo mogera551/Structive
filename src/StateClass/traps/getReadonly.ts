@@ -30,6 +30,7 @@ import { getAllReadonly } from "../apis/getAllReadonly.js";
 import { trackDependency } from "../apis/trackDependency.js";
 import { indexByIndexName2 } from "./indexByIndexName2.js";
 import { IListIndex } from "../../ListIndex/types.js";
+import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 
 
 export function getReadonly(
@@ -71,8 +72,8 @@ export function getReadonly(
   } else if (typeof prop === "symbol") {
     switch (prop) {
       case GetByRefSymbol: 
-        return (info: IStructuredPathInfo, listIndex: IListIndex | null) => 
-          getByRefReadonly(target, info, listIndex, receiver, handler);
+        return (ref: IStatePropertyRef) => 
+          getByRefReadonly(target, ref.info, ref.listIndex, receiver, handler);
       case SetCacheableSymbol:
         return (callback: () => void) => setCacheable(handler, callback)
       default:

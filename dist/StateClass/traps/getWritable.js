@@ -57,9 +57,9 @@ export function getWritable(target, prop, receiver, handler) {
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (info, listIndex) => getByRefWritable(target, info, listIndex, receiver, handler);
+                return (ref) => getByRefWritable(target, ref.info, ref.listIndex, receiver, handler);
             case SetByRefSymbol:
-                return (info, listIndex, value) => setByRef(target, info, listIndex, value, receiver, handler);
+                return (ref, value) => setByRef(target, ref.info, ref.listIndex, value, receiver, handler);
             case ConnectedCallbackSymbol:
                 return () => connectedCallback(target, prop, receiver, handler);
             case DisconnectedCallbackSymbol:

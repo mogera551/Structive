@@ -1,18 +1,11 @@
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IBinding } from "../DataBinding/types";
-import { createListIndex } from "../ListIndex/ListIndex";
-import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
-import { GetByRefSymbol } from "../StateClass/symbols";
-import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
+import { IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { IStructuredPathInfo } from "../StateProperty/types";
-import { createRefKey } from "../StatePropertyRef/getStatePropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
 import { render } from "./Renderer";
-import { IUpdateInfo, IUpdater } from "./types";
+import { IUpdater } from "./types";
 
 
 /**

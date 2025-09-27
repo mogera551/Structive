@@ -248,13 +248,15 @@ export class ComponentEngine {
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する
+        const ref = getStatePropertyRef(info, listIndex);
         const stateProxy = createReadonlyStateProxy(this, this.state);
-        return stateProxy[GetByRefSymbol](info, listIndex);
+        return stateProxy[GetByRefSymbol](ref);
     }
     setPropertyValue(info, listIndex, value) {
         // プロパティの値を設定する
+        const ref = getStatePropertyRef(info, listIndex);
         update(this, null, async (updater, stateProxy) => {
-            stateProxy[SetByRefSymbol](info, listIndex, value);
+            stateProxy[SetByRefSymbol](ref, value);
         });
     }
     // Structive子コンポーネントを登録する

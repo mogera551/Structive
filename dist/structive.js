@@ -1447,9 +1447,9 @@ function getWritable(target, prop, receiver, handler) {
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (info, listIndex) => getByRefWritable(target, info, listIndex, receiver, handler);
+                return (ref) => getByRefWritable(target, ref.info, ref.listIndex, receiver, handler);
             case SetByRefSymbol:
-                return (info, listIndex, value) => setByRef(target, info, listIndex, value, receiver, handler);
+                return (ref, value) => setByRef(target, ref.info, ref.listIndex, value, receiver, handler);
             case ConnectedCallbackSymbol:
                 return () => connectedCallback(target, prop, receiver);
             case DisconnectedCallbackSymbol:
@@ -1978,7 +1978,8 @@ function getAllReadonly(target, prop, receiver, handler) {
             }
             let listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
             if (listIndexes === null) {
-                receiver[GetByRefSymbol](wildcardParentPattern, listIndex);
+                const ref = getStatePropertyRef(wildcardParentPattern, listIndex);
+                receiver[GetByRefSymbol](ref);
                 listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
                 if (listIndexes === null) {
                     raiseError(`ListIndex is not found: ${wildcardParentPattern.pattern}`);
@@ -2054,7 +2055,7 @@ function getReadonly(target, prop, receiver, handler) {
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (info, listIndex) => getByRefReadonly(target, info, listIndex, receiver, handler);
+                return (ref) => getByRefReadonly(target, ref.info, ref.listIndex, receiver, handler);
             case SetCacheableSymbol:
                 return (callback) => setCacheable(handler, callback);
             default:
@@ -2144,7 +2145,7 @@ class Renderer {
         let listDiff = this.#listDiffByRef.get(ref);
         if (typeof listDiff === "undefined") {
             const [oldListValue, oldListIndexes] = this.engine.getListAndListIndexes(ref.info, ref.listIndex);
-            let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref.info, ref.listIndex);
+            let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
             listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
             this.#listDiffByRef.set(ref, listDiff);
             if (oldListValue !== newListValue) {
@@ -3048,6 +3049,9 @@ class BindingState {
             return null;
         return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
     }
+    get ref() {
+        return getStatePropertyRef(this.info, this.listIndex);
+    }
     get filters() {
         return this.#filters;
     }
@@ -3061,10 +3065,10 @@ class BindingState {
         this.#filters = filters;
     }
     getValue(state) {
-        return state[GetByRefSymbol](this.info, this.listIndex);
+        return state[GetByRefSymbol](this.ref);
     }
     getFilteredValue(state) {
-        let value = state[GetByRefSymbol](this.info, this.listIndex);
+        let value = state[GetByRefSymbol](this.ref);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -3081,7 +3085,7 @@ class BindingState {
         this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
     }
     assignValue(writeState, value) {
-        writeState[SetByRefSymbol](this.info, this.listIndex, value);
+        writeState[SetByRefSymbol](this.ref, value);
     }
 }
 const createBindingState = (name, filterTexts) => (binding, filters) => {
@@ -4009,7 +4013,8 @@ class ComponentStateInputHandler {
         update(this.engine, null, async (updater, stateProxy) => {
             for (const [key, value] of Object.entries(object)) {
                 const childPathInfo = getStructuredPathInfo(key);
-                stateProxy[SetByRefSymbol](childPathInfo, null, value);
+                const childRef = getStatePropertyRef(childPathInfo, null);
+                stateProxy[SetByRefSymbol](childRef, value);
             }
         });
     }
@@ -4088,8 +4093,9 @@ class ComponentStateOutput {
         }
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
         const engine = binding.engine;
+        const ref = getStatePropertyRef(parentPathInfo, listIndex ?? binding.bindingState.listIndex);
         update(engine, null, async (updater, stateProxy) => {
-            stateProxy[SetByRefSymbol](parentPathInfo, listIndex ?? binding.bindingState.listIndex, value);
+            stateProxy[SetByRefSymbol](ref, value);
         });
         return true;
     }
@@ -4349,13 +4355,15 @@ class ComponentEngine {
     }
     getPropertyValue(info, listIndex) {
         // プロパティの値を取得する
+        const ref = getStatePropertyRef(info, listIndex);
         const stateProxy = createReadonlyStateProxy(this, this.state);
-        return stateProxy[GetByRefSymbol](info, listIndex);
+        return stateProxy[GetByRefSymbol](ref);
     }
     setPropertyValue(info, listIndex, value) {
         // プロパティの値を設定する
+        const ref = getStatePropertyRef(info, listIndex);
         update(this, null, async (updater, stateProxy) => {
-            stateProxy[SetByRefSymbol](info, listIndex, value);
+            stateProxy[SetByRefSymbol](ref, value);
         });
     }
     // Structive子コンポーネントを登録する

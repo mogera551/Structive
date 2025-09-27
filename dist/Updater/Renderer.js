@@ -59,7 +59,7 @@ class Renderer {
         let listDiff = this.#listDiffByRef.get(ref);
         if (typeof listDiff === "undefined") {
             const [oldListValue, oldListIndexes] = this.engine.getListAndListIndexes(ref.info, ref.listIndex);
-            let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref.info, ref.listIndex);
+            let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
             listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
             this.#listDiffByRef.set(ref, listDiff);
             if (oldListValue !== newListValue) {

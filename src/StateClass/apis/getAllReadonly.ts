@@ -24,6 +24,7 @@ import { resolveReadonly } from "./resolveReadonly.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
 import { IListIndex } from "../../ListIndex/types.js";
 import { GetByRefSymbol } from "../symbols.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 
 export function getAllReadonly(
   target: Object, 
@@ -72,7 +73,8 @@ export function getAllReadonly(
         }
         let listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
         if (listIndexes === null) {
-          receiver[GetByRefSymbol](wildcardParentPattern, listIndex);
+          const ref = getStatePropertyRef(wildcardParentPattern, listIndex);
+          receiver[GetByRefSymbol](ref);
           listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
           if (listIndexes === null) {
             raiseError(`ListIndex is not found: ${wildcardParentPattern.pattern}`);

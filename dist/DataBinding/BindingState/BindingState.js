@@ -1,6 +1,7 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { raiseError } from "../../utils.js";
 /**
  * BindingStateクラスは、バインディング対象の状態（State）プロパティへのアクセス・更新・フィルタ適用を担当する実装です。
@@ -34,6 +35,9 @@ class BindingState {
             return null;
         return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
     }
+    get ref() {
+        return getStatePropertyRef(this.info, this.listIndex);
+    }
     get filters() {
         return this.#filters;
     }
@@ -47,10 +51,10 @@ class BindingState {
         this.#filters = filters;
     }
     getValue(state) {
-        return state[GetByRefSymbol](this.info, this.listIndex);
+        return state[GetByRefSymbol](this.ref);
     }
     getFilteredValue(state) {
-        let value = state[GetByRefSymbol](this.info, this.listIndex);
+        let value = state[GetByRefSymbol](this.ref);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -67,7 +71,7 @@ class BindingState {
         this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
     }
     assignValue(writeState, value) {
-        writeState[SetByRefSymbol](this.info, this.listIndex, value);
+        writeState[SetByRefSymbol](this.ref, value);
     }
 }
 export const createBindingState = (name, filterTexts) => (binding, filters) => {

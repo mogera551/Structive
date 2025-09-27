@@ -55,7 +55,7 @@ export function getReadonly(target, prop, receiver, handler) {
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (info, listIndex) => getByRefReadonly(target, info, listIndex, receiver, handler);
+                return (ref) => getByRefReadonly(target, ref.info, ref.listIndex, receiver, handler);
             case SetCacheableSymbol:
                 return (callback) => setCacheable(handler, callback);
             default:
