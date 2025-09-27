@@ -4,7 +4,6 @@ import { IBinding } from "../DataBinding/types";
 import { calcListDiff } from "../ListDiff/ListDiff";
 import { IListDiff } from "../ListDiff/types";
 import { IListIndex } from "../ListIndex/types";
-import { listWalker } from "../ListWalker/listWalker";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";

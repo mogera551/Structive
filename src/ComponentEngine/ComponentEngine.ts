@@ -20,8 +20,6 @@ import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 import { IListIndex } from "../ListIndex/types.js";
 import { IPathManager } from "../PathManager/types.js";
 import { update } from "../Updater/Updater.js";
-import { IListIndexTree } from "../ListIndexTree/types.js";
-import { createListIndexTree } from "../ListIndexTree/ListIndexTree.js";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef.js";
 import { IPathNode } from "../PathTree/types.js";
 import { RESERVED_WORD_SET } from "../constants.js";
@@ -73,8 +71,6 @@ export class ComponentEngine implements IComponentEngine {
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
   structiveChildComponents: Set<StructiveComponent> = new Set();
 
-  listIndexTreeRootByPath: Map<string, IListIndexTree> = new Map();
-  
   #waitForInitialize : PromiseWithResolvers<void> = Promise.withResolvers<void>();
   #waitForDisconnected: PromiseWithResolvers<void> | null = null;
   

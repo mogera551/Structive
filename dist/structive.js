@@ -4156,7 +4156,6 @@ class ComponentEngine {
     bindingsByListIndex = new WeakMap();
     bindingsByComponent = new WeakMap();
     structiveChildComponents = new Set();
-    listIndexTreeRootByPath = new Map();
     #waitForInitialize = Promise.withResolvers();
     #waitForDisconnected = null;
     #stateBinding = createComponentStateBinding();

@@ -3,7 +3,6 @@ import { IComponentStateOutput } from "../ComponentStateOutput/types";
 import { IBindContent, IBinding } from "../DataBinding/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
-import { IListIndexTree } from "../ListIndexTree/types";
 import { IPathManager } from "../PathManager/types";
 import { IPathNode } from "../PathTree/types";
 import { IState, IStructiveState } from "../StateClass/types";
@@ -46,8 +45,6 @@ export interface IComponentEngine {
 
   stateInput: IComponentStateInput;
   stateOutput: IComponentStateOutput;
-
-  listIndexTreeRootByPath: Map<string, IListIndexTree>;
 
   setup(): void;
   connectedCallback(): Promise<void>;
