@@ -21,6 +21,7 @@ import { IWritableStateProxy, IWritableStateHandler } from "../types";
 import { setByRef } from "../methods/setByRef.js";
 import { getByRefWritable } from "../methods/getByRefWritable";
 import { IListIndex } from "../../ListIndex/types.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 
 export function resolveWritable(
   target: Object, 
@@ -46,10 +47,11 @@ export function resolveWritable(
       const index = indexes[i] ?? raiseError(`index is null`);
       listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
     }
+    const ref = getStatePropertyRef(info, listIndex);
     if (typeof value === "undefined") {
-      return getByRefWritable(target, info, listIndex, receiver, handler);
+      return getByRefWritable(target, ref, receiver, handler);
     } else {
-      return setByRef(target, info, listIndex, value, receiver, handler);
+      return setByRef(target, ref, value, receiver, handler);
     }
   };
 } 

@@ -33,6 +33,7 @@ import { trackDependency } from "../apis/trackDependency.js";
 import { IListIndex } from "../../ListIndex/types.js";
 import { indexByIndexName2 } from "./indexByIndexName2.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 
 export function getWritable(
   target  : Object, 
@@ -62,10 +63,10 @@ export function getWritable(
     }
     const resolvedInfo = getResolvedPathInfo(prop);
     const listIndex = getListIndex(resolvedInfo, receiver, handler);
+    const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
     return getByRefWritable(
       target, 
-      resolvedInfo.info, 
-      listIndex, 
+      ref,
       receiver,
       handler
     );
@@ -74,10 +75,10 @@ export function getWritable(
     switch (prop) {
       case GetByRefSymbol: 
         return (ref: IStatePropertyRef) => 
-          getByRefWritable(target, ref.info, ref.listIndex, receiver, handler);
+          getByRefWritable(target, ref, receiver, handler);
       case SetByRefSymbol: 
         return (ref: IStatePropertyRef, value: any) => 
-          setByRef(target, ref.info, ref.listIndex, value, receiver, handler);
+          setByRef(target, ref, value, receiver, handler);
       case ConnectedCallbackSymbol:
         return () => connectedCallback(target, prop, receiver, handler);
       case DisconnectedCallbackSymbol: 

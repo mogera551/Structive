@@ -1092,6 +1092,47 @@ const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
 const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
 const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
 
+function createRefKey(info, listIndex) {
+    return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
+}
+
+class StatePropertyRef {
+    info;
+    listIndex;
+    key;
+    constructor(info, listIndex) {
+        this.info = info;
+        this.listIndex = listIndex;
+        this.key = createRefKey(info, listIndex);
+    }
+}
+const refByInfoByListIndex = new WeakMap();
+const refByInfoByNull = new Map();
+function getStatePropertyRef(info, listIndex) {
+    let ref = null;
+    if (listIndex !== null) {
+        let refByInfo = refByInfoByListIndex.get(listIndex);
+        if (typeof refByInfo === "undefined") {
+            refByInfo = new Map();
+            refByInfoByListIndex.set(listIndex, refByInfo);
+        }
+        ref = refByInfo.get(info);
+        if (typeof ref === "undefined") {
+            ref = new StatePropertyRef(info, listIndex);
+            refByInfo.set(info, ref);
+        }
+        return ref;
+    }
+    else {
+        ref = refByInfoByNull.get(info);
+        if (typeof ref === "undefined") {
+            ref = new StatePropertyRef(info, null);
+            refByInfoByNull.set(info, ref);
+        }
+        return ref;
+    }
+}
+
 function checkDependency(handler, info, listIndex) {
     // 動的依存関係の登録
     if (handler.refIndex >= 0) {
@@ -1139,28 +1180,29 @@ function setStatePropertyRef(handler, info, listIndex, callback) {
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-function getByRefWritable(target, info, listIndex, receiver, handler) {
-    checkDependency(handler, info);
+function getByRefWritable(target, ref, receiver, handler) {
+    checkDependency(handler, ref.info, ref.listIndex);
     // 親子関係のあるgetterが存在する場合は、外部依存から取得
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-    if (handler.engine.stateOutput.startsWith(info) && handler.engine.pathManager.getters.intersection(info.cumulativePathSet).size === 0) {
-        return handler.engine.stateOutput.get(info, listIndex);
+    if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
+        return handler.engine.stateOutput.get(ref.info, ref.listIndex);
     }
     // パターンがtargetに存在する場合はgetter経由で取得
-    if (info.pattern in target) {
-        return setStatePropertyRef(handler, info, listIndex, () => {
-            return Reflect.get(target, info.pattern, receiver);
+    if (ref.info.pattern in target) {
+        return setStatePropertyRef(handler, ref.info, ref.listIndex, () => {
+            return Reflect.get(target, ref.info.pattern, receiver);
         });
     }
     else {
         // 存在しない場合は親infoを辿って再帰的に取得
-        const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-        const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-        const parentValue = getByRefWritable(target, parentInfo, parentListIndex, receiver, handler);
-        const lastSegment = info.lastSegment;
+        const parentInfo = ref.info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+        const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
+        const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
+        const parentValue = getByRefWritable(target, parentRef, receiver, handler);
+        const lastSegment = ref.info.lastSegment;
         if (lastSegment === "*") {
             // ワイルドカードの場合はlistIndexのindexでアクセス
-            const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+            const index = ref.listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
             return Reflect.get(parentValue, index);
         }
         else {
@@ -1170,66 +1212,26 @@ function getByRefWritable(target, info, listIndex, receiver, handler) {
     }
 }
 
-function createRefKey(info, listIndex) {
-    return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
-}
-
-class StatePropertyRef {
-    info;
-    listIndex;
-    key;
-    constructor(info, listIndex) {
-        this.info = info;
-        this.listIndex = listIndex;
-        this.key = createRefKey(info, listIndex);
-    }
-}
-const refByInfoByListIndex = new WeakMap();
-const refByInfoByNull = new Map();
-function getStatePropertyRef(info, listIndex) {
-    let ref = null;
-    if (listIndex !== null) {
-        let refByInfo = refByInfoByListIndex.get(listIndex);
-        if (typeof refByInfo === "undefined") {
-            refByInfo = new Map();
-            refByInfoByListIndex.set(listIndex, refByInfo);
-        }
-        ref = refByInfo.get(info);
-        if (typeof ref === "undefined") {
-            ref = new StatePropertyRef(info, listIndex);
-            refByInfo.set(info, ref);
-        }
-        return ref;
-    }
-    else {
-        ref = refByInfoByNull.get(info);
-        if (typeof ref === "undefined") {
-            ref = new StatePropertyRef(info, null);
-            refByInfoByNull.set(info, ref);
-        }
-        return ref;
-    }
-}
-
-function setByRef(target, info, listIndex, value, receiver, handler) {
+function setByRef(target, ref, value, receiver, handler) {
     try {
         // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
         // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-        if (handler.engine.stateOutput.startsWith(info) && handler.engine.pathManager.setters.intersection(info.cumulativePathSet).size === 0) {
-            return handler.engine.stateOutput.set(info, listIndex, value);
+        if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.setters.intersection(ref.info.cumulativePathSet).size === 0) {
+            return handler.engine.stateOutput.set(ref.info, ref.listIndex, value);
         }
-        if (info.pattern in target) {
-            return setStatePropertyRef(handler, info, listIndex, () => {
-                return Reflect.set(target, info.pattern, value, receiver);
+        if (ref.info.pattern in target) {
+            return setStatePropertyRef(handler, ref.info, ref.listIndex, () => {
+                return Reflect.set(target, ref.info.pattern, value, receiver);
             });
         }
         else {
-            const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-            const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-            const parentValue = getByRefWritable(target, parentInfo, parentListIndex, receiver, handler);
-            const lastSegment = info.lastSegment;
+            const parentInfo = ref.info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+            const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
+            const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
+            const parentValue = getByRefWritable(target, parentRef, receiver, handler);
+            const lastSegment = ref.info.lastSegment;
             if (lastSegment === "*") {
-                const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+                const index = ref.listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
                 return Reflect.set(parentValue, index, value);
             }
             else {
@@ -1238,7 +1240,6 @@ function setByRef(target, info, listIndex, value, receiver, handler) {
         }
     }
     finally {
-        const ref = getStatePropertyRef(info, listIndex);
         handler.updater.enqueueRef(ref);
     }
 }
@@ -1278,11 +1279,12 @@ function resolveWritable(target, prop, receiver, handler) {
             const index = indexes[i] ?? raiseError(`index is null`);
             listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }
+        const ref = getStatePropertyRef(info, listIndex);
         if (typeof value === "undefined") {
-            return getByRefWritable(target, info, listIndex, receiver, handler);
+            return getByRefWritable(target, ref, receiver, handler);
         }
         else {
-            return setByRef(target, info, listIndex, value, receiver, handler);
+            return setByRef(target, ref, value, receiver, handler);
         }
     };
 }
@@ -1442,14 +1444,15 @@ function getWritable(target, prop, receiver, handler) {
         }
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        return getByRefWritable(target, resolvedInfo.info, listIndex, receiver, handler);
+        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
+        return getByRefWritable(target, ref, receiver, handler);
     }
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (ref) => getByRefWritable(target, ref.info, ref.listIndex, receiver, handler);
+                return (ref) => getByRefWritable(target, ref, receiver, handler);
             case SetByRefSymbol:
-                return (ref, value) => setByRef(target, ref.info, ref.listIndex, value, receiver, handler);
+                return (ref, value) => setByRef(target, ref, value, receiver, handler);
             case ConnectedCallbackSymbol:
                 return () => connectedCallback(target, prop, receiver);
             case DisconnectedCallbackSymbol:
@@ -1479,7 +1482,8 @@ function set(target, prop, value, receiver, handler) {
     if (typeof prop === "string") {
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        return setByRef(target, resolvedInfo.info, listIndex, value, receiver, handler);
+        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
+        return setByRef(target, ref, value, receiver, handler);
     }
     else {
         return Reflect.set(target, prop, value, receiver);
@@ -1815,10 +1819,9 @@ function addPathNode(rootNode, path) {
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-function getByRefReadonly(target, info, listIndex, receiver, handler) {
-    checkDependency(handler, info);
+function getByRefReadonly(target, ref, receiver, handler) {
+    checkDependency(handler, ref.info, ref.listIndex);
     // キャッシュが有効な場合はrefKeyで値をキャッシュ
-    const ref = getStatePropertyRef(info, listIndex);
     if (handler.cacheable) {
         const value = handler.cache.get(ref.key);
         if (typeof value !== "undefined") {
@@ -1832,24 +1835,25 @@ function getByRefReadonly(target, info, listIndex, receiver, handler) {
     try {
         // 親子関係のあるgetterが存在する場合は、外部依存から取得
         // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-        if (handler.engine.stateOutput.startsWith(info) && handler.engine.pathManager.getters.intersection(info.cumulativePathSet).size === 0) {
-            return value = handler.engine.stateOutput.get(info, listIndex);
+        if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
+            return value = handler.engine.stateOutput.get(ref.info, ref.listIndex);
         }
         // パターンがtargetに存在する場合はgetter経由で取得
-        if (info.pattern in target) {
-            return (value = setStatePropertyRef(handler, info, listIndex, () => {
-                return Reflect.get(target, info.pattern, receiver);
+        if (ref.info.pattern in target) {
+            return (value = setStatePropertyRef(handler, ref.info, ref.listIndex, () => {
+                return Reflect.get(target, ref.info.pattern, receiver);
             }));
         }
         else {
             // 存在しない場合は親infoを辿って再帰的に取得
-            const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-            const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-            const parentValue = getByRefReadonly(target, parentInfo, parentListIndex, receiver, handler);
-            const lastSegment = info.lastSegment;
+            const parentInfo = ref.info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+            const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
+            const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
+            const parentValue = getByRefReadonly(target, parentRef, receiver, handler);
+            const lastSegment = ref.info.lastSegment;
             if (lastSegment === "*") {
                 // ワイルドカードの場合はlistIndexのindexでアクセス
-                const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+                const index = ref.listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
                 return (value = Reflect.get(parentValue, index));
             }
             else {
@@ -1864,8 +1868,7 @@ function getByRefReadonly(target, info, listIndex, receiver, handler) {
             handler.cache.set(ref.key, value);
         }
         if (handler.renderer != null) {
-            if (handler.engine.pathManager.lists.has(info.pattern)) {
-                const ref = getStatePropertyRef(info, listIndex);
+            if (handler.engine.pathManager.lists.has(ref.info.pattern)) {
                 handler.renderer.calcListDiff(ref, value, true);
             }
         }
@@ -1907,8 +1910,9 @@ function resolveReadonly(target, prop, receiver, handler) {
             const index = indexes[i] ?? raiseError(`index is null`);
             listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }
+        const ref = getStatePropertyRef(info, listIndex);
         if (typeof value === "undefined") {
-            return getByRefReadonly(target, info, listIndex, receiver, handler);
+            return getByRefReadonly(target, ref, receiver, handler);
         }
         else {
             raiseError(`Cannot set value on a readonly proxy: ${path}`);
@@ -2050,12 +2054,13 @@ function getReadonly(target, prop, receiver, handler) {
         }
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        return getByRefReadonly(target, resolvedInfo.info, listIndex, receiver, handler);
+        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
+        return getByRefReadonly(target, ref, receiver, handler);
     }
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (ref) => getByRefReadonly(target, ref.info, ref.listIndex, receiver, handler);
+                return (ref) => getByRefReadonly(target, ref, receiver, handler);
             case SetCacheableSymbol:
                 return (callback) => setCacheable(handler, callback);
             default:

@@ -20,6 +20,7 @@ import { raiseError } from "../../utils.js";
 import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
 import { getByRefReadonly } from "../methods/getByRefReadonly";
 import { IListIndex } from "../../ListIndex/types.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 
 export function resolveReadonly(
   target: Object, 
@@ -45,8 +46,9 @@ export function resolveReadonly(
       const index = indexes[i] ?? raiseError(`index is null`);
       listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
     }
+    const ref = getStatePropertyRef(info, listIndex);
     if (typeof value === "undefined") {
-      return getByRefReadonly(target, info, listIndex, receiver, handler);
+      return getByRefReadonly(target, ref, receiver, handler);
     } else {
       raiseError(`Cannot set value on a readonly proxy: ${path}`);
     }

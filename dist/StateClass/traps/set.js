@@ -14,13 +14,15 @@
  * - Reflect.setで標準的なプロパティ設定の互換性も確保
  */
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { getListIndex } from "../methods/getListIndex.js";
 import { setByRef } from "../methods/setByRef.js";
 export function set(target, prop, value, receiver, handler) {
     if (typeof prop === "string") {
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        return setByRef(target, resolvedInfo.info, listIndex, value, receiver, handler);
+        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
+        return setByRef(target, ref, value, receiver, handler);
     }
     else {
         return Reflect.set(target, prop, value, receiver);

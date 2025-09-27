@@ -29,6 +29,7 @@ import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { trackDependency } from "../apis/trackDependency.js";
 import { indexByIndexName2 } from "./indexByIndexName2.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 export function getWritable(target, prop, receiver, handler) {
     const index = indexByIndexName2[prop];
     if (typeof index !== "undefined") {
@@ -52,14 +53,15 @@ export function getWritable(target, prop, receiver, handler) {
         }
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        return getByRefWritable(target, resolvedInfo.info, listIndex, receiver, handler);
+        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
+        return getByRefWritable(target, ref, receiver, handler);
     }
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (ref) => getByRefWritable(target, ref.info, ref.listIndex, receiver, handler);
+                return (ref) => getByRefWritable(target, ref, receiver, handler);
             case SetByRefSymbol:
-                return (ref, value) => setByRef(target, ref.info, ref.listIndex, value, receiver, handler);
+                return (ref, value) => setByRef(target, ref, value, receiver, handler);
             case ConnectedCallbackSymbol:
                 return () => connectedCallback(target, prop, receiver, handler);
             case DisconnectedCallbackSymbol:

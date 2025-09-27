@@ -19,6 +19,8 @@
  */
 import { IListIndex } from "../../ListIndex/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
+import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils";
 import { IWritableStateHandler, IWritableStateProxy } from "../types";
 import { checkDependency } from "./checkDependency";
@@ -41,33 +43,33 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
  */
 export function getByRefWritable(
   target   : Object, 
-  info     : IStructuredPathInfo,
-  listIndex: IListIndex | null,
+  ref      : IStatePropertyRef,
   receiver : IWritableStateProxy,
   handler  : IWritableStateHandler
 ): any {
-  checkDependency(handler, info, listIndex);
+  checkDependency(handler, ref.info, ref.listIndex);
 
   // 親子関係のあるgetterが存在する場合は、外部依存から取得
   // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-  if (handler.engine.stateOutput.startsWith(info) && handler.engine.pathManager.getters.intersection(info.cumulativePathSet).size === 0) {
-    return handler.engine.stateOutput.get(info, listIndex);
+  if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
+    return handler.engine.stateOutput.get(ref.info, ref.listIndex);
   }
 
   // パターンがtargetに存在する場合はgetter経由で取得
-  if (info.pattern in target) {
-    return setStatePropertyRef(handler, info, listIndex, () => {
-      return Reflect.get(target, info.pattern, receiver);
+  if (ref.info.pattern in target) {
+    return setStatePropertyRef(handler, ref.info, ref.listIndex, () => {
+      return Reflect.get(target, ref.info.pattern, receiver);
     });
   } else {
     // 存在しない場合は親infoを辿って再帰的に取得
-    const parentInfo = info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-    const parentListIndex = parentInfo.wildcardCount < info.wildcardCount ? (listIndex?.parentListIndex ?? null) : listIndex;
-    const parentValue = getByRefWritable(target, parentInfo, parentListIndex, receiver, handler);
-    const lastSegment = info.lastSegment;
+    const parentInfo = ref.info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+    const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
+    const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
+    const parentValue = getByRefWritable(target, parentRef, receiver, handler);
+    const lastSegment = ref.info.lastSegment;
     if (lastSegment === "*") {
       // ワイルドカードの場合はlistIndexのindexでアクセス
-      const index = listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+      const index = ref.listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
       return Reflect.get(parentValue, index);
     } else {
       // 通常のプロパティアクセス

@@ -18,6 +18,7 @@
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { getByRefReadonly } from "../methods/getByRefReadonly";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 export function resolveReadonly(target, prop, receiver, handler) {
     return (path, indexes, value) => {
         const info = getStructuredPathInfo(path);
@@ -36,8 +37,9 @@ export function resolveReadonly(target, prop, receiver, handler) {
             const index = indexes[i] ?? raiseError(`index is null`);
             listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }
+        const ref = getStatePropertyRef(info, listIndex);
         if (typeof value === "undefined") {
-            return getByRefReadonly(target, info, listIndex, receiver, handler);
+            return getByRefReadonly(target, ref, receiver, handler);
         }
         else {
             raiseError(`Cannot set value on a readonly proxy: ${path}`);

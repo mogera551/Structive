@@ -31,6 +31,7 @@ import { trackDependency } from "../apis/trackDependency.js";
 import { indexByIndexName2 } from "./indexByIndexName2.js";
 import { IListIndex } from "../../ListIndex/types.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 
 
 export function getReadonly(
@@ -61,10 +62,10 @@ export function getReadonly(
     }
     const resolvedInfo = getResolvedPathInfo(prop);
     const listIndex = getListIndex(resolvedInfo, receiver, handler);
+    const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
     return getByRefReadonly(
       target, 
-      resolvedInfo.info, 
-      listIndex, 
+      ref,
       receiver,
       handler
     );
@@ -73,7 +74,7 @@ export function getReadonly(
     switch (prop) {
       case GetByRefSymbol: 
         return (ref: IStatePropertyRef) => 
-          getByRefReadonly(target, ref.info, ref.listIndex, receiver, handler);
+          getByRefReadonly(target, ref, receiver, handler);
       case SetCacheableSymbol:
         return (callback: () => void) => setCacheable(handler, callback)
       default:

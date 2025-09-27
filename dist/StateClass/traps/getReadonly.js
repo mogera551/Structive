@@ -27,6 +27,7 @@ import { setCacheable } from "../methods/setCacheable.js";
 import { getAllReadonly } from "../apis/getAllReadonly.js";
 import { trackDependency } from "../apis/trackDependency.js";
 import { indexByIndexName2 } from "./indexByIndexName2.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 export function getReadonly(target, prop, receiver, handler) {
     const index = indexByIndexName2[prop];
     if (typeof index !== "undefined") {
@@ -50,12 +51,13 @@ export function getReadonly(target, prop, receiver, handler) {
         }
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        return getByRefReadonly(target, resolvedInfo.info, listIndex, receiver, handler);
+        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
+        return getByRefReadonly(target, ref, receiver, handler);
     }
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (ref) => getByRefReadonly(target, ref.info, ref.listIndex, receiver, handler);
+                return (ref) => getByRefReadonly(target, ref, receiver, handler);
             case SetCacheableSymbol:
                 return (callback) => setCacheable(handler, callback);
             default:
