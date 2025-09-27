@@ -23,15 +23,13 @@ import { getListIndex } from "../methods/getListIndex.js";
 import { IWritableStateHandler, IWritableStateProxy } from "../types.js";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
 import { getByRefWritable } from "../methods/getByRefWritable.js";
-import { IStructuredPathInfo } from "../../StateProperty/types.js";
 import { setByRef } from "../methods/setByRef.js";
 import { resolveWritable } from "../apis/resolveWritable.js";
 import { getAllWritable } from "../apis/getAllWritable.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { trackDependency } from "../apis/trackDependency.js";
-import { IListIndex } from "../../ListIndex/types.js";
-import { indexByIndexName2 } from "./indexByIndexName2.js";
+import { indexByIndexName } from "./indexByIndexName.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 
@@ -41,7 +39,7 @@ export function getWritable(
   receiver: IWritableStateProxy,
   handler : IWritableStateHandler
 ): any {
-  const index = indexByIndexName2[prop];
+  const index = indexByIndexName[prop];
   if (typeof index !== "undefined") {
     const listIndex = handler.listIndex2Stack[handler.refIndex];
     return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);

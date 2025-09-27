@@ -1398,9 +1398,9 @@ function trackDependency(target, prop, receiver, handler) {
  * ${i + 1} => i
  * i < MAX_WILDCARD_DEPTH
  */
-const indexByIndexName2 = {};
+const indexByIndexName = {};
 for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
-    indexByIndexName2[`$${i + 1}`] = i;
+    indexByIndexName[`$${i + 1}`] = i;
 }
 
 /**
@@ -1422,7 +1422,7 @@ for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
  * - シンボルAPIやReflect.getで拡張性・互換性も確保
  */
 function getWritable(target, prop, receiver, handler) {
-    const index = indexByIndexName2[prop];
+    const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
         const listIndex = handler.listIndex2Stack[handler.refIndex];
         return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
@@ -2032,7 +2032,7 @@ function getAllReadonly(target, prop, receiver, handler) {
  * - シンボルAPIやReflect.getで拡張性・互換性も確保
  */
 function getReadonly(target, prop, receiver, handler) {
-    const index = indexByIndexName2[prop];
+    const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
         const listIndex = handler.listIndex2Stack[handler.refIndex];
         return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);

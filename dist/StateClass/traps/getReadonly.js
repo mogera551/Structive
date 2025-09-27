@@ -26,10 +26,10 @@ import { getByRefReadonly } from "../methods/getByRefReadonly.js";
 import { setCacheable } from "../methods/setCacheable.js";
 import { getAllReadonly } from "../apis/getAllReadonly.js";
 import { trackDependency } from "../apis/trackDependency.js";
-import { indexByIndexName2 } from "./indexByIndexName2.js";
+import { indexByIndexName } from "./indexByIndexName.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 export function getReadonly(target, prop, receiver, handler) {
-    const index = indexByIndexName2[prop];
+    const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
         const listIndex = handler.listIndex2Stack[handler.refIndex];
         return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);

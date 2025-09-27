@@ -1,5 +1,4 @@
 import { MAX_WILDCARD_DEPTH } from "../../constants";
-
 /**
  * stackIndexByIndexName
  * インデックス名からスタックインデックスへのマッピング
@@ -9,7 +8,7 @@ import { MAX_WILDCARD_DEPTH } from "../../constants";
  * ${i + 1} => i
  * i < MAX_WILDCARD_DEPTH
  */
-export const indexByIndexName2: { [key: PropertyKey]: number } = {};
+export const indexByIndexName = {};
 for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
-  indexByIndexName2[`$${i+1}`] = i;
+    indexByIndexName[`$${i + 1}`] = i;
 }
