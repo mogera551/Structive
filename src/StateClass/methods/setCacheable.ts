@@ -13,14 +13,14 @@
  * - コールバック実行中のみキャッシュを有効化し、スコープ外への影響を防止
  * - finallyで状態復元を保証し、例外発生時も安全
  */
+import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { IReadonlyStateHandler } from "../types";
 
 export function setCacheable(handler: IReadonlyStateHandler, callback: () => void): void {
-  handler.cacheable = true;
-  handler.cache = new Map<string, any>();
+  handler.cache = new Map<IStatePropertyRef, any>();
   try {
     callback();
   } finally {
-    handler.cacheable = false;
+    handler.cache = null;
   }
 }

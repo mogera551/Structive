@@ -28,8 +28,7 @@ const STACK_DEPTH = 32;
 
 class StateHandler implements IReadonlyStateHandler {
   engine   : IComponentEngine;
-  cacheable: boolean = false;
-  cache    : Map<string, any> = new Map();
+  cache    : Map<IStatePropertyRef, any> | null = null;
   lastTrackingStack: IStructuredPathInfo | null = null;
   trackingStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
   trackingIndex: number = -1;

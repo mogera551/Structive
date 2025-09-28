@@ -1878,52 +1878,57 @@ function addPathNode(rootNode, path) {
  */
 function getByRefReadonly(target, ref, receiver, handler) {
     checkDependency(handler, ref);
-    // キャッシュが有効な場合はrefKeyで値をキャッシュ
-    if (handler.cacheable) {
-        const value = handler.cache.get(ref.key);
-        if (typeof value !== "undefined") {
-            return value;
-        }
-        if (handler.cache.has(ref.key)) {
-            return undefined;
-        }
-    }
     let value;
     try {
-        // 親子関係のあるgetterが存在する場合は、外部依存から取得
-        // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-        if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
-            return value = handler.engine.stateOutput.get(ref);
+        // キャッシュが有効な場合はrefKeyで値をキャッシュ
+        if (handler.cache !== null) {
+            value = handler.cache.get(ref);
+            if (typeof value !== "undefined") {
+                return value;
+            }
+            if (handler.cache.has(ref)) {
+                return undefined;
+            }
         }
-        // パターンがtargetに存在する場合はgetter経由で取得
-        if (ref.info.pattern in target) {
-            return (value = setStatePropertyRef(handler, ref, () => {
-                return Reflect.get(target, ref.info.pattern, receiver);
-            }));
-        }
-        else {
-            // 存在しない場合は親infoを辿って再帰的に取得
-            const parentInfo = ref.info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
-            const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
-            const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
-            const parentValue = getByRefReadonly(target, parentRef, receiver, handler);
-            const lastSegment = ref.info.lastSegment;
-            if (lastSegment === "*") {
-                // ワイルドカードの場合はlistIndexのindexでアクセス
-                const index = ref.listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
-                return (value = Reflect.get(parentValue, index));
+        try {
+            // 親子関係のあるgetterが存在する場合は、外部依存から取得
+            // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
+            if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
+                return (value = handler.engine.stateOutput.get(ref));
+            }
+            // パターンがtargetに存在する場合はgetter経由で取得
+            if (ref.info.pattern in target) {
+                return (value = setStatePropertyRef(handler, ref, () => {
+                    return Reflect.get(target, ref.info.pattern, receiver);
+                }));
             }
             else {
-                // 通常のプロパティアクセス
-                return (value = Reflect.get(parentValue, lastSegment));
+                // 存在しない場合は親infoを辿って再帰的に取得
+                const parentInfo = ref.info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+                const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
+                const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
+                const parentValue = getByRefReadonly(target, parentRef, receiver, handler);
+                const lastSegment = ref.info.lastSegment;
+                if (lastSegment === "*") {
+                    // ワイルドカードの場合はlistIndexのindexでアクセス
+                    const index = ref.listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+                    return (value = Reflect.get(parentValue, index));
+                }
+                else {
+                    // 通常のプロパティアクセス
+                    return (value = Reflect.get(parentValue, lastSegment));
+                }
+            }
+        }
+        finally {
+            // キャッシュが有効な場合は取得値をキャッシュ
+            if (handler.cache !== null) {
+                handler.cache.set(ref, value);
             }
         }
     }
     finally {
-        // キャッシュが有効な場合は取得値をキャッシュ
-        if (handler.cacheable) {
-            handler.cache.set(ref.key, value);
-        }
+        // リストの場合、リスト差分計算
         if (handler.renderer != null) {
             if (handler.engine.pathManager.lists.has(ref.info.pattern)) {
                 handler.renderer.calcListDiff(ref, value, true);
@@ -1979,13 +1984,12 @@ function resolveReadonly(target, prop, receiver, handler) {
 }
 
 function setCacheable(handler, callback) {
-    handler.cacheable = true;
     handler.cache = new Map();
     try {
         callback();
     }
     finally {
-        handler.cacheable = false;
+        handler.cache = null;
     }
 }
 
@@ -2130,8 +2134,7 @@ function getReadonly(target, prop, receiver, handler) {
 const STACK_DEPTH = 32;
 class StateHandler {
     engine;
-    cacheable = false;
-    cache = new Map();
+    cache = null;
     lastTrackingStack = null;
     trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;
@@ -2251,37 +2254,32 @@ class Renderer {
         if (deps) {
             for (const depPath of deps) {
                 const depInfo = getStructuredPathInfo(depPath);
+                const depNode = findPathNodeByPath(this.#engine.pathManager.rootNode, depInfo.pattern);
+                if (depNode === null) {
+                    raiseError(`PathNode not found: ${depInfo.pattern}`);
+                }
                 if (depInfo.wildcardCount > 0) {
                     const infos = depInfo.wildcardParentInfos;
-                    const walk = (info, listIndex, index, nextInfo) => {
-                        const depRef = getStatePropertyRef(info, listIndex);
+                    const walk = (depRef, index, nextInfo) => {
                         const listIndexes = this.#engine.getListIndexes(depRef) || [];
                         if ((index + 1) < infos.length) {
                             for (let i = 0; i < listIndexes.length; i++) {
-                                const subListIndex = listIndexes[i];
-                                walk(nextInfo, subListIndex, index + 1, infos[index + 1]);
+                                const nextRef = getStatePropertyRef(nextInfo, listIndexes[i]);
+                                walk(nextRef, index + 1, infos[index + 1]);
                             }
                         }
                         else {
                             for (let i = 0; i < listIndexes.length; i++) {
-                                const subListIndex = listIndexes[i];
-                                const depRef = getStatePropertyRef(depInfo, subListIndex);
-                                const depNode = findPathNodeByPath(this.#engine.pathManager.rootNode, depInfo.pattern);
-                                if (depNode === null) {
-                                    raiseError(`PathNode not found: ${depInfo.pattern}`);
-                                }
-                                this.renderItem(depRef, depNode);
+                                const subDepRef = getStatePropertyRef(depInfo, listIndexes[i]);
+                                this.renderItem(subDepRef, depNode);
                             }
                         }
                     };
-                    walk(depInfo.wildcardParentInfos[0], null, 0, depInfo.wildcardParentInfos[1] || null);
+                    const startRef = getStatePropertyRef(depInfo.wildcardParentInfos[0], null);
+                    walk(startRef, 0, depInfo.wildcardParentInfos[1] || null);
                 }
                 else {
                     const depRef = getStatePropertyRef(depInfo, null);
-                    const depNode = findPathNodeByPath(this.#engine.pathManager.rootNode, depInfo.pattern);
-                    if (depNode === null) {
-                        raiseError(`PathNode not found: ${depInfo.pattern}`);
-                    }
                     this.renderItem(depRef, depNode);
                 }
             }
@@ -4370,6 +4368,7 @@ class ComponentEngine {
     }
     #saveInfoByStructuredPathId = {};
     #saveInfoByResolvedPathInfoIdByListIndex = new WeakMap();
+    #saveInfoByRef = new WeakMap();
     createSaveInfo() {
         return {
             list: null,
@@ -4387,6 +4386,13 @@ class ComponentEngine {
             return saveInfo;
         }
         else {
+            /*
+                  let saveInfo = this.#saveInfoByRef.get(ref);
+                  if (typeof saveInfo === "undefined") {
+                    saveInfo = this.createSaveInfo();
+                    this.#saveInfoByRef.set(ref, saveInfo);
+                  }
+            */
             let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
             if (typeof saveInfoByResolvedPathInfoId === "undefined") {
                 saveInfoByResolvedPathInfoId = {};

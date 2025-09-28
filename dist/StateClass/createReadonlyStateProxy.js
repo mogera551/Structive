@@ -3,8 +3,7 @@ import { raiseError } from "../utils";
 const STACK_DEPTH = 32;
 class StateHandler {
     engine;
-    cacheable = false;
-    cache = new Map();
+    cache = null;
     lastTrackingStack = null;
     trackingStack = Array(STACK_DEPTH).fill(null);
     trackingIndex = -1;

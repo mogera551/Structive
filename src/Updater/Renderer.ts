@@ -127,35 +127,30 @@ class Renderer implements IRenderer {
     if (deps) {
       for(const depPath of deps) {
         const depInfo = getStructuredPathInfo(depPath);
+        const depNode = findPathNodeByPath(this.#engine.pathManager.rootNode, depInfo.pattern);
+        if (depNode === null) {
+          raiseError(`PathNode not found: ${depInfo.pattern}`);
+        }
         if (depInfo.wildcardCount > 0) {
           const infos = depInfo.wildcardParentInfos;
-          const walk = (info: IStructuredPathInfo, listIndex: IListIndex | null, index: number, nextInfo: IStructuredPathInfo) => {
-            const depRef = getStatePropertyRef(info, listIndex);
+          const walk = (depRef: IStatePropertyRef, index: number, nextInfo: IStructuredPathInfo) => {
             const listIndexes = this.#engine.getListIndexes(depRef) || [];
             if ((index + 1) < infos.length) {
               for(let i = 0; i < listIndexes.length; i++) {
-                const subListIndex = listIndexes[i];
-                walk(nextInfo, subListIndex, index + 1, infos[index + 1]);
+                const nextRef = getStatePropertyRef(nextInfo, listIndexes[i]);
+                walk(nextRef, index + 1, infos[index + 1]);
               }
             } else {
               for(let i = 0; i < listIndexes.length; i++) {
-                const subListIndex = listIndexes[i];
-                const depRef = getStatePropertyRef(depInfo, subListIndex);
-                const depNode = findPathNodeByPath(this.#engine.pathManager.rootNode, depInfo.pattern);
-                if (depNode === null) {
-                  raiseError(`PathNode not found: ${depInfo.pattern}`);
-                }
-                this.renderItem(depRef, depNode);
+                const subDepRef = getStatePropertyRef(depInfo, listIndexes[i]);
+                this.renderItem(subDepRef, depNode);
               }
             }
           }
-          walk(depInfo.wildcardParentInfos[0], null, 0, depInfo.wildcardParentInfos[1] || null);
+          const startRef = getStatePropertyRef(depInfo.wildcardParentInfos[0], null);
+          walk(startRef, 0, depInfo.wildcardParentInfos[1] || null);
         } else {
           const depRef = getStatePropertyRef(depInfo, null);
-          const depNode = findPathNodeByPath(this.#engine.pathManager.rootNode, depInfo.pattern);
-          if (depNode === null) {
-            raiseError(`PathNode not found: ${depInfo.pattern}`);
-          }
           this.renderItem(depRef, depNode);
         }
       }

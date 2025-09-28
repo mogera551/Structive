@@ -199,6 +199,7 @@ export class ComponentEngine implements IComponentEngine {
 
   #saveInfoByStructuredPathId: { [id:number]: ISaveInfoByResolvedPathInfo } = {};
   #saveInfoByResolvedPathInfoIdByListIndex: WeakMap<IListIndex, { [id:number]: ISaveInfoByResolvedPathInfo }> = new WeakMap();
+  #saveInfoByRef: WeakMap<IStatePropertyRef, ISaveInfoByResolvedPathInfo> = new WeakMap();
 
   createSaveInfo():ISaveInfoByResolvedPathInfo {
     return {
@@ -217,6 +218,13 @@ export class ComponentEngine implements IComponentEngine {
       }
       return saveInfo;
     } else {
+/*
+      let saveInfo = this.#saveInfoByRef.get(ref);
+      if (typeof saveInfo === "undefined") {
+        saveInfo = this.createSaveInfo();
+        this.#saveInfoByRef.set(ref, saveInfo);
+      }
+*/
       let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
       if (typeof saveInfoByResolvedPathInfoId === "undefined") {
         saveInfoByResolvedPathInfoId = {};
@@ -227,6 +235,7 @@ export class ComponentEngine implements IComponentEngine {
         saveInfo = this.createSaveInfo();
         saveInfoByResolvedPathInfoId[ref.info.id] = saveInfo;
       }
+
       return saveInfo;
     }
   }
