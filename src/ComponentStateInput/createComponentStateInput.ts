@@ -37,7 +37,8 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
         const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathRef.info.pattern);
         const childPathInfo = getStructuredPathInfo(childPath);
         const childListIndex = parentPathRef.listIndex;
-        const value = this.engine.getPropertyValue(childPathInfo, childListIndex);
+        const childRef = getStatePropertyRef(childPathInfo, childListIndex);
+        const value = this.engine.getPropertyValue(childRef);
         // Ref情報をもとに状態更新キューに追加
         update(this.engine, null, async (updater, stateProxy) => {
           const childRef = getStatePropertyRef(childPathInfo, childListIndex);
@@ -55,14 +56,16 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
     } else if (prop === NotifyRedrawSymbol) {
       return this.notifyRedraw.bind(this);
     } else if (typeof prop === "string") {
-      return this.engine.getPropertyValue(getStructuredPathInfo(prop), null);
+      const ref = getStatePropertyRef(getStructuredPathInfo(prop), null);
+      return this.engine.getPropertyValue(ref);
     }
     raiseError(`Property "${String(prop)}" is not supported in ComponentStateInput.`);
   }
 
   set(target:any, prop:PropertyKey, value:any, receiver:IComponentStateInput): boolean {
     if (typeof prop === "string") {
-      this.engine.setPropertyValue(getStructuredPathInfo(prop), null, value);
+      const ref = getStatePropertyRef(getStructuredPathInfo(prop), null);
+      this.engine.setPropertyValue(ref, value);
       return true;
     }
     raiseError(`Property "${String(prop)}" is not supported in ComponentStateInput.`);

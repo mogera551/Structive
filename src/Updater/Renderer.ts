@@ -14,7 +14,7 @@ import { IStructuredPathInfo } from "../StateProperty/types";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
-import { IRenderer, IUpdateInfo } from "./types";
+import { IRenderer } from "./types";
 
 class Renderer implements IRenderer {
   #updatedBindings: Set<IBinding> = new Set();

@@ -50,7 +50,7 @@ export function getByRefWritable(
   // 親子関係のあるgetterが存在する場合は、外部依存から取得
   // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
   if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
-    return handler.engine.stateOutput.get(ref.info, ref.listIndex);
+    return handler.engine.stateOutput.get(ref);
   }
 
   // パターンがtargetに存在する場合はgetter経由で取得

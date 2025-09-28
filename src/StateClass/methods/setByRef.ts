@@ -33,7 +33,7 @@ export function setByRef(
     // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
     if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.setters.intersection(ref.info.cumulativePathSet).size === 0) {
-      return handler.engine.stateOutput.set(ref.info, ref.listIndex, value);
+      return handler.engine.stateOutput.set(ref, value);
     }
     if (ref.info.pattern in target) {
       return setStatePropertyRef(handler, ref, () => {

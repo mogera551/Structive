@@ -1208,7 +1208,7 @@ function getByRefWritable(target, ref, receiver, handler) {
     // 親子関係のあるgetterが存在する場合は、外部依存から取得
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
     if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
-        return handler.engine.stateOutput.get(ref.info, ref.listIndex);
+        return handler.engine.stateOutput.get(ref);
     }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (ref.info.pattern in target) {
@@ -1257,7 +1257,7 @@ function setByRef(target, ref, value, receiver, handler) {
         // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
         // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
         if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.setters.intersection(ref.info.cumulativePathSet).size === 0) {
-            return handler.engine.stateOutput.set(ref.info, ref.listIndex, value);
+            return handler.engine.stateOutput.set(ref, value);
         }
         if (ref.info.pattern in target) {
             return setStatePropertyRef(handler, ref, () => {
@@ -1893,7 +1893,7 @@ function getByRefReadonly(target, ref, receiver, handler) {
         // 親子関係のあるgetterが存在する場合は、外部依存から取得
         // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
         if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
-            return value = handler.engine.stateOutput.get(ref.info, ref.listIndex);
+            return value = handler.engine.stateOutput.get(ref);
         }
         // パターンがtargetに存在する場合はgetter経由で取得
         if (ref.info.pattern in target) {
@@ -4098,7 +4098,8 @@ class ComponentStateInputHandler {
                 const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathRef.info.pattern);
                 const childPathInfo = getStructuredPathInfo(childPath);
                 const childListIndex = parentPathRef.listIndex;
-                const value = this.engine.getPropertyValue(childPathInfo, childListIndex);
+                const childRef = getStatePropertyRef(childPathInfo, childListIndex);
+                const value = this.engine.getPropertyValue(childRef);
                 // Ref情報をもとに状態更新キューに追加
                 update(this.engine, null, async (updater, stateProxy) => {
                     const childRef = getStatePropertyRef(childPathInfo, childListIndex);
@@ -4118,13 +4119,15 @@ class ComponentStateInputHandler {
             return this.notifyRedraw.bind(this);
         }
         else if (typeof prop === "string") {
-            return this.engine.getPropertyValue(getStructuredPathInfo(prop), null);
+            const ref = getStatePropertyRef(getStructuredPathInfo(prop), null);
+            return this.engine.getPropertyValue(ref);
         }
         raiseError(`Property "${String(prop)}" is not supported in ComponentStateInput.`);
     }
     set(target, prop, value, receiver) {
         if (typeof prop === "string") {
-            this.engine.setPropertyValue(getStructuredPathInfo(prop), null, value);
+            const ref = getStatePropertyRef(getStructuredPathInfo(prop), null);
+            this.engine.setPropertyValue(ref, value);
             return true;
         }
         raiseError(`Property "${String(prop)}" is not supported in ComponentStateInput.`);
@@ -4140,32 +4143,33 @@ class ComponentStateOutput {
     constructor(binding) {
         this.binding = binding;
     }
-    get(pathInfo, listIndex) {
-        const childPath = this.binding.startsWithByChildPath(pathInfo);
+    get(ref) {
+        const childPath = this.binding.startsWithByChildPath(ref.info);
         if (childPath === null) {
-            raiseError(`No child path found for path "${pathInfo.toString()}".`);
+            raiseError(`No child path found for path "${ref.info.toString()}".`);
         }
         const binding = this.binding.bindingByChildPath.get(childPath);
         if (typeof binding === "undefined") {
             raiseError(`No binding found for child path "${childPath}".`);
         }
-        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
-        return binding.engine.getPropertyValue(parentPathInfo, listIndex ?? binding.bindingState.listIndex);
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(ref.info.pattern));
+        const parentRef = getStatePropertyRef(parentPathInfo, ref.listIndex ?? binding.bindingState.listIndex);
+        return binding.engine.getPropertyValue(parentRef);
     }
-    set(pathInfo, listIndex, value) {
-        const childPath = this.binding.startsWithByChildPath(pathInfo);
+    set(ref, value) {
+        const childPath = this.binding.startsWithByChildPath(ref.info);
         if (childPath === null) {
-            raiseError(`No child path found for path "${pathInfo.toString()}".`);
+            raiseError(`No child path found for path "${ref.info.toString()}".`);
         }
         const binding = this.binding.bindingByChildPath.get(childPath);
         if (typeof binding === "undefined") {
             raiseError(`No binding found for child path "${childPath}".`);
         }
-        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(ref.info.pattern));
         const engine = binding.engine;
-        const ref = getStatePropertyRef(parentPathInfo, listIndex ?? binding.bindingState.listIndex);
+        const parentRef = getStatePropertyRef(parentPathInfo, ref.listIndex ?? binding.bindingState.listIndex);
         update(engine, null, async (updater, stateProxy) => {
-            stateProxy[SetByRefSymbol](ref, value);
+            stateProxy[SetByRefSymbol](parentRef, value);
         });
         return true;
     }
@@ -4366,62 +4370,60 @@ class ComponentEngine {
             bindings: [],
         };
     }
-    getSaveInfoByStatePropertyRef(info, listIndex) {
-        if (listIndex === null) {
-            let saveInfo = this.#saveInfoByStructuredPathId[info.id];
+    getSaveInfoByStatePropertyRef(ref) {
+        if (ref.listIndex === null) {
+            let saveInfo = this.#saveInfoByStructuredPathId[ref.info.id];
             if (typeof saveInfo === "undefined") {
                 saveInfo = this.createSaveInfo();
-                this.#saveInfoByStructuredPathId[info.id] = saveInfo;
+                this.#saveInfoByStructuredPathId[ref.info.id] = saveInfo;
             }
             return saveInfo;
         }
         else {
-            let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(listIndex);
+            let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
             if (typeof saveInfoByResolvedPathInfoId === "undefined") {
                 saveInfoByResolvedPathInfoId = {};
-                this.#saveInfoByResolvedPathInfoIdByListIndex.set(listIndex, saveInfoByResolvedPathInfoId);
+                this.#saveInfoByResolvedPathInfoIdByListIndex.set(ref.listIndex, saveInfoByResolvedPathInfoId);
             }
-            let saveInfo = saveInfoByResolvedPathInfoId[info.id];
+            let saveInfo = saveInfoByResolvedPathInfoId[ref.info.id];
             if (typeof saveInfo === "undefined") {
                 saveInfo = this.createSaveInfo();
-                saveInfoByResolvedPathInfoId[info.id] = saveInfo;
+                saveInfoByResolvedPathInfoId[ref.info.id] = saveInfo;
             }
             return saveInfo;
         }
     }
     saveBinding(ref, binding) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         saveInfo.bindings.push(binding);
     }
     saveListAndListIndexes(ref, list, listIndexes) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         saveInfo.list = list;
         saveInfo.listIndexes = listIndexes;
     }
     getBindings(ref) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         return saveInfo.bindings;
     }
     getListIndexes(ref) {
         if (this.stateOutput.startsWith(ref.info)) {
             return this.stateOutput.getListIndexes(ref);
         }
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         return saveInfo.listIndexes;
     }
     getListAndListIndexes(ref) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         return [saveInfo.list, saveInfo.listIndexes];
     }
-    getPropertyValue(info, listIndex) {
+    getPropertyValue(ref) {
         // プロパティの値を取得する
-        const ref = getStatePropertyRef(info, listIndex);
         const stateProxy = createReadonlyStateProxy(this, this.state);
         return stateProxy[GetByRefSymbol](ref);
     }
-    setPropertyValue(info, listIndex, value) {
+    setPropertyValue(ref, value) {
         // プロパティの値を設定する
-        const ref = getStatePropertyRef(info, listIndex);
         update(this, null, async (updater, stateProxy) => {
             stateProxy[SetByRefSymbol](ref, value);
         });

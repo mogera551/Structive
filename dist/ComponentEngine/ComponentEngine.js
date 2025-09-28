@@ -188,62 +188,60 @@ export class ComponentEngine {
             bindings: [],
         };
     }
-    getSaveInfoByStatePropertyRef(info, listIndex) {
-        if (listIndex === null) {
-            let saveInfo = this.#saveInfoByStructuredPathId[info.id];
+    getSaveInfoByStatePropertyRef(ref) {
+        if (ref.listIndex === null) {
+            let saveInfo = this.#saveInfoByStructuredPathId[ref.info.id];
             if (typeof saveInfo === "undefined") {
                 saveInfo = this.createSaveInfo();
-                this.#saveInfoByStructuredPathId[info.id] = saveInfo;
+                this.#saveInfoByStructuredPathId[ref.info.id] = saveInfo;
             }
             return saveInfo;
         }
         else {
-            let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(listIndex);
+            let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
             if (typeof saveInfoByResolvedPathInfoId === "undefined") {
                 saveInfoByResolvedPathInfoId = {};
-                this.#saveInfoByResolvedPathInfoIdByListIndex.set(listIndex, saveInfoByResolvedPathInfoId);
+                this.#saveInfoByResolvedPathInfoIdByListIndex.set(ref.listIndex, saveInfoByResolvedPathInfoId);
             }
-            let saveInfo = saveInfoByResolvedPathInfoId[info.id];
+            let saveInfo = saveInfoByResolvedPathInfoId[ref.info.id];
             if (typeof saveInfo === "undefined") {
                 saveInfo = this.createSaveInfo();
-                saveInfoByResolvedPathInfoId[info.id] = saveInfo;
+                saveInfoByResolvedPathInfoId[ref.info.id] = saveInfo;
             }
             return saveInfo;
         }
     }
     saveBinding(ref, binding) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         saveInfo.bindings.push(binding);
     }
     saveListAndListIndexes(ref, list, listIndexes) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         saveInfo.list = list;
         saveInfo.listIndexes = listIndexes;
     }
     getBindings(ref) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         return saveInfo.bindings;
     }
     getListIndexes(ref) {
         if (this.stateOutput.startsWith(ref.info)) {
             return this.stateOutput.getListIndexes(ref);
         }
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         return saveInfo.listIndexes;
     }
     getListAndListIndexes(ref) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         return [saveInfo.list, saveInfo.listIndexes];
     }
-    getPropertyValue(info, listIndex) {
+    getPropertyValue(ref) {
         // プロパティの値を取得する
-        const ref = getStatePropertyRef(info, listIndex);
         const stateProxy = createReadonlyStateProxy(this, this.state);
         return stateProxy[GetByRefSymbol](ref);
     }
-    setPropertyValue(info, listIndex, value) {
+    setPropertyValue(ref, value) {
         // プロパティの値を設定する
-        const ref = getStatePropertyRef(info, listIndex);
         update(this, null, async (updater, stateProxy) => {
             stateProxy[SetByRefSymbol](ref, value);
         });

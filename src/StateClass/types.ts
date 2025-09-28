@@ -16,7 +16,6 @@
  * - StateClassの拡張やテスト、型安全な利用を支える基盤
  */
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";

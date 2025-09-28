@@ -1,17 +1,7 @@
-import { IComponentEngine } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
 import { IListDiff } from "../ListDiff/types";
-import { IListIndex } from "../ListIndex/types";
-import { ILoopContext } from "../LoopContext/types";
 import { IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
-import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
-
-export type IUpdateInfo = {
-  info: IStructuredPathInfo;
-  listIndex: IListIndex | null;
-  value: any;
-}
 
 /**
  * 状態管理を更新し、必要に応じてレンダリングを行うインターフェース

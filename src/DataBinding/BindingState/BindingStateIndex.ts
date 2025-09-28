@@ -1,7 +1,6 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
-import { IListIndex } from "../../ListIndex/types.js";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { raiseError } from "../../utils.js";

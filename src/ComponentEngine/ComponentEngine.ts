@@ -5,7 +5,6 @@ import { IState, IStructiveState } from "../StateClass/types";
 import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
 import { attachShadow } from "./attachShadow.js";
 import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
-import { IStructuredPathInfo } from "../StateProperty/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
@@ -21,7 +20,6 @@ import { IListIndex } from "../ListIndex/types.js";
 import { IPathManager } from "../PathManager/types.js";
 import { update } from "../Updater/Updater.js";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef.js";
-import { IPathNode } from "../PathTree/types.js";
 import { RESERVED_WORD_SET } from "../constants.js";
 import { addPathNode } from "../PathTree/PathNode.js";
 import { IStatePropertyRef } from "../StatePropertyRef/types.js";
@@ -210,24 +208,24 @@ export class ComponentEngine implements IComponentEngine {
     }
   }
 
-  getSaveInfoByStatePropertyRef(info:IStructuredPathInfo, listIndex:IListIndex | null): ISaveInfoByResolvedPathInfo {
-    if (listIndex === null) {
-      let saveInfo = this.#saveInfoByStructuredPathId[info.id];
+  getSaveInfoByStatePropertyRef(ref: IStatePropertyRef): ISaveInfoByResolvedPathInfo {
+    if (ref.listIndex === null) {
+      let saveInfo = this.#saveInfoByStructuredPathId[ref.info.id];
       if (typeof saveInfo === "undefined") {
         saveInfo = this.createSaveInfo();
-        this.#saveInfoByStructuredPathId[info.id] = saveInfo;
+        this.#saveInfoByStructuredPathId[ref.info.id] = saveInfo;
       }
       return saveInfo;
     } else {
-      let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(listIndex);
+      let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
       if (typeof saveInfoByResolvedPathInfoId === "undefined") {
         saveInfoByResolvedPathInfoId = {};
-        this.#saveInfoByResolvedPathInfoIdByListIndex.set(listIndex, saveInfoByResolvedPathInfoId);
+        this.#saveInfoByResolvedPathInfoIdByListIndex.set(ref.listIndex, saveInfoByResolvedPathInfoId);
       }
-      let saveInfo = saveInfoByResolvedPathInfoId[info.id];
+      let saveInfo = saveInfoByResolvedPathInfoId[ref.info.id];
       if (typeof saveInfo === "undefined") {
         saveInfo = this.createSaveInfo();
-        saveInfoByResolvedPathInfoId[info.id] = saveInfo;
+        saveInfoByResolvedPathInfoId[ref.info.id] = saveInfo;
       }
       return saveInfo;
     }
@@ -237,7 +235,7 @@ export class ComponentEngine implements IComponentEngine {
     ref      : IStatePropertyRef,
     binding  : IBinding
   ): void {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
     saveInfo.bindings.push(binding);
   }
 
@@ -246,13 +244,13 @@ export class ComponentEngine implements IComponentEngine {
     list              : any[] | null,
     listIndexes       : IListIndex[] | null
   ): void {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
     saveInfo.list = list;
     saveInfo.listIndexes = listIndexes;
   }
 
   getBindings(ref: IStatePropertyRef): IBinding[] {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
     return saveInfo.bindings;
   }
 
@@ -260,24 +258,22 @@ export class ComponentEngine implements IComponentEngine {
     if (this.stateOutput.startsWith(ref.info)) {
       return this.stateOutput.getListIndexes(ref);
     }
-    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
     return saveInfo.listIndexes;
   }
 
   getListAndListIndexes(ref: IStatePropertyRef): [any[] | null, IListIndex[] | null] {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
     return [saveInfo.list, saveInfo.listIndexes];
   }
 
-  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any {
+  getPropertyValue(ref: IStatePropertyRef): any {
     // プロパティの値を取得する
-    const ref = getStatePropertyRef(info, listIndex);
     const stateProxy = createReadonlyStateProxy(this, this.state);
     return stateProxy[GetByRefSymbol](ref);
   }
-  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void {
+  setPropertyValue(ref: IStatePropertyRef, value: any): void {
     // プロパティの値を設定する
-    const ref = getStatePropertyRef(info, listIndex);
     update(this, null, async (updater, stateProxy) => {
       stateProxy[SetByRefSymbol](ref, value);
     });

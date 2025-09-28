@@ -8,32 +8,33 @@ class ComponentStateOutput {
     constructor(binding) {
         this.binding = binding;
     }
-    get(pathInfo, listIndex) {
-        const childPath = this.binding.startsWithByChildPath(pathInfo);
+    get(ref) {
+        const childPath = this.binding.startsWithByChildPath(ref.info);
         if (childPath === null) {
-            raiseError(`No child path found for path "${pathInfo.toString()}".`);
+            raiseError(`No child path found for path "${ref.info.toString()}".`);
         }
         const binding = this.binding.bindingByChildPath.get(childPath);
         if (typeof binding === "undefined") {
             raiseError(`No binding found for child path "${childPath}".`);
         }
-        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
-        return binding.engine.getPropertyValue(parentPathInfo, listIndex ?? binding.bindingState.listIndex);
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(ref.info.pattern));
+        const parentRef = getStatePropertyRef(parentPathInfo, ref.listIndex ?? binding.bindingState.listIndex);
+        return binding.engine.getPropertyValue(parentRef);
     }
-    set(pathInfo, listIndex, value) {
-        const childPath = this.binding.startsWithByChildPath(pathInfo);
+    set(ref, value) {
+        const childPath = this.binding.startsWithByChildPath(ref.info);
         if (childPath === null) {
-            raiseError(`No child path found for path "${pathInfo.toString()}".`);
+            raiseError(`No child path found for path "${ref.info.toString()}".`);
         }
         const binding = this.binding.bindingByChildPath.get(childPath);
         if (typeof binding === "undefined") {
             raiseError(`No binding found for child path "${childPath}".`);
         }
-        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(ref.info.pattern));
         const engine = binding.engine;
-        const ref = getStatePropertyRef(parentPathInfo, listIndex ?? binding.bindingState.listIndex);
+        const parentRef = getStatePropertyRef(parentPathInfo, ref.listIndex ?? binding.bindingState.listIndex);
         update(engine, null, async (updater, stateProxy) => {
-            stateProxy[SetByRefSymbol](ref, value);
+            stateProxy[SetByRefSymbol](parentRef, value);
         });
         return true;
     }

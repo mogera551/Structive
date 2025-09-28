@@ -21,7 +21,6 @@ import { IReadonlyStateHandler, IState, IReadonlyStateProxy } from "./types";
 import { getReadonly as trapGet } from "./traps/getReadonly.js";
 import { raiseError } from "../utils";
 import { ILoopContext } from "../LoopContext/types";
-import { IListIndex } from "../ListIndex/types";
 import { IRenderer } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 

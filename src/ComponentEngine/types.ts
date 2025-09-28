@@ -4,9 +4,7 @@ import { IBindContent, IBinding } from "../DataBinding/types";
 import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
 import { IPathManager } from "../PathManager/types";
-import { IPathNode } from "../PathTree/types";
 import { IState, IStructiveState } from "../StateClass/types";
-import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";
 
@@ -57,8 +55,8 @@ export interface IComponentEngine {
   getListIndexes(ref: IStatePropertyRef): IListIndex[] | null;
   getListAndListIndexes(ref: IStatePropertyRef): [any[] | null, IListIndex[] | null];
 
-  getPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null): any; // プロパティの値を取得する
-  setPropertyValue(info: IStructuredPathInfo, listIndex:IListIndex | null, value: any): void; // プロパティの値を設定する
+  getPropertyValue(ref: IStatePropertyRef): any; // プロパティの値を取得する
+  setPropertyValue(ref: IStatePropertyRef, value: any): void; // プロパティの値を設定する
   registerChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録する
   unregisterChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録解除する
 }

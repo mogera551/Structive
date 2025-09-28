@@ -22,7 +22,6 @@ import { getWritable as trapGet } from "./traps/getWritable.js";
 import { set as trapSet } from "./traps/set.js";
 import { ILoopContext } from "../LoopContext/types";
 import { setLoopContext } from "./methods/setLoopContext";
-import { IListIndex } from "../ListIndex/types";
 import { IUpdater } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 
