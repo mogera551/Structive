@@ -1097,7 +1097,6 @@ const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallb
 function createRefKey(info, listIndex) {
     return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
 }
-
 class StatePropertyRef {
     info;
     #listIndexRef;
@@ -1563,8 +1562,7 @@ async function setLoopContext(handler, loopContext, callback) {
     handler.loopContext = loopContext;
     try {
         if (loopContext) {
-            const loopContextRef = getStatePropertyRef(loopContext.info, loopContext.listIndex);
-            await asyncSetStatePropertyRef(handler, loopContextRef, callback);
+            await asyncSetStatePropertyRef(handler, loopContext.ref, callback);
         }
         else {
             await callback();
@@ -2260,7 +2258,6 @@ class Renderer {
                             }
                         }
                         else {
-                            getStatePropertyRef(info, listIndex);
                             for (let i = 0; i < listIndexes.length; i++) {
                                 const subListIndex = listIndexes[i];
                                 const depRef = getStatePropertyRef(depInfo, subListIndex);

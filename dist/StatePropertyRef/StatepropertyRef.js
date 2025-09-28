@@ -1,5 +1,7 @@
 import { raiseError } from "../utils";
-import { createRefKey } from "./getStatePropertyRef";
+function createRefKey(info, listIndex) {
+    return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
+}
 class StatePropertyRef {
     info;
     #listIndexRef;

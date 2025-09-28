@@ -17,7 +17,6 @@
  * - 非同期処理にも対応
  */
 import { ILoopContext } from "../../LoopContext/types";
-import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils";
 import { IWritableStateHandler } from "../types";
 import { asyncSetStatePropertyRef } from "./asyncSetStatePropertyRef";
@@ -33,8 +32,7 @@ export async function setLoopContext(
   handler.loopContext = loopContext;
   try {
     if (loopContext) {
-      const loopContextRef = getStatePropertyRef(loopContext.info, loopContext.listIndex);
-      await asyncSetStatePropertyRef(handler, loopContextRef, callback);
+      await asyncSetStatePropertyRef(handler, loopContext.ref, callback);
     } else {
       await callback();
     }

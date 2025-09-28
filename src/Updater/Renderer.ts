@@ -111,11 +111,11 @@ class Renderer implements IRenderer {
     for(const [ name, childNode ] of node.childNodeByName) {
       const childInfo = getStructuredPathInfo(childNode.currentPath);
       if (name === WILDCARD) {
-       const diff = this.calcListDiff(ref);
-       for(const listIndex of diff.adds ?? []) {
-         const childRef = getStatePropertyRef(childInfo, listIndex);
-         this.renderItem(childRef, childNode);
-       }
+        const diff = this.calcListDiff(ref);
+        for(const listIndex of diff.adds ?? []) {
+          const childRef = getStatePropertyRef(childInfo, listIndex);
+          this.renderItem(childRef, childNode);
+        }
       } else {
         const childRef = getStatePropertyRef(childInfo, ref.listIndex);
         this.renderItem(childRef, childNode);
@@ -137,7 +137,6 @@ class Renderer implements IRenderer {
                 walk(nextInfo, subListIndex, index + 1, infos[index + 1]);
               }
             } else {
-              const listRef = getStatePropertyRef(info, listIndex);
               for(let i = 0; i < listIndexes.length; i++) {
                 const subListIndex = listIndexes[i];
                 const depRef = getStatePropertyRef(depInfo, subListIndex);

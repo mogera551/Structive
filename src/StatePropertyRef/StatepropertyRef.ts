@@ -1,8 +1,14 @@
 import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { raiseError } from "../utils";
-import { createRefKey } from "./getStatePropertyRef";
 import { IStatePropertyRef } from "./types";
+
+function createRefKey(
+  info: IStructuredPathInfo,
+  listIndex: IListIndex | null,
+) {
+  return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
+}
 
 class StatePropertyRef implements IStatePropertyRef {
   info: IStructuredPathInfo;
