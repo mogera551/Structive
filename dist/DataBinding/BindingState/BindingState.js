@@ -23,6 +23,8 @@ class BindingState {
     #pattern;
     #info;
     #filters;
+    #loopContext = null;
+    #nullRef = null;
     #ref = null;
     get pattern() {
         return this.#pattern;
@@ -34,7 +36,15 @@ class BindingState {
         return this.ref.listIndex;
     }
     get ref() {
-        return this.#ref ?? raiseError("ref is null");
+        if (this.#loopContext !== null) {
+            if (this.#ref === null) {
+                this.#ref = getStatePropertyRef(this.#info, this.#loopContext.listIndex);
+            }
+            return this.#ref;
+        }
+        else {
+            return this.#nullRef ?? raiseError("ref is null");
+        }
     }
     get filters() {
         return this.#filters;
@@ -46,6 +56,7 @@ class BindingState {
         this.#binding = binding;
         this.#pattern = pattern;
         this.#info = getStructuredPathInfo(pattern);
+        this.#nullRef = (this.#info.wildcardCount === 0) ? getStatePropertyRef(this.#info, null) : null;
         this.#filters = filters;
     }
     getValue(state) {
@@ -62,12 +73,9 @@ class BindingState {
         if (this.info.wildcardCount > 0) {
             const lastWildcardPath = this.info.lastWildcardPath ??
                 raiseError(`BindingState.init: wildcardLastParentPath is null`);
-            const loopContext = this.binding.parentBindContent.currentLoopContext?.find(lastWildcardPath) ??
+            this.#loopContext = this.binding.parentBindContent.currentLoopContext?.find(lastWildcardPath) ??
                 raiseError(`BindingState.init: loopContext is null`);
-            this.#ref = getStatePropertyRef(this.#info, loopContext.listIndex);
-        }
-        else {
-            this.#ref = getStatePropertyRef(this.#info, null);
+            this.#ref = null;
         }
         this.binding.engine.saveBinding(this.ref, this.binding);
     }
