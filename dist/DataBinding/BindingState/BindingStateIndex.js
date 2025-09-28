@@ -18,8 +18,8 @@ import { raiseError } from "../../utils.js";
 class BindingStateIndex {
     #binding;
     #indexNumber;
-    #listIndexRef = null;
     #filters;
+    #ref = null;
     get pattern() {
         return raiseError("Not implemented");
     }
@@ -27,9 +27,10 @@ class BindingStateIndex {
         return raiseError("Not implemented");
     }
     get listIndex() {
-        if (this.#listIndexRef === null)
-            return null;
-        return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+        return this.ref.listIndex;
+    }
+    get ref() {
+        return this.#ref ?? raiseError("ref is null");
     }
     get filters() {
         return this.#filters;
@@ -60,12 +61,12 @@ class BindingStateIndex {
         const loopContext = this.binding.parentBindContent.currentLoopContext ??
             raiseError(`BindingState.init: loopContext is null`);
         const loopContexts = loopContext.serialize();
-        this.#listIndexRef = loopContexts[this.#indexNumber - 1].listIndexRef ??
-            raiseError(`BindingState.init: listIndexRef is null`);
-        const listIndex = this.listIndex ?? raiseError("listIndex is null");
-        const bindings = this.binding.engine.bindingsByListIndex.get(listIndex);
+        const currentLoopContext = loopContexts[this.#indexNumber - 1] ??
+            raiseError(`BindingState.init: currentLoopContext is null`);
+        this.#ref = currentLoopContext.ref;
+        const bindings = this.binding.engine.bindingsByListIndex.get(currentLoopContext.listIndex);
         if (bindings === undefined) {
-            this.binding.engine.bindingsByListIndex.set(listIndex, new Set([this.binding]));
+            this.binding.engine.bindingsByListIndex.set(currentLoopContext.listIndex, new Set([this.binding]));
         }
         else {
             bindings.add(this.binding);

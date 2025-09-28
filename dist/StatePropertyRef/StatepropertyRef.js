@@ -1,11 +1,17 @@
+import { raiseError } from "../utils";
 import { createRefKey } from "./getStatePropertyRef";
 class StatePropertyRef {
     info;
-    listIndex;
+    #listIndexRef;
+    get listIndex() {
+        if (this.#listIndexRef === null)
+            return null;
+        return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+    }
     key;
     constructor(info, listIndex) {
         this.info = info;
-        this.listIndex = listIndex;
+        this.#listIndexRef = listIndex !== null ? new WeakRef(listIndex) : null;
         this.key = createRefKey(info, listIndex);
     }
 }

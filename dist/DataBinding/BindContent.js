@@ -104,13 +104,13 @@ class BindContent {
         }
         return this.#currentLoopContext;
     }
-    constructor(parentBinding, id, engine, loopContext, listIndex) {
+    constructor(parentBinding, id, engine, loopRef) {
         this.parentBinding = parentBinding;
         this.#id = id;
         this.fragment = createContent(id);
         this.childNodes = Array.from(this.fragment.childNodes);
         this.engine = engine;
-        this.loopContext = (listIndex !== null) ? createLoopContext(loopContext, listIndex, this) : null;
+        this.loopContext = (loopRef.listIndex !== null) ? createLoopContext(loopRef, this) : null;
         this.bindings = createBindings(this, id, engine, this.fragment);
     }
     mount(parentNode) {
@@ -159,8 +159,8 @@ class BindContent {
         }
     }
 }
-export function createBindContent(parentBinding, id, engine, loopContext, listIndex) {
-    const bindContent = new BindContent(parentBinding, id, engine, loopContext, listIndex);
+export function createBindContent(parentBinding, id, engine, loopRef) {
+    const bindContent = new BindContent(parentBinding, id, engine, loopRef);
     bindContent.init();
     return bindContent;
 }

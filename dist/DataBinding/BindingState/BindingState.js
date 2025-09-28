@@ -22,8 +22,8 @@ class BindingState {
     #binding;
     #pattern;
     #info;
-    #listIndexRef = null;
     #filters;
+    #ref = null;
     get pattern() {
         return this.#pattern;
     }
@@ -31,12 +31,10 @@ class BindingState {
         return this.#info;
     }
     get listIndex() {
-        if (this.#listIndexRef === null)
-            return null;
-        return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+        return this.ref.listIndex;
     }
     get ref() {
-        return getStatePropertyRef(this.info, this.listIndex);
+        return this.#ref ?? raiseError("ref is null");
     }
     get filters() {
         return this.#filters;
@@ -66,7 +64,10 @@ class BindingState {
                 raiseError(`BindingState.init: wildcardLastParentPath is null`);
             const loopContext = this.binding.parentBindContent.currentLoopContext?.find(lastWildcardPath) ??
                 raiseError(`BindingState.init: loopContext is null`);
-            this.#listIndexRef = loopContext.listIndexRef;
+            this.#ref = getStatePropertyRef(this.#info, loopContext.listIndex);
+        }
+        else {
+            this.#ref = getStatePropertyRef(this.#info, null);
         }
         this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
     }

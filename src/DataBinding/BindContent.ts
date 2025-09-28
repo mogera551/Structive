@@ -10,6 +10,7 @@ import { getDataBindAttributesById } from "../BindingBuilder/registerDataBindAtt
 import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/loadFromImportMap.js";
 import { IListIndex } from "../ListIndex/types.js";
 import { IRenderer } from "../Updater/types.js";
+import { IStatePropertyRef } from "../StatePropertyRef/types.js";
 
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 
@@ -125,15 +126,14 @@ class BindContent implements IBindContent {
     parentBinding: IBinding | null,
     id           : number, 
     engine       : IComponentEngine, 
-    loopContext  : string | null,
-    listIndex    : IListIndex | null
+    loopRef      : IStatePropertyRef,
   ) {
     this.parentBinding = parentBinding;
     this.#id = id;
     this.fragment = createContent(id);
     this.childNodes = Array.from(this.fragment.childNodes);
     this.engine = engine;
-    this.loopContext = (listIndex !== null) ? createLoopContext(loopContext, listIndex, this) : null;
+    this.loopContext = (loopRef.listIndex !== null) ? createLoopContext(loopRef, this) : null;
     this.bindings = createBindings(
       this, 
       id, 
@@ -190,15 +190,13 @@ export function createBindContent(
   parentBinding: IBinding | null,
   id           : number, 
   engine       :IComponentEngine, 
-  loopContext  : string | null, 
-  listIndex    :IListIndex | null
+  loopRef      : IStatePropertyRef,
 ):IBindContent {
   const bindContent = new BindContent(
     parentBinding, 
     id, 
     engine, 
-    loopContext, 
-    listIndex
+    loopRef,
   );
   bindContent.init();
   return bindContent;

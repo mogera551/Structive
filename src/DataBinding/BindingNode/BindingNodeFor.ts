@@ -2,6 +2,8 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types.js";
+import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
+import { IStructuredPathInfo } from "../../StateProperty/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { IRenderer } from "../../Updater/types.js";
 import { raiseError } from "../../utils.js";
@@ -34,6 +36,7 @@ class BindingNodeFor extends BindingNodeBlock {
   #bindContentByListIndex: WeakMap<IListIndex, IBindContent> = new WeakMap();
   #bindContentPool       : IBindContent[] = [];
   #bindContentLastIndex  : number = 0;
+  #loopInfo: IStructuredPathInfo | undefined = undefined;
 
   get bindContents(): IBindContent[] {
     return this.#bindContents;
@@ -56,12 +59,13 @@ class BindingNodeFor extends BindingNodeBlock {
       this.#bindContentLastIndex--;
       bindContent.assignListIndex(listIndex);
     } else {
+      const loopRef = getStatePropertyRef(this.loopInfo, listIndex);
       bindContent = createBindContent(
-        this.binding, 
-        this.id, 
-        this.binding.engine, 
-        this.binding.bindingState.pattern + ".*", 
-        listIndex);
+        this.binding,
+        this.id,
+        this.binding.engine,
+        loopRef
+      );
     }
     // 登録
     this.#bindContentByListIndex.set(listIndex, bindContent);
@@ -90,6 +94,14 @@ class BindingNodeFor extends BindingNodeBlock {
     this.#bindContentPool.length = length;
   }
 
+  get loopInfo(): IStructuredPathInfo {
+    if (typeof this.#loopInfo === "undefined") {
+      const loopPath = this.binding.bindingState.pattern + ".*";
+      this.#loopInfo = getStructuredPathInfo(loopPath);
+    }
+    return this.#loopInfo;
+  }
+
   assignValue(value:any) {
     raiseError("BindingNodeFor.assignValue: Not implemented. Use update or applyChange.");
   }
@@ -99,10 +111,7 @@ class BindingNodeFor extends BindingNodeBlock {
     let newBindContents: IBindContent[] = [];
     // 削除を先にする
     const removeBindContentsSet = new Set<IBindContent>();
-    const info = this.binding.bindingState.info;
-    const listIndex = this.binding.bindingState.listIndex;
-    const ref = getStatePropertyRef(info, listIndex);
-    const listDiff = renderer.calcListDiff(ref);
+    const listDiff = renderer.calcListDiff(this.binding.bindingState.ref);
     const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
     // 全削除最適化のフラグ
     const isAllRemove = (listDiff.oldListValue?.length === listDiff.removes?.size && (listDiff.oldListValue?.length ?? 0) > 0);

@@ -7,6 +7,7 @@ import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
+import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
@@ -30,8 +31,8 @@ class BindingState implements IBindingState {
   #binding     : IBinding;
   #pattern     : string;
   #info        : IStructuredPathInfo;
-  #listIndexRef: WeakRef<IListIndex> | null = null;
   #filters     : Filters;
+  #ref         : IStatePropertyRef | null = null;
   get pattern(): string {
     return this.#pattern;
   }
@@ -39,11 +40,10 @@ class BindingState implements IBindingState {
     return this.#info;
   }
   get listIndex() {
-    if (this.#listIndexRef === null) return null;
-    return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+    return this.ref.listIndex;
   }
   get ref() {
-    return getStatePropertyRef(this.info, this.listIndex);
+    return this.#ref ?? raiseError("ref is null");
   }
   get filters() {
     return this.#filters;
@@ -77,7 +77,9 @@ class BindingState implements IBindingState {
         raiseError(`BindingState.init: wildcardLastParentPath is null`);
       const loopContext = this.binding.parentBindContent.currentLoopContext?.find(lastWildcardPath) ?? 
         raiseError(`BindingState.init: loopContext is null`);
-      this.#listIndexRef = loopContext.listIndexRef;
+      this.#ref = getStatePropertyRef(this.#info, loopContext.listIndex);
+    } else {
+      this.#ref = getStatePropertyRef(this.#info, null);
     }
     this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
   }

@@ -3,6 +3,7 @@ import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types.js";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
+import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
@@ -25,8 +26,8 @@ import { CreateBindingStateFn, IBindingState } from "./types";
 class BindingStateIndex implements IBindingState {
   #binding     : IBinding;
   #indexNumber : number;
-  #listIndexRef: WeakRef<IListIndex> | null = null;
   #filters     : Filters;
+  #ref         : IStatePropertyRef | null = null;
   get pattern(): string {
     return raiseError("Not implemented");
   }
@@ -34,8 +35,10 @@ class BindingStateIndex implements IBindingState {
     return raiseError("Not implemented");
   }
   get listIndex() {
-    if (this.#listIndexRef === null) return null;
-    return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+    return this.ref.listIndex;
+  }
+  get ref() {
+    return this.#ref ?? raiseError("ref is null");
   }
   get filters() {
     return this.#filters;
@@ -70,12 +73,12 @@ class BindingStateIndex implements IBindingState {
     const loopContext = this.binding.parentBindContent.currentLoopContext ??
       raiseError(`BindingState.init: loopContext is null`);
     const loopContexts = loopContext.serialize();
-    this.#listIndexRef = loopContexts[this.#indexNumber - 1].listIndexRef ??
-      raiseError(`BindingState.init: listIndexRef is null`);
-    const listIndex = this.listIndex ?? raiseError("listIndex is null");
-    const bindings = this.binding.engine.bindingsByListIndex.get(listIndex);
+    const currentLoopContext = loopContexts[this.#indexNumber - 1] ??
+      raiseError(`BindingState.init: currentLoopContext is null`);
+    this.#ref = currentLoopContext.ref;
+    const bindings = this.binding.engine.bindingsByListIndex.get(currentLoopContext.listIndex);
     if (bindings === undefined) {
-      this.binding.engine.bindingsByListIndex.set(listIndex, new Set([this.binding]));
+      this.binding.engine.bindingsByListIndex.set(currentLoopContext.listIndex, new Set([this.binding]));
     } else {
       bindings.add(this.binding);
     }

@@ -3,6 +3,7 @@ import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
+import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { IBinding } from "../types";
 
 /**
@@ -21,6 +22,7 @@ export interface IBindingState {
   readonly pattern      : string | never;
   readonly info         : IStructuredPathInfo | never;
   readonly listIndex    : IListIndex | null;
+  readonly ref          : IStatePropertyRef | never;
   readonly filters      : Filters;
   init(): void;
   assignValue(writeState:IWritableStateProxy, value:any): void;

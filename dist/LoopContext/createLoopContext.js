@@ -1,34 +1,32 @@
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
+import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../utils.js";
 class LoopContext {
-    #path;
+    #ref;
     #info;
-    #listIndexRef;
     #bindContent;
-    constructor(path, listIndex, bindContent) {
-        this.#path = path ?? raiseError("name is required");
-        this.#info = getStructuredPathInfo(this.#path);
-        this.#listIndexRef = new WeakRef(listIndex);
+    constructor(ref, bindContent) {
+        this.#ref = ref;
+        this.#info = ref.info;
         this.#bindContent = bindContent;
     }
+    get ref() {
+        return this.#ref ?? raiseError("ref is null");
+    }
     get path() {
-        return this.#path;
+        return this.ref.info.pattern ?? raiseError("info.pattern is null");
     }
     get info() {
-        return this.#info;
+        return this.ref.info ?? raiseError("info is null");
     }
     get listIndex() {
-        return this.#listIndexRef?.deref() ?? raiseError("listIndex is null");
-    }
-    get listIndexRef() {
-        return this.#listIndexRef ?? raiseError("listIndexRef is null");
+        return this.ref.listIndex ?? raiseError("listIndex is required");
     }
     assignListIndex(listIndex) {
-        this.#listIndexRef = new WeakRef(listIndex);
+        this.#ref = getStatePropertyRef(this.#info, listIndex);
         // 構造は変わらないので、#parentLoopContext、#cacheはクリアする必要はない
     }
     clearListIndex() {
-        this.#listIndexRef = null;
+        this.#ref = null;
     }
     get bindContent() {
         return this.#bindContent;
@@ -36,13 +34,13 @@ class LoopContext {
     #parentLoopContext;
     get parentLoopContext() {
         if (typeof this.#parentLoopContext === "undefined") {
-            let currentBinding = this.bindContent;
-            while (currentBinding !== null) {
-                if (currentBinding.loopContext !== null && currentBinding.loopContext !== this) {
-                    this.#parentLoopContext = currentBinding.loopContext;
+            let currentBindContent = this.bindContent;
+            while (currentBindContent !== null) {
+                if (currentBindContent.loopContext !== null && currentBindContent.loopContext !== this) {
+                    this.#parentLoopContext = currentBindContent.loopContext;
                     break;
                 }
-                currentBinding = currentBinding.parentBinding?.parentBindContent ?? null;
+                currentBindContent = currentBindContent.parentBinding?.parentBindContent ?? null;
             }
             if (typeof this.#parentLoopContext === "undefined")
                 this.#parentLoopContext = null;
@@ -80,6 +78,6 @@ class LoopContext {
 }
 // 生成されたあと、IBindContentのloopContextに登録される
 // IBindContentにずっと保持される
-export function createLoopContext(pattern, listIndex, bindContent) {
-    return new LoopContext(pattern, listIndex, bindContent);
+export function createLoopContext(ref, bindContent) {
+    return new LoopContext(ref, bindContent);
 }

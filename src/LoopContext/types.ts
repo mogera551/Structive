@@ -9,7 +9,6 @@
  *   - info: パスの構造化情報
  *   - bindContent: 対応するBindContentインスタンス
  *   - listIndex: 現在のリストインデックス
- *   - listIndexRef: WeakRefで保持するリストインデックス参照（GCフレンドリー）
  *   - parentLoopContext: 親ループコンテキスト（多重ループ対応）
  *   - assignListIndex/clearListIndex: インデックスの再割り当て・クリア
  *   - find: 名前からループコンテキストを検索（キャッシュ付き）
@@ -23,13 +22,14 @@
 import { IBindContent } from "../DataBinding/types";
 import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
+import { IStatePropertyRef } from "../StatePropertyRef/types";
 
 export interface ILoopContext {
+  readonly ref              : IStatePropertyRef;
   readonly path             : string;
   readonly info             : IStructuredPathInfo;
   readonly bindContent      : IBindContent;
   readonly listIndex        : IListIndex;
-  readonly listIndexRef     : WeakRef<IListIndex>;
   readonly parentLoopContext: ILoopContext | null;
   assignListIndex(listIndex: IListIndex): void;
   clearListIndex(): void;

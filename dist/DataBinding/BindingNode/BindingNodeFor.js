@@ -1,4 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
@@ -26,6 +27,7 @@ class BindingNodeFor extends BindingNodeBlock {
     #bindContentByListIndex = new WeakMap();
     #bindContentPool = [];
     #bindContentLastIndex = 0;
+    #loopInfo = undefined;
     get bindContents() {
         return this.#bindContents;
     }
@@ -45,7 +47,8 @@ class BindingNodeFor extends BindingNodeBlock {
             bindContent.assignListIndex(listIndex);
         }
         else {
-            bindContent = createBindContent(this.binding, this.id, this.binding.engine, this.binding.bindingState.pattern + ".*", listIndex);
+            const loopRef = getStatePropertyRef(this.loopInfo, listIndex);
+            bindContent = createBindContent(this.binding, this.id, this.binding.engine, loopRef);
         }
         // 登録
         this.#bindContentByListIndex.set(listIndex, bindContent);
@@ -70,6 +73,13 @@ class BindingNodeFor extends BindingNodeBlock {
         }
         this.#bindContentPool.length = length;
     }
+    get loopInfo() {
+        if (typeof this.#loopInfo === "undefined") {
+            const loopPath = this.binding.bindingState.pattern + ".*";
+            this.#loopInfo = getStructuredPathInfo(loopPath);
+        }
+        return this.#loopInfo;
+    }
     assignValue(value) {
         raiseError("BindingNodeFor.assignValue: Not implemented. Use update or applyChange.");
     }
@@ -79,10 +89,7 @@ class BindingNodeFor extends BindingNodeBlock {
         let newBindContents = [];
         // 削除を先にする
         const removeBindContentsSet = new Set();
-        const info = this.binding.bindingState.info;
-        const listIndex = this.binding.bindingState.listIndex;
-        const ref = getStatePropertyRef(info, listIndex);
-        const listDiff = renderer.calcListDiff(ref);
+        const listDiff = renderer.calcListDiff(this.binding.bindingState.ref);
         const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
         // 全削除最適化のフラグ
         const isAllRemove = (listDiff.oldListValue?.length === listDiff.removes?.size && (listDiff.oldListValue?.length ?? 0) > 0);

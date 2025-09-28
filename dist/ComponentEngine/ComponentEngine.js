@@ -91,7 +91,8 @@ export class ComponentEngine {
             addPathNode(this.pathManager.rootNode, path);
         }
         const componentClass = this.owner.constructor;
-        this.#bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+        const rootRef = getStatePropertyRef(getStructuredPathInfo(''), null);
+        this.#bindContent = createBindContent(null, componentClass.id, this, rootRef); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
     }
     get waitForInitialize() {
         return this.#waitForInitialize;

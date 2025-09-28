@@ -1,18 +1,23 @@
 import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
+import { raiseError } from "../utils";
 import { createRefKey } from "./getStatePropertyRef";
 import { IStatePropertyRef } from "./types";
 
 class StatePropertyRef implements IStatePropertyRef {
   info: IStructuredPathInfo;
-  listIndex: IListIndex | null;
+  #listIndexRef: WeakRef<IListIndex> | null;
+  get listIndex(): IListIndex | null {
+    if (this.#listIndexRef === null) return null;
+    return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+  }
   key: string;
   constructor(
     info: IStructuredPathInfo,
     listIndex: IListIndex | null,
   ) {
     this.info = info;
-    this.listIndex = listIndex;
+    this.#listIndexRef = listIndex !== null ? new WeakRef(listIndex) : null;
     this.key = createRefKey(info, listIndex);
   }
 }

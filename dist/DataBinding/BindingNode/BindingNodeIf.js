@@ -1,4 +1,6 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
 import { BindingNodeBlock } from "./BindingNodeBlock.js";
@@ -24,7 +26,9 @@ class BindingNodeIf extends BindingNodeBlock {
     }
     constructor(binding, node, name, filters, decorates) {
         super(binding, node, name, filters, decorates);
-        this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
+        const blankInfo = getStructuredPathInfo("");
+        const blankRef = getStatePropertyRef(blankInfo, null);
+        this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, blankRef);
         this.#trueBindContents = this.#bindContents = [this.#bindContent];
     }
     assignValue(value) {

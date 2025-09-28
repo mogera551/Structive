@@ -1100,11 +1100,16 @@ function createRefKey(info, listIndex) {
 
 class StatePropertyRef {
     info;
-    listIndex;
+    #listIndexRef;
+    get listIndex() {
+        if (this.#listIndexRef === null)
+            return null;
+        return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+    }
     key;
     constructor(info, listIndex) {
         this.info = info;
-        this.listIndex = listIndex;
+        this.#listIndexRef = listIndex !== null ? new WeakRef(listIndex) : null;
         this.key = createRefKey(info, listIndex);
     }
 }
@@ -2455,7 +2460,9 @@ class BindingNodeIf extends BindingNodeBlock {
     }
     constructor(binding, node, name, filters, decorates) {
         super(binding, node, name, filters, decorates);
-        this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, "", null);
+        const blankInfo = getStructuredPathInfo("");
+        const blankRef = getStatePropertyRef(blankInfo, null);
+        this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, blankRef);
         this.#trueBindContents = this.#bindContents = [this.#bindContent];
     }
     assignValue(value) {
@@ -2516,6 +2523,7 @@ class BindingNodeFor extends BindingNodeBlock {
     #bindContentByListIndex = new WeakMap();
     #bindContentPool = [];
     #bindContentLastIndex = 0;
+    #loopInfo = undefined;
     get bindContents() {
         return this.#bindContents;
     }
@@ -2535,7 +2543,8 @@ class BindingNodeFor extends BindingNodeBlock {
             bindContent.assignListIndex(listIndex);
         }
         else {
-            bindContent = createBindContent(this.binding, this.id, this.binding.engine, this.binding.bindingState.pattern + ".*", listIndex);
+            const loopRef = getStatePropertyRef(this.loopInfo, listIndex);
+            bindContent = createBindContent(this.binding, this.id, this.binding.engine, loopRef);
         }
         // 登録
         this.#bindContentByListIndex.set(listIndex, bindContent);
@@ -2560,6 +2569,13 @@ class BindingNodeFor extends BindingNodeBlock {
         }
         this.#bindContentPool.length = length;
     }
+    get loopInfo() {
+        if (typeof this.#loopInfo === "undefined") {
+            const loopPath = this.binding.bindingState.pattern + ".*";
+            this.#loopInfo = getStructuredPathInfo(loopPath);
+        }
+        return this.#loopInfo;
+    }
     assignValue(value) {
         raiseError("BindingNodeFor.assignValue: Not implemented. Use update or applyChange.");
     }
@@ -2569,10 +2585,7 @@ class BindingNodeFor extends BindingNodeBlock {
         let newBindContents = [];
         // 削除を先にする
         const removeBindContentsSet = new Set();
-        const info = this.binding.bindingState.info;
-        const listIndex = this.binding.bindingState.listIndex;
-        const ref = getStatePropertyRef(info, listIndex);
-        const listDiff = renderer.calcListDiff(ref);
+        const listDiff = renderer.calcListDiff(this.binding.bindingState.ref);
         const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
         // 全削除最適化のフラグ
         const isAllRemove = (listDiff.oldListValue?.length === listDiff.removes?.size && (listDiff.oldListValue?.length ?? 0) > 0);
@@ -3091,8 +3104,8 @@ class BindingState {
     #binding;
     #pattern;
     #info;
-    #listIndexRef = null;
     #filters;
+    #ref = null;
     get pattern() {
         return this.#pattern;
     }
@@ -3100,12 +3113,10 @@ class BindingState {
         return this.#info;
     }
     get listIndex() {
-        if (this.#listIndexRef === null)
-            return null;
-        return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+        return this.ref.listIndex;
     }
     get ref() {
-        return getStatePropertyRef(this.info, this.listIndex);
+        return this.#ref ?? raiseError("ref is null");
     }
     get filters() {
         return this.#filters;
@@ -3135,7 +3146,10 @@ class BindingState {
                 raiseError(`BindingState.init: wildcardLastParentPath is null`);
             const loopContext = this.binding.parentBindContent.currentLoopContext?.find(lastWildcardPath) ??
                 raiseError(`BindingState.init: loopContext is null`);
-            this.#listIndexRef = loopContext.listIndexRef;
+            this.#ref = getStatePropertyRef(this.#info, loopContext.listIndex);
+        }
+        else {
+            this.#ref = getStatePropertyRef(this.#info, null);
         }
         this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
     }
@@ -3166,8 +3180,8 @@ const createBindingState = (name, filterTexts) => (binding, filters) => {
 class BindingStateIndex {
     #binding;
     #indexNumber;
-    #listIndexRef = null;
     #filters;
+    #ref = null;
     get pattern() {
         return raiseError("Not implemented");
     }
@@ -3175,9 +3189,10 @@ class BindingStateIndex {
         return raiseError("Not implemented");
     }
     get listIndex() {
-        if (this.#listIndexRef === null)
-            return null;
-        return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+        return this.ref.listIndex;
+    }
+    get ref() {
+        return this.#ref ?? raiseError("ref is null");
     }
     get filters() {
         return this.#filters;
@@ -3208,12 +3223,12 @@ class BindingStateIndex {
         const loopContext = this.binding.parentBindContent.currentLoopContext ??
             raiseError(`BindingState.init: loopContext is null`);
         const loopContexts = loopContext.serialize();
-        this.#listIndexRef = loopContexts[this.#indexNumber - 1].listIndexRef ??
-            raiseError(`BindingState.init: listIndexRef is null`);
-        const listIndex = this.listIndex ?? raiseError("listIndex is null");
-        const bindings = this.binding.engine.bindingsByListIndex.get(listIndex);
+        const currentLoopContext = loopContexts[this.#indexNumber - 1] ??
+            raiseError(`BindingState.init: currentLoopContext is null`);
+        this.#ref = currentLoopContext.ref;
+        const bindings = this.binding.engine.bindingsByListIndex.get(currentLoopContext.listIndex);
         if (bindings === undefined) {
-            this.binding.engine.bindingsByListIndex.set(listIndex, new Set([this.binding]));
+            this.binding.engine.bindingsByListIndex.set(currentLoopContext.listIndex, new Set([this.binding]));
         }
         else {
             bindings.add(this.binding);
@@ -3655,34 +3670,32 @@ function createBinding(parentBindContent, node, engine, createBindingNode, creat
 }
 
 class LoopContext {
-    #path;
+    #ref;
     #info;
-    #listIndexRef;
     #bindContent;
-    constructor(path, listIndex, bindContent) {
-        this.#path = path ?? raiseError("name is required");
-        this.#info = getStructuredPathInfo(this.#path);
-        this.#listIndexRef = new WeakRef(listIndex);
+    constructor(ref, bindContent) {
+        this.#ref = ref;
+        this.#info = ref.info;
         this.#bindContent = bindContent;
     }
+    get ref() {
+        return this.#ref ?? raiseError("ref is null");
+    }
     get path() {
-        return this.#path;
+        return this.ref.info.pattern ?? raiseError("info.pattern is null");
     }
     get info() {
-        return this.#info;
+        return this.ref.info ?? raiseError("info is null");
     }
     get listIndex() {
-        return this.#listIndexRef?.deref() ?? raiseError("listIndex is null");
-    }
-    get listIndexRef() {
-        return this.#listIndexRef ?? raiseError("listIndexRef is null");
+        return this.ref.listIndex ?? raiseError("listIndex is required");
     }
     assignListIndex(listIndex) {
-        this.#listIndexRef = new WeakRef(listIndex);
+        this.#ref = getStatePropertyRef(this.#info, listIndex);
         // 構造は変わらないので、#parentLoopContext、#cacheはクリアする必要はない
     }
     clearListIndex() {
-        this.#listIndexRef = null;
+        this.#ref = null;
     }
     get bindContent() {
         return this.#bindContent;
@@ -3690,13 +3703,13 @@ class LoopContext {
     #parentLoopContext;
     get parentLoopContext() {
         if (typeof this.#parentLoopContext === "undefined") {
-            let currentBinding = this.bindContent;
-            while (currentBinding !== null) {
-                if (currentBinding.loopContext !== null && currentBinding.loopContext !== this) {
-                    this.#parentLoopContext = currentBinding.loopContext;
+            let currentBindContent = this.bindContent;
+            while (currentBindContent !== null) {
+                if (currentBindContent.loopContext !== null && currentBindContent.loopContext !== this) {
+                    this.#parentLoopContext = currentBindContent.loopContext;
                     break;
                 }
-                currentBinding = currentBinding.parentBinding?.parentBindContent ?? null;
+                currentBindContent = currentBindContent.parentBinding?.parentBindContent ?? null;
             }
             if (typeof this.#parentLoopContext === "undefined")
                 this.#parentLoopContext = null;
@@ -3734,8 +3747,8 @@ class LoopContext {
 }
 // 生成されたあと、IBindContentのloopContextに登録される
 // IBindContentにずっと保持される
-function createLoopContext(pattern, listIndex, bindContent) {
-    return new LoopContext(pattern, listIndex, bindContent);
+function createLoopContext(ref, bindContent) {
+    return new LoopContext(ref, bindContent);
 }
 
 function createContent(id) {
@@ -3836,13 +3849,13 @@ class BindContent {
         }
         return this.#currentLoopContext;
     }
-    constructor(parentBinding, id, engine, loopContext, listIndex) {
+    constructor(parentBinding, id, engine, loopRef) {
         this.parentBinding = parentBinding;
         this.#id = id;
         this.fragment = createContent(id);
         this.childNodes = Array.from(this.fragment.childNodes);
         this.engine = engine;
-        this.loopContext = (listIndex !== null) ? createLoopContext(loopContext, listIndex, this) : null;
+        this.loopContext = (loopRef.listIndex !== null) ? createLoopContext(loopRef, this) : null;
         this.bindings = createBindings(this, id, engine, this.fragment);
     }
     mount(parentNode) {
@@ -3891,8 +3904,8 @@ class BindContent {
         }
     }
 }
-function createBindContent(parentBinding, id, engine, loopContext, listIndex) {
-    const bindContent = new BindContent(parentBinding, id, engine, loopContext, listIndex);
+function createBindContent(parentBinding, id, engine, loopRef) {
+    const bindContent = new BindContent(parentBinding, id, engine, loopRef);
     bindContent.init();
     return bindContent;
 }
@@ -4253,7 +4266,8 @@ class ComponentEngine {
             addPathNode(this.pathManager.rootNode, path);
         }
         const componentClass = this.owner.constructor;
-        this.#bindContent = createBindContent(null, componentClass.id, this, null, null); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
+        const rootRef = getStatePropertyRef(getStructuredPathInfo(''), null);
+        this.#bindContent = createBindContent(null, componentClass.id, this, rootRef); // this.stateArrayPropertyNamePatternsが変更になる可能性がある
     }
     get waitForInitialize() {
         return this.#waitForInitialize;

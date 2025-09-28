@@ -1,6 +1,8 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
+import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { IRenderer } from "../../Updater/types.js";
 import { raiseError } from "../../utils.js";
 import { createBindContent } from "../BindContent.js";
@@ -38,12 +40,13 @@ class BindingNodeIf extends BindingNodeBlock {
     decorates : string[]
   ) {
     super(binding, node, name, filters, decorates);
+    const blankInfo = getStructuredPathInfo("");
+    const blankRef = getStatePropertyRef(blankInfo, null);
     this.#bindContent = createBindContent(
       this.binding, 
       this.id, 
-      this.binding.engine, 
-      "", 
-      null
+      this.binding.engine,
+      blankRef, 
     );
     this.#trueBindContents = this.#bindContents = [this.#bindContent];
   }
