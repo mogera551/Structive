@@ -211,40 +211,28 @@ export class ComponentEngine {
             return saveInfo;
         }
     }
-    saveBinding(info, listIndex, binding) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    saveBinding(ref, binding) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         saveInfo.bindings.push(binding);
     }
-    saveListIndexes(info, listIndex, saveListIndexes) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-        saveInfo.listIndexes = saveListIndexes;
-    }
-    saveList(info, listIndex, list) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-        saveInfo.list = list;
-    }
-    saveListAndListIndexes(info, listIndex, list, listIndexes) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    saveListAndListIndexes(ref, list, listIndexes) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         saveInfo.list = list;
         saveInfo.listIndexes = listIndexes;
     }
-    getBindings(info, listIndex) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    getBindings(ref) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         return saveInfo.bindings;
     }
-    getListIndexes(info, listIndex) {
-        if (this.stateOutput.startsWith(info)) {
-            return this.stateOutput.getListIndexes(info, listIndex);
+    getListIndexes(ref) {
+        if (this.stateOutput.startsWith(ref.info)) {
+            return this.stateOutput.getListIndexes(ref);
         }
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         return saveInfo.listIndexes;
     }
-    getList(info, listIndex) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-        return saveInfo.list;
-    }
-    getListAndListIndexes(info, listIndex) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    getListAndListIndexes(ref) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         return [saveInfo.list, saveInfo.listIndexes];
     }
     getPropertyValue(info, listIndex) {

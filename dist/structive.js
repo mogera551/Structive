@@ -1042,58 +1042,6 @@ function getResolvedPathInfo(name) {
     return _cache$2.get(name) ?? (_cache$2.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
 }
 
-function getContextListIndex(handler, structuredPath) {
-    const ref = handler.refStack[handler.refIndex];
-    if (ref == null) {
-        return null;
-    }
-    if (ref.info == null) {
-        return null;
-    }
-    if (ref.listIndex == null) {
-        return null;
-    }
-    const index = ref.info.indexByWildcardPath[structuredPath];
-    if (typeof index !== "undefined") {
-        return ref.listIndex.at(index);
-    }
-    return null;
-}
-
-function getListIndex(resolvedPath, receiver, handler) {
-    switch (resolvedPath.wildcardType) {
-        case "none":
-            return null;
-        case "context":
-            const lastWildcardPath = resolvedPath.info.lastWildcardPath ??
-                raiseError(`lastWildcardPath is null`);
-            return getContextListIndex(handler, lastWildcardPath) ??
-                raiseError(`ListIndex not found: ${resolvedPath.info.pattern}`);
-        case "all":
-            let parentListIndex = null;
-            for (let i = 0; i < resolvedPath.info.wildcardCount; i++) {
-                const wildcardParentPattern = resolvedPath.info.wildcardParentInfos[i] ??
-                    raiseError(`wildcardParentPattern is null`);
-                const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, parentListIndex) ??
-                    raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
-                const wildcardIndex = resolvedPath.wildcardIndexes[i] ??
-                    raiseError(`wildcardIndex is null`);
-                parentListIndex = listIndexes[wildcardIndex] ??
-                    raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
-            }
-            return parentListIndex;
-        case "partial":
-            raiseError(`Partial wildcard type is not supported yet: ${resolvedPath.info.pattern}`);
-    }
-}
-
-const symbolName$1 = "state";
-const GetByRefSymbol = Symbol.for(`${symbolName$1}.GetByRef`);
-const SetByRefSymbol = Symbol.for(`${symbolName$1}.SetByRef`);
-const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
-const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
-const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
-
 function createRefKey(info, listIndex) {
     return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
 }
@@ -1138,6 +1086,59 @@ function getStatePropertyRef(info, listIndex) {
         return ref;
     }
 }
+
+function getContextListIndex(handler, structuredPath) {
+    const ref = handler.refStack[handler.refIndex];
+    if (ref == null) {
+        return null;
+    }
+    if (ref.info == null) {
+        return null;
+    }
+    if (ref.listIndex == null) {
+        return null;
+    }
+    const index = ref.info.indexByWildcardPath[structuredPath];
+    if (typeof index !== "undefined") {
+        return ref.listIndex.at(index);
+    }
+    return null;
+}
+
+function getListIndex(resolvedPath, receiver, handler) {
+    switch (resolvedPath.wildcardType) {
+        case "none":
+            return null;
+        case "context":
+            const lastWildcardPath = resolvedPath.info.lastWildcardPath ??
+                raiseError(`lastWildcardPath is null`);
+            return getContextListIndex(handler, lastWildcardPath) ??
+                raiseError(`ListIndex not found: ${resolvedPath.info.pattern}`);
+        case "all":
+            let parentListIndex = null;
+            for (let i = 0; i < resolvedPath.info.wildcardCount; i++) {
+                const wildcardParentPattern = resolvedPath.info.wildcardParentInfos[i] ??
+                    raiseError(`wildcardParentPattern is null`);
+                const wildcardRef = getStatePropertyRef(wildcardParentPattern, parentListIndex);
+                const listIndexes = handler.engine.getListIndexes(wildcardRef) ??
+                    raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+                const wildcardIndex = resolvedPath.wildcardIndexes[i] ??
+                    raiseError(`wildcardIndex is null`);
+                parentListIndex = listIndexes[wildcardIndex] ??
+                    raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+            }
+            return parentListIndex;
+        case "partial":
+            raiseError(`Partial wildcard type is not supported yet: ${resolvedPath.info.pattern}`);
+    }
+}
+
+const symbolName$1 = "state";
+const GetByRefSymbol = Symbol.for(`${symbolName$1}.GetByRef`);
+const SetByRefSymbol = Symbol.for(`${symbolName$1}.SetByRef`);
+const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
+const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
+const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
 
 function checkDependency(handler, ref) {
     // 動的依存関係の登録
@@ -1314,7 +1315,8 @@ function resolveWritable(target, prop, receiver, handler) {
         let listIndex = null;
         for (let i = 0; i < info.wildcardParentInfos.length; i++) {
             const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
-            const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? [];
+            const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
+            const listIndexes = handler.engine.getListIndexes(wildcardRef) ?? [];
             const index = indexes[i] ?? raiseError(`index is null`);
             listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }
@@ -1377,7 +1379,8 @@ function getAllWritable(target, prop, receiver, handler) {
                 results.push(parentIndexes);
                 return;
             }
-            const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+            const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
+            const listIndexes = handler.engine.getListIndexes(wildcardRef) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
             const index = indexes[indexPos] ?? null;
             if (index === null) {
                 for (let i = 0; i < listIndexes.length; i++) {
@@ -1960,7 +1963,8 @@ function resolveReadonly(target, prop, receiver, handler) {
         let listIndex = null;
         for (let i = 0; i < info.wildcardParentInfos.length; i++) {
             const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
-            const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? [];
+            const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
+            const listIndexes = handler.engine.getListIndexes(wildcardRef) ?? [];
             const index = indexes[i] ?? raiseError(`index is null`);
             listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         }
@@ -2034,11 +2038,11 @@ function getAllReadonly(target, prop, receiver, handler) {
                 results.push(parentIndexes);
                 return;
             }
-            let listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
+            const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
+            let listIndexes = handler.engine.getListIndexes(wildcardRef);
             if (listIndexes === null) {
-                const ref = getStatePropertyRef(wildcardParentPattern, listIndex);
-                receiver[GetByRefSymbol](ref);
-                listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
+                receiver[GetByRefSymbol](wildcardRef); // 依存関係登録のために一度取得
+                listIndexes = handler.engine.getListIndexes(wildcardRef);
                 if (listIndexes === null) {
                     raiseError(`ListIndex is not found: ${wildcardParentPattern.pattern}`);
                 }
@@ -2202,12 +2206,12 @@ class Renderer {
     calcListDiff(ref, _newListValue = undefined, isNewValue = false) {
         let listDiff = this.#listDiffByRef.get(ref);
         if (typeof listDiff === "undefined") {
-            const [oldListValue, oldListIndexes] = this.engine.getListAndListIndexes(ref.info, ref.listIndex);
+            const [oldListValue, oldListIndexes] = this.engine.getListAndListIndexes(ref);
             let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
             listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
             this.#listDiffByRef.set(ref, listDiff);
             if (oldListValue !== newListValue) {
-                this.engine.saveListAndListIndexes(ref.info, ref.listIndex, newListValue, listDiff.newIndexes);
+                this.engine.saveListAndListIndexes(ref, newListValue, listDiff.newIndexes);
             }
         }
         return listDiff;
@@ -2219,7 +2223,7 @@ class Renderer {
         this.trackedRefs.add(ref);
         // バインディングに変更を適用する
         // 変更があったバインディングはupdatedBindingsに追加する
-        const bindings = this.#engine.getBindings(ref.info, ref.listIndex);
+        const bindings = this.#engine.getBindings(ref);
         for (let i = 0; i < bindings.length; i++) {
             const binding = bindings[i];
             if (this.updatedBindings.has(binding)) {
@@ -2250,7 +2254,8 @@ class Renderer {
                 if (depInfo.wildcardCount > 0) {
                     const infos = depInfo.wildcardParentInfos;
                     const walk = (info, listIndex, index, nextInfo) => {
-                        const listIndexes = this.#engine.getListIndexes(info, listIndex) || [];
+                        const depRef = getStatePropertyRef(info, listIndex);
+                        const listIndexes = this.#engine.getListIndexes(depRef) || [];
                         if ((index + 1) < infos.length) {
                             for (let i = 0; i < listIndexes.length; i++) {
                                 const subListIndex = listIndexes[i];
@@ -3148,7 +3153,7 @@ class BindingState {
         else {
             this.#ref = getStatePropertyRef(this.#info, null);
         }
-        this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
+        this.binding.engine.saveBinding(this.ref, this.binding);
     }
     assignValue(writeState, value) {
         writeState[SetByRefSymbol](this.ref, value);
@@ -4167,17 +4172,18 @@ class ComponentStateOutput {
     startsWith(pathInfo) {
         return this.binding.startsWithByChildPath(pathInfo) !== null;
     }
-    getListIndexes(pathInfo, listIndex) {
-        const childPath = this.binding.startsWithByChildPath(pathInfo);
+    getListIndexes(ref) {
+        const childPath = this.binding.startsWithByChildPath(ref.info);
         if (childPath === null) {
-            raiseError(`No child path found for path "${pathInfo.toString()}".`);
+            raiseError(`No child path found for path "${ref.info.toString()}".`);
         }
         const binding = this.binding.bindingByChildPath.get(childPath);
         if (typeof binding === "undefined") {
             raiseError(`No binding found for child path "${childPath}".`);
         }
-        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
-        return binding.engine.getListIndexes(parentPathInfo, listIndex);
+        const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(ref.info.pattern));
+        const parentRef = getStatePropertyRef(parentPathInfo, ref.listIndex);
+        return binding.engine.getListIndexes(parentRef);
     }
 }
 function createComponentStateOutput(binding) {
@@ -4383,40 +4389,28 @@ class ComponentEngine {
             return saveInfo;
         }
     }
-    saveBinding(info, listIndex, binding) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    saveBinding(ref, binding) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         saveInfo.bindings.push(binding);
     }
-    saveListIndexes(info, listIndex, saveListIndexes) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-        saveInfo.listIndexes = saveListIndexes;
-    }
-    saveList(info, listIndex, list) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-        saveInfo.list = list;
-    }
-    saveListAndListIndexes(info, listIndex, list, listIndexes) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    saveListAndListIndexes(ref, list, listIndexes) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         saveInfo.list = list;
         saveInfo.listIndexes = listIndexes;
     }
-    getBindings(info, listIndex) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    getBindings(ref) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         return saveInfo.bindings;
     }
-    getListIndexes(info, listIndex) {
-        if (this.stateOutput.startsWith(info)) {
-            return this.stateOutput.getListIndexes(info, listIndex);
+    getListIndexes(ref) {
+        if (this.stateOutput.startsWith(ref.info)) {
+            return this.stateOutput.getListIndexes(ref);
         }
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         return saveInfo.listIndexes;
     }
-    getList(info, listIndex) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-        return saveInfo.list;
-    }
-    getListAndListIndexes(info, listIndex) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    getListAndListIndexes(ref) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
         return [saveInfo.list, saveInfo.listIndexes];
     }
     getPropertyValue(info, listIndex) {

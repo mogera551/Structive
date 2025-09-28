@@ -76,12 +76,12 @@ class Renderer implements IRenderer {
   calcListDiff(ref: IStatePropertyRef, _newListValue: any[] | undefined | null = undefined, isNewValue: boolean = false): IListDiff {
     let listDiff = this.#listDiffByRef.get(ref);
     if (typeof listDiff === "undefined") {
-      const [ oldListValue, oldListIndexes ] = this.engine.getListAndListIndexes(ref.info, ref.listIndex);
+      const [ oldListValue, oldListIndexes ] = this.engine.getListAndListIndexes(ref);
       let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
       listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
       this.#listDiffByRef.set(ref, listDiff);
       if (oldListValue !== newListValue) {
-        this.engine.saveListAndListIndexes(ref.info, ref.listIndex, newListValue, listDiff.newIndexes);
+        this.engine.saveListAndListIndexes(ref, newListValue, listDiff.newIndexes);
       }
     }
     return listDiff;
@@ -98,7 +98,7 @@ class Renderer implements IRenderer {
 
     // バインディングに変更を適用する
     // 変更があったバインディングはupdatedBindingsに追加する
-    const bindings = this.#engine.getBindings(ref.info, ref.listIndex);
+    const bindings = this.#engine.getBindings(ref);
     for(let i = 0; i < bindings.length; i++) {
       const binding = bindings[i];
       if (this.updatedBindings.has(binding)) {
@@ -130,7 +130,8 @@ class Renderer implements IRenderer {
         if (depInfo.wildcardCount > 0) {
           const infos = depInfo.wildcardParentInfos;
           const walk = (info: IStructuredPathInfo, listIndex: IListIndex | null, index: number, nextInfo: IStructuredPathInfo) => {
-            const listIndexes = this.#engine.getListIndexes(info, listIndex) || [];
+            const depRef = getStatePropertyRef(info, listIndex);
+            const listIndexes = this.#engine.getListIndexes(depRef) || [];
             if ((index + 1) < infos.length) {
               for(let i = 0; i < listIndexes.length; i++) {
                 const subListIndex = listIndexes[i];

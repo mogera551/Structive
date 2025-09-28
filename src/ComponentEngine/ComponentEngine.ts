@@ -24,6 +24,7 @@ import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef.js";
 import { IPathNode } from "../PathTree/types.js";
 import { RESERVED_WORD_SET } from "../constants.js";
 import { addPathNode } from "../PathTree/PathNode.js";
+import { IStatePropertyRef } from "../StatePropertyRef/types.js";
 
 /**
  * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
@@ -233,72 +234,38 @@ export class ComponentEngine implements IComponentEngine {
   }
   
   saveBinding(
-    info     : IStructuredPathInfo, 
-    listIndex: IListIndex | null, 
+    ref      : IStatePropertyRef,
     binding  : IBinding
   ): void {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
     saveInfo.bindings.push(binding);
   }
 
-  saveListIndexes(
-    info              : IStructuredPathInfo, 
-    listIndex         : IListIndex | null, 
-    saveListIndexes   : IListIndex[]
-  ): void {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-    saveInfo.listIndexes = saveListIndexes;
-  }
-
-  saveList(
-    info     :IStructuredPathInfo, 
-    listIndex:IListIndex | null, 
-    list     :any[]
-  ): void {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-    saveInfo.list = list;
-  }
-
   saveListAndListIndexes(
-    info              : IStructuredPathInfo, 
-    listIndex         : IListIndex | null,
+    ref               : IStatePropertyRef,
     list              : any[] | null,
     listIndexes       : IListIndex[] | null
   ): void {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
     saveInfo.list = list;
     saveInfo.listIndexes = listIndexes;
   }
 
-  getBindings(
-    info     :IStructuredPathInfo, 
-    listIndex:IListIndex | null
-  ): IBinding[] {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+  getBindings(ref: IStatePropertyRef): IBinding[] {
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
     return saveInfo.bindings;
   }
 
-  getListIndexes(info:IStructuredPathInfo, listIndex:IListIndex | null): IListIndex[] | null {
-    if (this.stateOutput.startsWith(info)) {
-      return this.stateOutput.getListIndexes(info, listIndex);
+  getListIndexes(ref: IStatePropertyRef): IListIndex[] | null {
+    if (this.stateOutput.startsWith(ref.info)) {
+      return this.stateOutput.getListIndexes(ref);
     }
-    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
     return saveInfo.listIndexes;
   }
-    
-  getList(
-    info     :IStructuredPathInfo, 
-    listIndex:IListIndex | null
-  ): any[] | null {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
-    return saveInfo.list;
-  }
 
-  getListAndListIndexes(
-    info     :IStructuredPathInfo, 
-    listIndex:IListIndex | null
-  ): [any[] | null, IListIndex[] | null] {
-    const saveInfo = this.getSaveInfoByStatePropertyRef(info, listIndex);
+  getListAndListIndexes(ref: IStatePropertyRef): [any[] | null, IListIndex[] | null] {
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref.info, ref.listIndex);
     return [saveInfo.list, saveInfo.listIndexes];
   }
 

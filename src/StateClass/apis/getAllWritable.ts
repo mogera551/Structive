@@ -23,6 +23,7 @@ import { IWritableStateHandler, IWritableStateProxy } from "../types";
 import { resolveWritable } from "./resolveWritable.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
 import { IListIndex } from "../../ListIndex/types.js";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 
 export function getAllWritable(
   target: Object, 
@@ -69,7 +70,8 @@ export function getAllWritable(
           results.push(parentIndexes);
           return;
         }
-        const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+        const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
+        const listIndexes = handler.engine.getListIndexes(wildcardRef) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         const index = indexes[indexPos] ?? null;
         if (index === null) {
           for(let i = 0; i < listIndexes.length; i++) {

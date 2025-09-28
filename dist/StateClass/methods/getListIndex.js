@@ -1,3 +1,4 @@
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils.js";
 import { getContextListIndex } from "./getContextListIndex";
 export function getListIndex(resolvedPath, receiver, handler) {
@@ -14,7 +15,8 @@ export function getListIndex(resolvedPath, receiver, handler) {
             for (let i = 0; i < resolvedPath.info.wildcardCount; i++) {
                 const wildcardParentPattern = resolvedPath.info.wildcardParentInfos[i] ??
                     raiseError(`wildcardParentPattern is null`);
-                const listIndexes = handler.engine.getListIndexes(wildcardParentPattern, parentListIndex) ??
+                const wildcardRef = getStatePropertyRef(wildcardParentPattern, parentListIndex);
+                const listIndexes = handler.engine.getListIndexes(wildcardRef) ??
                     raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
                 const wildcardIndex = resolvedPath.wildcardIndexes[i] ??
                     raiseError(`wildcardIndex is null`);

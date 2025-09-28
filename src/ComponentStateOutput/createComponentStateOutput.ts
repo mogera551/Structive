@@ -4,6 +4,7 @@ import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
+import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { update } from "../Updater/Updater";
 import { raiseError } from "../utils";
 import { IComponentStateOutput } from "./types";
@@ -49,17 +50,18 @@ class ComponentStateOutput implements IComponentStateOutput {
     return this.binding.startsWithByChildPath(pathInfo) !== null;
   }
 
-  getListIndexes(pathInfo:IStructuredPathInfo, listIndex:IListIndex | null): IListIndex[] | null {
-    const childPath = this.binding.startsWithByChildPath(pathInfo);
+  getListIndexes(ref: IStatePropertyRef): IListIndex[] | null {
+    const childPath = this.binding.startsWithByChildPath(ref.info);
     if (childPath === null) {
-      raiseError(`No child path found for path "${pathInfo.toString()}".`);
+      raiseError(`No child path found for path "${ref.info.toString()}".`);
     }
     const binding = this.binding.bindingByChildPath.get(childPath);
     if (typeof binding === "undefined") {
       raiseError(`No binding found for child path "${childPath}".`);
     }
-    const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(pathInfo.pattern));
-    return binding.engine.getListIndexes(parentPathInfo, listIndex);
+    const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(ref.info.pattern));
+    const parentRef = getStatePropertyRef(parentPathInfo, ref.listIndex);
+    return binding.engine.getListIndexes(parentRef);
   }
 }
 

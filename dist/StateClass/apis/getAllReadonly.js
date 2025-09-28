@@ -53,11 +53,11 @@ export function getAllReadonly(target, prop, receiver, handler) {
                 results.push(parentIndexes);
                 return;
             }
-            let listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
+            const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
+            let listIndexes = handler.engine.getListIndexes(wildcardRef);
             if (listIndexes === null) {
-                const ref = getStatePropertyRef(wildcardParentPattern, listIndex);
-                receiver[GetByRefSymbol](ref);
-                listIndexes = handler.engine.getListIndexes(wildcardParentPattern, listIndex);
+                receiver[GetByRefSymbol](wildcardRef); // 依存関係登録のために一度取得
+                listIndexes = handler.engine.getListIndexes(wildcardRef);
                 if (listIndexes === null) {
                     raiseError(`ListIndex is not found: ${wildcardParentPattern.pattern}`);
                 }

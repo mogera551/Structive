@@ -69,7 +69,7 @@ class BindingState {
         else {
             this.#ref = getStatePropertyRef(this.#info, null);
         }
-        this.binding.engine.saveBinding(this.info, this.listIndex, this.binding);
+        this.binding.engine.saveBinding(this.ref, this.binding);
     }
     assignValue(writeState, value) {
         writeState[SetByRefSymbol](this.ref, value);

@@ -17,6 +17,7 @@
  */
 import { IListIndex } from "../../ListIndex/types";
 import { IResolvedPathInfo } from "../../StateProperty/types";
+import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils.js";
 import { IStateHandler, IReadonlyStateProxy, IStateProxy } from "../types";
 import { getContextListIndex } from "./getContextListIndex";
@@ -39,7 +40,8 @@ export function getListIndex(
       for(let i = 0; i < resolvedPath.info.wildcardCount; i++) {
         const wildcardParentPattern = resolvedPath.info.wildcardParentInfos[i] ?? 
           raiseError(`wildcardParentPattern is null`);
-        const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardParentPattern, parentListIndex) ?? 
+        const wildcardRef = getStatePropertyRef(wildcardParentPattern, parentListIndex);
+        const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardRef) ?? 
           raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
         const wildcardIndex = resolvedPath.wildcardIndexes[i] ?? 
           raiseError(`wildcardIndex is null`);
