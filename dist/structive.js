@@ -958,12 +958,12 @@ class StructuredPathInfo {
     }
 }
 function getStructuredPathInfo(structuredPath) {
+    if (RESERVED_WORD_SET.has(structuredPath)) {
+        raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
+    }
     const info = _cache$3[structuredPath];
     if (typeof info !== "undefined") {
         return info;
-    }
-    if (RESERVED_WORD_SET.has(structuredPath)) {
-        raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
     }
     return (_cache$3[structuredPath] = new StructuredPathInfo(structuredPath));
 }

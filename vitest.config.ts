@@ -1,6 +1,23 @@
 export default {
   test: {
     globals: true,
-    environment: "node"
+    environment: "jsdom",
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'coverage/**',
+        'dist/**',
+        '__tests__/**',
+        '*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+        '**/*.d.ts',
+        '**/node_modules/**',
+        'vitest.config.ts',
+        'rollup.config.js'
+      ],
+      include: [
+        'src/**/*.{js,ts}'
+      ]
+    }
   }
 }
