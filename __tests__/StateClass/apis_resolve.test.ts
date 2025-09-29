@@ -137,6 +137,18 @@ describe("StateClass/apis resolve", () => {
 
     expect(result).toBe("WRITE-READ");
     expect(handler.engine.pathManager.addDynamicDependency).toHaveBeenCalledWith("lastW", info.pattern);
+    
+    // getStatePropertyRef が最終的に正しい ref で呼ばれることを確認
+    const lastRefCall = getStatePropertyRefMock.mock.calls.at(-1)!;
+    expect(lastRefCall[0]).toBe(info);
+    expect(lastRefCall[1]).toEqual({ li: 11 }); // indexes[1, 1] → listIndex at index 1
+    
+    // getByRefWritable が正しい引数で呼ばれることを確認
+    expect(getByRefWritableMock).toHaveBeenCalledTimes(1);
+    const writableCall = getByRefWritableMock.mock.calls[0];
+    expect(writableCall[0]).toBe(target);
+    expect(writableCall[2]).toBe(receiver);
+    expect(writableCall[3]).toBe(handler);
   });
 
   it("resolve: writable proxy - 設定 (value 指定) は setByRef を呼ぶ", () => {
@@ -158,12 +170,19 @@ describe("StateClass/apis resolve", () => {
     const fn = resolve(target, "prop", receiver, handler);
     const result = fn("pathStr", [0, 1], { v: 1 });
 
+    // setByRef を呼んだ後は明示的な戻り値が無いので undefined
     expect(result).toBeUndefined();
+    expect(setByRefMock).toHaveBeenCalledTimes(1);
     const setCall = setByRefMock.mock.calls[0];
     expect(setCall[0]).toBe(target);
     expect(setCall[2]).toEqual({ v: 1 });
     expect(setCall[3]).toBe(receiver);
     expect(setCall[4]).toBe(handler);
+    
+    // getStatePropertyRef が最終的に正しい ref で呼ばれることを確認
+    const lastRefCall = getStatePropertyRefMock.mock.calls.at(-1)!;
+    expect(lastRefCall[0]).toBe(info);
+    expect(lastRefCall[1]).toEqual({ li: 11 }); // indexes[0, 1] → listIndex at index 1
   });
 
   // 追加のブランチテスト
@@ -265,5 +284,47 @@ describe("StateClass/apis resolve", () => {
     const fn = resolve(target, "prop", receiver, handler);
     expect(() => fn("test", []))
       .toThrowError(/Inconsistent proxy and handler types/);
+  });
+
+  it("ワイルドカードなしのパスで動作確認 (readonly)", () => {
+    const info = { pattern: "simple.path", wildcardParentInfos: [] };
+    getStructuredPathInfoMock.mockReturnValue(info);
+    const handler = makeHandler("different", {}, true); // readonly handler
+    const target = {}; 
+    const receiver = makeReceiver(true); // readonly receiver
+
+    getByRefReadonlyMock.mockReturnValue("SIMPLE-VALUE");
+
+    const fn = resolve(target, "prop", receiver, handler);
+    const result = fn("simple.path", []);
+
+    expect(result).toBe("SIMPLE-VALUE");
+    expect(handler.engine.pathManager.addDynamicDependency).toHaveBeenCalledWith("different", "simple.path");
+    
+    // ワイルドカードがないので、listIndex は null のまま
+    const lastRefCall = getStatePropertyRefMock.mock.calls.at(-1)!;
+    expect(lastRefCall[0]).toBe(info);
+    expect(lastRefCall[1]).toBeNull();
+  });
+
+  it("ワイルドカードなしのパスで動作確認 (writable 設定)", () => {
+    const info = { pattern: "simple.path", wildcardParentInfos: [] };
+    getStructuredPathInfoMock.mockReturnValue(info);
+    const handler = makeHandler(null, {}, false); // writable handler
+    const target = {}; 
+    const receiver = makeReceiver(false); // writable receiver
+
+    const fn = resolve(target, "prop", receiver, handler);
+    const result = fn("simple.path", [], "NEW-VALUE");
+
+    expect(result).toBeUndefined();
+    expect(setByRefMock).toHaveBeenCalledTimes(1);
+    const setCall = setByRefMock.mock.calls[0];
+    expect(setCall[2]).toBe("NEW-VALUE");
+    
+    // ワイルドカードがないので、listIndex は null のまま
+    const lastRefCall = getStatePropertyRefMock.mock.calls.at(-1)!;
+    expect(lastRefCall[0]).toBe(info);
+    expect(lastRefCall[1]).toBeNull();
   });
 });

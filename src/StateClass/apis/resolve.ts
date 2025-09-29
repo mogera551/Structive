@@ -17,7 +17,7 @@
  */
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { IReadonlyStateProxy, IReadonlyStateHandler, IWritableStateHandler, IWritableStateProxy } from "../types";
+import { IReadonlyStateProxy, IReadonlyStateHandler, IWritableStateHandler, IWritableStateProxy, IStateHandler, IStateProxy } from "../types";
 import { getByRefReadonly } from "../methods/getByRefReadonly";
 import { IListIndex } from "../../ListIndex/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
@@ -28,14 +28,11 @@ import { SetCacheableSymbol } from "../symbols.js";
 import { set } from "../traps/set.js";
 import { setByRef } from "../methods/setByRef.js";
 
-type StateHandler = IReadonlyStateHandler | IWritableStateHandler;
-type StateProxy = IReadonlyStateProxy | IWritableStateProxy;
-
 export function resolve(
   target: Object, 
   prop: PropertyKey, 
-  receiver: StateProxy,
-  handler: StateHandler
+  receiver: IStateProxy,
+  handler: IStateHandler
 ): Function {
   return (path: string, indexes: number[], value?: any): any => {
     const info = getStructuredPathInfo(path);

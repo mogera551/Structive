@@ -1092,6 +1092,9 @@ function getContextListIndex(handler, structuredPath) {
     if (ref == null) {
         return null;
     }
+    if (ref.info == null) {
+        return null;
+    }
     if (ref.listIndex == null) {
         return null;
     }
