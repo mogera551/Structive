@@ -7,8 +7,10 @@ import { disconnectedCallback } from "../../src/StateClass/apis/disconnectedCall
 import { trackDependency } from "../../src/StateClass/apis/trackDependency";
 
 function makeHandler() {
+  const refStack = [ { info: { pattern: "a.b" } } ];
   return {
-    refStack: [ { info: { pattern: "a.b" } } ],
+    lastRefStack: refStack[0],
+    refStack,
     refIndex: 0,
     engine: {
       pathManager: {

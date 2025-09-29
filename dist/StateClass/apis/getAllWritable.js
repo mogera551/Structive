@@ -18,14 +18,14 @@
  */
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { resolveWritable } from "./resolveWritable.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
+import { resolve } from "./resolve.js";
 export function getAllWritable(target, prop, receiver, handler) {
-    const resolve = resolveWritable(target, prop, receiver, handler);
+    const resolveFn = resolve(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
-        const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
+        const lastInfo = handler.lastRefStack?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
             if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
@@ -76,7 +76,7 @@ export function getAllWritable(target, prop, receiver, handler) {
         walkWildcardPattern(info.wildcardParentInfos, 0, null, indexes, 0, [], resultIndexes);
         const resultValues = [];
         for (let i = 0; i < resultIndexes.length; i++) {
-            resultValues.push(resolve(info.pattern, resultIndexes[i]));
+            resultValues.push(resolveFn(info.pattern, resultIndexes[i]));
         }
         return resultValues;
     };

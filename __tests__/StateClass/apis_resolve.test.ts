@@ -2,8 +2,14 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { resolveReadonly } from "../../src/StateClass/apis/resolveReadonly";
-import { resolveWritable } from "../../src/StateClass/apis/resolveWritable";
+import { resolve } from "../../src/StateClass/apis/resolve";
+import { SetCacheableSymbol } from "../../src/StateClass/symbols";
+
+// Mock for utils.js
+const raiseErrorMock = vi.fn((msg: string) => { throw new Error(msg); });
+vi.mock("../../src/utils", () => ({
+  raiseError: (msg: string) => raiseErrorMock(msg)
+}));
 
 // Mocks for dependencies
 const getStructuredPathInfoMock = vi.fn();
@@ -27,14 +33,15 @@ vi.mock("../../src/StateClass/methods/getByRefWritable", () => ({
 }));
 
 const setByRefMock = vi.fn();
+// We'll use the actual SetCacheableSymbol from the import
+
 vi.mock("../../src/StateClass/methods/setByRef", () => ({
   setByRef: (target: any, ref: any, value: any, receiver: any, handler: any) => setByRefMock(target, ref, value, receiver, handler)
 }));
 
-function makeHandler(lastPattern: string | null, listIndexesByPattern: Record<string, any[]>) {
+function makeHandler(lastPattern: string | null, listIndexesByPattern: Record<string, any[]>, isReadonly = false) {
   return {
-    refStack: [ lastPattern ? { info: { pattern: lastPattern } } : {} ],
-    refIndex: 0,
+    lastRefStack: lastPattern ? { info: { pattern: lastPattern } } : null,
     engine: {
       getListIndexes: (ref: any) => listIndexesByPattern[ref.info.pattern],
       pathManager: {
@@ -43,7 +50,16 @@ function makeHandler(lastPattern: string | null, listIndexesByPattern: Record<st
         addDynamicDependency: vi.fn(),
       },
     },
+    ...(isReadonly ? { cache: {} } : {})
   } as any;
+}
+
+function makeReceiver(isReadonly = false) {
+  const receiver = {} as any;
+  if (isReadonly) {
+    receiver[SetCacheableSymbol] = true;
+  }
+  return receiver;
 }
 
 beforeEach(() => {
@@ -54,8 +70,8 @@ beforeEach(() => {
   setByRefMock.mockReset();
 });
 
-describe("StateClass/apis resolveReadonly & resolveWritable", () => {
-  it("resolveReadonly: 取得 + 動的依存登録", () => {
+describe("StateClass/apis resolve", () => {
+  it("resolve: readonly proxy - 取得 + 動的依存登録", () => {
     // info with two wildcards
     const info = {
       pattern: "a.*.b.*.c",
@@ -66,12 +82,13 @@ describe("StateClass/apis resolveReadonly & resolveWritable", () => {
     const handler = makeHandler("last", {
       "a": [ { li: 0 }, { li: 1 } ],
       "a.*.b": [ { li: 10 }, { li: 11 } ],
-    });
-    const target = {}; const receiver = {} as any;
+    }, true); // readonly handler
+    const target = {}; 
+    const receiver = makeReceiver(true); // readonly receiver
 
     getByRefReadonlyMock.mockReturnValue("READ-VALUE");
 
-    const fn = resolveReadonly(target, "prop", receiver, handler);
+    const fn = resolve(target, "prop", receiver, handler);
     const result = fn("pathStr", [1, 0]);
 
     expect(result).toBe("READ-VALUE");
@@ -88,17 +105,18 @@ describe("StateClass/apis resolveReadonly & resolveWritable", () => {
     expect(readCall[3]).toBe(handler);
   });
 
-  it("resolveReadonly: 値指定で例外", () => {
+  it("resolve: readonly proxy - 値指定で例外", () => {
     const info = { pattern: "p", wildcardParentInfos: [] };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const handler = makeHandler(null, {});
-    const target = {}; const receiver = {} as any;
+    const handler = makeHandler(null, {}, true); // readonly handler
+    const target = {}; 
+    const receiver = makeReceiver(true); // readonly receiver
 
-    const fn = resolveReadonly(target, "prop", receiver, handler);
+    const fn = resolve(target, "prop", receiver, handler);
     expect(() => fn("p", [], 123)).toThrowError(/Cannot set value on a readonly proxy: p/);
   });
 
-  it("resolveWritable: 取得 (value 未指定)", () => {
+  it("resolve: writable proxy - 取得 (value 未指定)", () => {
     const info = {
       pattern: "a.*.b.*.c",
       wildcardParentInfos: [ { pattern: "a" }, { pattern: "a.*.b" } ],
@@ -108,19 +126,20 @@ describe("StateClass/apis resolveReadonly & resolveWritable", () => {
     const handler = makeHandler("lastW", {
       "a": [ { li: 0 }, { li: 1 } ],
       "a.*.b": [ { li: 10 }, { li: 11 } ],
-    });
-    const target = {}; const receiver = {} as any;
+    }, false); // writable handler
+    const target = {}; 
+    const receiver = makeReceiver(false); // writable receiver
 
     getByRefWritableMock.mockReturnValue("WRITE-READ");
 
-    const fn = resolveWritable(target, "prop", receiver, handler);
+    const fn = resolve(target, "prop", receiver, handler);
     const result = fn("pathStr", [1, 1]);
 
     expect(result).toBe("WRITE-READ");
     expect(handler.engine.pathManager.addDynamicDependency).toHaveBeenCalledWith("lastW", info.pattern);
   });
 
-  it("resolveWritable: 設定 (value 指定) は setByRef を呼ぶ", () => {
+  it("resolve: writable proxy - 設定 (value 指定) は setByRef を呼ぶ", () => {
     const info = {
       pattern: "a.*.b.*.c",
       wildcardParentInfos: [ { pattern: "a" }, { pattern: "a.*.b" } ],
@@ -130,15 +149,16 @@ describe("StateClass/apis resolveReadonly & resolveWritable", () => {
     const handler = makeHandler(null, {
       "a": [ { li: 0 }, { li: 1 } ],
       "a.*.b": [ { li: 10 }, { li: 11 } ],
-    });
-    const target = {}; const receiver = {} as any;
+    }, false); // writable handler
+    const target = {};
+    const receiver = makeReceiver(false); // writable receiver
 
-    setByRefMock.mockReturnValue("SET-OK");
+    setByRefMock.mockReturnValue(undefined);
 
-    const fn = resolveWritable(target, "prop", receiver, handler);
+    const fn = resolve(target, "prop", receiver, handler);
     const result = fn("pathStr", [0, 1], { v: 1 });
 
-    expect(result).toBe("SET-OK");
+    expect(result).toBeUndefined();
     const setCall = setByRefMock.mock.calls[0];
     expect(setCall[0]).toBe(target);
     expect(setCall[2]).toEqual({ v: 1 });
@@ -150,10 +170,11 @@ describe("StateClass/apis resolveReadonly & resolveWritable", () => {
   it("lastInfo が null の場合は動的依存登録しない (readonly)", () => {
     const info = { pattern: "p1", wildcardParentInfos: [] };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const handler = makeHandler(null, {});
-    const target = {}; const receiver = {} as any;
+    const handler = makeHandler(null, {}, true); // readonly handler
+    const target = {}; 
+    const receiver = makeReceiver(true); // readonly receiver
     getByRefReadonlyMock.mockReturnValue("V");
-    const fn = resolveReadonly(target, "prop", receiver, handler);
+    const fn = resolve(target, "prop", receiver, handler);
     const result = fn("p1", []);
     expect(result).toBe("V");
     expect(handler.engine.pathManager.addDynamicDependency).not.toHaveBeenCalled();
@@ -162,10 +183,11 @@ describe("StateClass/apis resolveReadonly & resolveWritable", () => {
   it("lastInfo と同一 pattern の場合は動的依存登録しない (readonly)", () => {
     const info = { pattern: "same", wildcardParentInfos: [] };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const handler = makeHandler("same", {});
-    const target = {}; const receiver = {} as any;
+    const handler = makeHandler("same", {}, true); // readonly handler
+    const target = {}; 
+    const receiver = makeReceiver(true); // readonly receiver
     getByRefReadonlyMock.mockReturnValue("V");
-    const fn = resolveReadonly(target, "prop", receiver, handler);
+    const fn = resolve(target, "prop", receiver, handler);
     const result = fn("same", []);
     expect(result).toBe("V");
     expect(handler.engine.pathManager.addDynamicDependency).not.toHaveBeenCalled();
@@ -174,12 +196,13 @@ describe("StateClass/apis resolveReadonly & resolveWritable", () => {
   it("getters に含まれない場合は動的依存登録しない (writable)", () => {
     const info = { pattern: "pp", wildcardParentInfos: [] };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const handler = makeHandler("last", {});
+    const handler = makeHandler("last", {}, false); // writable handler
     // handlers の getters を空に
     handler.engine.pathManager.getters = new Set();
-    const target = {}; const receiver = {} as any;
+    const target = {}; 
+    const receiver = makeReceiver(false); // writable receiver
     getByRefWritableMock.mockReturnValue("VV");
-    const fn = resolveWritable(target, "prop", receiver, handler);
+    const fn = resolve(target, "prop", receiver, handler);
     const result = fn("pp", []);
     expect(result).toBe("VV");
     expect(handler.engine.pathManager.addDynamicDependency).not.toHaveBeenCalled();
@@ -188,44 +211,59 @@ describe("StateClass/apis resolveReadonly & resolveWritable", () => {
   it("setters に含まれる場合は動的依存登録しない (writable)", () => {
     const info = { pattern: "qq", wildcardParentInfos: [] };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const handler = makeHandler("last", {});
+    const handler = makeHandler("last", {}, false); // writable handler
     handler.engine.pathManager.setters = new Set(["last"]);
-    const target = {}; const receiver = {} as any;
+    const target = {}; 
+    const receiver = makeReceiver(false); // writable receiver
     getByRefWritableMock.mockReturnValue("VV");
-    const fn = resolveWritable(target, "prop", receiver, handler);
+    const fn = resolve(target, "prop", receiver, handler);
     const result = fn("qq", []);
     expect(result).toBe("VV");
     expect(handler.engine.pathManager.addDynamicDependency).not.toHaveBeenCalled();
   });
 
-  it("indexes が不足する場合は 'index is null' を投げる (readonly)", () => {
+  it("indexes が不足する場合はエラーを投げる", () => {
     const info = { pattern: "a.*.b", wildcardParentInfos: [ { pattern: "a" } ] };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const handler = makeHandler(null, { "a": [ { li: 0 } ] });
-    const target = {}; const receiver = {} as any;
-    const fn = resolveReadonly(target, "prop", receiver, handler);
+    const handler = makeHandler(null, { "a": [ { li: 0 } ] }, true); // readonly handler
+    const target = {}; 
+    const receiver = makeReceiver(true); // readonly receiver
+    const fn = resolve(target, "prop", receiver, handler);
     expect(() => fn("p", []))
-      .toThrowError(/index is null/);
+      .toThrowError(/indexes length is insufficient: p/);
   });
 
-  it("listIndex が見つからない場合はエラー (writable)", () => {
+  it("listIndexes が見つからない場合はエラー", () => {
     const info = { pattern: "a.*.b", wildcardParentInfos: [ { pattern: "a" } ] };
     getStructuredPathInfoMock.mockReturnValue(info);
-    // getListIndexes が undefined → [] 扱いになり未検出
-    const handler = makeHandler(null, {});
-    const target = {}; const receiver = {} as any;
-    const fn = resolveWritable(target, "prop", receiver, handler);
+    // getListIndexes が undefined を返す
+    const handler = makeHandler(null, {}, false); // writable handler
+    const target = {}; 
+    const receiver = makeReceiver(false); // writable receiver
+    const fn = resolve(target, "prop", receiver, handler);
     expect(() => fn("p", [0]))
+      .toThrowError(/ListIndexes not found: a/);
+  });
+
+  it("listIndex が見つからない場合はエラー", () => {
+    const info = { pattern: "a.*.b", wildcardParentInfos: [ { pattern: "a" } ] };
+    getStructuredPathInfoMock.mockReturnValue(info);
+    const handler = makeHandler(null, { "a": [ { li: 0 } ] }, false); // writable handler
+    const target = {}; 
+    const receiver = makeReceiver(false); // writable receiver
+    const fn = resolve(target, "prop", receiver, handler);
+    expect(() => fn("p", [1])) // index 1 は存在しない
       .toThrowError(/ListIndex not found: a/);
   });
 
-  it("wildcardParentPath が null の場合はエラー (readonly)", () => {
-    const info = { pattern: "weird", wildcardParentInfos: [ undefined ] } as any;
+  it("proxy と handler の不整合でエラー", () => {
+    const info = { pattern: "test", wildcardParentInfos: [] };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const handler = makeHandler(null, {});
-    const target = {}; const receiver = {} as any;
-    const fn = resolveReadonly(target, "prop", receiver, handler);
-    expect(() => fn("p", [0]))
-      .toThrowError(/wildcardParentPath is null/);
+    const handler = makeHandler(null, {}, true); // readonly handler
+    const target = {}; 
+    const receiver = makeReceiver(false); // writable receiver (不整合)
+    const fn = resolve(target, "prop", receiver, handler);
+    expect(() => fn("test", []))
+      .toThrowError(/Inconsistent proxy and handler types/);
   });
 });

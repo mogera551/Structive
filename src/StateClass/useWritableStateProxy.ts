@@ -28,12 +28,10 @@ import { IStatePropertyRef } from "../StatePropertyRef/types";
 const STACK_DEPTH = 32;
 
 class StateHandler implements IWritableStateHandler {
-  engine   : IComponentEngine;
-  lastTrackingStack: IStructuredPathInfo | null = null;
-  trackingStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
-  trackingIndex: number = -1;
+  engine: IComponentEngine;
   refStack: (IStatePropertyRef | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
+  lastRefStack: IStatePropertyRef | null = null;
   loopContext: ILoopContext | null = null;
   updater: IUpdater;
   

@@ -24,7 +24,6 @@ import { IWritableStateHandler, IWritableStateProxy } from "../types.js";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
 import { getByRefWritable } from "../methods/getByRefWritable.js";
 import { setByRef } from "../methods/setByRef.js";
-import { resolveWritable } from "../apis/resolveWritable.js";
 import { getAllWritable } from "../apis/getAllWritable.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
@@ -32,6 +31,7 @@ import { trackDependency } from "../apis/trackDependency.js";
 import { indexByIndexName } from "./indexByIndexName.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
+import { resolve } from "../apis/resolve.js";
 
 export function getWritable(
   target  : Object, 
@@ -41,14 +41,14 @@ export function getWritable(
 ): any {
   const index = indexByIndexName[prop];
   if (typeof index !== "undefined") {
-    const listIndex = handler.refStack[handler.refIndex]?.listIndex;
+    const listIndex = handler.lastRefStack?.listIndex;
     return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
   }
   if (typeof prop === "string") {
     if (prop[0] === "$") {
       switch (prop) {
         case "$resolve":
-          return resolveWritable(target, prop, receiver, handler);
+          return resolve(target, prop, receiver, handler);
         case "$getAll":
           return getAllWritable(target, prop, receiver, handler);
         case "$trackDependency":

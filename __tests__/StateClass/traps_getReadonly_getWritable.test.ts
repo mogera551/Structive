@@ -34,6 +34,7 @@ vi.mock("../../src/StateClass/traps/indexByIndexName", () => ({ indexByIndexName
 
 function makeHandler() {
   return {
+    lastRefStack: { listIndex: { indexes: [10, 20] }, info: { pattern: "a.b" } },
     refStack: [ { listIndex: { indexes: [10, 20] }, info: { pattern: "a.b" } } ],
     refIndex: 0,
     engine: {

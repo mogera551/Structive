@@ -2,12 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import { getContextListIndex } from "../../src/StateClass/methods/getContextListIndex";
 
 function makeHandler(ref: any) {
-  return { refStack: [ref], refIndex: 0 } as any;
+  return { lastRefStack: ref, refStack: [ref], refIndex: 0 } as any;
 }
 
 describe("StateClass/methods getContextListIndex", () => {
   it("ref が存在しない場合は null", () => {
-    const handler = { refStack: [], refIndex: 0 } as any;
+    const handler = { lastRefStack: null, refStack: [], refIndex: 0 } as any;
     const r = getContextListIndex(handler, "a.*.b");
     expect(r).toBeNull();
   });

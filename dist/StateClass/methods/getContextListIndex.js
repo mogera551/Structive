@@ -1,9 +1,6 @@
 export function getContextListIndex(handler, structuredPath) {
-    const ref = handler.refStack[handler.refIndex];
+    const ref = handler.lastRefStack;
     if (ref == null) {
-        return null;
-    }
-    if (ref.info == null) {
         return null;
     }
     if (ref.listIndex == null) {

@@ -27,15 +27,13 @@ import { IStatePropertyRef } from "../StatePropertyRef/types";
 const STACK_DEPTH = 32;
 
 class StateHandler implements IReadonlyStateHandler {
-  engine   : IComponentEngine;
-  cache    : Map<IStatePropertyRef, any> | null = null;
-  lastTrackingStack: IStructuredPathInfo | null = null;
-  trackingStack: (IStructuredPathInfo | null)[] = Array(STACK_DEPTH).fill(null);
-  trackingIndex: number = -1;
+  engine: IComponentEngine;
+  cache: Map<IStatePropertyRef, any> | null = null;
   refStack: (IStatePropertyRef | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
+  lastRefStack: IStatePropertyRef | null = null;
   loopContext: ILoopContext | null = null;
-  renderer : IRenderer | null = null;
+  renderer: IRenderer | null = null;
 
   constructor(engine: IComponentEngine, renderer: IRenderer | null) {
     this.engine = engine;

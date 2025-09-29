@@ -22,7 +22,7 @@ export function getContextListIndex(
   handler: IStateHandler,
   structuredPath: string
 ): IListIndex | null {
-  const ref = handler.refStack[handler.refIndex];
+  const ref = handler.lastRefStack;
   if (ref == null) {
     return null;
   }

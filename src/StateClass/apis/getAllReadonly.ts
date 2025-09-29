@@ -20,11 +20,11 @@ import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
 import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
-import { resolveReadonly } from "./resolveReadonly.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
 import { IListIndex } from "../../ListIndex/types.js";
 import { GetByRefSymbol } from "../symbols.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
+import { resolve } from "./resolve.js";
 
 export function getAllReadonly(
   target: Object, 
@@ -32,10 +32,10 @@ export function getAllReadonly(
   receiver: IReadonlyStateProxy,
   handler: IReadonlyStateHandler
 ):Function {
-    const resolve = resolveReadonly(target, prop, receiver, handler);
+    const resolveFn = resolve(target, prop, receiver, handler);
     return (path: string, indexes?: number[]): any[] => {
       const info = getStructuredPathInfo(path);
-      const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
+      const lastInfo = handler.lastRefStack?.info ?? null;
       if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
         // gettersに含まれる場合は依存関係を登録
         if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
@@ -123,7 +123,7 @@ export function getAllReadonly(
       );
       const resultValues: any[] = [];
       for(let i = 0; i < resultIndexes.length; i++) {
-        resultValues.push(resolve(
+        resultValues.push(resolveFn(
           info.pattern,
           resultIndexes[i]
         ));

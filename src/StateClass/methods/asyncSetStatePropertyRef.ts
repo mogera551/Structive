@@ -36,11 +36,12 @@ export async function asyncSetStatePropertyRef(
   if (handler.refIndex >= handler.refStack.length) {
     handler.refStack.push(null);
   }
-  handler.refStack[handler.refIndex] = ref;
+  handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
   try {
     await callback();
   } finally {
     handler.refStack[handler.refIndex] = null;
     handler.refIndex--;
+    handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
   }
 }

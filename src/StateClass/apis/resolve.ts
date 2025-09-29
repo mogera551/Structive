@@ -17,20 +17,29 @@
  */
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
+import { IReadonlyStateProxy, IReadonlyStateHandler, IWritableStateHandler, IWritableStateProxy } from "../types";
 import { getByRefReadonly } from "../methods/getByRefReadonly";
 import { IListIndex } from "../../ListIndex/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
+import { IComponentEngine } from "../../ComponentEngine/types.js";
+import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
+import { getByRefWritable } from "../methods/getByRefWritable.js";
+import { SetCacheableSymbol } from "../symbols.js";
+import { set } from "../traps/set.js";
+import { setByRef } from "../methods/setByRef.js";
 
-export function resolveReadonly(
+type StateHandler = IReadonlyStateHandler | IWritableStateHandler;
+type StateProxy = IReadonlyStateProxy | IWritableStateProxy;
+
+export function resolve(
   target: Object, 
   prop: PropertyKey, 
-  receiver: IReadonlyStateProxy,
-  handler: IReadonlyStateHandler
+  receiver: StateProxy,
+  handler: StateHandler
 ): Function {
   return (path: string, indexes: number[], value?: any): any => {
     const info = getStructuredPathInfo(path);
-    const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
+    const lastInfo = handler.lastRefStack?.info ?? null;
     if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
       // gettersに含まれる場合は依存関係を登録
       if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
@@ -39,19 +48,37 @@ export function resolveReadonly(
       }
     }
 
+    if (info.wildcardParentInfos.length > indexes.length) {
+      raiseError(`indexes length is insufficient: ${path}`);
+    }
+    // ワイルドカード階層ごとにListIndexを解決していく
     let listIndex: IListIndex | null = null;
     for(let i = 0; i < info.wildcardParentInfos.length; i++) {
-      const wildcardParentPattern = info.wildcardParentInfos[i] ?? raiseError(`wildcardParentPath is null`);
+      const wildcardParentPattern = info.wildcardParentInfos[i];
       const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-      const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardRef) ?? [];
-      const index = indexes[i] ?? raiseError(`index is null`);
+      const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardRef) ?? raiseError(`ListIndexes not found: ${wildcardParentPattern.pattern}`);
+      const index = indexes[i];
       listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
     }
+
+    // WritableかReadonlyかを判定して適切なメソッドを呼び出す
     const ref = getStatePropertyRef(info, listIndex);
-    if (typeof value === "undefined") {
-      return getByRefReadonly(target, ref, receiver, handler);
+    const hasSetValue = typeof value !== "undefined";
+    if (SetCacheableSymbol in receiver && "cache" in handler) {
+      if (!hasSetValue) {
+        return getByRefReadonly(target, ref, receiver, handler);
+      } else {
+        // readonlyなので、setはできない
+        raiseError(`Cannot set value on a readonly proxy: ${path}`);
+      }
+    } else if (!(SetCacheableSymbol in receiver) && !("cache" in handler)) {
+      if (!hasSetValue) {
+        return getByRefWritable(target, ref, receiver, handler);
+      } else {
+        setByRef(target, ref, value, receiver, handler);
+      }
     } else {
-      raiseError(`Cannot set value on a readonly proxy: ${path}`);
+      raiseError("Inconsistent proxy and handler types.");
     }
   };
 } 

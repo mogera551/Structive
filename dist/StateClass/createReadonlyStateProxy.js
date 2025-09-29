@@ -4,11 +4,9 @@ const STACK_DEPTH = 32;
 class StateHandler {
     engine;
     cache = null;
-    lastTrackingStack = null;
-    trackingStack = Array(STACK_DEPTH).fill(null);
-    trackingIndex = -1;
     refStack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
+    lastRefStack = null;
     loopContext = null;
     renderer = null;
     constructor(engine, renderer) {

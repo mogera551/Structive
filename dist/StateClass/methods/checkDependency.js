@@ -1,7 +1,7 @@
 export function checkDependency(handler, ref) {
     // 動的依存関係の登録
     if (handler.refIndex >= 0) {
-        const lastInfo = handler.refStack[handler.refIndex]?.info ?? null;
+        const lastInfo = handler.lastRefStack?.info ?? null;
         if (lastInfo !== null) {
             if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
                 !handler.engine.pathManager.setters.has(lastInfo.pattern) &&

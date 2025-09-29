@@ -62,27 +62,23 @@ export interface IStructiveStaticState {
 export type IStructiveState = Constructor<IState> & IStructiveStaticState;
 
 export interface IReadonlyStateHandler {
-  engine           : IComponentEngine;
-  cache            : Map<IStatePropertyRef, any> | null;
-  lastTrackingStack: IStructuredPathInfo | null;
-  trackingStack    : (IStructuredPathInfo | null)[];
-  trackingIndex    : number;
-  refStack         : (IStatePropertyRef | null)[];
-  refIndex         : number;
-  renderer : IRenderer | null;
+  engine      : IComponentEngine;
+  cache       : Map<IStatePropertyRef, any> | null;
+  refStack    : (IStatePropertyRef | null)[];
+  refIndex    : number;
+  lastRefStack: IStatePropertyRef | null;
+  renderer    : IRenderer | null;
   get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IReadonlyStateProxy): boolean;
 }
 
 export interface IWritableStateHandler {
-  engine           : IComponentEngine;
-  updater          : IUpdater;
-  lastTrackingStack: IStructuredPathInfo | null;
-  trackingStack    : (IStructuredPathInfo | null)[];
-  trackingIndex    : number;
-  refStack         : (IStatePropertyRef | null)[];
-  refIndex         : number;
-  loopContext: ILoopContext | null;
+  engine      : IComponentEngine;
+  updater     : IUpdater;
+  refStack    : (IStatePropertyRef | null)[];
+  refIndex    : number;
+  lastRefStack: IStatePropertyRef | null;
+  loopContext : ILoopContext | null;
   get(target  : Object, prop: PropertyKey, receiver: IWritableStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IWritableStateProxy): boolean;
 }

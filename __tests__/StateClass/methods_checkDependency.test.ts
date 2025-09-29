@@ -13,8 +13,14 @@ function createHandler(overrides: Partial<any> = {}) {
     engine,
     refStack: [],
     refIndex: -1,
+    lastRefStack: null,
   };
-  return Object.assign(base, overrides);
+  const result = Object.assign(base, overrides);
+  // lastRefStackがovverridesにない場合は、refStackとrefIndexから設定
+  if (!overrides.lastRefStack && result.refIndex >= 0 && result.refStack[result.refIndex]) {
+    result.lastRefStack = result.refStack[result.refIndex];
+  }
+  return result;
 }
 
 function refOf(pattern: string) {

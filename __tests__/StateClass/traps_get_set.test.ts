@@ -105,10 +105,20 @@ beforeEach(() => {
 });
 
 function makeReadonlyHandler() {
-  return { engine: { owner: { id: 1 } }, refStack: [ { listIndex: { indexes: [10,20,30] } } ], refIndex: 0 } as any;
+  return { 
+    engine: { owner: { id: 1 } }, 
+    lastRefStack: { listIndex: { indexes: [10,20,30] } },
+    refStack: [ { listIndex: { indexes: [10,20,30] } } ], 
+    refIndex: 0 
+  } as any;
 }
 function makeWritableHandler() {
-  return { engine: { owner: { id: 2 } }, refStack: [ { listIndex: { indexes: [1,2,3] } } ], refIndex: 0 } as any;
+  return { 
+    engine: { owner: { id: 2 } }, 
+    lastRefStack: { listIndex: { indexes: [1,2,3] } },
+    refStack: [ { listIndex: { indexes: [1,2,3] } } ], 
+    refIndex: 0 
+  } as any;
 }
 
 describe("StateClass traps get/set", () => {

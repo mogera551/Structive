@@ -21,7 +21,6 @@ import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js"
 import { raiseError } from "../../utils.js";
 import { getListIndex } from "../methods/getListIndex.js";
 import { IReadonlyStateHandler, IReadonlyStateProxy } from "../types.js";
-import { resolveReadonly } from "../apis/resolveReadonly.js";
 import { GetByRefSymbol, SetCacheableSymbol } from "../symbols.js";
 import { getByRefReadonly } from "../methods/getByRefReadonly.js";
 import { setCacheable } from "../methods/setCacheable.js";
@@ -30,6 +29,7 @@ import { trackDependency } from "../apis/trackDependency.js";
 import { indexByIndexName } from "./indexByIndexName.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
+import { resolve } from "../apis/resolve.js";
 
 
 export function getReadonly(
@@ -40,14 +40,14 @@ export function getReadonly(
 ): any {
   const index = indexByIndexName[prop];
   if (typeof index !== "undefined") {
-    const listIndex = handler.refStack[handler.refIndex]?.listIndex;
+    const listIndex = handler.lastRefStack?.listIndex;
     return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
   }
   if (typeof prop === "string") {
     if (prop[0] === "$") {
       switch (prop) {
         case "$resolve":
-          return resolveReadonly(target, prop, receiver, handler);
+          return resolve(target, prop, receiver, handler);
         case "$getAll":
           return getAllReadonly(target, prop, receiver, handler);
         case "$trackDependency":
