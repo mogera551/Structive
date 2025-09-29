@@ -7,6 +7,5 @@ export interface IListDiff {
   newIndexes: IListIndex[];
   adds?: Set<IListIndex>;
   removes?: Set<IListIndex>;
-  overwrites?: Set<IListIndex>; // 上書きされた要素
   changeIndexes?: Set<IListIndex>; // 位置が変わった要素
 }
