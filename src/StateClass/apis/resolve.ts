@@ -17,15 +17,12 @@
  */
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { IReadonlyStateProxy, IReadonlyStateHandler, IWritableStateHandler, IWritableStateProxy, IStateHandler, IStateProxy } from "../types";
+import { IStateHandler, IStateProxy } from "../types";
 import { getByRefReadonly } from "../methods/getByRefReadonly";
 import { IListIndex } from "../../ListIndex/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
-import { IComponentEngine } from "../../ComponentEngine/types.js";
-import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { getByRefWritable } from "../methods/getByRefWritable.js";
 import { SetCacheableSymbol } from "../symbols.js";
-import { set } from "../traps/set.js";
 import { setByRef } from "../methods/setByRef.js";
 
 export function resolve(
