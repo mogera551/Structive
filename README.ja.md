@@ -129,6 +129,7 @@ get "list.*.selected"() {
 - [シングルファイルコンポーネント](docs/single-file-components.md)
 - [ライフサイクル](docs/lifecycle.md)
 - [Structiveの構造思想](docs/structure-philosophy.md)
+- [開発ガイド（Polyfill 方針含む）](docs/development-guide.md)
 
 ---
 
