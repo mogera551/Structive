@@ -66,6 +66,10 @@ export function getAllWritable(target, prop, receiver, handler) {
                 if ((wildardIndexPos + 1) < wildcardParentInfos.length) {
                     walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
                 }
+                else {
+                    // 最終ワイルドカード層まで到達しているので、結果を確定
+                    results.push(parentIndexes.concat(listIndex.index));
+                }
             }
         };
         const resultIndexes = [];

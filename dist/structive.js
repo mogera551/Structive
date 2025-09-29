@@ -1393,6 +1393,10 @@ function getAllWritable(target, prop, receiver, handler) {
                 if ((wildardIndexPos + 1) < wildcardParentInfos.length) {
                     walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
                 }
+                else {
+                    // 最終ワイルドカード層まで到達しているので、結果を確定
+                    results.push(parentIndexes.concat(listIndex.index));
+                }
             }
         };
         const resultIndexes = [];
@@ -2062,6 +2066,10 @@ function getAllReadonly(target, prop, receiver, handler) {
                 const listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
                 if ((wildardIndexPos + 1) < wildcardParentInfos.length) {
                     walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
+                }
+                else {
+                    // 最終ワイルドカード層まで到達しているので、結果を確定
+                    results.push(parentIndexes.concat(listIndex.index));
                 }
             }
         };
@@ -3689,10 +3697,10 @@ class LoopContext {
         return this.#ref ?? raiseError("ref is null");
     }
     get path() {
-        return this.ref.info.pattern ?? raiseError("info.pattern is null");
+        return this.ref.info.pattern;
     }
     get info() {
-        return this.ref.info ?? raiseError("info is null");
+        return this.ref.info;
     }
     get listIndex() {
         return this.ref.listIndex ?? raiseError("listIndex is required");
@@ -4965,8 +4973,11 @@ async function createSingleFileComponent(text) {
     const html = template.content.querySelector("template");
     html?.remove();
     const script = template.content.querySelector("script[type=module]");
-    const b64 = btoa(String.fromCodePoint(...new TextEncoder().encode(script.text)));
-    const scriptModule = script ? await import("data:application/javascript;base64," + b64) : {};
+    let scriptModule = {};
+    if (script) {
+        const b64 = btoa(String.fromCodePoint(...new TextEncoder().encode(script.text)));
+        scriptModule = await import("data:application/javascript;base64," + b64);
+    }
     //  const scriptModule = script ? await import("data:text/javascript;charset=utf-8," + script.text) : {};
     script?.remove();
     const style = template.content.querySelector("style");
@@ -4996,7 +5007,9 @@ async function createSingleFileComponent(text) {
  * - 非同期処理で動的なコンポーネントロードに対応
  */
 async function loadSingleFileComponent(path) {
-    const response = await fetch(import.meta.resolve(path));
+    // Node/Vitest 等の SSR 環境では import.meta.resolve が存在しない場合があるためフォールバック
+    const resolved = import.meta.resolve ? import.meta.resolve(path) : path;
+    const response = await fetch(resolved);
     const text = await response.text();
     return createSingleFileComponent(text);
 }

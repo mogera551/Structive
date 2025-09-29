@@ -14,7 +14,9 @@
  */
 import { createSingleFileComponent } from "./createSingleFileComponent.js";
 export async function loadSingleFileComponent(path) {
-    const response = await fetch(import.meta.resolve(path));
+    // Node/Vitest 等の SSR 環境では import.meta.resolve が存在しない場合があるためフォールバック
+    const resolved = import.meta.resolve ? import.meta.resolve(path) : path;
+    const response = await fetch(resolved);
     const text = await response.text();
     return createSingleFileComponent(text);
 }

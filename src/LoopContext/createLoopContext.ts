@@ -39,10 +39,10 @@ class LoopContext implements ILoopContext {
     return this.#ref ?? raiseError("ref is null");
   }
   get path(): string {
-    return this.ref.info.pattern ?? raiseError("info.pattern is null");
+    return this.ref.info.pattern;
   }
   get info(): IStructuredPathInfo {
-    return this.ref.info ?? raiseError("info is null");
+    return this.ref.info;
   }
   get listIndex(): IListIndex {
     return this.ref.listIndex ?? raiseError("listIndex is required");
