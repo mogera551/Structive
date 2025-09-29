@@ -14,6 +14,9 @@ export default {
         '__tests__/**',
         '*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
         '**/*.d.ts',
+        // types-only files (no runtime code)
+        'src/**/types.ts',
+        'src/@types/**',
         '**/node_modules/**',
         'vitest.config.ts',
         'rollup.config.js'

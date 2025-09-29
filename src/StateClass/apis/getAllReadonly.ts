@@ -105,6 +105,9 @@ export function getAllReadonly(
               parentIndexes.concat(listIndex.index),
               results
             );
+          } else {
+            // 最終ワイルドカード層まで到達しているので、結果を確定
+            results.push(parentIndexes.concat(listIndex.index));
           }
         }
       }

@@ -198,4 +198,72 @@ describe("Template/replaceTemplateTagWithComment", () => {
       expect(registerTemplate).toHaveBeenCalledWith(id, outerTemplate, id);
     });
   });
+
+  describe("svg namespace handling", () => {
+    const SVG_NS = "http://www.w3.org/2000/svg";
+
+    test("converts svg <template> to HTML template, copies children and data-bind, and replaces with comment", () => {
+      const svg = document.createElementNS(SVG_NS, "svg");
+      const svgTemplate = document.createElementNS(SVG_NS, "template") as any;
+      // 子ノードをいくつか追加（Text と DIV）
+      svgTemplate.appendChild(document.createTextNode("hello"));
+      const div = document.createElement("div");
+      div.id = "inside";
+      svgTemplate.appendChild(div);
+      // data-bind を設定
+      (svgTemplate as Element).setAttribute("data-bind", "if:cond");
+      svg.appendChild(svgTemplate as unknown as Node);
+
+      const id = 2025;
+      const result = replaceTemplateTagWithComment(id, svgTemplate);
+
+      // 返り値とコメント置換確認
+      expect(result).toBe(id);
+      expect(svg.childNodes.length).toBe(1);
+      expect(svg.childNodes[0].nodeType).toBe(Node.COMMENT_NODE);
+      expect((svg.childNodes[0] as Comment).nodeValue).toBe("@@|2025");
+
+      // registerTemplate 呼び出し時の第2引数は HTMLTemplateElement に変換されている
+      const call = registerTemplate.mock.calls.find(c => c[0] === id)!;
+      const converted = call[1] as HTMLTemplateElement;
+      expect(converted instanceof HTMLTemplateElement).toBe(true);
+      // data-bind 属性が引き継がれる
+      expect(converted.getAttribute("data-bind")).toBe("if:cond");
+      // 子ノードが content に移行されている
+      const html = converted.content.cloneNode(true) as DocumentFragment;
+      expect(html.textContent).toContain("hello");
+      expect(html.querySelector('#inside')).not.toBeNull();
+    });
+
+    test("missing data-bind on svg template results in empty attribute on converted HTML template", () => {
+      const svg = document.createElementNS(SVG_NS, "svg");
+      const svgTemplate = document.createElementNS(SVG_NS, "template") as any;
+      // data-bind は未設定
+      svg.appendChild(svgTemplate as unknown as Node);
+
+      const id = 3030;
+      replaceTemplateTagWithComment(id, svgTemplate);
+
+      const call = registerTemplate.mock.calls.find(c => c[0] === id)!;
+      const converted = call[1] as HTMLTemplateElement;
+      expect(converted.getAttribute("data-bind")).toBe("");
+    });
+
+    test("nested templates inside converted content are processed recursively", () => {
+      const svg = document.createElementNS(SVG_NS, "svg");
+      const svgTemplate = document.createElementNS(SVG_NS, "template") as any;
+      // 変換後の HTML template の content に移されるネスト template を用意
+      const nested = document.createElement("template");
+      svgTemplate.appendChild(nested);
+      svg.appendChild(svgTemplate as unknown as Node);
+
+      const id = 4040;
+      replaceTemplateTagWithComment(id, svgTemplate);
+
+      // 再帰のために generateId が呼ばれる
+      expect(generateId).toHaveBeenCalled();
+      // 外側テンプレートで registerTemplate される
+      expect(registerTemplate).toHaveBeenCalledWith(id, expect.any(HTMLTemplateElement), id);
+    });
+  });
 });

@@ -36,9 +36,12 @@ export async function createSingleFileComponent(text: string): Promise<IUserComp
   const html = template.content.querySelector("template");
   html?.remove();
 
-  const script = template.content.querySelector("script[type=module]") as HTMLScriptElement;
-  const b64 = btoa(String.fromCodePoint(...new TextEncoder().encode(script.text)));
-  const scriptModule = script ? await import("data:application/javascript;base64," + b64) : {};
+  const script = template.content.querySelector("script[type=module]") as HTMLScriptElement | null;
+  let scriptModule: any = {};
+  if (script) {
+    const b64 = btoa(String.fromCodePoint(...new TextEncoder().encode(script.text)));
+    scriptModule = await import("data:application/javascript;base64," + b64);
+  }
 //  const scriptModule = script ? await import("data:text/javascript;charset=utf-8," + script.text) : {};
   script?.remove();
 
