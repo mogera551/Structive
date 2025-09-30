@@ -15,10 +15,20 @@ class ComponentStateBinding {
         const parentPath = binding.bindingState.pattern;
         const childPath = binding.bindingNode.subName;
         if (this.childPathByParentPath.has(parentPath)) {
-            throw new Error(`Parent path "${parentPath}" already has a child path.`);
+            raiseError({
+                code: "STATE-303",
+                message: `Parent path "${parentPath}" already has a child path`,
+                context: { parentPath, existingChildPath: this.childPathByParentPath.get(parentPath) },
+                docsUrl: "./docs/error-codes.md#state",
+            });
         }
         if (this.parentPathByChildPath.has(childPath)) {
-            throw new Error(`Child path "${childPath}" already has a parent path.`);
+            raiseError({
+                code: "STATE-303",
+                message: `Child path "${childPath}" already has a parent path`,
+                context: { childPath, existingParentPath: this.parentPathByChildPath.get(childPath) },
+                docsUrl: "./docs/error-codes.md#state",
+            });
         }
         this.childPathByParentPath.set(parentPath, childPath);
         this.parentPathByChildPath.set(childPath, parentPath);
@@ -38,14 +48,24 @@ class ComponentStateBinding {
         const childPathInfo = getStructuredPathInfo(childPath);
         const matchPaths = childPathInfo.cumulativePathSet.intersection(this.childPaths);
         if (matchPaths.size === 0) {
-            raiseError(`No parent path found for child path "${childPath}".`);
+            raiseError({
+                code: "STATE-302",
+                message: `No parent path found for child path "${childPath}"`,
+                context: { childPath },
+                docsUrl: "./docs/error-codes.md#state",
+            });
         }
         const matchPathArray = Array.from(matchPaths);
         const longestMatchPath = matchPathArray[matchPathArray.length - 1];
         const remainPath = childPath.slice(longestMatchPath.length); // include the dot
         const matchParentPath = this.parentPathByChildPath.get(longestMatchPath);
         if (typeof matchParentPath === "undefined") {
-            raiseError(`No parent path found for child path "${childPath}".`);
+            raiseError({
+                code: "STATE-302",
+                message: `No parent path found for child path "${childPath}"`,
+                context: { childPath, longestMatchPath },
+                docsUrl: "./docs/error-codes.md#state",
+            });
         }
         return matchParentPath + remainPath;
     }
@@ -53,14 +73,24 @@ class ComponentStateBinding {
         const parentPathInfo = getStructuredPathInfo(parentPath);
         const matchPaths = parentPathInfo.cumulativePathSet.intersection(this.parentPaths);
         if (matchPaths.size === 0) {
-            raiseError(`No child path found for parent path "${parentPath}".`);
+            raiseError({
+                code: "STATE-302",
+                message: `No child path found for parent path "${parentPath}"`,
+                context: { parentPath },
+                docsUrl: "./docs/error-codes.md#state",
+            });
         }
         const matchPathArray = Array.from(matchPaths);
         const longestMatchPath = matchPathArray[matchPathArray.length - 1];
         const remainPath = parentPath.slice(longestMatchPath.length); // include the dot
         const matchChildPath = this.childPathByParentPath.get(longestMatchPath);
         if (typeof matchChildPath === "undefined") {
-            raiseError(`No child path found for parent path "${parentPath}".`);
+            raiseError({
+                code: "STATE-302",
+                message: `No child path found for parent path "${parentPath}"`,
+                context: { parentPath, longestMatchPath },
+                docsUrl: "./docs/error-codes.md#state",
+            });
         }
         return matchChildPath + remainPath;
     }

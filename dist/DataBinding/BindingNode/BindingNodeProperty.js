@@ -51,7 +51,13 @@ class BindingNodeProperty extends BindingNode {
         if (defaultName !== this.name)
             return;
         if (decorates.length > 1)
-            raiseError(`BindingNodeProperty: ${this.name} has multiple decorators`);
+            raiseError({
+                code: 'BIND-201',
+                message: 'Has multiple decorators',
+                context: { where: 'BindingNodeProperty.constructor', name: this.name, decoratesCount: decorates.length },
+                docsUrl: '/docs/error-codes.md#bind',
+                severity: 'error',
+            });
         const event = (decorates[0]?.startsWith("on") ? decorates[0]?.slice(2) : decorates[0]) ?? null;
         const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
         if (eventName === "readonly" || eventName === "ro")

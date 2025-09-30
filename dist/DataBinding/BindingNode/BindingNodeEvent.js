@@ -46,7 +46,13 @@ class BindingNodeEvent extends BindingNode {
             // stateProxyを生成し、バインディング値を実行
             const func = this.binding.bindingState.getValue(state);
             if (typeof func !== "function") {
-                raiseError(`BindingNodeEvent: ${this.name} is not a function.`);
+                raiseError({
+                    code: 'BIND-201',
+                    message: `${this.name} is not a function`,
+                    context: { where: 'BindingNodeEvent.handler', name: this.name, receivedType: typeof func },
+                    docsUrl: '/docs/error-codes.md#bind',
+                    severity: 'error',
+                });
             }
             await Reflect.apply(func, state, [e, ...indexes]);
         });

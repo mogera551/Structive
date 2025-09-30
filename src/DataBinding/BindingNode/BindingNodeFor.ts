@@ -122,6 +122,14 @@ class BindingNodeFor extends BindingNodeBlock {
     // 削除を先にする
     const removeBindContentsSet = new Set<IBindContent>();
     const listDiff = renderer.calcListDiff(this.binding.bindingState.ref);
+    if (listDiff === null) {
+      raiseError({
+        code: 'BIND-201',
+        message: 'ListDiff is null',
+        context: { where: 'BindingNodeFor.applyChange' },
+        docsUrl: '/docs/error-codes.md#bind',
+      });
+    }
     const parentNode = this.node.parentNode ?? raiseError({
       code: 'BIND-201',
       message: 'ParentNode is null',

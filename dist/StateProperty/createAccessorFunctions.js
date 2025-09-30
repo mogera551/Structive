@@ -15,6 +15,7 @@
  * - パスやセグメント名は正規表現で厳密にチェックし、安全性を担保
  */
 import { getStructuredPathInfo } from "./getStructuredPathInfo";
+import { raiseError } from "../utils";
 const checkSegmentRegexp = /^[a-zA-Z_$][0-9a-zA-Z_$]*$/;
 const checkPathRegexp = /^[a-zA-Z_$][0-9a-zA-Z_$]*(\.[a-zA-Z_$][0-9a-zA-Z_$]*|\.\*)*$/;
 export function createAccessorFunctions(info, getters) {
@@ -33,7 +34,12 @@ export function createAccessorFunctions(info, getters) {
     }
     if (matchPath.length > 0) {
         if (!checkPathRegexp.test(matchPath)) {
-            throw new Error(`Invalid path: ${matchPath}`);
+            raiseError({
+                code: "STATE-202",
+                message: `Invalid path: ${matchPath}`,
+                context: { matchPath },
+                docsUrl: "./docs/error-codes.md#state",
+            });
         }
         const matchInfo = getStructuredPathInfo(matchPath);
         const segments = [];
@@ -46,7 +52,12 @@ export function createAccessorFunctions(info, getters) {
             }
             else {
                 if (!checkSegmentRegexp.test(segment)) {
-                    throw new Error(`Invalid segment name: ${segment}`);
+                    raiseError({
+                        code: "STATE-202",
+                        message: `Invalid segment name: ${segment}`,
+                        context: { segment, matchPath },
+                        docsUrl: "./docs/error-codes.md#state",
+                    });
                 }
                 segments.push("." + segment);
             }
@@ -68,7 +79,12 @@ export function createAccessorFunctions(info, getters) {
             }
             else {
                 if (!checkSegmentRegexp.test(segment)) {
-                    throw new Error(`Invalid segment name: ${segment}`);
+                    raiseError({
+                        code: "STATE-202",
+                        message: `Invalid segment name: ${segment}`,
+                        context: { segment },
+                        docsUrl: "./docs/error-codes.md#state",
+                    });
                 }
                 segments.push((segments.length > 0 ? "." : "") + segment);
             }

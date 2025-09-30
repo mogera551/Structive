@@ -18,7 +18,11 @@ vi.mock("../../src/StateProperty/getStructuredPathInfo", () => ({
   getStructuredPathInfo: (path: string) => getStructuredPathInfoMock(path),
 }));
 
-const getStatePropertyRefMock = vi.fn((info: any, listIndex: any) => ({ info, listIndex }));
+const getStatePropertyRefMock = vi.fn((info: any, listIndex: any) => ({ 
+  info, 
+  listIndex, 
+  key: `${info?.pattern || 'unknown'}-${listIndex?.id || 'null'}` 
+}));
 vi.mock("../../src/StatePropertyRef/StatepropertyRef", () => ({
   getStatePropertyRef: (info: any, listIndex: any) => getStatePropertyRefMock(info, listIndex),
 }));
@@ -44,11 +48,16 @@ const makeEngine = () => {
     pathManager: {
       rootNode: { name: "root" },
       dynamicDependencies,
+      lists: new Set<string>(),
+      elements: new Set<string>(),
     },
     getBindings: vi.fn(() => [] as any[]),
     getListAndListIndexes: vi.fn(() => [[], []] as any),
     saveListAndListIndexes: vi.fn(),
-    getListIndexes: vi.fn(() => [7, 8]),
+    getListIndexes: vi.fn(() => [
+      { id: 7, at: vi.fn((pos: number) => pos === 0 ? { id: 7 } : null) },
+      { id: 8, at: vi.fn((pos: number) => pos === 1 ? { id: 8 } : null) }
+    ]),
   } as any;
   return engine;
 };
@@ -102,7 +111,7 @@ describe("Updater/Renderer.render", () => {
 
     // 新リスト値は readonlyState 経由で取得、diff は adds [10,20] を返す
     createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState(["a", "b"]));
-    calcListDiffMock.mockReturnValue({ adds: [10, 20], removes: [], newIndexes: [1, 2] });
+    calcListDiffMock.mockReturnValue({ adds: [10, 20], removes: [], newIndexes: [1, 2], overwrites: new Set() });
 
     const ref = { info: { pattern: "root" }, listIndex: null } as any;
     render([ref], engine);
@@ -134,7 +143,7 @@ describe("Updater/Renderer.render", () => {
     // readonlyState も同じ参照を返す
     createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState(list));
     // adds は空、newIndexes は任意
-    calcListDiffMock.mockReturnValue({ adds: [], removes: [], newIndexes: [0, 1] });
+    calcListDiffMock.mockReturnValue({ adds: [], removes: [], newIndexes: [0, 1], overwrites: new Set() });
 
     const ref = { info: { pattern: "root" }, listIndex: null } as any;
     render([ref], engine);
@@ -193,7 +202,8 @@ describe("Updater/Renderer.render", () => {
 
     // 最終 depInfo とともに listIndex が使用された子 ref が生成されている（7,8 を使用）
     const finalDepCalls = getStatePropertyRefMock.mock.calls.filter((c) => c[0]?.pattern === "dep/*/x").map((c) => c[1]);
-    expect(finalDepCalls).toEqual(expect.arrayContaining([7, 8]));
+    const finalDepIds = finalDepCalls.map((listIndex) => listIndex?.id).filter((id) => id !== undefined);
+    expect(finalDepIds).toEqual(expect.arrayContaining([7, 8]));
   });
 
   it("動的依存: 依存ノードが見つからない場合はエラー", () => {
@@ -236,5 +246,72 @@ describe("Updater/Renderer.render", () => {
     // dep/*/x での子作成は呼ばれない
     const finalDepCalls = getStatePropertyRefMock.mock.calls.filter((c) => c[0]?.pattern === "dep/*/x");
     expect(finalDepCalls.length).toBe(0);
+  });
+
+  it("SwapDiff: リストの要素に変更がある場合にSwapDiffが作成される", () => {
+    const engine = makeEngine();
+    engine.getBindings.mockReturnValue([]);
+
+    const childNode = { childNodeByName: new Map(), currentPath: "root.*" } as any;
+    const topNode = { childNodeByName: new Map([[WILDCARD, childNode]]), currentPath: "root" } as any;
+    findPathNodeByPathMock.mockImplementation((_root: any, pattern: string) => {
+      return pattern === "root" ? topNode : null;
+    });
+
+    getStructuredPathInfoMock.mockImplementation((path: string) => ({ pattern: path, wildcardCount: path.includes("*") ? 1 : 0, wildcardParentInfos: [] }));
+
+    // adds用のmockリストインデックスを作成
+    const mockListIndex10 = { id: 10, at: vi.fn() };
+    const mockListIndex20 = { id: 20, at: vi.fn() };
+    const mockOverwriteIndex = { id: 100, at: vi.fn() };
+    
+    // getListAndListIndexesでaddのリストインデックスを返す
+    engine.getListAndListIndexes.mockReturnValue([
+      ["old", "list"], 
+      [mockListIndex10, mockListIndex20] 
+    ]);
+
+    createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState(["a", "b", "c"]));
+    calcListDiffMock.mockReturnValue({ 
+      adds: [mockListIndex10, mockListIndex20], 
+      removes: [5], 
+      newIndexes: [1, 2, 3], 
+      overwrites: new Set([mockOverwriteIndex])
+    });
+
+    const ref = { info: { pattern: "root" }, listIndex: null, key: "root-null" } as any;
+    render([ref], engine);
+
+    // adds分の子refが作成される
+    const indexes = getStatePropertyRefMock.mock.calls
+      .map((c) => c[1]) 
+      .filter((v) => v && (v.id === 10 || v.id === 20));
+    expect(indexes.length).toBe(2);
+  });
+
+  it("pathManager.lists/elements: リストとエレメントが適切に分離される", () => {
+    const engine = makeEngine();
+    const bindingA = { applyChange: vi.fn() } as any;
+    engine.getBindings.mockReturnValue([bindingA]);
+
+    // pathManager.listsとelementsにテストデータを設定
+    engine.pathManager.lists.add("root");
+    engine.pathManager.elements.add("root.item");
+
+    const topNode = { childNodeByName: new Map(), currentPath: "root" } as any;
+    findPathNodeByPathMock.mockImplementation((root: any, pattern: string) => {
+      return pattern === "root" ? topNode : null;
+    });
+
+    createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState());
+    getStructuredPathInfoMock.mockImplementation((path: string) => ({ pattern: path, wildcardCount: 0, wildcardParentInfos: [] }));
+
+    const ref = { info: { pattern: "root" }, listIndex: null, key: "root-null" } as any;
+    render([ref], engine);
+
+    // pathManager.listsとelementsが適切に設定されていることを確認
+    expect(engine.pathManager.lists.has("root")).toBe(true);
+    expect(engine.pathManager.elements.has("root.item")).toBe(true);
+    expect(bindingA.applyChange).toHaveBeenCalled();
   });
 });

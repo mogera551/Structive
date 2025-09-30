@@ -7,8 +7,14 @@ import { raiseError } from "../utils.js";
  */
 function textToFilter(filters, text) {
     const filter = filters[text.name];
-    if (!filter)
-        raiseError(`outputBuiltinFiltersFn: filter not found: ${name}`);
+    if (!filter) {
+        raiseError({
+            code: 'FLT-201',
+            message: `Filter not found: ${text.name}`,
+            context: { where: 'createFilters.textToFilter', name: text.name },
+            docsUrl: './docs/error-codes.md#flt',
+        });
+    }
     return filter(text.options);
 }
 const cache = new Map();

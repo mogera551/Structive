@@ -3,17 +3,15 @@ import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 const COMMENT_TEMPLATE_MARK_LEN = COMMENT_TEMPLATE_MARK.length;
 /**
- * BindingNodeBlockクラスは、テンプレートブロック（コメントノードによるテンプレート挿入部）を
- * バインディング対象とするためのバインディングノード実装です。
+ * BindingNodeBlock は、テンプレートブロック（コメントノードで示すテンプレート挿入部）を
+ * バインディング対象とする基底クラス。
  *
- * 主な役割:
- * - コメントノード内のテンプレートIDを抽出し、idプロパティとして保持
- * - テンプレートブロックのバインディング処理の基盤となる
+ * 役割:
+ * - コメントのテキストからテンプレートIDを抽出し id として保持
+ * - Block 系バインディングの共通処理を提供
  *
- * 設計ポイント:
- * - コメントノードのテキストからテンプレートIDを抽出（COMMENT_TEMPLATE_MARK以降を数値変換）
- * - IDが取得できない場合はエラーを投げる
- * - 他のBindingNode系クラスと同様、フィルタやデコレータにも対応
+ * Throws:
+ * - BIND-201 Invalid node: コメントノードから ID を抽出できない場合
  */
 export class BindingNodeBlock extends BindingNode {
     #id;
@@ -22,7 +20,13 @@ export class BindingNodeBlock extends BindingNode {
     }
     constructor(binding, node, name, filters, decorates) {
         super(binding, node, name, filters, decorates);
-        const id = this.node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN) ?? raiseError("BindingNodeBlock.id: invalid node");
+        const id = this.node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN) ?? raiseError({
+            code: 'BIND-201',
+            message: 'Invalid node',
+            context: { where: 'BindingNodeBlock.id', textContent: this.node.textContent ?? null },
+            docsUrl: '/docs/error-codes.md#bind',
+            severity: 'error',
+        });
         this.#id = Number(id);
     }
 }

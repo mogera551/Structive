@@ -2391,20 +2391,33 @@ function createReadonlyStateProxy(engine, state, renderer = null) {
     return new Proxy(state, new StateHandler(engine, renderer));
 }
 
+class SwapDiff {
+    swaps = new Set();
+    overwrites = new Set();
+    oldListValue = null;
+    newListValue = null;
+    oldIndexes = [];
+    newIndexes = [];
+}
+function createSwapDiff() {
+    return new SwapDiff();
+}
+
 class Renderer {
     #updatedBindings = new Set();
-    #trackedRefs = new Set();
+    #processedRefs = new Set();
     #engine;
     #readonlyState = null;
     #listDiffByRef = new Map();
+    #swapDiffByRef = new Map();
     constructor(engine) {
         this.#engine = engine;
     }
     get updatedBindings() {
         return this.#updatedBindings;
     }
-    get trackedRefs() {
-        return this.#trackedRefs;
+    get processedRefs() {
+        return this.#processedRefs;
     }
     get readonlyState() {
         if (!this.#readonlyState) {
@@ -2428,12 +2441,105 @@ class Renderer {
     }
     render(items) {
         this.#listDiffByRef.clear();
-        this.#trackedRefs.clear();
+        this.#processedRefs.clear();
         this.#updatedBindings.clear();
+        this.#swapDiffByRef.clear();
         // 実際のレンダリングロジックを実装
         const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#engine.state, this);
         try {
             readonlyState[SetCacheableSymbol](() => {
+                const listRefs = new Set();
+                for (let i = 0; i < items.length; i++) {
+                    const ref = items[i];
+                    if (this.engine.pathManager.lists.has(ref.info.pattern)) {
+                        listRefs.add(ref);
+                        continue;
+                    }
+                    if (!this.engine.pathManager.elements.has(ref.info.pattern)) {
+                        continue; // elements に登録されていないパスはスキップ
+                    }
+                    // リスト要素を処理済みに追加
+                    this.#processedRefs.add(ref);
+                    const listIndex = ref.listIndex ?? raiseError({
+                        code: "UPD-003",
+                        message: `ListIndex is null for ref: ${ref.key}`,
+                        context: { refKey: ref.key, pattern: ref.info.pattern },
+                        docsUrl: "./docs/error-codes.md#upd",
+                    });
+                    if (ref.info.parentInfo === null) {
+                        raiseError({
+                            code: "UPD-004",
+                            message: `ParentInfo is null for ref: ${ref.key}`,
+                            context: { refKey: ref.key, pattern: ref.info.pattern },
+                            docsUrl: "./docs/error-codes.md#upd",
+                        });
+                    }
+                    const listRef = getStatePropertyRef(ref.info.parentInfo, ref.listIndex?.at(-2) || null);
+                    if (listRefs.has(listRef)) {
+                        // リストの差分計算は後続のcalcListDiffで行うので、swapのための計算はスキップ
+                        continue;
+                    }
+                    let swapDiff = this.#swapDiffByRef.get(listRef);
+                    const [, oldListIndexes, oldListValue] = this.engine.getListAndListIndexes(listRef);
+                    if (oldListValue == null || oldListIndexes == null) {
+                        raiseError({
+                            code: "UPD-005",
+                            message: `OldListValue is null for ref: ${listRef.key}`,
+                            context: { refKey: listRef.key, pattern: listRef.info.pattern },
+                            docsUrl: "./docs/error-codes.md#upd",
+                        });
+                    }
+                    const elementValue = this.readonlyState[GetByRefSymbol](ref);
+                    if (typeof swapDiff === "undefined") {
+                        swapDiff = createSwapDiff();
+                        swapDiff.oldListValue = oldListValue;
+                        swapDiff.newListValue = elementValue;
+                        swapDiff.oldIndexes = oldListIndexes;
+                        swapDiff.newIndexes = Array.from(swapDiff.oldIndexes);
+                        this.#swapDiffByRef.set(listRef, swapDiff);
+                    }
+                    const oldIndex = oldListValue?.indexOf(elementValue) ?? -1;
+                    if (oldIndex === -1) {
+                        swapDiff.overwrites.add(listIndex);
+                    }
+                    else {
+                        const oldListIndex = oldListIndexes?.[oldIndex] ?? raiseError({
+                            code: "UPD-004",
+                            message: `ListIndex not found for value: ${elementValue}`,
+                            context: { refKey: ref.key, pattern: ref.info.pattern },
+                            docsUrl: "./docs/error-codes.md#upd",
+                        });
+                        oldListIndex.index = listIndex.index; // インデックスを更新
+                        swapDiff.newIndexes[listIndex.index] = oldListIndex;
+                        swapDiff.swaps.add(oldListIndex);
+                    }
+                }
+                for (const [ref, swapDiff] of this.#swapDiffByRef) {
+                    if (listRefs.has(ref)) {
+                        // リストの差分計算は後続のcalcListDiffで行うので、ここのswapのための計算はスキップ
+                        continue;
+                    }
+                    const listDiff = {
+                        oldListValue: swapDiff.oldListValue,
+                        newListValue: swapDiff.newListValue,
+                        oldIndexes: swapDiff.oldIndexes,
+                        newIndexes: swapDiff.newIndexes,
+                        changeIndexes: swapDiff.swaps,
+                        overwrites: swapDiff.overwrites,
+                    };
+                    this.engine.saveListAndListIndexes(ref, swapDiff.newListValue ?? null, swapDiff.newIndexes);
+                    this.#listDiffByRef.set(ref, listDiff);
+                    const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
+                    if (node === null) {
+                        raiseError({
+                            code: "PATH-101",
+                            message: `PathNode not found: ${ref.info.pattern}`,
+                            context: { pattern: ref.info.pattern },
+                            docsUrl: "./docs/error-codes.md#path",
+                        });
+                    }
+                    this.renderItem(ref, node);
+                }
                 for (let i = 0; i < items.length; i++) {
                     const ref = items[i];
                     const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
@@ -2456,6 +2562,7 @@ class Renderer {
     calcListDiff(ref, _newListValue = undefined, isNewValue = false) {
         let listDiff = this.#listDiffByRef.get(ref);
         if (typeof listDiff === "undefined") {
+            this.#listDiffByRef.set(ref, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
             const [oldListValue, oldListIndexes] = this.engine.getListAndListIndexes(ref);
             let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
             listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
@@ -2467,10 +2574,10 @@ class Renderer {
         return listDiff;
     }
     renderItem(ref, node) {
-        if (this.trackedRefs.has(ref)) {
+        if (this.processedRefs.has(ref)) {
             return; // すでに処理済みのRef情報はスキップ
         }
-        this.trackedRefs.add(ref);
+        this.processedRefs.add(ref);
         // バインディングに変更を適用する
         // 変更があったバインディングはupdatedBindingsに追加する
         const bindings = this.#engine.getBindings(ref);
@@ -2486,6 +2593,14 @@ class Renderer {
             const childInfo = getStructuredPathInfo(childNode.currentPath);
             if (name === WILDCARD) {
                 const diff = this.calcListDiff(ref);
+                if (diff === null) {
+                    raiseError({
+                        code: "UPD-006",
+                        message: "ListDiff is null during renderItem",
+                        context: { refKey: ref.key, pattern: ref.info.pattern },
+                        docsUrl: "./docs/error-codes.md#upd",
+                    });
+                }
                 for (const listIndex of diff.adds ?? []) {
                     const childRef = getStatePropertyRef(childInfo, listIndex);
                     this.renderItem(childRef, childNode);
@@ -2893,6 +3008,14 @@ class BindingNodeFor extends BindingNodeBlock {
         // 削除を先にする
         const removeBindContentsSet = new Set();
         const listDiff = renderer.calcListDiff(this.binding.bindingState.ref);
+        if (listDiff === null) {
+            raiseError({
+                code: 'BIND-201',
+                message: 'ListDiff is null',
+                context: { where: 'BindingNodeFor.applyChange' },
+                docsUrl: '/docs/error-codes.md#bind',
+            });
+        }
         const parentNode = this.node.parentNode ?? raiseError({
             code: 'BIND-201',
             message: 'ParentNode is null',
@@ -4921,6 +5044,7 @@ class ComponentEngine {
             list: null,
             listIndexes: null,
             bindings: [],
+            listClone: null,
         };
     }
     getSaveInfoByStatePropertyRef(ref) {
@@ -4961,6 +5085,7 @@ class ComponentEngine {
         const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         saveInfo.list = list;
         saveInfo.listIndexes = listIndexes;
+        saveInfo.listClone = list ? Array.from(list) : null;
     }
     getBindings(ref) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
@@ -4975,7 +5100,7 @@ class ComponentEngine {
     }
     getListAndListIndexes(ref) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        return [saveInfo.list, saveInfo.listIndexes];
+        return [saveInfo.list, saveInfo.listIndexes, saveInfo.listClone];
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する

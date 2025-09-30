@@ -43,7 +43,11 @@ class Updater {
                 const queue = this.queue;
                 this.queue = [];
                 if (!this.#engine)
-                    raiseError("Engine is not initialized.");
+                    raiseError({
+                        code: "UPD-001",
+                        message: "Engine not initialized",
+                        docsUrl: "./docs/error-codes.md#upd",
+                    });
                 // レンダリング実行
                 render(queue, this.#engine);
             }

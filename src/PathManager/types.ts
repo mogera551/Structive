@@ -18,7 +18,7 @@ export interface IPathManager {
   lists: Set<string>;
   /**
    * リスト要素のパスのセット
-   * リストパスから導出される
+   * リストパスから導出される list -> list.* など必ず*で終わる
    */
   elements: Set<string>;
   /**

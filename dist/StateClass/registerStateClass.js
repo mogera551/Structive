@@ -18,5 +18,10 @@ export function registerStateClass(id, stateClass) {
     stateClassById[id] = stateClass;
 }
 export function getStateClassById(id) {
-    return stateClassById[id] ?? raiseError(`getStateClassById: stateClass not found: ${id}`);
+    return stateClassById[id] ?? raiseError({
+        code: "STATE-101",
+        message: `StateClass not found: ${id}`,
+        context: { where: 'registerStateClass.getStateClassById', stateClassId: id },
+        docsUrl: "./docs/error-codes.md#state",
+    });
 }

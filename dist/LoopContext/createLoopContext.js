@@ -10,7 +10,12 @@ class LoopContext {
         this.#bindContent = bindContent;
     }
     get ref() {
-        return this.#ref ?? raiseError("ref is null");
+        return this.#ref ?? raiseError({
+            code: 'STATE-202',
+            message: 'ref is null',
+            context: { where: 'LoopContext.ref', path: this.#info.pattern },
+            docsUrl: '/docs/error-codes.md#state',
+        });
     }
     get path() {
         return this.ref.info.pattern;
@@ -19,7 +24,12 @@ class LoopContext {
         return this.ref.info;
     }
     get listIndex() {
-        return this.ref.listIndex ?? raiseError("listIndex is required");
+        return this.ref.listIndex ?? raiseError({
+            code: 'LIST-201',
+            message: 'listIndex is required',
+            context: { where: 'LoopContext.listIndex', path: this.#info.pattern },
+            docsUrl: '/docs/error-codes.md#list',
+        });
     }
     assignListIndex(listIndex) {
         this.#ref = getStatePropertyRef(this.#info, listIndex);

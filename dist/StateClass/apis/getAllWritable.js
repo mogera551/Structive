@@ -35,7 +35,13 @@ export function getAllWritable(target, prop, receiver, handler) {
         }
         if (typeof indexes === "undefined") {
             for (let i = 0; i < info.wildcardInfos.length; i++) {
-                const wildcardPattern = info.wildcardInfos[i] ?? raiseError(`wildcardPattern is null`);
+                const wildcardPattern = info.wildcardInfos[i] ?? raiseError({
+                    code: 'BIND-201',
+                    message: 'wildcardPattern is null',
+                    context: { index: i, infoPattern: info.pattern },
+                    docsUrl: '/docs/error-codes.md#bind',
+                    severity: 'error',
+                });
                 const listIndex = getContextListIndex(handler, wildcardPattern.pattern);
                 if (listIndex) {
                     indexes = listIndex.indexes;
@@ -53,7 +59,13 @@ export function getAllWritable(target, prop, receiver, handler) {
                 return;
             }
             const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-            const listIndexes = handler.engine.getListIndexes(wildcardRef) ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+            const listIndexes = handler.engine.getListIndexes(wildcardRef) ?? raiseError({
+                code: 'LIST-201',
+                message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
+                context: { pattern: wildcardParentPattern.pattern },
+                docsUrl: '/docs/error-codes.md#list',
+                severity: 'error',
+            });
             const index = indexes[indexPos] ?? null;
             if (index === null) {
                 for (let i = 0; i < listIndexes.length; i++) {
@@ -62,7 +74,13 @@ export function getAllWritable(target, prop, receiver, handler) {
                 }
             }
             else {
-                const listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+                const listIndex = listIndexes[index] ?? raiseError({
+                    code: 'LIST-201',
+                    message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
+                    context: { pattern: wildcardParentPattern.pattern, index },
+                    docsUrl: '/docs/error-codes.md#list',
+                    severity: 'error',
+                });
                 if ((wildardIndexPos + 1) < wildcardParentInfos.length) {
                     walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
                 }

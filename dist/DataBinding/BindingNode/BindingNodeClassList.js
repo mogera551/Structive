@@ -2,21 +2,23 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 /**
- * BindingNodeClassListクラスは、class属性（classList）のバインディング処理を担当するバインディングノードの実装です。
+ * class 属性（classList）バインディング。
  *
- * 主な役割:
- * - バインディング値（配列）を空白区切りのclass属性値としてElementにセット
- * - 値が配列でない場合はエラーを投げる
- * - フィルタやデコレータにも対応
+ * - 値（配列）を空白区切りで結合して className へ反映
  *
- * 設計ポイント:
- * - assignValueで配列を受け取り、join(" ")でclassNameに反映
- * - 柔軟なバインディング記法・フィルタ適用に対応
+ * Throws:
+ * - BIND-201 Value is not array: 配列以外が渡された
  */
 class BindingNodeClassList extends BindingNode {
     assignValue(value) {
         if (!Array.isArray(value)) {
-            raiseError(`BindingNodeClassList.update: value is not array`);
+            raiseError({
+                code: 'BIND-201',
+                message: 'Value is not array',
+                context: { where: 'BindingNodeClassList.update', receivedType: typeof value },
+                docsUrl: '/docs/error-codes.md#bind',
+                severity: 'error',
+            });
         }
         const element = this.node;
         element.className = value.join(" ");

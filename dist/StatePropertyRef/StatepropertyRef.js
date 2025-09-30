@@ -8,7 +8,12 @@ class StatePropertyRef {
     get listIndex() {
         if (this.#listIndexRef === null)
             return null;
-        return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+        return this.#listIndexRef.deref() ?? raiseError({
+            code: "LIST-201",
+            message: "listIndex is null",
+            context: { sid: this.info.sid, key: this.key },
+            docsUrl: "./docs/error-codes.md#list",
+        });
     }
     key;
     constructor(info, listIndex) {

@@ -27,7 +27,7 @@ export interface IRenderer {
   /**
    * 処理済みのRefのキーのセット
    */
-  trackedRefs: Set<IStatePropertyRef>;
+  processedRefs: Set<IStatePropertyRef>;
 
   /**
    * 読み取り専用状態プロキシ
@@ -46,5 +46,5 @@ export interface IRenderer {
    * @param newListValue 新しいリストの値
    * @param isNewValue 新しい値をセットしたかどうか
    */
-  calcListDiff(ref: IStatePropertyRef, newListValue?: any[] | undefined | null, isNewValue?: boolean): IListDiff;
+  calcListDiff(ref: IStatePropertyRef, newListValue?: any[] | undefined | null, isNewValue?: boolean): IListDiff | null;
 }

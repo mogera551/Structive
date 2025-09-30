@@ -2,18 +2,12 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 /**
- * BindingNodeClassNameクラスは、class属性の個別クラス名（例: class.active など）の
- * バインディング処理を担当するバインディングノードの実装です。
+ * class の個別クラス名（例: class.active）に対するバインディング。
  *
- * 主な役割:
- * - バインディング値（boolean）に応じて、指定クラス名（subName）をElementに追加・削除
- * - フィルタやデコレータにも対応
+ * - name から subName を抽出し、boolean 値で add/remove を切り替え
  *
- * 設計ポイント:
- * - nameからクラス名（subName）を抽出（例: "class.active" → "active"）
- * - assignValueでboolean値のみ許容し、型が異なる場合はエラー
- * - trueならclassList.add、falseならclassList.removeでクラス操作
- * - ファクトリ関数でフィルタ適用済みインスタンスを生成
+ * Throws:
+ * - BIND-201 Value is not boolean: boolean 以外が渡された
  */
 class BindingNodeClassName extends BindingNode {
     #subName;
@@ -27,7 +21,13 @@ class BindingNodeClassName extends BindingNode {
     }
     assignValue(value) {
         if (typeof value !== "boolean") {
-            raiseError(`BindingNodeClassName.update: value is not boolean`);
+            raiseError({
+                code: 'BIND-201',
+                message: 'Value is not boolean',
+                context: { where: 'BindingNodeClassName.update', receivedType: typeof value },
+                docsUrl: '/docs/error-codes.md#bind',
+                severity: 'error',
+            });
         }
         const element = this.node;
         if (value) {

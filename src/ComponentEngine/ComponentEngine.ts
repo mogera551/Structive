@@ -222,6 +222,7 @@ export class ComponentEngine implements IComponentEngine {
       list          : null,
       listIndexes   : null,
       bindings      : [],
+      listClone     : null,
     }
   }
 
@@ -272,6 +273,7 @@ export class ComponentEngine implements IComponentEngine {
     const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
     saveInfo.list = list;
     saveInfo.listIndexes = listIndexes;
+    saveInfo.listClone = list ? Array.from(list) : null;
   }
 
   getBindings(ref: IStatePropertyRef): IBinding[] {
@@ -287,9 +289,9 @@ export class ComponentEngine implements IComponentEngine {
     return saveInfo.listIndexes;
   }
 
-  getListAndListIndexes(ref: IStatePropertyRef): [any[] | null, IListIndex[] | null] {
+  getListAndListIndexes(ref: IStatePropertyRef): [any[] | null, IListIndex[] | null, any[] | null] {
     const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-    return [saveInfo.list, saveInfo.listIndexes];
+    return [saveInfo.list, saveInfo.listIndexes, saveInfo.listClone];
   }
 
   getPropertyValue(ref: IStatePropertyRef): any {

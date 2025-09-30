@@ -51,14 +51,24 @@ export function getByRefWritable(target, ref, receiver, handler) {
     }
     else {
         // 存在しない場合は親infoを辿って再帰的に取得
-        const parentInfo = ref.info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+        const parentInfo = ref.info.parentInfo ?? raiseError({
+            code: 'STATE-202',
+            message: 'propRef.stateProp.parentInfo is undefined',
+            context: { where: 'getByRefWritable', refPath: ref.info.pattern },
+            docsUrl: '/docs/error-codes.md#state',
+        });
         const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
         const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
         const parentValue = getByRefWritable(target, parentRef, receiver, handler);
         const lastSegment = ref.info.lastSegment;
         if (lastSegment === "*") {
             // ワイルドカードの場合はlistIndexのindexでアクセス
-            const index = ref.listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+            const index = ref.listIndex?.index ?? raiseError({
+                code: 'STATE-202',
+                message: 'propRef.listIndex?.index is undefined',
+                context: { where: 'getByRefWritable', refPath: ref.info.pattern },
+                docsUrl: '/docs/error-codes.md#state',
+            });
             return Reflect.get(parentValue, index);
         }
         else {

@@ -2,22 +2,23 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 /**
- * BindingNodeCheckboxクラスは、チェックボックス（input[type="checkbox"]）の
- * バインディング処理を担当するバインディングノードの実装です。
+ * チェックボックス（input[type="checkbox"]）のバインディング。
  *
- * 主な役割:
- * - バインディング値（配列）に現在のvalueが含まれているかどうかでchecked状態を制御
- * - 値が配列でない場合はエラーを投げる
- * - フィルタやデコレータにも対応
+ * - 値（配列）に input.value が含まれるかで checked を制御
  *
- * 設計ポイント:
- * - assignValueで配列内にvalueが含まれていればchecked=true
- * - 柔軟なバインディング記法・フィルタ適用に対応
+ * Throws:
+ * - BIND-201 Value is not array: 配列以外が渡された
  */
 class BindingNodeCheckbox extends BindingNode {
     assignValue(value) {
         if (!Array.isArray(value)) {
-            raiseError(`BindingNodeCheckbox.update: value is not array`);
+            raiseError({
+                code: 'BIND-201',
+                message: 'Value is not array',
+                context: { where: 'BindingNodeCheckbox.update', receivedType: typeof value },
+                docsUrl: '/docs/error-codes.md#bind',
+                severity: 'error',
+            });
         }
         const element = this.node;
         element.checked = value.map(_val => _val.toString()).includes(element.value);

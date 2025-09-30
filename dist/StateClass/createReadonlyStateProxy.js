@@ -17,7 +17,12 @@ class StateHandler {
         return trapGet(target, prop, receiver, this);
     }
     set(target, prop, value, receiver) {
-        raiseError(`Cannot set property ${String(prop)} of readonly state.`);
+        raiseError({
+            code: 'STATE-202',
+            message: `Cannot set property ${String(prop)} of readonly state`,
+            context: { where: 'createReadonlyStateProxy.set', prop: String(prop) },
+            docsUrl: '/docs/error-codes.md#state',
+        });
     }
 }
 export function createReadonlyStateProxy(engine, state, renderer = null) {

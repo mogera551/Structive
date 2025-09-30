@@ -37,7 +37,12 @@ export function replaceMustacheWithTemplateTag(html) {
         else if (type === 'endif') {
             const endTags = [];
             do {
-                const info = stack.pop() ?? raiseError('replaceMustacheToTemplateOrEmbed: endif without if');
+                const info = stack.pop() ?? raiseError({
+                    code: 'TMP-102',
+                    message: 'Endif without if',
+                    context: { where: 'replaceMustacheWithTemplateTag', expr, stackDepth: stack.length },
+                    docsUrl: './docs/error-codes.md#tmp',
+                });
                 if (info.type === 'if') {
                     endTags.push('</template>');
                     break;
@@ -46,41 +51,81 @@ export function replaceMustacheWithTemplateTag(html) {
                     endTags.push('</template>');
                 }
                 else {
-                    raiseError('replaceMustacheToTemplateOrEmbed: endif without if');
+                    raiseError({
+                        code: 'TMP-102',
+                        message: 'Endif without if',
+                        context: { where: 'replaceMustacheWithTemplateTag', got: info.type, expr },
+                        docsUrl: './docs/error-codes.md#tmp',
+                    });
                 }
             } while (true);
             return endTags.join('');
         }
         else if (type === 'endfor') {
-            const info = stack.pop() ?? raiseError('replaceMustacheToTemplateOrEmbed: endif without if');
+            const info = stack.pop() ?? raiseError({
+                code: 'TMP-102',
+                message: 'Endif without if',
+                context: { where: 'replaceMustacheWithTemplateTag', expr, stackDepth: stack.length },
+                docsUrl: './docs/error-codes.md#tmp',
+            });
             if (info.type === 'for') {
                 return '</template>';
             }
             else {
-                raiseError('replaceMustacheToTemplateOrEmbed: endfor without for');
+                raiseError({
+                    code: 'TMP-102',
+                    message: 'Endfor without for',
+                    context: { where: 'replaceMustacheWithTemplateTag', got: info.type, expr },
+                    docsUrl: './docs/error-codes.md#tmp',
+                });
             }
         }
         else if (type === 'elseif') {
-            const lastInfo = stack.at(-1) ?? raiseError('replaceMustacheToTemplateOrEmbed: elseif without if');
+            const lastInfo = stack.at(-1) ?? raiseError({
+                code: 'TMP-102',
+                message: 'Elseif without if',
+                context: { where: 'replaceMustacheWithTemplateTag', expr, stackDepth: stack.length },
+                docsUrl: './docs/error-codes.md#tmp',
+            });
             if (lastInfo.type === 'if' || lastInfo.type === 'elseif') {
                 stack.push(currentInfo);
                 return `</template><template data-bind="if:${lastInfo.remain}|not"><template data-bind="if:${remain}">`;
             }
             else {
-                raiseError('replaceMustacheToTemplateOrEmbed: elseif without if');
+                raiseError({
+                    code: 'TMP-102',
+                    message: 'Elseif without if',
+                    context: { where: 'replaceMustacheWithTemplateTag', got: lastInfo.type, expr },
+                    docsUrl: './docs/error-codes.md#tmp',
+                });
             }
         }
         else if (type === 'else') {
-            const lastInfo = stack.at(-1) ?? raiseError('replaceMustacheToTemplateOrEmbed: else without if');
+            const lastInfo = stack.at(-1) ?? raiseError({
+                code: 'TMP-102',
+                message: 'Else without if',
+                context: { where: 'replaceMustacheWithTemplateTag', expr, stackDepth: stack.length },
+                docsUrl: './docs/error-codes.md#tmp',
+            });
             if (lastInfo.type === 'if') {
                 return `</template><template data-bind="if:${lastInfo.remain}|not">`;
             }
             else {
-                raiseError('replaceMustacheToTemplateOrEmbed: else without if');
+                raiseError({
+                    code: 'TMP-102',
+                    message: 'Else without if',
+                    context: { where: 'replaceMustacheWithTemplateTag', got: lastInfo.type, expr },
+                    docsUrl: './docs/error-codes.md#tmp',
+                });
             }
         }
         else {
-            raiseError('replaceMustacheToTemplateOrEmbed: unknown type');
+            raiseError({
+                code: 'TMP-102',
+                message: 'Unknown type',
+                context: { where: 'replaceMustacheWithTemplateTag', type, expr },
+                docsUrl: './docs/error-codes.md#tmp',
+            });
         }
     });
 }

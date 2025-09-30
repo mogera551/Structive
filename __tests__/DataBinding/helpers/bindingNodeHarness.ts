@@ -13,7 +13,7 @@ export function createEngineStub() {
 export function createRendererStub(overrides: Partial<any> = {}) {
   return {
     updatedBindings: new Set(),
-    trackedRefs: new Set(),
+    processedRefs: new Set(),
     readonlyState: {},
     render: vi.fn(),
     calcListDiff: vi.fn(),

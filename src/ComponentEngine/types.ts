@@ -53,7 +53,7 @@ export interface IComponentEngine {
   saveListAndListIndexes(ref: IStatePropertyRef, list: any[] | null, listIndexes: IListIndex[] | null): void;
   getBindings(ref: IStatePropertyRef): IBinding[];
   getListIndexes(ref: IStatePropertyRef): IListIndex[] | null;
-  getListAndListIndexes(ref: IStatePropertyRef): [any[] | null, IListIndex[] | null];
+  getListAndListIndexes(ref: IStatePropertyRef): [any[] | null, IListIndex[] | null, any[] | null];
 
   getPropertyValue(ref: IStatePropertyRef): any; // プロパティの値を取得する
   setPropertyValue(ref: IStatePropertyRef, value: any): void; // プロパティの値を設定する
@@ -65,7 +65,8 @@ export interface IComponentEngine {
  * パス解決済みのバインディング情報をまとめて管理する型
  */
 export interface ISaveInfoByResolvedPathInfo {
-  list          : any[] | null;
-  listIndexes   : IListIndex[] | null;
-  bindings      : IBinding[];
+  list       : any[] | null;
+  listIndexes: IListIndex[] | null;
+  bindings   : IBinding[];
+  listClone  : any[] | null;
 }

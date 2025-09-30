@@ -69,7 +69,16 @@ export function isLazyLoadComponent(tagName) {
 export function loadLazyLoadComponent(tagName) {
     const alias = lazyLoadComponentAliasByTagName[tagName];
     if (!alias) {
-        console.warn(`loadLazyLoadComponent: alias not found for tagName: ${tagName}`);
+        // 警告として扱うが、構造化メタ情報を付加
+        const err = {
+            code: "IMP-201",
+            message: `Alias not found for tagName: ${tagName}`,
+            context: { where: 'loadFromImportMap.loadLazyLoadComponent', tagName },
+            docsUrl: "./docs/error-codes.md#imp",
+            severity: "warn",
+        };
+        // 既存挙動は warn + return のため、throw はせず console.warn にメタを付与
+        console.warn(err.message, { code: err.code, context: err.context, docsUrl: err.docsUrl, severity: err.severity });
         return;
     }
     delete lazyLoadComponentAliasByTagName[tagName]; // 一度ロードしたら削除
