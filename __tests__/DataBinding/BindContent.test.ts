@@ -222,4 +222,33 @@ describe("BindContent", () => {
     vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValueOnce(template.content.firstElementChild!);
   expect(() => createBindContent(null, templateId, engine, { listIndex: null } as any)).toThrow("Creator not found: no-creator");
   });
+
+  it("getLastNode: 子 BindContent の最後のノードを再帰的に返す（子が null なら親の lastChildNode）", () => {
+    // 親テンプレート
+    template.innerHTML = `<div id="root"><section id="child"></section></div>`;
+    vi.spyOn(registerTemplateMod, "getTemplateById").mockReturnValueOnce(template);
+    const attrs = [{ nodeType: "HTMLElement", nodePath: [0], bindTexts: ["t"], creatorByText: new Map([ ["t", {}] ]) }];
+    vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValueOnce(attrs as any);
+    const rootEl = template.content.firstElementChild!;
+    vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValueOnce(rootEl);
+
+    // 親バインディングと子 BindContent を持つ構造を作る
+    const childBindContent: any = { getLastNode: vi.fn(() => null) };
+    const mockBinding: any = { 
+      init: vi.fn(), 
+      node: rootEl, 
+      bindContents: [childBindContent],
+      applyChange: vi.fn(),
+    };
+    vi.spyOn(bindingMod, "createBinding").mockReturnValueOnce(mockBinding);
+
+    const loopRef: any = { listIndex: null };
+    const bc = createBindContent(null, templateId, engine, loopRef);
+
+    const host = document.createElement("div");
+    bc.mount(host);
+    // 子の getLastNode が null を返す場合は親の lastChildNode を返す
+    const last = bc.getLastNode(host);
+    expect(last).toBe(bc.lastChildNode);
+  });
 });

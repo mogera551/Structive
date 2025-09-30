@@ -12,6 +12,18 @@ import { IListIndex } from "../ListIndex/types.js";
 import { IRenderer } from "../Updater/types.js";
 import { IStatePropertyRef } from "../StatePropertyRef/types.js";
 
+/**
+ * 指定テンプレートIDから DocumentFragment を生成するヘルパー。
+ *
+ * Params:
+ * - id: 登録済みテンプレートID
+ *
+ * Returns:
+ * - テンプレート内容を複製した DocumentFragment
+ *
+ * Throws:
+ * - TMP-001 Template not found: 未登録IDが指定された場合
+ */
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 
     raiseError({
@@ -31,6 +43,23 @@ function createContent(id: number): DocumentFragment {
   return fragment;
 }
 
+/**
+ * テンプレート内の data-bind 情報から IBinding 配列を構築する。
+ *
+ * Params:
+ * - bindContent: 親 BindContent
+ * - id: テンプレートID
+ * - engine: コンポーネントエンジン
+ * - content: テンプレートから複製したフラグメント
+ *
+ * Returns:
+ * - 生成された IBinding の配列
+ *
+ * Throws:
+ * - BIND-101 Data-bind is not set: テンプレートに data-bind 情報が未登録
+ * - BIND-102 Node not found: パスで指すノードが見つからない
+ * - BIND-103 Creator not found: 対応する BindingCreator が未登録
+ */
 function createBindings(
   bindContent: IBindContent, 
   id         : number, 
@@ -77,22 +106,22 @@ function createBindings(
 }
 
 /**
- * BindContentクラスは、テンプレートから生成されたDOM断片（DocumentFragment）と
- * そのバインディング情報（IBinding配列）を管理するための実装です。
+ * BindContent は、テンプレートから生成された DOM 断片（DocumentFragment）と
+ * そのバインディング情報（IBinding[]）を管理する実装です。
  *
  * 主な役割:
- * - テンプレートIDからDOM断片を生成し、バインディング情報を構築
- * - mount/mountBefore/mountAfter/unmountでDOMへの挿入・削除を制御
- * - renderでバインディングの再描画、initで初期化処理を実行
- * - ループバインディング時のLoopContextやリストインデックス管理にも対応
- * - getLastNodeで再帰的に最後のノードを取得し、リスト描画や差し替えに利用
- * - assignListIndexでループ内のリストインデックスを再割り当てし、再初期化
+ * - テンプレートIDから DOM 断片を生成し、バインディング情報を構築
+ * - mount/mountBefore/mountAfter/unmount で DOM への挿入・削除を制御
+ * - applyChange で各 IBinding に更新を委譲
+ * - ループ時の LoopContext やリストインデックス管理にも対応
+ * - getLastNode で再帰的に最後のノードを取得
+ * - assignListIndex でループ内のリストインデックスを再割り当て
  *
- * 設計ポイント:
- * - fragmentとchildNodesの両方を管理し、効率的なDOM操作を実現
- * - バインディング情報はテンプレートごとに動的に生成され、各ノードに紐付く
- * - ループや条件分岐など複雑なバインディング構造にも柔軟に対応
- * - createBindContentファクトリ関数で一貫した生成・初期化を提供
+ * Throws（代表例）:
+ * - TMP-001 Template not found: createContent 内で未登録テンプレートID
+ * - BIND-101/102/103: createBindings 内の data-bind 情報不足/不整合
+ * - BIND-104 Child bindContent not found: getLastNode の子探索で不整合
+ * - BIND-201 LoopContext is null: assignListIndex 実行時に LoopContext 未初期化
  */
 class BindContent implements IBindContent {
   loopContext  : ILoopContext | null;
@@ -216,6 +245,18 @@ class BindContent implements IBindContent {
   }
 }
 
+/**
+ * BindContent を生成して初期化（bindings.init）までを行うファクトリ関数。
+ * 
+ * Params:
+ * - parentBinding: 親の IBinding（なければ null）
+ * - id: テンプレートID
+ * - engine: コンポーネントエンジン
+ * - loopRef: ループ用の StatePropertyRef（listIndex を含む場合に LoopContext を構築）
+ *
+ * Returns:
+ * - 初期化済みの IBindContent
+ */
 export function createBindContent(
   parentBinding: IBinding | null,
   id           : number, 

@@ -78,4 +78,26 @@ describe("BindingNodeProperty coverage", () => {
     const renderer = createRendererStub({ readonlyState: {} });
     expect(() => node.applyChange(renderer)).not.toThrow();
   });
+
+  it("複数デコレータ指定はエラー", () => {
+    const engine = createEngineStub();
+    const input = document.createElement("input");
+    const binding = createBindingStub(engine, input);
+    expect(() => createBindingNodeProperty("value", [], ["onInput", "onChange"])(binding, input, engine.inputFilters)).toThrow(/Has multiple decorators/i);
+  });
+
+  it("readonly デコレータ 'ro' はイベント登録しない", async () => {
+    const engine = createEngineStub();
+    const input = document.createElement("input");
+    const binding = createBindingStub(engine, input);
+    const node = createBindingNodeProperty("value", [], ["ro"])(binding, input, engine.inputFilters);
+    const spyUpdate = vi.spyOn(UpdaterMod, "update").mockResolvedValue(undefined as any);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(spyUpdate).not.toHaveBeenCalled();
+    // applyChange は通常通り
+    const renderer = createRendererStub({ readonlyState: {} });
+    binding.bindingState.getFilteredValue.mockReturnValue("v");
+    node.applyChange(renderer);
+    expect(input.value).toBe("v");
+  });
 });

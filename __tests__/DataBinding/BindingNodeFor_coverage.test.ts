@@ -22,6 +22,14 @@ describe("BindingNodeFor coverage", () => {
     return Array.from({ length: n }, (_, i) => ({ index: i }) as any);
   }
 
+  it("assignValue は未実装エラー", () => {
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|310");
+    const binding = createBindingStub(engine, comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
+    expect(() => node.assignValue([1,2,3])).toThrow(/Not implemented/i);
+  });
+
   it("早期 return: updatedBindings に含まれると何もしない", () => {
     const engine = createEngineStub();
     const comment = document.createComment("@@|300");
@@ -163,6 +171,102 @@ describe("BindingNodeFor coverage", () => {
     } as any;
     const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
   expect(() => node.applyChange(renderer)).toThrowError(/parentNode is null/i);
+  });
+
+  it("removes が undefined でも例外なし（空更新）", () => {
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|306");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const diff = {
+      oldListValue: [],
+      newListValue: [],
+      newIndexes: [],
+      adds: undefined,
+      removes: undefined,
+    } as any;
+    const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
+    expect(() => node.applyChange(renderer)).not.toThrow();
+    expect(container.childNodes.length).toBe(1);
+  });
+
+  it("removes: 未登録インデックスで BindContent not found", () => {
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|307");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const idx = createIndexes(1);
+    const diff = {
+      // oldListValue と removes のサイズをずらして全削除最適化を回避
+      oldListValue: [{}, {}],
+      newListValue: [{}],
+      newIndexes: [{ index: 0 }],
+      adds: new Set(),
+      removes: new Set(idx), // map 未登録のまま removes を要求
+    } as any;
+    const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
+    expect(() => node.applyChange(renderer)).toThrow(/BindContent not found/);
+  });
+
+  it("reuse: 未登録だと BindContent not found", () => {
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|308");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const idx = createIndexes(1);
+    const diff = {
+      oldListValue: [],
+      newListValue: [{}],
+      newIndexes: idx,
+      adds: new Set(), // 追加ではなく再利用扱いにする
+      removes: new Set(),
+    } as any;
+    const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
+    expect(() => node.applyChange(renderer)).toThrow(/BindContent not found/);
+  });
+
+  it("reuse: 並びが正しければ再マウントしない（insertBefore が呼ばれない）", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|309");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    // 初回: 全追加で2件
+    const idx2 = createIndexes(2);
+    const diff1 = {
+      oldListValue: [],
+      newListValue: [{}, {}],
+      newIndexes: idx2,
+      adds: new Set(idx2),
+      removes: new Set(),
+    } as any;
+    const r1 = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff1) });
+    node.applyChange(r1);
+
+    // 2回目: 順序そのまま、追加なし（再利用のみ）
+    const diff2 = {
+      oldListValue: [{}, {}],
+      newListValue: [{}, {}],
+      newIndexes: idx2,
+      adds: new Set(),
+      removes: new Set(),
+    } as any;
+    const r2 = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff2) });
+    const spyInsert = vi.spyOn(container, "insertBefore");
+    node.applyChange(r2);
+    expect(spyInsert).not.toHaveBeenCalled();
   });
 
   it("poolLength の setter 負数はエラー", () => {

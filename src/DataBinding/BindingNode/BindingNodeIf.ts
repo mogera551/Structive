@@ -11,16 +11,17 @@ import { BindingNodeBlock } from "./BindingNodeBlock.js";
 import { CreateBindingNodeFn } from "./types";
 
 /**
- * BindingNodeIfクラスは、ifバインディング（条件付き描画）を担当するバインディングノードの実装です。
+ * BindingNodeIf は、if バインディング（条件付き描画）を担当するノード実装。
  *
- * 主な役割:
- * - バインディング値（boolean）に応じて、BindContent（描画内容）のマウント・アンマウントを制御
- * - true/false時のBindContent集合を管理し、現在の描画状態をbindContentsで取得可能
+ * 役割:
+ * - boolean 値に応じて BindContent（描画内容）の mount/unmount を制御
+ * - 現在表示中の BindContent 集合を bindContents で参照可能
  *
- * 設計ポイント:
- * - assignValueでboolean型以外が渡された場合はエラー
- * - trueならBindContentをrender・mount、falseならunmount
- * - 柔軟なバインディング記法・フィルタ適用に対応
+ * 例外（代表）:
+ * - BIND-201 Not implemented: assignValue は未実装
+ * - BIND-201 Value is not boolean: applyChange で値が boolean ではない
+ * - BIND-201 ParentNode is null: マウント先の親ノードが存在しない
+ * - TMP-001 Template not found: 内部で参照するテンプレート未登録
  */
 class BindingNodeIf extends BindingNodeBlock {
   #bindContent: IBindContent;
@@ -51,6 +52,10 @@ class BindingNodeIf extends BindingNodeBlock {
     this.#trueBindContents = this.#bindContents = [this.#bindContent];
   }
 
+  /**
+   * 値の直接代入は未実装。
+   * Throws: BIND-201 Not implemented
+   */
   assignValue(value: any): void {
     raiseError({
       code: 'BIND-201',
@@ -61,6 +66,14 @@ class BindingNodeIf extends BindingNodeBlock {
     });
   }
   
+  /**
+   * 値を評価して true なら mount+applyChange、false なら unmount。
+   * 既に更新済みの binding はスキップ。
+   *
+   * Throws:
+   * - BIND-201 Value is not boolean
+   * - BIND-201 ParentNode is null
+   */
   applyChange(renderer: IRenderer): void {
     if (renderer.updatedBindings.has(this.binding)) return;
     const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
@@ -96,8 +109,8 @@ class BindingNodeIf extends BindingNodeBlock {
 }
 
 /**
- * ifバインディングノード生成用ファクトリ関数
- * - name, フィルタ、デコレータ情報からBindingNodeIfインスタンスを生成
+ * if バインディングノード生成用ファクトリ関数。
+ * name / フィルタ / デコレータ設定に従い BindingNodeIf を生成する。
  */
 export const createBindingNodeIf: CreateBindingNodeFn = 
 (name: string, filterTexts: IFilterText[], decorates: string[]) => 

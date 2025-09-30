@@ -152,6 +152,13 @@ describe("Template/replaceMustacheWithTemplateTag", () => {
       }).toThrow("Endif without if");
     });
 
+    test("should throw error for endfor after if (mismatched)", () => {
+      const html = "{{if:cond}}x{{endfor}}";
+      expect(() => {
+        replaceMustacheWithTemplateTag(html);
+      }).toThrow("Endfor without for");
+    });
+
     test("should throw error for elseif without if", () => {
       const html = "<div>content</div>{{elseif:condition}}";
       expect(() => {

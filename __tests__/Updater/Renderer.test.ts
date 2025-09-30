@@ -119,6 +119,29 @@ describe("Updater/Renderer.render", () => {
     expect(engine.saveListAndListIndexes.mock.calls[0][2]).toEqual([1, 2]);
   });
 
+  it("ワイルドカード子: old と new が同一参照なら saveListAndListIndexes は呼ばれない", () => {
+    const engine = makeEngine();
+    engine.getBindings.mockReturnValue([]);
+
+    const childNode = { childNodeByName: new Map(), currentPath: "root.*" } as any;
+    const topNode = { childNodeByName: new Map([[WILDCARD, childNode]]), currentPath: "root" } as any;
+    findPathNodeByPathMock.mockImplementation((_root: any, pattern: string) => (pattern === "root" ? topNode : null));
+
+    getStructuredPathInfoMock.mockImplementation((path: string) => ({ pattern: path, wildcardCount: path.includes("*") ? 1 : 0, wildcardParentInfos: [] }));
+
+    const list = [1, 2];
+    engine.getListAndListIndexes.mockReturnValue([list, []]);
+    // readonlyState も同じ参照を返す
+    createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState(list));
+    // adds は空、newIndexes は任意
+    calcListDiffMock.mockReturnValue({ adds: [], removes: [], newIndexes: [0, 1] });
+
+    const ref = { info: { pattern: "root" }, listIndex: null } as any;
+    render([ref], engine);
+
+    expect(engine.saveListAndListIndexes).not.toHaveBeenCalled();
+  });
+
   it("動的依存（非ワイルドカード）: 依存パスのノードを辿る", () => {
     const engine = makeEngine();
     engine.getBindings.mockReturnValue([]);
@@ -171,5 +194,47 @@ describe("Updater/Renderer.render", () => {
     // 最終 depInfo とともに listIndex が使用された子 ref が生成されている（7,8 を使用）
     const finalDepCalls = getStatePropertyRefMock.mock.calls.filter((c) => c[0]?.pattern === "dep/*/x").map((c) => c[1]);
     expect(finalDepCalls).toEqual(expect.arrayContaining([7, 8]));
+  });
+
+  it("動的依存: 依存ノードが見つからない場合はエラー", () => {
+    const engine = makeEngine();
+    engine.getBindings.mockReturnValue([]);
+    engine.pathManager.dynamicDependencies.set("root", new Set(["missingDep"]));
+
+    const topNode = { childNodeByName: new Map(), currentPath: "root" } as any;
+    findPathNodeByPathMock.mockImplementation((_root: any, pattern: string) => (pattern === "root" ? topNode : null));
+    getStructuredPathInfoMock.mockImplementation((path: string) => ({ pattern: path, wildcardCount: 0, wildcardParentInfos: [] }));
+    createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState());
+
+    const ref = { info: { pattern: "root" }, listIndex: null } as any;
+    expect(() => render([ref], engine)).toThrowError(/PathNode not found: missingDep/);
+  });
+
+  it("動的依存（ワイルドカード）: getListIndexes が null の場合は子展開しない", () => {
+    const engine = makeEngine();
+    engine.getBindings.mockReturnValue([]);
+    engine.pathManager.dynamicDependencies.set("root", new Set(["dep/*/x"]));
+
+    const topNode = { childNodeByName: new Map(), currentPath: "root" } as any;
+    const depNode = { childNodeByName: new Map(), currentPath: "dep/*/x" } as any;
+    findPathNodeByPathMock.mockImplementation((_root: any, pattern: string) => {
+      if (pattern === "root") return topNode;
+      if (pattern === "dep/*/x") return depNode;
+      return null;
+    });
+
+    const depInfo = { pattern: "dep/*/x", wildcardCount: 1, wildcardParentInfos: [{ pattern: "dep" }, { pattern: "dep/*" }] };
+    getStructuredPathInfoMock.mockImplementation((path: string) => (path === "dep/*/x" ? depInfo : { pattern: path, wildcardCount: 0, wildcardParentInfos: [] }));
+
+    // listIndexes を返さない
+    engine.getListIndexes.mockReturnValue(null);
+    createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState());
+
+    const ref = { info: { pattern: "root" }, listIndex: null } as any;
+    render([ref], engine);
+
+    // dep/*/x での子作成は呼ばれない
+    const finalDepCalls = getStatePropertyRefMock.mock.calls.filter((c) => c[0]?.pattern === "dep/*/x");
+    expect(finalDepCalls.length).toBe(0);
   });
 });

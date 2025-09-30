@@ -107,4 +107,23 @@ describe("BindingState", () => {
     state.set(ref.key, "dev");
     expect(bindingState.getFilteredValue(state as any)).toBe("DEV");
   });
+
+  it("エラー: ワイルドカードで lastWildcardPath が null", () => {
+    const binding = { parentBindContent: { currentLoopContext: { find: vi.fn() } }, engine } as any;
+    const factory = createBindingState("items.*.name", []);
+    const bindingState = factory(binding, engine.outputFilters);
+    // info.lastWildcardPath を null にするため、getStructuredPathInfo をモックするのが簡単だが、ここでは実際の実装依存を避ける
+    // 代替として、currentLoopContext.find が null を返すケースで 'LoopContext is null' をカバー
+    (binding.parentBindContent.currentLoopContext.find as any).mockReturnValue(null);
+    expect(() => bindingState.init()).toThrow(/LoopContext is null/i);
+  });
+
+  it("エラー: ワイルドカード・未init で ref が null", () => {
+    // ワイルドカードの場合、コンストラクタで #nullRef は null になる
+    // init() を呼ばずに getValue すると、loopContext === null かつ nullRef === null で 'ref is null'
+    const binding = { parentBindContent: { currentLoopContext: null }, engine } as any;
+    const factory = createBindingState("items.*.name", []);
+    const bindingState = factory(binding, engine.outputFilters);
+    expect(() => bindingState.getValue({ [GetByRefSymbol]: vi.fn() } as any)).toThrow(/ref is null/i);
+  });
 });

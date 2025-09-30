@@ -795,17 +795,12 @@ const createBindingNodeAttribute = (name, filterTexts, decorates) => (binding, n
 };
 
 /**
- * BindingNodeCheckboxクラスは、チェックボックス（input[type="checkbox"]）の
- * バインディング処理を担当するバインディングノードの実装です。
+ * チェックボックス（input[type="checkbox"]）のバインディング。
  *
- * 主な役割:
- * - バインディング値（配列）に現在のvalueが含まれているかどうかでchecked状態を制御
- * - 値が配列でない場合はエラーを投げる
- * - フィルタやデコレータにも対応
+ * - 値（配列）に input.value が含まれるかで checked を制御
  *
- * 設計ポイント:
- * - assignValueで配列内にvalueが含まれていればchecked=true
- * - 柔軟なバインディング記法・フィルタ適用に対応
+ * Throws:
+ * - BIND-201 Value is not array: 配列以外が渡された
  */
 class BindingNodeCheckbox extends BindingNode {
     assignValue(value) {
@@ -832,16 +827,12 @@ const createBindingNodeCheckbox = (name, filterTexts, decorates) => (binding, no
 };
 
 /**
- * BindingNodeClassListクラスは、class属性（classList）のバインディング処理を担当するバインディングノードの実装です。
+ * class 属性（classList）バインディング。
  *
- * 主な役割:
- * - バインディング値（配列）を空白区切りのclass属性値としてElementにセット
- * - 値が配列でない場合はエラーを投げる
- * - フィルタやデコレータにも対応
+ * - 値（配列）を空白区切りで結合して className へ反映
  *
- * 設計ポイント:
- * - assignValueで配列を受け取り、join(" ")でclassNameに反映
- * - 柔軟なバインディング記法・フィルタ適用に対応
+ * Throws:
+ * - BIND-201 Value is not array: 配列以外が渡された
  */
 class BindingNodeClassList extends BindingNode {
     assignValue(value) {
@@ -868,18 +859,12 @@ const createBindingNodeClassList = (name, filterTexts, decorates) => (binding, n
 };
 
 /**
- * BindingNodeClassNameクラスは、class属性の個別クラス名（例: class.active など）の
- * バインディング処理を担当するバインディングノードの実装です。
+ * class の個別クラス名（例: class.active）に対するバインディング。
  *
- * 主な役割:
- * - バインディング値（boolean）に応じて、指定クラス名（subName）をElementに追加・削除
- * - フィルタやデコレータにも対応
+ * - name から subName を抽出し、boolean 値で add/remove を切り替え
  *
- * 設計ポイント:
- * - nameからクラス名（subName）を抽出（例: "class.active" → "active"）
- * - assignValueでboolean値のみ許容し、型が異なる場合はエラー
- * - trueならclassList.add、falseならclassList.removeでクラス操作
- * - ファクトリ関数でフィルタ適用済みインスタンスを生成
+ * Throws:
+ * - BIND-201 Value is not boolean: boolean 以外が渡された
  */
 class BindingNodeClassName extends BindingNode {
     #subName;
@@ -2691,17 +2676,15 @@ const createBindingNodeEvent = (name, filterTexts, decorates) => (binding, node,
 
 const COMMENT_TEMPLATE_MARK_LEN$1 = COMMENT_TEMPLATE_MARK.length;
 /**
- * BindingNodeBlockクラスは、テンプレートブロック（コメントノードによるテンプレート挿入部）を
- * バインディング対象とするためのバインディングノード実装です。
+ * BindingNodeBlock は、テンプレートブロック（コメントノードで示すテンプレート挿入部）を
+ * バインディング対象とする基底クラス。
  *
- * 主な役割:
- * - コメントノード内のテンプレートIDを抽出し、idプロパティとして保持
- * - テンプレートブロックのバインディング処理の基盤となる
+ * 役割:
+ * - コメントのテキストからテンプレートIDを抽出し id として保持
+ * - Block 系バインディングの共通処理を提供
  *
- * 設計ポイント:
- * - コメントノードのテキストからテンプレートIDを抽出（COMMENT_TEMPLATE_MARK以降を数値変換）
- * - IDが取得できない場合はエラーを投げる
- * - 他のBindingNode系クラスと同様、フィルタやデコレータにも対応
+ * Throws:
+ * - BIND-201 Invalid node: コメントノードから ID を抽出できない場合
  */
 class BindingNodeBlock extends BindingNode {
     #id;
@@ -2722,16 +2705,17 @@ class BindingNodeBlock extends BindingNode {
 }
 
 /**
- * BindingNodeIfクラスは、ifバインディング（条件付き描画）を担当するバインディングノードの実装です。
+ * BindingNodeIf は、if バインディング（条件付き描画）を担当するノード実装。
  *
- * 主な役割:
- * - バインディング値（boolean）に応じて、BindContent（描画内容）のマウント・アンマウントを制御
- * - true/false時のBindContent集合を管理し、現在の描画状態をbindContentsで取得可能
+ * 役割:
+ * - boolean 値に応じて BindContent（描画内容）の mount/unmount を制御
+ * - 現在表示中の BindContent 集合を bindContents で参照可能
  *
- * 設計ポイント:
- * - assignValueでboolean型以外が渡された場合はエラー
- * - trueならBindContentをrender・mount、falseならunmount
- * - 柔軟なバインディング記法・フィルタ適用に対応
+ * 例外（代表）:
+ * - BIND-201 Not implemented: assignValue は未実装
+ * - BIND-201 Value is not boolean: applyChange で値が boolean ではない
+ * - BIND-201 ParentNode is null: マウント先の親ノードが存在しない
+ * - TMP-001 Template not found: 内部で参照するテンプレート未登録
  */
 class BindingNodeIf extends BindingNodeBlock {
     #bindContent;
@@ -2748,6 +2732,10 @@ class BindingNodeIf extends BindingNodeBlock {
         this.#bindContent = createBindContent(this.binding, this.id, this.binding.engine, blankRef);
         this.#trueBindContents = this.#bindContents = [this.#bindContent];
     }
+    /**
+     * 値の直接代入は未実装。
+     * Throws: BIND-201 Not implemented
+     */
     assignValue(value) {
         raiseError({
             code: 'BIND-201',
@@ -2757,6 +2745,14 @@ class BindingNodeIf extends BindingNodeBlock {
             severity: 'error',
         });
     }
+    /**
+     * 値を評価して true なら mount+applyChange、false なら unmount。
+     * 既に更新済みの binding はスキップ。
+     *
+     * Throws:
+     * - BIND-201 Value is not boolean
+     * - BIND-201 ParentNode is null
+     */
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;
@@ -2793,8 +2789,8 @@ class BindingNodeIf extends BindingNodeBlock {
     }
 }
 /**
- * ifバインディングノード生成用ファクトリ関数
- * - name, フィルタ、デコレータ情報からBindingNodeIfインスタンスを生成
+ * if バインディングノード生成用ファクトリ関数。
+ * name / フィルタ / デコレータ設定に従い BindingNodeIf を生成する。
  */
 const createBindingNodeIf = (name, filterTexts, decorates) => (binding, node, filters) => {
     const filterFns = createFilters(filters, filterTexts);
@@ -3936,21 +3932,24 @@ function getNodesHavingDataBind(root) {
 const listDataBindAttributesById = {};
 const listPathsSetById = {};
 const pathsSetById = {};
+/**
+ * テンプレートの DocumentFragment から data-bind 対象ノードを抽出し、
+ * IDataBindAttributes の配列へ変換するユーティリティ。
+ */
 function getDataBindAttributesFromTemplate(content) {
     const nodes = getNodesHavingDataBind(content);
     return nodes.map(node => createDataBindAttributes(node));
 }
 /**
- * テンプレート（DocumentFragment）内のバインディング情報（data-bind属性やコメント）を解析・登録し、
- * 各テンプレートIDごとにバインディング属性情報・状態パス集合を管理するユーティリティ。
+ * テンプレート内のバインディング情報（data-bind 属性やコメント）を解析・登録し、
+ * テンプレート ID ごとに属性リストと状態パス集合をキャッシュする。
  *
- * - getNodesHavingDataBindで対象ノードを抽出し、createDataBindAttributesで解析
- * - 各テンプレートIDごとにバインディング属性リスト・状態パス集合・リストパス集合をキャッシュ
- * - forバインディング（ループ）のstatePropertyはlistPathsにも登録
+ * - getNodesHavingDataBind → createDataBindAttributes の順で解析
+ * - for バインディングの stateProperty は listPaths にも登録
  *
- * @param id      テンプレートID
- * @param content テンプレートのDocumentFragment
- * @param rootId  ルートテンプレートID（省略時はidと同じ）
+ * @param id      テンプレート ID
+ * @param content テンプレートの DocumentFragment
+ * @param rootId  ルートテンプレート ID（省略時は id と同じ）
  * @returns       解析済みバインディング属性リスト
  */
 function registerDataBindAttributes(id, content, rootId = id) {
@@ -3969,21 +3968,15 @@ function registerDataBindAttributes(id, content, rootId = id) {
     }
     return listDataBindAttributesById[id] = dataBindAttributes;
 }
-/**
- * テンプレートIDからバインディング属性リストを取得
- */
+/** テンプレート ID からバインディング属性リストを取得 */
 const getDataBindAttributesById = (id) => {
     return listDataBindAttributesById[id];
 };
-/**
- * テンプレートIDからforバインディングのstateProperty集合を取得
- */
+/** テンプレート ID から for バインディングの stateProperty 集合を取得 */
 const getListPathsSetById = (id) => {
     return listPathsSetById[id] ?? [];
 };
-/**
- * テンプレートIDから全バインディングのstateProperty集合を取得
- */
+/** テンプレート ID から全バインディングの stateProperty 集合を取得 */
 const getPathsSetById = (id) => {
     return pathsSetById[id] ?? [];
 };
@@ -4010,28 +4003,35 @@ function removeEmptyTextNodes(content) {
 }
 
 /**
- * registerTemplate.ts
+ * HTMLTemplateElement を ID で登録・取得するための管理モジュール。
  *
- * HTMLTemplateElementをIDで登録・取得するための管理モジュールです。
+ * 役割:
+ * - registerTemplate: 指定 ID でテンプレートを登録（空テキスト除去と data-bind 解析を実行）
+ * - getTemplateById: 指定 ID のテンプレートを取得（未登録時はエラー）
  *
- * 主な役割:
- * - templateById: IDをキーにHTMLTemplateElementを管理するレコード
- * - registerTemplate: 指定IDでテンプレートを登録し、空テキストノード除去やデータバインド属性の登録も実行
- * - getTemplateById: 指定IDのテンプレートを取得（未登録時はエラーを投げる）
- *
- * 設計ポイント:
- * - テンプレート登録時にremoveEmptyTextNodesで空テキストノードを除去し、クリーンなDOMを維持
- * - registerDataBindAttributesでデータバインド属性を自動付与
- * - グローバルにテンプレートを一元管理し、ID経由で高速にアクセス可能
- * - 存在しないIDアクセス時はraiseErrorで明確な例外を発生
+ * Throws（getTemplateById）:
+ * - TMP-001 Template not found: 未登録のテンプレート ID を要求
  */
 const templateById = {};
+/**
+ * テンプレートを ID で登録し、内部インデックスと data-bind 情報を構築する。
+ *
+ * @param id       テンプレート ID
+ * @param template HTMLTemplateElement
+ * @param rootId   ルートテンプレート ID（ネスト解析用）
+ * @returns       登録した ID
+ */
 function registerTemplate(id, template, rootId) {
     removeEmptyTextNodes(template.content);
     registerDataBindAttributes(id, template.content, rootId);
     templateById[id] = template;
     return id;
 }
+/**
+ * 登録済みテンプレートを取得する。
+ *
+ * @throws TMP-001 Template not found
+ */
 function getTemplateById(id) {
     return templateById[id] ?? raiseError({
         code: "TMP-001",
@@ -4188,6 +4188,18 @@ function createLoopContext(ref, bindContent) {
     return new LoopContext(ref, bindContent);
 }
 
+/**
+ * 指定テンプレートIDから DocumentFragment を生成するヘルパー。
+ *
+ * Params:
+ * - id: 登録済みテンプレートID
+ *
+ * Returns:
+ * - テンプレート内容を複製した DocumentFragment
+ *
+ * Throws:
+ * - TMP-001 Template not found: 未登録IDが指定された場合
+ */
 function createContent(id) {
     const template = getTemplateById(id) ??
         raiseError({
@@ -4206,6 +4218,23 @@ function createContent(id) {
     }
     return fragment;
 }
+/**
+ * テンプレート内の data-bind 情報から IBinding 配列を構築する。
+ *
+ * Params:
+ * - bindContent: 親 BindContent
+ * - id: テンプレートID
+ * - engine: コンポーネントエンジン
+ * - content: テンプレートから複製したフラグメント
+ *
+ * Returns:
+ * - 生成された IBinding の配列
+ *
+ * Throws:
+ * - BIND-101 Data-bind is not set: テンプレートに data-bind 情報が未登録
+ * - BIND-102 Node not found: パスで指すノードが見つからない
+ * - BIND-103 Creator not found: 対応する BindingCreator が未登録
+ */
 function createBindings(bindContent, id, engine, content) {
     const attributes = getDataBindAttributesById(id) ??
         raiseError({
@@ -4240,22 +4269,22 @@ function createBindings(bindContent, id, engine, content) {
     return bindings;
 }
 /**
- * BindContentクラスは、テンプレートから生成されたDOM断片（DocumentFragment）と
- * そのバインディング情報（IBinding配列）を管理するための実装です。
+ * BindContent は、テンプレートから生成された DOM 断片（DocumentFragment）と
+ * そのバインディング情報（IBinding[]）を管理する実装です。
  *
  * 主な役割:
- * - テンプレートIDからDOM断片を生成し、バインディング情報を構築
- * - mount/mountBefore/mountAfter/unmountでDOMへの挿入・削除を制御
- * - renderでバインディングの再描画、initで初期化処理を実行
- * - ループバインディング時のLoopContextやリストインデックス管理にも対応
- * - getLastNodeで再帰的に最後のノードを取得し、リスト描画や差し替えに利用
- * - assignListIndexでループ内のリストインデックスを再割り当てし、再初期化
+ * - テンプレートIDから DOM 断片を生成し、バインディング情報を構築
+ * - mount/mountBefore/mountAfter/unmount で DOM への挿入・削除を制御
+ * - applyChange で各 IBinding に更新を委譲
+ * - ループ時の LoopContext やリストインデックス管理にも対応
+ * - getLastNode で再帰的に最後のノードを取得
+ * - assignListIndex でループ内のリストインデックスを再割り当て
  *
- * 設計ポイント:
- * - fragmentとchildNodesの両方を管理し、効率的なDOM操作を実現
- * - バインディング情報はテンプレートごとに動的に生成され、各ノードに紐付く
- * - ループや条件分岐など複雑なバインディング構造にも柔軟に対応
- * - createBindContentファクトリ関数で一貫した生成・初期化を提供
+ * Throws（代表例）:
+ * - TMP-001 Template not found: createContent 内で未登録テンプレートID
+ * - BIND-101/102/103: createBindings 内の data-bind 情報不足/不整合
+ * - BIND-104 Child bindContent not found: getLastNode の子探索で不整合
+ * - BIND-201 LoopContext is null: assignListIndex 実行時に LoopContext 未初期化
  */
 class BindContent {
     loopContext;
@@ -4371,6 +4400,18 @@ class BindContent {
         }
     }
 }
+/**
+ * BindContent を生成して初期化（bindings.init）までを行うファクトリ関数。
+ *
+ * Params:
+ * - parentBinding: 親の IBinding（なければ null）
+ * - id: テンプレートID
+ * - engine: コンポーネントエンジン
+ * - loopRef: ループ用の StatePropertyRef（listIndex を含む場合に LoopContext を構築）
+ *
+ * Returns:
+ * - 初期化済みの IBindContent
+ */
 function createBindContent(parentBinding, id, engine, loopRef) {
     const bindContent = new BindContent(parentBinding, id, engine, loopRef);
     bindContent.init();

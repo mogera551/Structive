@@ -65,4 +65,57 @@ describe("StateClass/methods getListIndex", () => {
     const resolved = { wildcardType: "partial", info: { pattern: "p" } } as any;
     expect(() => getListIndex(resolved, {} as any, handler)).toThrowError(/Partial wildcard type is not supported/);
   });
+
+  it("context: lastWildcardPath が null だとエラー", () => {
+    const handler = makeHandler({});
+    const resolved = { wildcardType: "context", info: { pattern: "x", lastWildcardPath: null } } as any;
+    expect(() => getListIndex(resolved, {} as any, handler)).toThrow(/lastWildcardPath is null/i);
+  });
+
+  it("context: getContextListIndex が null を返すとエラー", () => {
+    getContextListIndexMock.mockReturnValueOnce(null);
+    const handler = makeHandler({});
+    const resolved = { wildcardType: "context", info: { pattern: "x", lastWildcardPath: { pattern: "x" } } } as any;
+    expect(() => getListIndex(resolved, {} as any, handler)).toThrow(/ListIndex not found/i);
+  });
+
+  it("all: wildcardParentInfos[i] が無いとエラー", () => {
+    const handler = makeHandler({});
+    const resolved = {
+      wildcardType: "all",
+      info: { pattern: "a.*", wildcardCount: 1, wildcardParentInfos: [] },
+      wildcardIndexes: [0],
+    } as any;
+    expect(() => getListIndex(resolved, {} as any, handler)).toThrow(/wildcardParentPattern is null/i);
+  });
+
+  it("all: engine.getListIndexes が null/undefined だとエラー", () => {
+    const handler = makeHandler({});
+    const resolved = {
+      wildcardType: "all",
+      info: { pattern: "a.*", wildcardCount: 1, wildcardParentInfos: [{ pattern: "p" }] },
+      wildcardIndexes: [0],
+    } as any;
+    expect(() => getListIndex(resolved, {} as any, handler)).toThrow(/ListIndex not found: p/);
+  });
+
+  it("all: wildcardIndex が無いとエラー", () => {
+    const handler = makeHandler({ p: [{ li: 0 }] });
+    const resolved = {
+      wildcardType: "all",
+      info: { pattern: "a.*", wildcardCount: 1, wildcardParentInfos: [{ pattern: "p" }] },
+      wildcardIndexes: [],
+    } as any;
+    expect(() => getListIndex(resolved, {} as any, handler)).toThrow(/wildcardIndex is null/i);
+  });
+
+  it("all: listIndexes[wildcardIndex] が無いとエラー", () => {
+    const handler = makeHandler({ p: [] });
+    const resolved = {
+      wildcardType: "all",
+      info: { pattern: "a.*", wildcardCount: 1, wildcardParentInfos: [{ pattern: "p" }] },
+      wildcardIndexes: [0],
+    } as any;
+    expect(() => getListIndex(resolved, {} as any, handler)).toThrow(/ListIndex not found: p/);
+  });
 });
