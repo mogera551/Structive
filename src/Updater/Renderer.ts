@@ -13,6 +13,8 @@ import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
+import { createSwapDiff } from "../SwapDiff/SwapDiff";
+import { ISwapDiff } from "../SwapDiff/types";
 import { raiseError } from "../utils";
 import { IRenderer } from "./types";
 
@@ -22,6 +24,7 @@ class Renderer implements IRenderer {
   #engine: IComponentEngine;
   #readonlyState: IReadonlyStateProxy | null = null;
   #listDiffByRef: Map<IStatePropertyRef, IListDiff> = new Map();
+  #swapDiffByRef: Map<IStatePropertyRef, ISwapDiff> = new Map();
 
   constructor(engine: IComponentEngine) {
     this.#engine = engine;
@@ -39,7 +42,7 @@ class Renderer implements IRenderer {
     if (!this.#readonlyState) {
       raiseError({
         code: "UPD-002",
-  message: "ReadonlyState not initialized",
+        message: "ReadonlyState not initialized",
         docsUrl: "./docs/error-codes.md#upd",
       });
     }
@@ -50,7 +53,7 @@ class Renderer implements IRenderer {
     if (!this.#engine) {
       raiseError({
         code: "UPD-001",
-  message: "Engine not initialized",
+        message: "Engine not initialized",
         docsUrl: "./docs/error-codes.md#upd",
       });
     }
@@ -66,6 +69,53 @@ class Renderer implements IRenderer {
     const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#engine.state, this);
     try {
       readonlyState[SetCacheableSymbol](() => {
+        for(let i = 0; i < items.length; i++) {
+          const ref = items[i];
+          if (!this.#engine.pathManager.elements.has(ref.info.pattern)) {
+            continue; // elements に登録されているパスはスキップ
+          }
+          const listIndex = ref.listIndex ?? raiseError({
+            code: "UPD-003",
+            message: `ListIndex is null for ref: ${ref.key}`,
+            context: { refKey: ref.key, pattern: ref.info.pattern },
+            docsUrl: "./docs/error-codes.md#upd",
+          });
+          const listRef = getStatePropertyRef(ref.info, ref.listIndex?.at(-2) || null);
+          let swapDiff = this.#swapDiffByRef.get(listRef);
+          const [ oldListValue, oldListIndexes ] = this.engine.getListAndListIndexes(listRef);
+          if (typeof swapDiff === "undefined") {
+            swapDiff = createSwapDiff();
+            swapDiff.newListIndexes = Array.from(oldListIndexes || []);
+            this.#swapDiffByRef.set(listRef, swapDiff);
+          }
+          const elementValue = this.readonlyState[GetByRefSymbol](ref);
+          const oldIndex = oldListValue?.indexOf(elementValue) ?? -1;
+          if (oldIndex === -1) {
+            swapDiff.overwrites.push(listIndex);
+          } else {
+            const oldListIndex = oldListIndexes?.[oldIndex] ?? raiseError({
+              code: "UPD-004",
+              message: `ListIndex not found for value: ${elementValue}`,
+              context: { refKey: ref.key, pattern: ref.info.pattern },
+              docsUrl: "./docs/error-codes.md#upd",
+            });
+            swapDiff.newListIndexes[listIndex.index] = oldListIndex;
+            swapDiff.swaps.push(oldListIndex);
+          }
+        }
+        for(const [ ref, swapDiff ] of this.#swapDiffByRef) {
+          const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
+          if (node === null) {
+            raiseError({
+              code: "PATH-101",
+              message: `PathNode not found: ${ref.info.pattern}`,
+              context: { pattern: ref.info.pattern },
+              docsUrl: "./docs/error-codes.md#path",
+            });
+          }
+          this.renderItem(ref, node);
+        }
+
         for(let i = 0; i < items.length; i++) {
           const ref = items[i];
           const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
