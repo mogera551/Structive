@@ -40,13 +40,23 @@ export function setByRef(
         return Reflect.set(target, ref.info.pattern, value, receiver);
       });
     } else {
-      const parentInfo = ref.info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+      const parentInfo = ref.info.parentInfo ?? raiseError({
+        code: 'STATE-202',
+        message: 'propRef.stateProp.parentInfo is undefined',
+        context: { where: 'setByRef', refPath: ref.info.pattern },
+        docsUrl: '/docs/error-codes.md#state',
+      });
       const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
       const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
       const parentValue = getByRefWritable(target, parentRef, receiver, handler);
       const lastSegment = ref.info.lastSegment;
       if (lastSegment === "*") {
-        const index = ref.listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+        const index = ref.listIndex?.index ?? raiseError({
+          code: 'STATE-202',
+          message: 'propRef.listIndex?.index is undefined',
+          context: { where: 'setByRef', refPath: ref.info.pattern },
+          docsUrl: '/docs/error-codes.md#state',
+        });
         return Reflect.set(parentValue, index, value);
       } else {
         return Reflect.set(parentValue, lastSegment, value);

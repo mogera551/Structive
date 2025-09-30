@@ -150,7 +150,7 @@ describe("BindContent", () => {
     vi.spyOn(bindingMod, "createBinding").mockReturnValue({ init: vi.fn(), node: template.content.firstElementChild!, bindContents: [] } as any);
 
     const bc = createBindContent(null, templateId, engine, { listIndex: null } as any);
-    expect(() => bc.assignListIndex({} as any)).toThrow("BindContent: loopContext is null");
+  expect(() => bc.assignListIndex({} as any)).toThrow("LoopContext is null");
   });
 
   it("assignListIndex: loopContext があれば assignListIndex と init を呼ぶ", () => {
@@ -208,18 +208,18 @@ describe("BindContent", () => {
   it("createBindings: data-bind 未登録でエラー, resolveNodeFromPath 失敗, creator 未登録", () => {
     // data-bind 未登録
     vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValueOnce(undefined as any);
-    expect(() => createBindContent(null, templateId, engine, { listIndex: null } as any)).toThrow("BindContent: data-bind is not set");
+  expect(() => createBindContent(null, templateId, engine, { listIndex: null } as any)).toThrow("Data-bind is not set");
 
     // resolveNodeFromPath 失敗
     const attrs1 = [{ nodeType: "HTMLElement", nodePath: [0, 1], bindTexts: ["t1"], creatorByText: new Map([["t1", {}]]) }];
     vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValueOnce(attrs1 as any);
     vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValueOnce(null as any);
-    expect(() => createBindContent(null, templateId, engine, { listIndex: null } as any)).toThrow("BindContent: node is not found: 0,1");
+  expect(() => createBindContent(null, templateId, engine, { listIndex: null } as any)).toThrow("Node not found: 0,1");
 
     // creator 未登録
     const attrs2 = [{ nodeType: "HTMLElement", nodePath: [0], bindTexts: ["no-creator"], creatorByText: new Map() }];
     vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValueOnce(attrs2 as any);
     vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValueOnce(template.content.firstElementChild!);
-    expect(() => createBindContent(null, templateId, engine, { listIndex: null } as any)).toThrow("BindContent: creator is not found: no-creator");
+  expect(() => createBindContent(null, templateId, engine, { listIndex: null } as any)).toThrow("Creator not found: no-creator");
   });
 });

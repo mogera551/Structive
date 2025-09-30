@@ -37,14 +37,22 @@ class Renderer implements IRenderer {
 
   get readonlyState(): IReadonlyStateProxy {
     if (!this.#readonlyState) {
-      raiseError("ReadonlyState is not initialized.");
+      raiseError({
+        code: "UPD-002",
+  message: "ReadonlyState not initialized",
+        docsUrl: "./docs/error-codes.md#upd",
+      });
     }
     return this.#readonlyState;
   }
 
   get engine(): IComponentEngine {
     if (!this.#engine) {
-      raiseError("Engine is not initialized.");
+      raiseError({
+        code: "UPD-001",
+  message: "Engine not initialized",
+        docsUrl: "./docs/error-codes.md#upd",
+      });
     }
     return this.#engine;
   }
@@ -62,7 +70,12 @@ class Renderer implements IRenderer {
           const ref = items[i];
           const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
           if (node === null) {
-            raiseError(`PathNode not found: ${ref.info.pattern}`);
+            raiseError({
+              code: "PATH-101",
+              message: `PathNode not found: ${ref.info.pattern}`,
+              context: { pattern: ref.info.pattern },
+              docsUrl: "./docs/error-codes.md#path",
+            });
           }
           this.renderItem(ref, node);
         }
@@ -129,7 +142,12 @@ class Renderer implements IRenderer {
         const depInfo = getStructuredPathInfo(depPath);
         const depNode = findPathNodeByPath(this.#engine.pathManager.rootNode, depInfo.pattern);
         if (depNode === null) {
-          raiseError(`PathNode not found: ${depInfo.pattern}`);
+          raiseError({
+            code: "PATH-101",
+            message: `PathNode not found: ${depInfo.pattern}`,
+            context: { pattern: depInfo.pattern },
+            docsUrl: "./docs/error-codes.md#path",
+          });
         }
         if (depInfo.wildcardCount > 0) {
           const infos = depInfo.wildcardParentInfos;

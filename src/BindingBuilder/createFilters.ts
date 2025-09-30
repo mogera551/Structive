@@ -10,7 +10,14 @@ import { IFilterText } from "./types";
  */
 function textToFilter(filters:FilterWithOptions, text: IFilterText): FilterFn {
   const filter = filters[text.name];
-  if (!filter) raiseError(`outputBuiltinFiltersFn: filter not found: ${name}`);
+  if (!filter) {
+    raiseError({
+      code: 'FLT-201',
+      message: `Filter not found: ${text.name}`,
+      context: { where: 'createFilters.textToFilter', name: text.name },
+      docsUrl: './docs/error-codes.md#flt',
+    });
+  }
   return filter(text.options);
 }
 

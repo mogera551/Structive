@@ -5,10 +5,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { resolve } from "../../src/StateClass/apis/resolve";
 import { SetCacheableSymbol } from "../../src/StateClass/symbols";
 
-// Mock for utils.js
-const raiseErrorMock = vi.fn((msg: string) => { throw new Error(msg); });
+// Mock for utils: payload/legacy string 両対応
+const raiseErrorMock = vi.fn((arg: any) => {
+  if (typeof arg === "string") {
+    throw new Error(arg);
+  }
+  if (arg && typeof arg === "object") {
+    throw new Error(arg.message ?? String(arg));
+  }
+  throw new Error(String(arg));
+});
 vi.mock("../../src/utils", () => ({
-  raiseError: (msg: string) => raiseErrorMock(msg)
+  raiseError: (arg: any) => raiseErrorMock(arg)
 }));
 
 // Mocks for dependencies

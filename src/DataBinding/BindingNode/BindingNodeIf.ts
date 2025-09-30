@@ -52,18 +52,36 @@ class BindingNodeIf extends BindingNodeBlock {
   }
 
   assignValue(value: any): void {
-    raiseError(`BindingNodeIf.assignValue: not implemented`);
+    raiseError({
+      code: 'BIND-201',
+      message: 'Not implemented',
+      context: { where: 'BindingNodeIf.assignValue', name: this.name },
+      docsUrl: '/docs/error-codes.md#bind',
+      severity: 'error',
+    });
   }
   
   applyChange(renderer: IRenderer): void {
     if (renderer.updatedBindings.has(this.binding)) return;
     const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
     if (typeof filteredValue !== "boolean") {
-      raiseError(`BindingNodeIf.update: value is not boolean`);
+      raiseError({
+        code: 'BIND-201',
+        message: 'Value is not boolean',
+        context: { where: 'BindingNodeIf.update', valueType: typeof filteredValue },
+        docsUrl: '/docs/error-codes.md#bind',
+        severity: 'error',
+      });
     }
     const parentNode = this.node.parentNode;
     if (parentNode == null) {
-      raiseError(`BindingNodeIf.update: parentNode is null`);
+      raiseError({
+        code: 'BIND-201',
+        message: 'ParentNode is null',
+        context: { where: 'BindingNodeIf.update', nodeType: this.node.nodeType },
+        docsUrl: '/docs/error-codes.md#bind',
+        severity: 'error',
+      });
     }
     if (filteredValue) {
       this.#bindContent.mountAfter(parentNode, this.node);

@@ -58,7 +58,12 @@ export class ComponentEngine implements IComponentEngine {
   #bindContent  :IBindContent | null = null;
   get bindContent(): IBindContent {
     if (this.#bindContent === null) {
-      raiseError("bindContent is not initialized yet");
+      raiseError({
+        code: 'BIND-201',
+        message: 'bindContent not initialized yet',
+        context: { where: 'ComponentEngine.bindContent.get', componentId: (this.owner.constructor as IComponentStatic).id },
+        docsUrl: './docs/error-codes.md#bind',
+      });
     }
     return this.#bindContent;
   }
@@ -128,7 +133,13 @@ export class ComponentEngine implements IComponentEngine {
         const json = JSON.parse(this.owner.dataset.state);
         this.stateInput[AssignStateSymbol](json);
       } catch(e) {
-        raiseError("Failed to parse state from dataset");
+        raiseError({
+          code: 'STATE-202',
+          message: 'Failed to parse state from dataset',
+          context: { where: 'ComponentEngine.connectedCallback', datasetState: this.owner.dataset.state },
+          docsUrl: './docs/error-codes.md#state',
+          cause: e as any,
+        });
       }
     }
     const parentComponent = this.owner.parentStructiveComponent;
@@ -156,7 +167,12 @@ export class ComponentEngine implements IComponentEngine {
       this.bindContent.mount(this.owner.shadowRoot ?? this.owner);
     } else {
       // ブロックプレースホルダーの親ノードにバインドコンテンツをマウントする
-      const parentNode = this.#blockParentNode ?? raiseError("Block parent node is not set");
+      const parentNode = this.#blockParentNode ?? raiseError({
+        code: 'BIND-201',
+        message: 'Block parent node is not set',
+        context: { where: 'ComponentEngine.connectedCallback', mode: 'block' },
+        docsUrl: './docs/error-codes.md#bind',
+      });
       this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
     }
 

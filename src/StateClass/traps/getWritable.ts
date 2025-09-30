@@ -42,7 +42,13 @@ export function getWritable(
   const index = indexByIndexName[prop];
   if (typeof index !== "undefined") {
     const listIndex = handler.lastRefStack?.listIndex;
-    return listIndex?.indexes[index] ?? raiseError(`ListIndex not found: ${prop.toString()}`);
+    return listIndex?.indexes[index] ?? raiseError({
+      code: 'LIST-201',
+      message: `ListIndex not found: ${prop.toString()}`,
+      context: { prop: String(prop), indexes: listIndex?.indexes ?? null, index },
+      docsUrl: '/docs/error-codes.md#list',
+      severity: 'error',
+    });
   }
   if (typeof prop === "string") {
     if (prop[0] === "$") {

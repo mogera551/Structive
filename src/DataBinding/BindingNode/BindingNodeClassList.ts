@@ -21,7 +21,13 @@ import { CreateBindingNodeFn } from "./types";
 class BindingNodeClassList extends BindingNode {
   assignValue(value:any) {
     if (!Array.isArray(value)) {
-      raiseError(`BindingNodeClassList.update: value is not array`);
+      raiseError({
+        code: 'BIND-201',
+        message: 'Value is not array',
+        context: { where: 'BindingNodeClassList.update', receivedType: typeof value },
+        docsUrl: '/docs/error-codes.md#bind',
+        severity: 'error',
+      });
     }
     const element = this.node as Element;
     element.className = value.join(" ");

@@ -14,22 +14,49 @@
  * - valueMustBeBoolean: 値がbooleanでない場合にエラー
  * - valueMustBeDate: 値がDateでない場合にエラー
  */
+import { raiseError } from "../utils";
+
 export function optionsRequired(fnName:string): never {
-  throw new Error(`${fnName} requires at least one option`);
+  raiseError({
+    code: "FLT-202",
+    message: `${fnName} requires at least one option`,
+    context: { fnName },
+    docsUrl: "./docs/error-codes.md#flt",
+  });
 }
 
 export function optionMustBeNumber(fnName:string): never {
-  throw new Error(`${fnName} requires a number as option`);
+  raiseError({
+    code: "FLT-202",
+    message: `${fnName} requires a number as option`,
+    context: { fnName },
+    docsUrl: "./docs/error-codes.md#flt",
+  });
 }
 
 export function valueMustBeNumber(fnName:string): never {
-  throw new Error(`${fnName} requires a number value`);
+  raiseError({
+    code: "FLT-202",
+    message: `${fnName} requires a number value`,
+    context: { fnName },
+    docsUrl: "./docs/error-codes.md#flt",
+  });
 }
 
 export function valueMustBeBoolean(fnName:string): never {
-  throw new Error(`${fnName} requires a boolean value`);
+  raiseError({
+    code: "FLT-202",
+    message: `${fnName} requires a boolean value`,
+    context: { fnName },
+    docsUrl: "./docs/error-codes.md#flt",
+  });
 }
 
 export function valueMustBeDate(fnName:string): never {
-  throw new Error(`${fnName} requires a date value`);
+  raiseError({
+    code: "FLT-202",
+    message: `${fnName} requires a date value`,
+    context: { fnName },
+    docsUrl: "./docs/error-codes.md#flt",
+  });
 }

@@ -83,7 +83,7 @@ describe('BindingBuilder', () => {
         { name: 'unknown', options: [] },
       ];
       
-      expect(() => createFilters(filters, texts)).toThrow('outputBuiltinFiltersFn: filter not found');
+  expect(() => createFilters(filters, texts)).toThrow('Filter not found');
     });
 
     it('should cache results for same input', () => {

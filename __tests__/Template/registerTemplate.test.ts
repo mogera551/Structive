@@ -184,7 +184,7 @@ describe("Template/registerTemplate", () => {
       
       expect(() => {
         getTemplateById(nonExistentId);
-      }).toThrow(`getTemplateById: template not found: ${nonExistentId}`);
+  }).toThrow(`Template not found: ${nonExistentId}`);
     });
 
     test("should throw error for undefined id", () => {
@@ -192,7 +192,7 @@ describe("Template/registerTemplate", () => {
       
       expect(() => {
         getTemplateById(undefinedId);
-      }).toThrow(`getTemplateById: template not found: ${undefinedId}`);
+  }).toThrow(`Template not found: ${undefinedId}`);
     });
 
     test("should return correct template when multiple are registered", () => {

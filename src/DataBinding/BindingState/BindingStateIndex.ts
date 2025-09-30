@@ -29,16 +29,36 @@ class BindingStateIndex implements IBindingState {
   #filters     : Filters;
   #loopContext : ILoopContext | null = null;
   get pattern(): string {
-    return raiseError("Not implemented");
+    return raiseError({
+      code: 'BIND-301',
+      message: 'Not implemented',
+      context: { where: 'BindingStateIndex.pattern' },
+      docsUrl: '/docs/error-codes.md#bind',
+    });
   }
   get info() {
-    return raiseError("Not implemented");
+    return raiseError({
+      code: 'BIND-301',
+      message: 'Not implemented',
+      context: { where: 'BindingStateIndex.info' },
+      docsUrl: '/docs/error-codes.md#bind',
+    });
   }
   get listIndex() {
-    return this.#loopContext?.listIndex ?? raiseError("listIndex is null");
+    return this.#loopContext?.listIndex ?? raiseError({
+      code: 'LIST-201',
+      message: 'listIndex is null',
+      context: { where: 'BindingStateIndex.listIndex' },
+      docsUrl: '/docs/error-codes.md#list',
+    });
   }
   get ref() {
-    return this.#loopContext?.ref ?? raiseError("ref is null");
+    return this.#loopContext?.ref ?? raiseError({
+      code: 'STATE-202',
+      message: 'ref is null',
+      context: { where: 'BindingStateIndex.ref' },
+      docsUrl: '/docs/error-codes.md#state',
+    });
   }
   get filters() {
     return this.#filters;
@@ -54,16 +74,31 @@ class BindingStateIndex implements IBindingState {
     this.#binding = binding;
     const indexNumber = Number(pattern.slice(1));
     if (isNaN(indexNumber)) {
-      raiseError("BindingStateIndex: pattern is not a number");
+      raiseError({
+        code: 'BIND-202',
+        message: 'Pattern is not a number',
+        context: { where: 'BindingStateIndex.constructor', pattern },
+        docsUrl: '/docs/error-codes.md#bind',
+      });
     }
     this.#indexNumber = indexNumber;
     this.#filters = filters;
   }
   getValue(state: IReadonlyStateProxy | IWritableStateProxy) {
-    return this.listIndex?.index ?? raiseError("listIndex is null");
+    return this.listIndex?.index ?? raiseError({
+      code: 'LIST-201',
+      message: 'listIndex is null',
+      context: { where: 'BindingStateIndex.getValue' },
+      docsUrl: '/docs/error-codes.md#list',
+    });
   }
   getFilteredValue(state: IReadonlyStateProxy | IWritableStateProxy) {
-    let value = this.listIndex?.index ?? raiseError("listIndex is null");
+    let value = this.listIndex?.index ?? raiseError({
+      code: 'LIST-201',
+      message: 'listIndex is null',
+      context: { where: 'BindingStateIndex.getFilteredValue' },
+      docsUrl: '/docs/error-codes.md#list',
+    });
     for(let i = 0; i < this.#filters.length; i++) {
       value = this.#filters[i](value);
     }
@@ -71,10 +106,20 @@ class BindingStateIndex implements IBindingState {
   }
   init(): void {
     const loopContext = this.binding.parentBindContent.currentLoopContext ??
-      raiseError(`BindingState.init: loopContext is null`);
+      raiseError({
+        code: 'BIND-201',
+        message: 'LoopContext is null',
+        context: { where: 'BindingStateIndex.init' },
+        docsUrl: '/docs/error-codes.md#bind',
+      });
     const loopContexts = loopContext.serialize();
     this.#loopContext = loopContexts[this.#indexNumber - 1] ??
-      raiseError(`BindingState.init: currentLoopContext is null`);
+      raiseError({
+        code: 'BIND-201',
+        message: 'Current loopContext is null',
+        context: { where: 'BindingStateIndex.init', indexNumber: this.#indexNumber },
+        docsUrl: '/docs/error-codes.md#bind',
+      });
     const bindings = this.binding.engine.bindingsByListIndex.get(this.listIndex);
     if (bindings === undefined) {
       this.binding.engine.bindingsByListIndex.set(this.listIndex, new Set([this.binding]));
@@ -83,7 +128,12 @@ class BindingStateIndex implements IBindingState {
     }
   }
   assignValue(writeState:IWritableStateProxy, value:any): void {
-    raiseError("BindingStateIndex: assignValue is not implemented");
+    raiseError({
+      code: 'BIND-301',
+      message: 'Not implemented',
+      context: { where: 'BindingStateIndex.assignValue' },
+      docsUrl: '/docs/error-codes.md#bind',
+    });
   }
 }
 

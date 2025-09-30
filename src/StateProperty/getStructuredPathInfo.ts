@@ -119,7 +119,12 @@ class StructuredPathInfo implements IStructuredPathInfo {
 
 export function getStructuredPathInfo(structuredPath: string): IStructuredPathInfo {
   if (RESERVED_WORD_SET.has(structuredPath)) {
-    raiseError(`getStructuredPathInfo: pattern is reserved word: ${structuredPath}`);
+    raiseError({
+      code: 'STATE-202',
+      message: `Pattern is reserved word: ${structuredPath}`,
+      context: { where: 'getStructuredPathInfo', structuredPath },
+      docsUrl: './docs/error-codes.md#state',
+    });
   }
   const info = _cache[structuredPath];
   if (typeof info !== "undefined") {

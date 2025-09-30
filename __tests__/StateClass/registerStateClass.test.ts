@@ -13,6 +13,6 @@ describe("StateClass/registerStateClass", () => {
   });
 
   it("未登録IDでエラーを投げる", () => {
-    expect(() => getStateClassById(999999)).toThrowError(/stateClass not found/);
+    expect(() => getStateClassById(999999)).toThrowError(/stateclass not found/i);
   });
 });

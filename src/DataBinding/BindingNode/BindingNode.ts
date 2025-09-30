@@ -67,10 +67,20 @@ export class BindingNode implements IBindingNode {
     // サブクラスで初期化処理を実装可能
   }
   assignValue(value: any): void {
-    raiseError(`BindingNode: assignValue not implemented`);
+    raiseError({
+      code: 'BIND-301',
+      message: 'Not implemented',
+      context: { where: 'BindingNode.assignValue', name: this.name },
+      docsUrl: '/docs/error-codes.md#bind',
+    });
   }
   updateElements(listIndexes: IListIndex[], values: any[]) {
-    raiseError(`BindingNode: updateElements not implemented`);
+    raiseError({
+      code: 'BIND-301',
+      message: 'Not implemented',
+      context: { where: 'BindingNode.updateElements', name: this.name },
+      docsUrl: '/docs/error-codes.md#bind',
+    });
   }
   notifyRedraw(refs: IStatePropertyRef[]): void {
     // サブクラスで親子関係を考慮してバインディングの更新を通知する実装が可能

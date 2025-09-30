@@ -162,7 +162,7 @@ describe("BindingNodeFor coverage", () => {
       removes: new Set(),
     } as any;
     const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
-    expect(() => node.applyChange(renderer)).toThrowError(/parentNode is null/);
+  expect(() => node.applyChange(renderer)).toThrowError(/parentNode is null/i);
   });
 
   it("poolLength の setter 負数はエラー", () => {
@@ -170,7 +170,7 @@ describe("BindingNodeFor coverage", () => {
     const comment = document.createComment("@@|304");
     const binding = createBindingStub(engine, comment);
     const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
-    expect(() => { node.poolLength = -1; }).toThrowError(/length is negative/);
+  expect(() => { node.poolLength = -1; }).toThrowError(/length is negative/i);
   });
 
   it("loopInfo はキャッシュされ、getStructuredPathInfo は1回のみ", () => {

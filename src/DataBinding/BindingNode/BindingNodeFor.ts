@@ -89,7 +89,12 @@ class BindingNodeFor extends BindingNodeBlock {
   }
   set poolLength(length: number) {
     if (length < 0) {
-      raiseError(`BindingNodeFor.setPoolLength: length is negative`);
+      raiseError({
+        code: 'BIND-202',
+        message: 'Length is negative',
+        context: { where: 'BindingNodeFor.setPoolLength', length },
+        docsUrl: '/docs/error-codes.md#bind',
+      });
     }
     this.#bindContentPool.length = length;
   }
@@ -103,7 +108,12 @@ class BindingNodeFor extends BindingNodeBlock {
   }
 
   assignValue(value:any) {
-    raiseError("BindingNodeFor.assignValue: Not implemented. Use update or applyChange.");
+    raiseError({
+      code: 'BIND-301',
+      message: 'Not implemented. Use update or applyChange',
+      context: { where: 'BindingNodeFor.assignValue' },
+      docsUrl: '/docs/error-codes.md#bind',
+    });
   }
 
   applyChange(renderer: IRenderer): void {
@@ -112,14 +122,24 @@ class BindingNodeFor extends BindingNodeBlock {
     // 削除を先にする
     const removeBindContentsSet = new Set<IBindContent>();
     const listDiff = renderer.calcListDiff(this.binding.bindingState.ref);
-    const parentNode = this.node.parentNode ?? raiseError(`BindingNodeFor.update: parentNode is null`);
+    const parentNode = this.node.parentNode ?? raiseError({
+      code: 'BIND-201',
+      message: 'ParentNode is null',
+      context: { where: 'BindingNodeFor.applyChange' },
+      docsUrl: '/docs/error-codes.md#bind',
+    });
     // 全削除最適化のフラグ
     const isAllRemove = (listDiff.oldListValue?.length === listDiff.removes?.size && (listDiff.oldListValue?.length ?? 0) > 0);
     // 親ノードこのノードだけ持つかのチェック
     let isParentNodeHasOnlyThisNode = false;
     if (isAllRemove) {
       const parentChildNodes = Array.from(parentNode.childNodes);
-      const lastContent = this.#bindContents.at(-1) ?? raiseError(`BindingNodeFor.update: lastContent is null`);
+      const lastContent = this.#bindContents.at(-1) ?? raiseError({
+        code: 'BIND-201',
+        message: 'Last content is null',
+        context: { where: 'BindingNodeFor.applyChange' },
+        docsUrl: '/docs/error-codes.md#bind',
+      });
       // ブランクノードを飛ばす
       let firstNode: Node | null = parentChildNodes[0];
       while(firstNode && firstNode.nodeType === Node.TEXT_NODE && firstNode.textContent?.trim() === "") {
@@ -147,7 +167,12 @@ class BindingNodeFor extends BindingNodeBlock {
         for(const listIndex of listDiff.removes) {
           const bindContent = this.#bindContentByListIndex.get(listIndex);
           if (typeof bindContent === "undefined") {
-            raiseError(`BindingNodeFor.applyChange: bindContent is not found`);
+            raiseError({
+              code: 'BIND-201',
+              message: 'BindContent not found',
+              context: { where: 'BindingNodeFor.applyChange', when: 'removes' },
+              docsUrl: '/docs/error-codes.md#bind',
+            });
           }
           this.deleteBindContent(bindContent);
           removeBindContentsSet.add(bindContent);
@@ -175,7 +200,12 @@ class BindingNodeFor extends BindingNodeBlock {
         } else {
           bindContent = this.#bindContentByListIndex.get(listIndex);
           if (typeof bindContent === "undefined") {
-            raiseError(`BindingNodeFor.applyChange: bindContent is not found`);
+            raiseError({
+              code: 'BIND-201',
+              message: 'BindContent not found',
+              context: { where: 'BindingNodeFor.applyChange', when: 'reuse' },
+              docsUrl: '/docs/error-codes.md#bind',
+            });
           }
           if (lastNode?.nextSibling !== bindContent.firstChildNode) {
             bindContent.mountAfter(fragmentParentNode, lastNode);
@@ -202,7 +232,12 @@ class BindingNodeFor extends BindingNodeBlock {
           const targetListIndex = targets[i];
           const targetBindContent = this.#bindContentByListIndex.get(targetListIndex);
           if (typeof targetBindContent === "undefined") {
-            raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+            raiseError({
+              code: 'BIND-201',
+              message: 'BindContent not found',
+              context: { where: 'BindingNodeFor.applyChange', when: 'swapTargets' },
+              docsUrl: '/docs/error-codes.md#bind',
+            });
           }
           bindContents[targetListIndex.index] = targetBindContent;
           const lastNode = bindContents[targetListIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
@@ -218,7 +253,12 @@ class BindingNodeFor extends BindingNodeBlock {
       for (const listIndex of listDiff.replaces) {
         const bindContent = this.#bindContentByListIndex.get(listIndex);
         if (typeof bindContent === "undefined") {
-          raiseError(`BindingNodeFor.assignValue2: bindContent is not found`);
+          raiseError({
+            code: 'BIND-201',
+            message: 'BindContent not found',
+            context: { where: 'BindingNodeFor.applyChange', when: 'replaces' },
+            docsUrl: '/docs/error-codes.md#bind',
+          });
         }
         bindContent.applyChange(renderer);
       }

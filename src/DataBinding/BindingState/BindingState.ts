@@ -52,7 +52,13 @@ class BindingState implements IBindingState {
       }
       return this.#ref;
     } else {
-      return this.#nullRef ?? raiseError("ref is null");
+      return this.#nullRef ?? raiseError({
+        code: 'BIND-201',
+        message: 'ref is null',
+        context: { pattern: this.#pattern },
+        docsUrl: '/docs/error-codes.md#bind',
+        severity: 'error',
+      });
     }
   }
   get filters() {
@@ -85,9 +91,21 @@ class BindingState implements IBindingState {
   init(): void {
     if (this.info.wildcardCount > 0) {
       const lastWildcardPath = this.info.lastWildcardPath ?? 
-        raiseError(`BindingState.init: wildcardLastParentPath is null`);
+        raiseError({
+          code: 'BIND-201',
+          message: 'Wildcard last parentPath is null',
+          context: { where: 'BindingState.init', pattern: this.#pattern },
+          docsUrl: '/docs/error-codes.md#bind',
+          severity: 'error',
+        });
       this.#loopContext = this.binding.parentBindContent.currentLoopContext?.find(lastWildcardPath) ?? 
-        raiseError(`BindingState.init: loopContext is null`);
+        raiseError({
+          code: 'BIND-201',
+          message: 'LoopContext is null',
+          context: { where: 'BindingState.init', lastWildcardPath },
+          docsUrl: '/docs/error-codes.md#bind',
+          severity: 'error',
+        });
       this.#ref = null;
     }
     this.binding.engine.saveBinding(this.ref, this.binding);

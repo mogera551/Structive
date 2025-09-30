@@ -161,11 +161,11 @@ describe('getStructuredPathInfo', () => {
       // 予約語は毎回エラーが発生する（キャッシュされない）
       expect(() => {
         getStructuredPathInfo('toString');
-      }).toThrow('getStructuredPathInfo: pattern is reserved word: toString');
+  }).toThrow('Pattern is reserved word: toString');
       
       expect(() => {
         getStructuredPathInfo('toString');
-      }).toThrow('getStructuredPathInfo: pattern is reserved word: toString');
+  }).toThrow('Pattern is reserved word: toString');
     });
   });
 
@@ -174,12 +174,12 @@ describe('getStructuredPathInfo', () => {
       // constructorは予約語として定義されているため、エラーが発生する
       expect(() => {
         getStructuredPathInfo('constructor');
-      }).toThrow('getStructuredPathInfo: pattern is reserved word: constructor');
+  }).toThrow('Pattern is reserved word: constructor');
       
       // 他の予約語でもテスト
       expect(() => {
         getStructuredPathInfo('prototype');
-      }).toThrow('getStructuredPathInfo: pattern is reserved word: prototype');
+  }).toThrow('Pattern is reserved word: prototype');
     });
 
     it('一般的なプロパティ名では正常に動作する', () => {

@@ -190,7 +190,7 @@ describe("ComponentEngine", () => {
       // アクセス時に raiseError が投げられる
       // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       engine.bindContent;
-    }).toThrowError(/bindContent is not initialized yet/);
+  }).toThrowError(/bindContent not initialized yet/);
   });
 
   it("connectedCallback: data-state が不正 JSON の場合はエラー", async () => {

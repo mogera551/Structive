@@ -72,14 +72,24 @@ export function getByRefReadonly(
         }));
       } else {
         // 存在しない場合は親infoを辿って再帰的に取得
-        const parentInfo = ref.info.parentInfo ?? raiseError(`propRef.stateProp.parentInfo is undefined`);
+        const parentInfo = ref.info.parentInfo ?? raiseError({
+          code: 'STATE-202',
+          message: 'propRef.stateProp.parentInfo is undefined',
+          context: { where: 'getByRefReadonly', refPath: ref.info.pattern },
+          docsUrl: '/docs/error-codes.md#state',
+        });
         const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
         const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
         const parentValue = getByRefReadonly(target, parentRef, receiver, handler);
         const lastSegment = ref.info.lastSegment;
         if (lastSegment === "*") {
           // ワイルドカードの場合はlistIndexのindexでアクセス
-          const index = ref.listIndex?.index ?? raiseError(`propRef.listIndex?.index is undefined`);
+          const index = ref.listIndex?.index ?? raiseError({
+            code: 'STATE-202',
+            message: 'propRef.listIndex?.index is undefined',
+            context: { where: 'getByRefReadonly', refPath: ref.info.pattern },
+            docsUrl: '/docs/error-codes.md#state',
+          });
           return (value = Reflect.get(parentValue, index));
         } else {
           // 通常のプロパティアクセス

@@ -15,7 +15,12 @@ class StatePropertyRef implements IStatePropertyRef {
   #listIndexRef: WeakRef<IListIndex> | null;
   get listIndex(): IListIndex | null {
     if (this.#listIndexRef === null) return null;
-    return this.#listIndexRef.deref() ?? raiseError("listIndex is null");
+    return this.#listIndexRef.deref() ?? raiseError({
+      code: "LIST-201",
+      message: "listIndex is null",
+      context: { sid: this.info.sid, key: this.key },
+      docsUrl: "./docs/error-codes.md#list",
+    });
   }
   key: string;
   constructor(

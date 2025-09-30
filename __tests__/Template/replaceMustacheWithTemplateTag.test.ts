@@ -70,7 +70,7 @@ describe("Template/replaceMustacheWithTemplateTag", () => {
       // elseif後のelseは、実装上エラーが発生する
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("replaceMustacheToTemplateOrEmbed: else without if");
+      }).toThrow("Else without if");
     });
   });
 
@@ -140,58 +140,51 @@ describe("Template/replaceMustacheWithTemplateTag", () => {
   describe("error handling", () => {
     test("should throw error for endif without if", () => {
       const html = "<div>content</div>{{endif}}";
-      
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("replaceMustacheToTemplateOrEmbed: endif without if");
+      }).toThrow("Endif without if");
     });
 
     test("should throw error for endfor without for", () => {
       const html = "<div>content</div>{{endfor}}";
-      
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("replaceMustacheToTemplateOrEmbed: endif without if");
+      }).toThrow("Endif without if");
     });
 
     test("should throw error for elseif without if", () => {
       const html = "<div>content</div>{{elseif:condition}}";
-      
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("replaceMustacheToTemplateOrEmbed: elseif without if");
+      }).toThrow("Elseif without if");
     });
 
     test("should throw error for else without if", () => {
       const html = "<div>content</div>{{else}}";
-      
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("replaceMustacheToTemplateOrEmbed: else without if");
+      }).toThrow("Else without if");
     });
 
     test("should throw error for mismatched endif and endfor", () => {
       const html = "{{for:item in items}}<div>{{item}}</div>{{endif}}";
-      
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("replaceMustacheToTemplateOrEmbed: endif without if");
+      }).toThrow("Endif without if");
     });
 
     test("should throw error for elseif without proper if context", () => {
       const html = "{{for:item in items}}{{elseif:condition}}<div>content</div>{{endfor}}";
-      
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("replaceMustacheToTemplateOrEmbed: elseif without if");
+      }).toThrow("Elseif without if");
     });
 
     test("should throw error for else after for", () => {
       const html = "{{for:item in items}}{{else}}<div>content</div>{{endfor}}";
-      
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("replaceMustacheToTemplateOrEmbed: else without if");
+      }).toThrow("Else without if");
     });
   });
 
@@ -209,7 +202,7 @@ describe("Template/replaceMustacheWithTemplateTag", () => {
       // 余分なスペースがあると、typeの解析でエラーが発生する
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("replaceMustacheToTemplateOrEmbed: endif without if");
+      }).toThrow("Endif without if");
     });
 
     test("should handle expressions without spaces around colon", () => {

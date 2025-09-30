@@ -15,6 +15,7 @@
  * - builtinFilterFnでフィルタ名・オプションからフィルタ関数を動的に取得可能
  */
 import { getGlobalConfig } from "../WebComponents/getGlobalConfig.js";
+import { raiseError } from "../utils.js";
 import { optionMustBeNumber, optionsRequired, valueMustBeBoolean, valueMustBeDate, valueMustBeNumber } from "./errorMessages.js";
 import { FilterWithOptions } from "./types";
 
@@ -414,7 +415,14 @@ export const inputBuiltinFilters = builtinFilters;
 
 export const builtinFilterFn = (name:string, options: string[]) => (filters: FilterWithOptions) => {
   const filter = filters[name];
-  if (!filter) throw new Error(`outputBuiltinFiltersFn: filter not found: ${name}`);
+  if (!filter) {
+    raiseError({
+      code: "FLT-201",
+      message: `Filter not found: ${name}`,
+      context: { where: 'builtinFilterFn', name },
+      docsUrl: "./docs/error-codes.md#flt",
+    });
+  }
   return filter(options);
 }
 

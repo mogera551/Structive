@@ -36,7 +36,12 @@ class LoopContext implements ILoopContext {
     this.#bindContent = bindContent;
   }
   get ref(): IStatePropertyRef {
-    return this.#ref ?? raiseError("ref is null");
+    return this.#ref ?? raiseError({
+      code: 'STATE-202',
+      message: 'ref is null',
+      context: { where: 'LoopContext.ref', path: this.#info.pattern },
+      docsUrl: '/docs/error-codes.md#state',
+    });
   }
   get path(): string {
     return this.ref.info.pattern;
@@ -45,7 +50,12 @@ class LoopContext implements ILoopContext {
     return this.ref.info;
   }
   get listIndex(): IListIndex {
-    return this.ref.listIndex ?? raiseError("listIndex is required");
+    return this.ref.listIndex ?? raiseError({
+      code: 'LIST-201',
+      message: 'listIndex is required',
+      context: { where: 'LoopContext.listIndex', path: this.#info.pattern },
+      docsUrl: '/docs/error-codes.md#list',
+    });
   }
   assignListIndex(listIndex: IListIndex): void {
     this.#ref = getStatePropertyRef(this.#info, listIndex);

@@ -14,7 +14,12 @@ import { IStatePropertyRef } from "../StatePropertyRef/types.js";
 
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 
-    raiseError(`BindContent: template is not found: ${id}`);
+    raiseError({
+      code: "BIND-101",
+      message: `Template not found: ${id}`,
+      context: { where: 'BindContent.createContent', templateId: id },
+      docsUrl: "./docs/error-codes.md#bind",
+    });
   const fragment = document.importNode(template.content, true);
   if (hasLazyLoadComponents()) {
     const lazyLoadElements = fragment.querySelectorAll(":not(:defined)");
@@ -33,16 +38,31 @@ function createBindings(
   content    : DocumentFragment
 ): IBinding[] {
   const attributes = getDataBindAttributesById(id) ?? 
-    raiseError(`BindContent: data-bind is not set`);
+    raiseError({
+      code: "BIND-101",
+      message: "Data-bind is not set",
+      context: { where: 'BindContent.createBindings', templateId: id },
+      docsUrl: "./docs/error-codes.md#bind",
+    });
   const bindings: IBinding[] = [];
   for(let i = 0; i < attributes.length; i++) {
     const attribute = attributes[i];
     const node = resolveNodeFromPath(content, attribute.nodePath) ?? 
-      raiseError(`BindContent: node is not found: ${attribute.nodePath}`);
+      raiseError({
+        code: "BIND-102",
+        message: `Node not found: ${attribute.nodePath}`,
+        context: { where: 'BindContent.createBindings', templateId: id, nodePath: attribute.nodePath },
+        docsUrl: "./docs/error-codes.md#bind",
+      });
     for(let j = 0; j < attribute.bindTexts.length; j++) {
       const bindText = attribute.bindTexts[j];
       const creator = attribute.creatorByText.get(bindText) ?? 
-        raiseError(`BindContent: creator is not found: ${bindText}`);
+        raiseError({
+          code: "BIND-103",
+          message: `Creator not found: ${bindText}`,
+          context: { where: 'BindContent.createBindings', templateId: id, bindText },
+          docsUrl: "./docs/error-codes.md#bind",
+        });
       const binding = createBinding(
         bindContent, 
         node, 
@@ -98,7 +118,12 @@ class BindContent implements IBindContent {
     const lastChildNode = this.lastChildNode;
     if (typeof lastBinding !== "undefined" && lastBinding.node === lastChildNode) {
       if (lastBinding.bindContents.length > 0) {
-        const childBindContent = lastBinding.bindContents.at(-1) ?? raiseError(`BindContent: childBindContent is not found`);
+        const childBindContent = lastBinding.bindContents.at(-1) ?? raiseError({
+          code: "BIND-104",
+          message: "Child bindContent not found",
+          context: { where: 'BindContent.getLastNode', templateId: this.#id },
+          docsUrl: "./docs/error-codes.md#bind",
+        });
         const lastNode = childBindContent.getLastNode(parentNode);
         if (lastNode !== null) {
           return lastNode;
@@ -173,7 +198,12 @@ class BindContent implements IBindContent {
     }
   }
   assignListIndex(listIndex: IListIndex): void {
-    if (this.loopContext == null) raiseError(`BindContent: loopContext is null`);
+    if (this.loopContext == null) raiseError({
+      code: "BIND-201",
+      message: "LoopContext is null",
+      context: { where: 'BindContent.assignListIndex', templateId: this.#id },
+      docsUrl: "./docs/error-codes.md#bind",
+    });
     this.loopContext.assignListIndex(listIndex);
     this.init();
   }

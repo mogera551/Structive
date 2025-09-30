@@ -4,10 +4,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getAllReadonly } from "../../src/StateClass/apis/getAllReadonly.js";
 
-// Mock utils
-const raiseErrorMock = vi.fn((msg: string) => { throw new Error(msg); });
+// Mock utils (payload/legacy 両対応)
+const raiseErrorMock = vi.fn((arg: any) => { throw new Error(typeof arg === 'string' ? arg : (arg?.message ?? String(arg))); });
 vi.mock("../../src/utils", () => ({
-  raiseError: (msg: string) => raiseErrorMock(msg)
+  raiseError: (arg: any) => raiseErrorMock(typeof arg === 'string' ? arg : (arg?.message ?? String(arg)))
 }));
 
 // Mock getStructuredPathInfo 
@@ -226,8 +226,8 @@ describe("StateClass/apis getAllReadonly", () => {
     const target = {};
     const fn = getAllReadonly(target, "$getAll", receiver, handler as any);
     
-    expect(() => fn("items.*.value", [0])).toThrow();
-    expect(raiseErrorMock).toHaveBeenCalledWith("ListIndex is not found: items.*");
+  expect(() => fn("items.*.value", [0])).toThrow();
+  expect(raiseErrorMock).toHaveBeenCalledWith("ListIndex not found: items.*");
   });
 
   it("多重ワイルドカード階層の処理", () => {

@@ -43,16 +43,34 @@ export function resolve(
     }
 
     if (info.wildcardParentInfos.length > indexes.length) {
-      raiseError(`indexes length is insufficient: ${path}`);
+      raiseError({
+        code: 'STATE-202',
+        message: `indexes length is insufficient: ${path}`,
+        context: { path, expected: info.wildcardParentInfos.length, received: indexes.length },
+        docsUrl: '/docs/error-codes.md#state',
+        severity: 'error',
+      });
     }
     // ワイルドカード階層ごとにListIndexを解決していく
     let listIndex: IListIndex | null = null;
     for(let i = 0; i < info.wildcardParentInfos.length; i++) {
       const wildcardParentPattern = info.wildcardParentInfos[i];
       const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-      const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardRef) ?? raiseError(`ListIndexes not found: ${wildcardParentPattern.pattern}`);
+      const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardRef) ?? raiseError({
+        code: 'LIST-201',
+        message: `ListIndexes not found: ${wildcardParentPattern.pattern}`,
+        context: { pattern: wildcardParentPattern.pattern },
+        docsUrl: '/docs/error-codes.md#list',
+        severity: 'error',
+      });
       const index = indexes[i];
-      listIndex = listIndexes[index] ?? raiseError(`ListIndex not found: ${wildcardParentPattern.pattern}`);
+      listIndex = listIndexes[index] ?? raiseError({
+        code: 'LIST-201',
+        message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
+        context: { pattern: wildcardParentPattern.pattern, index },
+        docsUrl: '/docs/error-codes.md#list',
+        severity: 'error',
+      });
     }
 
     // WritableかReadonlyかを判定して適切なメソッドを呼び出す
@@ -63,7 +81,13 @@ export function resolve(
         return getByRefReadonly(target, ref, receiver, handler);
       } else {
         // readonlyなので、setはできない
-        raiseError(`Cannot set value on a readonly proxy: ${path}`);
+        raiseError({
+          code: 'STATE-202',
+          message: `Cannot set value on a readonly proxy: ${path}`,
+          context: { path },
+          docsUrl: '/docs/error-codes.md#state',
+          severity: 'error',
+        });
       }
     } else if (!(SetCacheableSymbol in receiver) && !("cache" in handler)) {
       if (!hasSetValue) {
@@ -72,7 +96,16 @@ export function resolve(
         setByRef(target, ref, value, receiver, handler);
       }
     } else {
-      raiseError("Inconsistent proxy and handler types.");
+      raiseError({
+        code: 'STATE-202',
+          message: 'Inconsistent proxy and handler types',
+        context: {
+          receiverHasSetCacheable: (SetCacheableSymbol in receiver),
+          handlerHasCache: ("cache" in handler),
+        },
+        docsUrl: '/docs/error-codes.md#state',
+        severity: 'error',
+      });
     }
   };
 } 

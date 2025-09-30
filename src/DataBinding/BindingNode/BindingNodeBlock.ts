@@ -32,7 +32,13 @@ export class BindingNodeBlock extends BindingNode {
     decorates : string[]
   ) {
     super(binding, node, name, filters, decorates);
-    const id = this.node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN) ?? raiseError("BindingNodeBlock.id: invalid node");
+    const id = this.node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN) ?? raiseError({
+      code: 'BIND-201',
+      message: 'Invalid node',
+      context: { where: 'BindingNodeBlock.id', textContent: this.node.textContent ?? null },
+      docsUrl: '/docs/error-codes.md#bind',
+      severity: 'error',
+    });
     this.#id = Number(id);
   }
     

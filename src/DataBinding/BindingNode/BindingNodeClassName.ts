@@ -39,7 +39,13 @@ class BindingNodeClassName extends BindingNode {
 
   assignValue(value:any) {
     if (typeof value !== "boolean") {
-      raiseError(`BindingNodeClassName.update: value is not boolean`);
+      raiseError({
+        code: 'BIND-201',
+        message: 'Value is not boolean',
+        context: { where: 'BindingNodeClassName.update', receivedType: typeof value },
+        docsUrl: '/docs/error-codes.md#bind',
+        severity: 'error',
+      });
     }
     const element = this.node as Element;
     if (value) {

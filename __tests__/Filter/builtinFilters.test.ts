@@ -699,7 +699,7 @@ describe("Filter/builtinFilters", () => {
 
     test("should throw error for non-existent filter", () => {
       expect(() => builtinFilterFn("nonexistent", [])(outputBuiltinFilters))
-        .toThrow("outputBuiltinFiltersFn: filter not found: nonexistent");
+  .toThrow("Filter not found: nonexistent");
     });
 
     test("should work with complex filters", () => {

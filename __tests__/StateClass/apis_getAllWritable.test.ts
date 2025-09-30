@@ -4,10 +4,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getAllWritable } from "../../src/StateClass/apis/getAllWritable.js";
 
-// Mock utils
-const raiseErrorMock = vi.fn((msg: string) => { throw new Error(msg); });
+// Mock utils (payload/legacy 両対応)
+const raiseErrorMock = vi.fn((arg: any) => { throw new Error(typeof arg === 'string' ? arg : (arg?.message ?? String(arg))); });
 vi.mock("../../src/utils", () => ({
-  raiseError: (msg: string) => raiseErrorMock(msg)
+  raiseError: (arg: any) => raiseErrorMock(typeof arg === 'string' ? arg : (arg?.message ?? String(arg)))
 }));
 
 // Mock getStructuredPathInfo 

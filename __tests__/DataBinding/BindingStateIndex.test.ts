@@ -72,7 +72,7 @@ describe("BindingStateIndex", () => {
     const engine = createEngine();
     const binding = createBinding(engine, { serialize: () => [] });
     const factory = createBindingStateIndex("abc", []);
-    expect(() => factory(binding, engine.outputFilters)).toThrowError(/pattern is not a number/);
+  expect(() => factory(binding, engine.outputFilters)).toThrowError(/pattern is not a number/i);
   });
 
   it("currentLoopContext が null だと init でエラー", () => {
@@ -80,7 +80,7 @@ describe("BindingStateIndex", () => {
     const binding = createBinding(engine, null);
     const factory = createBindingStateIndex("$1", []);
     const bs = factory(binding, engine.outputFilters);
-    expect(() => bs.init()).toThrowError(/loopContext is null/);
+  expect(() => bs.init()).toThrowError(/loopContext is null/i);
   });
 
   it("シリアライズ結果の範囲外インデックスは init でエラー", () => {
@@ -89,7 +89,7 @@ describe("BindingStateIndex", () => {
     const binding = createBinding(engine, root);
     const factory = createBindingStateIndex("$2", []);
     const bs = factory(binding, engine.outputFilters);
-    expect(() => bs.init()).toThrowError(/currentLoopContext is null/);
+  expect(() => bs.init()).toThrowError('Current loopContext is null');
   });
 
   it("assignValue は未実装エラー", () => {
@@ -100,7 +100,7 @@ describe("BindingStateIndex", () => {
     const factory = createBindingStateIndex("$1", []);
     const bs = factory(binding, engine.outputFilters);
     bs.init();
-    expect(() => bs.assignValue({} as any, 123)).toThrowError(/assignValue is not implemented/);
+  expect(() => bs.assignValue({} as any, 123)).toThrowError(/not implemented/i);
   });
 
   it("init を複数回呼んでも Set は重複しない", () => {

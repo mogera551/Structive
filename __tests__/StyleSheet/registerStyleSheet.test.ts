@@ -103,7 +103,7 @@ describe("StyleSheet/registerStyleSheet", () => {
       
       expect(() => {
         getStyleSheetById(nonExistentId);
-      }).toThrow(`getStyleSheetById: stylesheet not found: ${nonExistentId}`);
+  }).toThrow(`Stylesheet not found: ${nonExistentId}`);
     });
 
     test("should throw error for undefined id", () => {
@@ -111,7 +111,7 @@ describe("StyleSheet/registerStyleSheet", () => {
       
       expect(() => {
         getStyleSheetById(undefinedId);
-      }).toThrow(`getStyleSheetById: stylesheet not found: ${undefinedId}`);
+  }).toThrow(`Stylesheet not found: ${undefinedId}`);
     });
 
     test("should return correct stylesheet when multiple are registered", () => {

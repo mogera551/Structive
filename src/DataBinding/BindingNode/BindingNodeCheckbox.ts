@@ -22,7 +22,13 @@ import { CreateBindingNodeFn } from "./types";
 class BindingNodeCheckbox extends BindingNode {
   assignValue(value:any) {
     if (!Array.isArray(value)) {
-      raiseError(`BindingNodeCheckbox.update: value is not array`, );
+      raiseError({
+        code: 'BIND-201',
+        message: 'Value is not array',
+        context: { where: 'BindingNodeCheckbox.update', receivedType: typeof value },
+        docsUrl: '/docs/error-codes.md#bind',
+        severity: 'error',
+      });
     }
     const element = this.node as HTMLInputElement;
     element.checked = value.map(_val => _val.toString()).includes(element.value);

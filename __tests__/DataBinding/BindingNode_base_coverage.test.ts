@@ -6,8 +6,8 @@ describe("BindingNode base coverage", () => {
     const binding = { } as any;
     const div = document.createElement("div");
     const node = new BindingNode(binding as any, div, "value", [], []);
-    expect(() => node.assignValue(1)).toThrowError(/not implemented/);
-    expect(() => node.updateElements([], [])).toThrowError(/not implemented/);
+  expect(() => node.assignValue(1)).toThrowError(/not implemented/i);
+  expect(() => node.updateElements([], [])).toThrowError(/not implemented/i);
     // 実行してもエラーにならないことのみ確認
     node.notifyRedraw([] as any);
   });
