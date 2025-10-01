@@ -1918,6 +1918,8 @@ let StateHandler$1 = class StateHandler {
     lastRefStack = null;
     loopContext = null;
     updater;
+    #setMethods = new Set([GetByRefSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol]);
+    #setApis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
     constructor(engine, updater) {
         this.engine = engine;
         this.updater = updater;
@@ -1927,6 +1929,9 @@ let StateHandler$1 = class StateHandler {
     }
     set(target, prop, value, receiver) {
         return set(target, prop, value, receiver, this);
+    }
+    has(target, prop) {
+        return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
     }
 };
 async function useWritableStateProxy(engine, updater, state, loopContext, callback) {
@@ -2371,6 +2376,8 @@ class StateHandler {
     lastRefStack = null;
     loopContext = null;
     renderer = null;
+    #setMethods = new Set([GetByRefSymbol, SetCacheableSymbol]);
+    #setApis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
     constructor(engine, renderer) {
         this.engine = engine;
         this.renderer = renderer;
@@ -2385,6 +2392,9 @@ class StateHandler {
             context: { where: 'createReadonlyStateProxy.set', prop: String(prop) },
             docsUrl: '/docs/error-codes.md#state',
         });
+    }
+    has(target, prop) {
+        return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
     }
 }
 function createReadonlyStateProxy(engine, state, renderer = null) {

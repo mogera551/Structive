@@ -23,6 +23,7 @@ import { raiseError } from "../utils";
 import { ILoopContext } from "../LoopContext/types";
 import { IRenderer } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
+import { GetByRefSymbol, SetCacheableSymbol } from "./symbols";
 
 const STACK_DEPTH = 32;
 
@@ -34,6 +35,8 @@ class StateHandler implements IReadonlyStateHandler {
   lastRefStack: IStatePropertyRef | null = null;
   loopContext: ILoopContext | null = null;
   renderer: IRenderer | null = null;
+  #setMethods = new Set<PropertyKey>([ GetByRefSymbol, SetCacheableSymbol ]);
+  #setApis = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
 
   constructor(engine: IComponentEngine, renderer: IRenderer | null) {
     this.engine = engine;
@@ -60,6 +63,13 @@ class StateHandler implements IReadonlyStateHandler {
       context: { where: 'createReadonlyStateProxy.set', prop: String(prop) },
       docsUrl: '/docs/error-codes.md#state',
     });
+  }
+
+  has(
+    target: Object, 
+    prop  : PropertyKey
+  ): boolean {
+    return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
   }
 }
 

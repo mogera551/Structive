@@ -219,4 +219,44 @@ describe("StateClass/apis getAllWritable", () => {
     expect(() => fn("items.*.value", [0])).toThrow();
     expect(raiseErrorMock).toHaveBeenCalledWith("ListIndex not found: items.*");
   });
+
+  it("エラー: wildcardPattern が null の場合は例外を投げる", () => {
+    const handler = makeHandler("current.pattern").handler;
+    getStructuredPathInfoMock.mockReturnValue({
+      pattern: "items.*.value",
+      wildcardInfos: [null], // null を含む
+      wildcardParentInfos: []
+    });
+    getContextListIndexMock.mockReturnValue(null);
+
+    const target = {};
+    const receiver = {} as any;
+    const fn = getAllWritable(target, "$getAll", receiver, handler as any);
+    
+    expect(() => {
+      fn("items.*.value"); // indexes 未指定なので wildcardInfos[0] が null でエラー
+    }).toThrowError(/wildcardPattern is null/);
+  });
+
+  it("エラー: ListIndex not found の場合は例外を投げる", () => {
+    const handler = makeHandler("current.pattern").handler;
+    const getListIndexes = vi.fn();
+    handler.engine.getListIndexes = getListIndexes;
+    
+    getStructuredPathInfoMock.mockReturnValue({
+      pattern: "items.*.value",
+      wildcardInfos: [{ pattern: "items.*" }],
+      wildcardParentInfos: [{ pattern: "items.*" }]
+    });
+    getContextListIndexMock.mockReturnValue(null);
+    getListIndexes.mockReturnValue([]); // 空配列でListIndexが見つからない
+    
+    const target = {};
+    const receiver = {} as any;
+    const fn = getAllWritable(target, "$getAll", receiver, handler as any);
+    
+    expect(() => {
+      fn("items.*.value", [0]); // index 0に対応するListIndexが存在しない
+    }).toThrowError(/ListIndex not found/);
+  });
 });

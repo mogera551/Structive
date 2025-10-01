@@ -137,4 +137,25 @@ describe("StateClass/methods: getByRefReadonly", () => {
     // finally で calcListDiff 呼ばれる
     expect(calcListDiff).toHaveBeenCalled();
   });
+
+  it("エラー: parentInfo が undefined の場合は例外を投げる", () => {
+    const info = makeInfo("a.b", { parentInfo: null });
+    const ref = makeRef(info);
+    const target = {}; // target に "a.b" は存在しない
+    const handler = makeHandler();
+    expect(() => {
+      getByRefReadonly(target as any, ref, {} as any, handler as any);
+    }).toThrowError(/propRef.stateProp.parentInfo is undefined/);
+  });
+
+  it("エラー: ワイルドカードで listIndex.index が undefined の場合は例外を投げる", () => {
+    const parent = { a: { b: [10, 20, 30] } };
+    const info = makeInfo("a.b.*");
+    const ref = makeRef(info, { index: undefined, parentListIndex: null }); // index が undefined
+    const target = { a: { b: [10, 20, 30] } }; // target に "a.b" は存在するが "a.b.*" は存在しない
+    const handler = makeHandler();
+    expect(() => {
+      getByRefReadonly(target as any, ref, {} as any, handler as any);
+    }).toThrowError(/propRef.listIndex\?\.index is undefined/);
+  });
 });

@@ -46,4 +46,31 @@ describe("StateClass/apis connected/disconnected/trackDependency", () => {
     fn("x.y"); // lastInfo.pattern("a.b") とは異なる
     expect(handler.engine.pathManager.addDynamicDependency).toHaveBeenCalledWith("a.b", "x.y");
   });
+
+  it("trackDependency: lastRefStack が null の場合は例外を投げる", () => {
+    const handler = makeHandler();
+    handler.lastRefStack = null; // lastRefStack を null に設定
+    const fn = trackDependency({}, "$trackDependency", {} as any, handler);
+
+    expect(() => {
+      fn("x.y");
+    }).toThrowError(/Internal error: lastRefStack is null/);
+  });
+
+  it("trackDependency: getters に含まれない場合は依存登録しない", () => {
+    const handler = makeHandler();
+    handler.engine.pathManager.getters.clear(); // getters から除外
+    const fn = trackDependency({}, "$trackDependency", {} as any, handler);
+
+    fn("x.y");
+    expect(handler.engine.pathManager.addDynamicDependency).not.toHaveBeenCalled();
+  });
+
+  it("trackDependency: 同一パターンの場合は依存登録しない", () => {
+    const handler = makeHandler();
+    const fn = trackDependency({}, "$trackDependency", {} as any, handler);
+
+    fn("a.b"); // lastInfo.pattern("a.b") と同一
+    expect(handler.engine.pathManager.addDynamicDependency).not.toHaveBeenCalled();
+  });
 });

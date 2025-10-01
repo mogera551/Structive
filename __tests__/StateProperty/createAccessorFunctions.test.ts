@@ -283,5 +283,15 @@ describe('createAccessorFunctions', () => {
       // createAccessorFunctionsは'*'のみの場合、無効なコードを生成するためエラーが発生する
       expect(() => createAccessorFunctions(info, getters)).toThrow();
     });
+
+    it('複数のgettersがある場合でも正常に処理される', () => {
+      const info = getStructuredPathInfo('nested.value2');
+      const getters = new Set(['nested', 'nested.value2', 'other.path']);
+      
+      const result = createAccessorFunctions(info, getters);
+      
+      expect(result.get).toBeInstanceOf(Function);
+      expect(result.set).toBeInstanceOf(Function);
+    });
   });
 });

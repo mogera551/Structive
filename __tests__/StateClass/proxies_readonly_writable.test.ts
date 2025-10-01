@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { createReadonlyStateProxy } from "../../src/StateClass/createReadonlyStateProxy";
 import { useWritableStateProxy } from "../../src/StateClass/useWritableStateProxy";
+import { GetByRefSymbol, SetCacheableSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol } from "../../src/StateClass/symbols";
 
 // trap get のモック（実装に依存しない）
 const trapGetReadonlyMock = vi.fn();
@@ -41,6 +42,27 @@ describe("StateClass proxies", () => {
     }).toThrowError(/Cannot set property x of readonly state/);
   });
 
+  it("createReadonlyStateProxy: has トラップがシンボルとAPIを適切に検出する", () => {
+    const engine = {} as any;
+    const state = { foo: 1 };
+    const proxy = createReadonlyStateProxy(engine, state, null);
+
+    // 通常のプロパティ
+    expect("foo" in proxy).toBe(true);
+    expect("nonexistent" in proxy).toBe(false);
+
+    // シンボル
+    expect(GetByRefSymbol in proxy).toBe(true);
+    expect(SetCacheableSymbol in proxy).toBe(true);
+
+    // API メソッド
+    expect("$resolve" in proxy).toBe(true);
+    expect("$getAll" in proxy).toBe(true);
+    expect("$trackDependency" in proxy).toBe(true);
+    expect("$navigate" in proxy).toBe(true);
+    expect("$component" in proxy).toBe(true);
+  });
+
   it("useWritableStateProxy: get/set が trap 経由で呼ばれる", async () => {
     const engine = {} as any; const updater = {} as any;
     const state = { foo: 1 };
@@ -52,6 +74,31 @@ describe("StateClass proxies", () => {
       // set
       (proxy as any)["k"] = 2;
       expect(trapSetMock).toHaveBeenCalled();
+    });
+  });
+
+  it("useWritableStateProxy: has トラップがシンボルとAPIを適切に検出する", async () => {
+    const engine = {} as any;
+    const updater = {} as any;
+    const state = { foo: 1 };
+
+    await useWritableStateProxy(engine, updater, state, null, async (proxy) => {
+      // 通常のプロパティ
+      expect("foo" in proxy).toBe(true);
+      expect("nonexistent" in proxy).toBe(false);
+
+      // シンボル
+      expect(GetByRefSymbol in proxy).toBe(true);
+      expect(SetByRefSymbol in proxy).toBe(true);
+      expect(ConnectedCallbackSymbol in proxy).toBe(true);
+      expect(DisconnectedCallbackSymbol in proxy).toBe(true);
+
+      // API メソッド
+      expect("$resolve" in proxy).toBe(true);
+      expect("$getAll" in proxy).toBe(true);
+      expect("$trackDependency" in proxy).toBe(true);
+      expect("$navigate" in proxy).toBe(true);
+      expect("$component" in proxy).toBe(true);
     });
   });
 });
