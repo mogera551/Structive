@@ -26,6 +26,8 @@ class Renderer implements IRenderer {
   #listDiffByRef: Map<IStatePropertyRef, IListDiff | null> = new Map();
   #swapDiffByRef: Map<IStatePropertyRef, ISwapDiff> = new Map();
 
+  #swapIndexesByRef: Map<IStatePropertyRef, number[]> = new Map();
+
   constructor(engine: IComponentEngine) {
     this.#engine = engine;
   }
@@ -82,13 +84,6 @@ class Renderer implements IRenderer {
           }
           // リスト要素を処理済みに追加
           this.#processedRefs.add(ref);
-
-          const listIndex = ref.listIndex ?? raiseError({
-            code: "UPD-003",
-            message: `ListIndex is null for ref: ${ref.key}`,
-            context: { refKey: ref.key, pattern: ref.info.pattern },
-            docsUrl: "./docs/error-codes.md#upd",
-          });
           if (ref.info.parentInfo === null) {
             raiseError({
               code: "UPD-004",
@@ -102,68 +97,73 @@ class Renderer implements IRenderer {
             // リストの差分計算は後続のcalcListDiffで行うので、swapのための計算はスキップ
             continue;
           }
-          let swapDiff = this.#swapDiffByRef.get(listRef);
-          const [ , oldListIndexes, oldListValue ] = this.engine.getListAndListIndexes(listRef);
-          if (oldListValue == null || oldListIndexes == null) {
-            raiseError({
-              code: "UPD-005",
-              message: `OldListValue is null for ref: ${listRef.key}`,
-              context: { refKey: listRef.key, pattern: listRef.info.pattern },
-              docsUrl: "./docs/error-codes.md#upd",
-            });
+          let indexes = this.#swapIndexesByRef.get(listRef);
+          if (typeof indexes === "undefined") {
+            indexes = [];
+            this.#swapIndexesByRef.set(listRef, indexes);
           }
-          const elementValue = this.readonlyState[GetByRefSymbol](ref);
-          if (typeof swapDiff === "undefined") {
-            swapDiff = createSwapDiff();
-            swapDiff.oldListValue = oldListValue;
-            swapDiff.newListValue = elementValue;
-            swapDiff.oldIndexes = oldListIndexes;
-            swapDiff.newIndexes = Array.from(swapDiff.oldIndexes);
-            this.#swapDiffByRef.set(listRef, swapDiff);
-          }
-          const oldIndex = oldListValue?.indexOf(elementValue) ?? -1;
-          if (oldIndex === -1) {
-            swapDiff.overwrites.add(listIndex);
-          } else {
-            const oldListIndex = oldListIndexes?.[oldIndex] ?? raiseError({
-              code: "UPD-004",
-              message: `ListIndex not found for value: ${elementValue}`,
-              context: { refKey: ref.key, pattern: ref.info.pattern },
-              docsUrl: "./docs/error-codes.md#upd",
-            });
-            oldListIndex.index = listIndex.index; // インデックスを更新
-            swapDiff.newIndexes[listIndex.index] = oldListIndex;
-            swapDiff.swaps.add(oldListIndex);
+          const listIndex = ref.listIndex ?? raiseError({
+            code: "UPD-003",
+            message: `ListIndex is null for ref: ${ref.key}`,
+            context: { refKey: ref.key, pattern: ref.info.pattern },
+            docsUrl: "./docs/error-codes.md#upd",
+          });
+          indexes.push(listIndex.index);
+        }
+        for(const [ listRef, indexes ] of this.#swapIndexesByRef) {
+          this.#listDiffByRef.set(listRef, null);
+          try {
+            const newListValue = this.readonlyState[GetByRefSymbol](listRef);
+            const [ , oldListIndexes, oldListValue ] = this.engine.getListAndListIndexes(listRef);
+            if (oldListValue == null || oldListIndexes == null) {
+              raiseError({
+                code: "UPD-005",
+                message: `OldListValue or OldListIndexes is null for ref: ${listRef.key}`,
+                context: { refKey: listRef.key, pattern: listRef.info.pattern },
+                docsUrl: "./docs/error-codes.md#upd",
+              });
+            }
+            const listDiff: IListDiff = {
+              oldListValue: oldListValue,
+              newListValue: newListValue,
+              oldIndexes: oldListIndexes,
+              newIndexes: Array.from(oldListIndexes),
+              changeIndexes: new Set(),
+              overwrites: new Set(),
+            };
+            for(let i = 0; i < indexes.length; i++) {
+              const index = indexes[i];
+              const elementValue = listDiff.newListValue?.[index];
+              const oldIndex = listDiff.oldListValue?.indexOf(elementValue) ?? -1;
+              if (oldIndex === -1) {
+                listDiff.overwrites?.add(listDiff.newIndexes[index]);
+              } else {
+                const listIndex = listDiff.oldIndexes?.[oldIndex] ?? raiseError({
+                  code: "UPD-004",
+                  message: `ListIndex not found for value: ${elementValue}`,
+                  context: { refKey: listRef.key, pattern: listRef.info.pattern },
+                  docsUrl: "./docs/error-codes.md#upd",
+                });
+                listIndex.index = index;
+                listDiff.newIndexes[index] = listIndex;
+                listDiff.changeIndexes?.add(listIndex);
+              }
+            }
+            this.#listDiffByRef.set(listRef, listDiff);
+
+            const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
+            if (node === null) {
+              raiseError({
+                code: "PATH-101",
+                message: `PathNode not found: ${listRef.info.pattern}`,
+                context: { pattern: listRef.info.pattern },
+                docsUrl: "./docs/error-codes.md#path",
+              });
+            }
+            this.renderItem(listRef, node);
+          } finally {
           }
         }
-
-        for(const [ ref, swapDiff ] of this.#swapDiffByRef) {
-          if (listRefs.has(ref)) {
-            // リストの差分計算は後続のcalcListDiffで行うので、ここのswapのための計算はスキップ
-            continue;
-          }
-          const listDiff = {
-            oldListValue: swapDiff.oldListValue,
-            newListValue: swapDiff.newListValue,
-            oldIndexes: swapDiff.oldIndexes,
-            newIndexes: swapDiff.newIndexes,
-            changeIndexes: swapDiff.swaps,
-            overwrites: swapDiff.overwrites,
-          };
-          this.engine.saveListAndListIndexes(ref, swapDiff.newListValue ?? null, swapDiff.newIndexes);
-          this.#listDiffByRef.set(ref, listDiff);
-          const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
-          if (node === null) {
-            raiseError({
-              code: "PATH-101",
-              message: `PathNode not found: ${ref.info.pattern}`,
-              context: { pattern: ref.info.pattern },
-              docsUrl: "./docs/error-codes.md#path",
-            });
-          }
-          this.renderItem(ref, node);
-        }
-
         for(let i = 0; i < items.length; i++) {
           const ref = items[i];
           const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);

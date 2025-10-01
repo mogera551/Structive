@@ -171,86 +171,83 @@ class BindingNodeFor extends BindingNodeBlock {
         const firstNode = this.node;
         this.bindContentLastIndex = this.poolLength - 1;
         const isAllAppend = listDiff.newListValue?.length === listDiff.adds?.size && (listDiff.newListValue?.length ?? 0) > 0;
-        //    if (!listDiff.onlySwap) {
-        // 全追加の場合、バッファリングしてから一括追加する
-        const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
-        const fragmentFirstNode = isAllAppend ? null : firstNode;
-        const adds = listDiff.adds ?? EMPTY_SET;
-        for (const listIndex of listDiff.newIndexes) {
-            const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
-            let bindContent;
-            if (adds.has(listIndex)) {
-                bindContent = this.createBindContent(listIndex);
-                bindContent.mountAfter(fragmentParentNode, lastNode);
-                bindContent.applyChange(renderer);
-            }
-            else {
-                bindContent = this.#bindContentByListIndex.get(listIndex);
-                if (typeof bindContent === "undefined") {
-                    raiseError({
-                        code: 'BIND-201',
-                        message: 'BindContent not found',
-                        context: { where: 'BindingNodeFor.applyChange', when: 'reuse' },
-                        docsUrl: '/docs/error-codes.md#bind',
-                    });
-                }
-                if (lastNode?.nextSibling !== bindContent.firstChildNode) {
+        const isOnlySwap = (listDiff.adds?.size ?? 0) === 0 && (listDiff.removes?.size ?? 0) === 0 &&
+            ((listDiff.changeIndexes?.size ?? 0) > 0 || (listDiff.overwrites?.size ?? 0) > 0);
+        if (!isOnlySwap) {
+            // 全追加の場合、バッファリングしてから一括追加する
+            const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
+            const fragmentFirstNode = isAllAppend ? null : firstNode;
+            const adds = listDiff.adds ?? EMPTY_SET;
+            for (const listIndex of listDiff.newIndexes) {
+                const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
+                let bindContent;
+                if (adds.has(listIndex)) {
+                    bindContent = this.createBindContent(listIndex);
                     bindContent.mountAfter(fragmentParentNode, lastNode);
+                    bindContent.applyChange(renderer);
                 }
+                else {
+                    bindContent = this.#bindContentByListIndex.get(listIndex);
+                    if (typeof bindContent === "undefined") {
+                        raiseError({
+                            code: 'BIND-201',
+                            message: 'BindContent not found',
+                            context: { where: 'BindingNodeFor.applyChange', when: 'reuse' },
+                            docsUrl: '/docs/error-codes.md#bind',
+                        });
+                    }
+                    if (lastNode?.nextSibling !== bindContent.firstChildNode) {
+                        bindContent.mountAfter(fragmentParentNode, lastNode);
+                    }
+                }
+                newBindContents.push(bindContent);
+                lastBindContent = bindContent;
             }
-            newBindContents.push(bindContent);
-            lastBindContent = bindContent;
+            // 全追加最適化
+            if (isAllAppend) {
+                const beforeNode = firstNode.nextSibling;
+                parentNode.insertBefore(fragmentParentNode, beforeNode);
+            }
         }
-        // 全追加最適化
-        if (isAllAppend) {
-            const beforeNode = firstNode.nextSibling;
-            parentNode.insertBefore(fragmentParentNode, beforeNode);
-        }
-        //    } else {
-        // リストインデックスの並び替え
-        // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
-        // 並べ替えはするが、要素の内容は変わらないため
-        /*
-              if (listIndexResults.swapTargets) {
+        else {
+            // リストインデックスの並び替え
+            // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
+            // 並べ替えはするが、要素の内容は変わらないため
+            if ((listDiff.changeIndexes?.size ?? 0) > 0) {
                 const bindContents = Array.from(this.#bindContents);
-                const targets = Array.from(listIndexResults.swapTargets);
-                targets.sort((a, b) => a.index - b.index);
-                for(let i = 0; i < targets.length; i++) {
-                  const targetListIndex = targets[i];
-                  const targetBindContent = this.#bindContentByListIndex.get(targetListIndex);
-                  if (typeof targetBindContent === "undefined") {
-                    raiseError({
-                      code: 'BIND-201',
-                      message: 'BindContent not found',
-                      context: { where: 'BindingNodeFor.applyChange', when: 'swapTargets' },
-                      docsUrl: '/docs/error-codes.md#bind',
-                    });
-                  }
-                  bindContents[targetListIndex.index] = targetBindContent;
-                  const lastNode = bindContents[targetListIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
-                  targetBindContent.mountAfter(parentNode, lastNode);
+                const changeIndexes = Array.from(listDiff.changeIndexes ?? []);
+                changeIndexes.sort((a, b) => a.index - b.index);
+                for (const listIndex of changeIndexes) {
+                    const bindContent = this.#bindContentByListIndex.get(listIndex);
+                    if (typeof bindContent === "undefined") {
+                        raiseError({
+                            code: 'BIND-201',
+                            message: 'BindContent not found',
+                            context: { where: 'BindingNodeFor.applyChange', when: 'swapTargets' },
+                            docsUrl: '/docs/error-codes.md#bind',
+                        });
+                    }
+                    bindContents[listIndex.index] = bindContent;
+                    const lastNode = bindContents[listIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
+                    bindContent.mountAfter(parentNode, lastNode);
                 }
                 newBindContents = bindContents;
-              }
-        */
-        //    }
-        // リスト要素の上書き
-        /*
-            if (listDiff.replaces) {
-              for (const listIndex of listDiff.replaces) {
-                const bindContent = this.#bindContentByListIndex.get(listIndex);
-                if (typeof bindContent === "undefined") {
-                  raiseError({
-                    code: 'BIND-201',
-                    message: 'BindContent not found',
-                    context: { where: 'BindingNodeFor.applyChange', when: 'replaces' },
-                    docsUrl: '/docs/error-codes.md#bind',
-                  });
-                }
-                bindContent.applyChange(renderer);
-              }
             }
-        */
+            if ((listDiff.overwrites?.size ?? 0) > 0) {
+                for (const listIndex of listDiff.overwrites ?? []) {
+                    const bindContent = this.#bindContentByListIndex.get(listIndex);
+                    if (typeof bindContent === "undefined") {
+                        raiseError({
+                            code: 'BIND-201',
+                            message: 'BindContent not found',
+                            context: { where: 'BindingNodeFor.applyChange', when: 'replaces' },
+                            docsUrl: '/docs/error-codes.md#bind',
+                        });
+                    }
+                    bindContent.applyChange(renderer);
+                }
+            }
+        }
         // プールの長さを更新する
         // プールの長さは、プールの最後の要素のインデックス+1であるため、
         this.poolLength = this.bindContentLastIndex + 1;

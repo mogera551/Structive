@@ -2391,18 +2391,6 @@ function createReadonlyStateProxy(engine, state, renderer = null) {
     return new Proxy(state, new StateHandler(engine, renderer));
 }
 
-class SwapDiff {
-    swaps = new Set();
-    overwrites = new Set();
-    oldListValue = null;
-    newListValue = null;
-    oldIndexes = [];
-    newIndexes = [];
-}
-function createSwapDiff() {
-    return new SwapDiff();
-}
-
 class Renderer {
     #updatedBindings = new Set();
     #processedRefs = new Set();
@@ -2410,6 +2398,7 @@ class Renderer {
     #readonlyState = null;
     #listDiffByRef = new Map();
     #swapDiffByRef = new Map();
+    #swapIndexesByRef = new Map();
     constructor(engine) {
         this.#engine = engine;
     }
@@ -2460,12 +2449,6 @@ class Renderer {
                     }
                     // リスト要素を処理済みに追加
                     this.#processedRefs.add(ref);
-                    const listIndex = ref.listIndex ?? raiseError({
-                        code: "UPD-003",
-                        message: `ListIndex is null for ref: ${ref.key}`,
-                        context: { refKey: ref.key, pattern: ref.info.pattern },
-                        docsUrl: "./docs/error-codes.md#upd",
-                    });
                     if (ref.info.parentInfo === null) {
                         raiseError({
                             code: "UPD-004",
@@ -2479,66 +2462,73 @@ class Renderer {
                         // リストの差分計算は後続のcalcListDiffで行うので、swapのための計算はスキップ
                         continue;
                     }
-                    let swapDiff = this.#swapDiffByRef.get(listRef);
-                    const [, oldListIndexes, oldListValue] = this.engine.getListAndListIndexes(listRef);
-                    if (oldListValue == null || oldListIndexes == null) {
-                        raiseError({
-                            code: "UPD-005",
-                            message: `OldListValue is null for ref: ${listRef.key}`,
-                            context: { refKey: listRef.key, pattern: listRef.info.pattern },
-                            docsUrl: "./docs/error-codes.md#upd",
-                        });
+                    let indexes = this.#swapIndexesByRef.get(listRef);
+                    if (typeof indexes === "undefined") {
+                        indexes = [];
+                        this.#swapIndexesByRef.set(listRef, indexes);
                     }
-                    const elementValue = this.readonlyState[GetByRefSymbol](ref);
-                    if (typeof swapDiff === "undefined") {
-                        swapDiff = createSwapDiff();
-                        swapDiff.oldListValue = oldListValue;
-                        swapDiff.newListValue = elementValue;
-                        swapDiff.oldIndexes = oldListIndexes;
-                        swapDiff.newIndexes = Array.from(swapDiff.oldIndexes);
-                        this.#swapDiffByRef.set(listRef, swapDiff);
-                    }
-                    const oldIndex = oldListValue?.indexOf(elementValue) ?? -1;
-                    if (oldIndex === -1) {
-                        swapDiff.overwrites.add(listIndex);
-                    }
-                    else {
-                        const oldListIndex = oldListIndexes?.[oldIndex] ?? raiseError({
-                            code: "UPD-004",
-                            message: `ListIndex not found for value: ${elementValue}`,
-                            context: { refKey: ref.key, pattern: ref.info.pattern },
-                            docsUrl: "./docs/error-codes.md#upd",
-                        });
-                        oldListIndex.index = listIndex.index; // インデックスを更新
-                        swapDiff.newIndexes[listIndex.index] = oldListIndex;
-                        swapDiff.swaps.add(oldListIndex);
-                    }
+                    const listIndex = ref.listIndex ?? raiseError({
+                        code: "UPD-003",
+                        message: `ListIndex is null for ref: ${ref.key}`,
+                        context: { refKey: ref.key, pattern: ref.info.pattern },
+                        docsUrl: "./docs/error-codes.md#upd",
+                    });
+                    indexes.push(listIndex.index);
                 }
-                for (const [ref, swapDiff] of this.#swapDiffByRef) {
-                    if (listRefs.has(ref)) {
-                        // リストの差分計算は後続のcalcListDiffで行うので、ここのswapのための計算はスキップ
-                        continue;
+                for (const [listRef, indexes] of this.#swapIndexesByRef) {
+                    this.#listDiffByRef.set(listRef, null);
+                    try {
+                        const newListValue = this.readonlyState[GetByRefSymbol](listRef);
+                        const [, oldListIndexes, oldListValue] = this.engine.getListAndListIndexes(listRef);
+                        if (oldListValue == null || oldListIndexes == null) {
+                            raiseError({
+                                code: "UPD-005",
+                                message: `OldListValue or OldListIndexes is null for ref: ${listRef.key}`,
+                                context: { refKey: listRef.key, pattern: listRef.info.pattern },
+                                docsUrl: "./docs/error-codes.md#upd",
+                            });
+                        }
+                        const listDiff = {
+                            oldListValue: oldListValue,
+                            newListValue: newListValue,
+                            oldIndexes: oldListIndexes,
+                            newIndexes: Array.from(oldListIndexes),
+                            changeIndexes: new Set(),
+                            overwrites: new Set(),
+                        };
+                        for (let i = 0; i < indexes.length; i++) {
+                            const index = indexes[i];
+                            const elementValue = listDiff.newListValue?.[index];
+                            const oldIndex = listDiff.oldListValue?.indexOf(elementValue) ?? -1;
+                            if (oldIndex === -1) {
+                                listDiff.overwrites?.add(listDiff.newIndexes[index]);
+                            }
+                            else {
+                                const listIndex = listDiff.oldIndexes?.[oldIndex] ?? raiseError({
+                                    code: "UPD-004",
+                                    message: `ListIndex not found for value: ${elementValue}`,
+                                    context: { refKey: listRef.key, pattern: listRef.info.pattern },
+                                    docsUrl: "./docs/error-codes.md#upd",
+                                });
+                                listIndex.index = index;
+                                listDiff.newIndexes[index] = listIndex;
+                                listDiff.changeIndexes?.add(listIndex);
+                            }
+                        }
+                        this.#listDiffByRef.set(listRef, listDiff);
+                        const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
+                        if (node === null) {
+                            raiseError({
+                                code: "PATH-101",
+                                message: `PathNode not found: ${listRef.info.pattern}`,
+                                context: { pattern: listRef.info.pattern },
+                                docsUrl: "./docs/error-codes.md#path",
+                            });
+                        }
+                        this.renderItem(listRef, node);
                     }
-                    const listDiff = {
-                        oldListValue: swapDiff.oldListValue,
-                        newListValue: swapDiff.newListValue,
-                        oldIndexes: swapDiff.oldIndexes,
-                        newIndexes: swapDiff.newIndexes,
-                        changeIndexes: swapDiff.swaps,
-                        overwrites: swapDiff.overwrites,
-                    };
-                    this.engine.saveListAndListIndexes(ref, swapDiff.newListValue ?? null, swapDiff.newIndexes);
-                    this.#listDiffByRef.set(ref, listDiff);
-                    const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
-                    if (node === null) {
-                        raiseError({
-                            code: "PATH-101",
-                            message: `PathNode not found: ${ref.info.pattern}`,
-                            context: { pattern: ref.info.pattern },
-                            docsUrl: "./docs/error-codes.md#path",
-                        });
+                    finally {
                     }
-                    this.renderItem(ref, node);
                 }
                 for (let i = 0; i < items.length; i++) {
                     const ref = items[i];
@@ -3079,86 +3069,83 @@ class BindingNodeFor extends BindingNodeBlock {
         const firstNode = this.node;
         this.bindContentLastIndex = this.poolLength - 1;
         const isAllAppend = listDiff.newListValue?.length === listDiff.adds?.size && (listDiff.newListValue?.length ?? 0) > 0;
-        //    if (!listDiff.onlySwap) {
-        // 全追加の場合、バッファリングしてから一括追加する
-        const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
-        const fragmentFirstNode = isAllAppend ? null : firstNode;
-        const adds = listDiff.adds ?? EMPTY_SET;
-        for (const listIndex of listDiff.newIndexes) {
-            const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
-            let bindContent;
-            if (adds.has(listIndex)) {
-                bindContent = this.createBindContent(listIndex);
-                bindContent.mountAfter(fragmentParentNode, lastNode);
-                bindContent.applyChange(renderer);
-            }
-            else {
-                bindContent = this.#bindContentByListIndex.get(listIndex);
-                if (typeof bindContent === "undefined") {
-                    raiseError({
-                        code: 'BIND-201',
-                        message: 'BindContent not found',
-                        context: { where: 'BindingNodeFor.applyChange', when: 'reuse' },
-                        docsUrl: '/docs/error-codes.md#bind',
-                    });
-                }
-                if (lastNode?.nextSibling !== bindContent.firstChildNode) {
+        const isOnlySwap = (listDiff.adds?.size ?? 0) === 0 && (listDiff.removes?.size ?? 0) === 0 &&
+            ((listDiff.changeIndexes?.size ?? 0) > 0 || (listDiff.overwrites?.size ?? 0) > 0);
+        if (!isOnlySwap) {
+            // 全追加の場合、バッファリングしてから一括追加する
+            const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
+            const fragmentFirstNode = isAllAppend ? null : firstNode;
+            const adds = listDiff.adds ?? EMPTY_SET;
+            for (const listIndex of listDiff.newIndexes) {
+                const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
+                let bindContent;
+                if (adds.has(listIndex)) {
+                    bindContent = this.createBindContent(listIndex);
                     bindContent.mountAfter(fragmentParentNode, lastNode);
+                    bindContent.applyChange(renderer);
                 }
+                else {
+                    bindContent = this.#bindContentByListIndex.get(listIndex);
+                    if (typeof bindContent === "undefined") {
+                        raiseError({
+                            code: 'BIND-201',
+                            message: 'BindContent not found',
+                            context: { where: 'BindingNodeFor.applyChange', when: 'reuse' },
+                            docsUrl: '/docs/error-codes.md#bind',
+                        });
+                    }
+                    if (lastNode?.nextSibling !== bindContent.firstChildNode) {
+                        bindContent.mountAfter(fragmentParentNode, lastNode);
+                    }
+                }
+                newBindContents.push(bindContent);
+                lastBindContent = bindContent;
             }
-            newBindContents.push(bindContent);
-            lastBindContent = bindContent;
+            // 全追加最適化
+            if (isAllAppend) {
+                const beforeNode = firstNode.nextSibling;
+                parentNode.insertBefore(fragmentParentNode, beforeNode);
+            }
         }
-        // 全追加最適化
-        if (isAllAppend) {
-            const beforeNode = firstNode.nextSibling;
-            parentNode.insertBefore(fragmentParentNode, beforeNode);
-        }
-        //    } else {
-        // リストインデックスの並び替え
-        // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
-        // 並べ替えはするが、要素の内容は変わらないため
-        /*
-              if (listIndexResults.swapTargets) {
+        else {
+            // リストインデックスの並び替え
+            // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
+            // 並べ替えはするが、要素の内容は変わらないため
+            if ((listDiff.changeIndexes?.size ?? 0) > 0) {
                 const bindContents = Array.from(this.#bindContents);
-                const targets = Array.from(listIndexResults.swapTargets);
-                targets.sort((a, b) => a.index - b.index);
-                for(let i = 0; i < targets.length; i++) {
-                  const targetListIndex = targets[i];
-                  const targetBindContent = this.#bindContentByListIndex.get(targetListIndex);
-                  if (typeof targetBindContent === "undefined") {
-                    raiseError({
-                      code: 'BIND-201',
-                      message: 'BindContent not found',
-                      context: { where: 'BindingNodeFor.applyChange', when: 'swapTargets' },
-                      docsUrl: '/docs/error-codes.md#bind',
-                    });
-                  }
-                  bindContents[targetListIndex.index] = targetBindContent;
-                  const lastNode = bindContents[targetListIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
-                  targetBindContent.mountAfter(parentNode, lastNode);
+                const changeIndexes = Array.from(listDiff.changeIndexes ?? []);
+                changeIndexes.sort((a, b) => a.index - b.index);
+                for (const listIndex of changeIndexes) {
+                    const bindContent = this.#bindContentByListIndex.get(listIndex);
+                    if (typeof bindContent === "undefined") {
+                        raiseError({
+                            code: 'BIND-201',
+                            message: 'BindContent not found',
+                            context: { where: 'BindingNodeFor.applyChange', when: 'swapTargets' },
+                            docsUrl: '/docs/error-codes.md#bind',
+                        });
+                    }
+                    bindContents[listIndex.index] = bindContent;
+                    const lastNode = bindContents[listIndex.index - 1]?.getLastNode(parentNode) ?? firstNode;
+                    bindContent.mountAfter(parentNode, lastNode);
                 }
                 newBindContents = bindContents;
-              }
-        */
-        //    }
-        // リスト要素の上書き
-        /*
-            if (listDiff.replaces) {
-              for (const listIndex of listDiff.replaces) {
-                const bindContent = this.#bindContentByListIndex.get(listIndex);
-                if (typeof bindContent === "undefined") {
-                  raiseError({
-                    code: 'BIND-201',
-                    message: 'BindContent not found',
-                    context: { where: 'BindingNodeFor.applyChange', when: 'replaces' },
-                    docsUrl: '/docs/error-codes.md#bind',
-                  });
-                }
-                bindContent.applyChange(renderer);
-              }
             }
-        */
+            if ((listDiff.overwrites?.size ?? 0) > 0) {
+                for (const listIndex of listDiff.overwrites ?? []) {
+                    const bindContent = this.#bindContentByListIndex.get(listIndex);
+                    if (typeof bindContent === "undefined") {
+                        raiseError({
+                            code: 'BIND-201',
+                            message: 'BindContent not found',
+                            context: { where: 'BindingNodeFor.applyChange', when: 'replaces' },
+                            docsUrl: '/docs/error-codes.md#bind',
+                        });
+                    }
+                    bindContent.applyChange(renderer);
+                }
+            }
+        }
         // プールの長さを更新する
         // プールの長さは、プールの最後の要素のインデックス+1であるため、
         this.poolLength = this.bindContentLastIndex + 1;
