@@ -12,8 +12,7 @@ class Renderer {
     #engine;
     #readonlyState = null;
     #listDiffByRef = new Map();
-    #swapDiffByRef = new Map();
-    #swapIndexesByRef = new Map();
+    #reorderIndexesByRef = new Map();
     constructor(engine) {
         this.#engine = engine;
     }
@@ -43,108 +42,112 @@ class Renderer {
         }
         return this.#engine;
     }
+    reorderList(items) {
+        const listRefs = new Set();
+        for (let i = 0; i < items.length; i++) {
+            const ref = items[i];
+            if (this.engine.pathManager.lists.has(ref.info.pattern)) {
+                listRefs.add(ref);
+                continue;
+            }
+            if (!this.engine.pathManager.elements.has(ref.info.pattern)) {
+                continue; // elements に登録されていないパスはスキップ
+            }
+            // リスト要素を処理済みに追加
+            this.#processedRefs.add(ref);
+            if (ref.info.parentInfo === null) {
+                raiseError({
+                    code: "UPD-004",
+                    message: `ParentInfo is null for ref: ${ref.key}`,
+                    context: { refKey: ref.key, pattern: ref.info.pattern },
+                    docsUrl: "./docs/error-codes.md#upd",
+                });
+            }
+            const listRef = getStatePropertyRef(ref.info.parentInfo, ref.listIndex?.at(-2) || null);
+            if (listRefs.has(listRef)) {
+                // リストの差分計算は後続のcalcListDiffで行うので、リオーダーのための計算はスキップ
+                continue;
+            }
+            let indexes = this.#reorderIndexesByRef.get(listRef);
+            if (typeof indexes === "undefined") {
+                indexes = [];
+                this.#reorderIndexesByRef.set(listRef, indexes);
+            }
+            const listIndex = ref.listIndex ?? raiseError({
+                code: "UPD-003",
+                message: `ListIndex is null for ref: ${ref.key}`,
+                context: { refKey: ref.key, pattern: ref.info.pattern },
+                docsUrl: "./docs/error-codes.md#upd",
+            });
+            indexes.push(listIndex.index);
+        }
+        for (const [listRef, indexes] of this.#reorderIndexesByRef) {
+            this.#listDiffByRef.set(listRef, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
+            // listRefのリスト要素をindexesの順に並び替える
+            try {
+                const newListValue = this.readonlyState[GetByRefSymbol](listRef);
+                const [, oldListIndexes, oldListValue] = this.engine.getListAndListIndexes(listRef);
+                if (oldListValue == null || oldListIndexes == null) {
+                    raiseError({
+                        code: "UPD-005",
+                        message: `OldListValue or OldListIndexes is null for ref: ${listRef.key}`,
+                        context: { refKey: listRef.key, pattern: listRef.info.pattern },
+                        docsUrl: "./docs/error-codes.md#upd",
+                    });
+                }
+                const listDiff = {
+                    oldListValue: oldListValue,
+                    newListValue: newListValue,
+                    oldIndexes: oldListIndexes,
+                    newIndexes: Array.from(oldListIndexes),
+                    changeIndexes: new Set(),
+                    overwrites: new Set(),
+                };
+                for (let i = 0; i < indexes.length; i++) {
+                    const index = indexes[i];
+                    const elementValue = listDiff.newListValue?.[index];
+                    const oldIndex = listDiff.oldListValue?.indexOf(elementValue) ?? -1;
+                    if (oldIndex === -1) {
+                        listDiff.overwrites?.add(listDiff.newIndexes[index]);
+                    }
+                    else {
+                        const listIndex = listDiff.oldIndexes?.[oldIndex] ?? raiseError({
+                            code: "UPD-004",
+                            message: `ListIndex not found for value: ${elementValue}`,
+                            context: { refKey: listRef.key, pattern: listRef.info.pattern },
+                            docsUrl: "./docs/error-codes.md#upd",
+                        });
+                        listIndex.index = index;
+                        listDiff.newIndexes[index] = listIndex;
+                        listDiff.changeIndexes?.add(listIndex);
+                    }
+                }
+                this.#listDiffByRef.set(listRef, listDiff);
+                const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
+                if (node === null) {
+                    raiseError({
+                        code: "PATH-101",
+                        message: `PathNode not found: ${listRef.info.pattern}`,
+                        context: { pattern: listRef.info.pattern },
+                        docsUrl: "./docs/error-codes.md#path",
+                    });
+                }
+                this.renderItem(listRef, node);
+            }
+            finally {
+            }
+        }
+    }
     render(items) {
         this.#listDiffByRef.clear();
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
-        this.#swapDiffByRef.clear();
         // 実際のレンダリングロジックを実装
         const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#engine.state, this);
         try {
             readonlyState[SetCacheableSymbol](() => {
-                const listRefs = new Set();
-                for (let i = 0; i < items.length; i++) {
-                    const ref = items[i];
-                    if (this.engine.pathManager.lists.has(ref.info.pattern)) {
-                        listRefs.add(ref);
-                        continue;
-                    }
-                    if (!this.engine.pathManager.elements.has(ref.info.pattern)) {
-                        continue; // elements に登録されていないパスはスキップ
-                    }
-                    // リスト要素を処理済みに追加
-                    this.#processedRefs.add(ref);
-                    if (ref.info.parentInfo === null) {
-                        raiseError({
-                            code: "UPD-004",
-                            message: `ParentInfo is null for ref: ${ref.key}`,
-                            context: { refKey: ref.key, pattern: ref.info.pattern },
-                            docsUrl: "./docs/error-codes.md#upd",
-                        });
-                    }
-                    const listRef = getStatePropertyRef(ref.info.parentInfo, ref.listIndex?.at(-2) || null);
-                    if (listRefs.has(listRef)) {
-                        // リストの差分計算は後続のcalcListDiffで行うので、swapのための計算はスキップ
-                        continue;
-                    }
-                    let indexes = this.#swapIndexesByRef.get(listRef);
-                    if (typeof indexes === "undefined") {
-                        indexes = [];
-                        this.#swapIndexesByRef.set(listRef, indexes);
-                    }
-                    const listIndex = ref.listIndex ?? raiseError({
-                        code: "UPD-003",
-                        message: `ListIndex is null for ref: ${ref.key}`,
-                        context: { refKey: ref.key, pattern: ref.info.pattern },
-                        docsUrl: "./docs/error-codes.md#upd",
-                    });
-                    indexes.push(listIndex.index);
-                }
-                for (const [listRef, indexes] of this.#swapIndexesByRef) {
-                    this.#listDiffByRef.set(listRef, null);
-                    try {
-                        const newListValue = this.readonlyState[GetByRefSymbol](listRef);
-                        const [, oldListIndexes, oldListValue] = this.engine.getListAndListIndexes(listRef);
-                        if (oldListValue == null || oldListIndexes == null) {
-                            raiseError({
-                                code: "UPD-005",
-                                message: `OldListValue or OldListIndexes is null for ref: ${listRef.key}`,
-                                context: { refKey: listRef.key, pattern: listRef.info.pattern },
-                                docsUrl: "./docs/error-codes.md#upd",
-                            });
-                        }
-                        const listDiff = {
-                            oldListValue: oldListValue,
-                            newListValue: newListValue,
-                            oldIndexes: oldListIndexes,
-                            newIndexes: Array.from(oldListIndexes),
-                            changeIndexes: new Set(),
-                            overwrites: new Set(),
-                        };
-                        for (let i = 0; i < indexes.length; i++) {
-                            const index = indexes[i];
-                            const elementValue = listDiff.newListValue?.[index];
-                            const oldIndex = listDiff.oldListValue?.indexOf(elementValue) ?? -1;
-                            if (oldIndex === -1) {
-                                listDiff.overwrites?.add(listDiff.newIndexes[index]);
-                            }
-                            else {
-                                const listIndex = listDiff.oldIndexes?.[oldIndex] ?? raiseError({
-                                    code: "UPD-004",
-                                    message: `ListIndex not found for value: ${elementValue}`,
-                                    context: { refKey: listRef.key, pattern: listRef.info.pattern },
-                                    docsUrl: "./docs/error-codes.md#upd",
-                                });
-                                listIndex.index = index;
-                                listDiff.newIndexes[index] = listIndex;
-                                listDiff.changeIndexes?.add(listIndex);
-                            }
-                        }
-                        this.#listDiffByRef.set(listRef, listDiff);
-                        const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
-                        if (node === null) {
-                            raiseError({
-                                code: "PATH-101",
-                                message: `PathNode not found: ${listRef.info.pattern}`,
-                                context: { pattern: listRef.info.pattern },
-                                docsUrl: "./docs/error-codes.md#path",
-                            });
-                        }
-                        this.renderItem(listRef, node);
-                    }
-                    finally {
-                    }
-                }
+                // まずはリストの並び替えを処理
+                this.reorderList(items);
                 for (let i = 0; i < items.length; i++) {
                     const ref = items[i];
                     const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);

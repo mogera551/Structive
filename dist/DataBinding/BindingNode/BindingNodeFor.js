@@ -15,8 +15,8 @@ const EMPTY_SET = new Set();
  * - プール機構によりBindContentの再利用を促進し、パフォーマンスを向上
  *
  * 設計ポイント:
- * - assignValueでリストの差分を検出し、BindContentの生成・削除・再利用を管理
- * - updateElementsでリストの並び替えやSWAP処理にも対応
+ * - applyChangeでリストの差分を検出し、BindContentの生成・削除・再利用を管理
+ * - リオーダー（並び替え）処理と上書き処理を分離して効率的な更新を実現
  * - BindContentのプール・インデックス管理でGCやDOM操作の最小化を図る
  * - バインディング状態やリストインデックス情報をエンジンに保存し、再描画や依存解決を容易にする
  *
@@ -171,9 +171,10 @@ class BindingNodeFor extends BindingNodeBlock {
         const firstNode = this.node;
         this.bindContentLastIndex = this.poolLength - 1;
         const isAllAppend = listDiff.newListValue?.length === listDiff.adds?.size && (listDiff.newListValue?.length ?? 0) > 0;
-        const isOnlySwap = (listDiff.adds?.size ?? 0) === 0 && (listDiff.removes?.size ?? 0) === 0 &&
+        // リオーダー判定: 追加・削除がなく、並び替え（changeIndexes）または上書き（overwrites）のみの場合
+        const isReorder = (listDiff.adds?.size ?? 0) === 0 && (listDiff.removes?.size ?? 0) === 0 &&
             ((listDiff.changeIndexes?.size ?? 0) > 0 || (listDiff.overwrites?.size ?? 0) > 0);
-        if (!isOnlySwap) {
+        if (!isReorder) {
             // 全追加の場合、バッファリングしてから一括追加する
             const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
             const fragmentFirstNode = isAllAppend ? null : firstNode;
@@ -210,9 +211,9 @@ class BindingNodeFor extends BindingNodeBlock {
             }
         }
         else {
-            // リストインデックスの並び替え
-            // リストインデックスの並び替え時、インデックスの変更だけなので、要素の再描画はしたくない
-            // 並べ替えはするが、要素の内容は変わらないため
+            // リオーダー処理: 要素の追加・削除がない場合の最適化処理
+            // 並び替え処理: インデックスの変更のみなので、要素の再描画は不要
+            // DOM位置の調整のみ行い、BindContentの内容は再利用する
             if ((listDiff.changeIndexes?.size ?? 0) > 0) {
                 const bindContents = Array.from(this.#bindContents);
                 const changeIndexes = Array.from(listDiff.changeIndexes ?? []);
@@ -223,7 +224,7 @@ class BindingNodeFor extends BindingNodeBlock {
                         raiseError({
                             code: 'BIND-201',
                             message: 'BindContent not found',
-                            context: { where: 'BindingNodeFor.applyChange', when: 'swapTargets' },
+                            context: { where: 'BindingNodeFor.applyChange', when: 'reorder' },
                             docsUrl: '/docs/error-codes.md#bind',
                         });
                     }
@@ -233,6 +234,7 @@ class BindingNodeFor extends BindingNodeBlock {
                 }
                 newBindContents = bindContents;
             }
+            // 上書き処理: 同じ位置の要素が異なる値に変更された場合の再描画
             if ((listDiff.overwrites?.size ?? 0) > 0) {
                 for (const listIndex of listDiff.overwrites ?? []) {
                     const bindContent = this.#bindContentByListIndex.get(listIndex);
@@ -240,7 +242,7 @@ class BindingNodeFor extends BindingNodeBlock {
                         raiseError({
                             code: 'BIND-201',
                             message: 'BindContent not found',
-                            context: { where: 'BindingNodeFor.applyChange', when: 'replaces' },
+                            context: { where: 'BindingNodeFor.applyChange', when: 'overwrites' },
                             docsUrl: '/docs/error-codes.md#bind',
                         });
                     }
