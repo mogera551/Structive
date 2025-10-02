@@ -1626,22 +1626,10 @@ function resolve(target, prop, receiver, handler) {
 }
 
 /**
- * getAll.ts
+ * getAllWritable
  *
- * StateClassのAPIとして、ワイルドカードを含むStateプロパティパスに対応した
- * 全要素取得関数（getAll）の実装です。
- *
- * 主な役割:
- * - 指定パス（path）に一致する全てのState要素を配列で取得
- * - 多重ループやワイルドカード（*）を含むパスにも対応
- * - indexes未指定時は現在のループコンテキストから自動でインデックスを解決
- *
- * 設計ポイント:
- * - getStructuredPathInfoでパス情報を解析し、依存関係も自動で登録
- * - walkWildcardPatternでワイルドカード階層を再帰的に探索し、全インデックス組み合わせを列挙
- * - resolveで各インデックス組み合わせに対応する値を取得し、配列で返却
- * - getContextListIndexで現在のループインデックスを取得
- * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
+ * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する（Writable版）。
+ * Throws: LIST-201（インデックス未解決）、BIND-201（ワイルドカード情報不整合）
  */
 function getAllWritable(target, prop, receiver, handler) {
     const resolveFn = resolve(target, prop, receiver, handler);
@@ -2215,22 +2203,10 @@ function setCacheable(handler, callback) {
 }
 
 /**
- * getAll.ts
+ * getAllReadonly
  *
- * StateClassのAPIとして、ワイルドカードを含むStateプロパティパスに対応した
- * 全要素取得関数（getAll）の実装です。
- *
- * 主な役割:
- * - 指定パス（path）に一致する全てのState要素を配列で取得
- * - 多重ループやワイルドカード（*）を含むパスにも対応
- * - indexes未指定時は現在のループコンテキストから自動でインデックスを解決
- *
- * 設計ポイント:
- * - getStructuredPathInfoでパス情報を解析し、依存関係も自動で登録
- * - walkWildcardPatternでワイルドカード階層を再帰的に探索し、全インデックス組み合わせを列挙
- * - resolveで各インデックス組み合わせに対応する値を取得し、配列で返却
- * - getContextListIndexで現在のループインデックスを取得
- * - handler.engine.getListIndexesSetで各階層のリストインデックス集合を取得
+ * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する。
+ * Throws: LIST-201（インデックス未解決）、BIND-201（ワイルドカード情報不整合）
  */
 function getAllReadonly(target, prop, receiver, handler) {
     const resolveFn = resolve(target, prop, receiver, handler);
@@ -2415,35 +2391,79 @@ function createReadonlyStateProxy(engine, state, renderer = null) {
 }
 
 /**
- * Renderer は、State の変更に応じて各 Binding に applyChange を委譲し、
- * PathTree を辿りながら必要な箇所のみをレンダリングする責務を負います。
+ * Renderer は、State の変更（参照 IStatePropertyRef の集合）に対応して、
+ * PathTree を辿りつつ各 Binding（IBinding）へ applyChange を委譲するコーディネータです。
  *
- * - reorderList: 単一要素の並べ替え要求を取りまとめ、対応するリストの差分に変換
- * - render: ルート呼び出し。readonlyState を生成し、renderItem を走査
- * - renderItem: 静的/動的依存を処理しつつ、該当パスのバインディングに更新を適用
- * - calcListDiff: 参照 ref に対して ListDiff を計算し、必要に応じてエンジンに保存
+ * 主な役割
+ * - reorderList: 要素単位の並べ替え要求を収集し、親リスト単位の差分（IListDiff）へ変換して適用
+ * - render: エントリポイント。ReadonlyState を生成し、reorder → 各 ref の描画（renderItem）の順で実行
+ * - renderItem: 指定 ref に紐づく Binding を更新し、静的依存（子 PathNode）と動的依存を再帰的に辿る
+ * - calcListDiff: リスト参照に対し旧値/新値/旧インデックスから差分を計算し、必要であれば保存
  *
- * Throws（代表例）:
+ * コントラクト
+ * - Binding#applyChange(renderer): 変更があった場合は renderer.updatedBindings に自分自身を追加すること
+ * - engine.saveListAndListIndexes(ref, newValue, newIndexes): リストの論理的状態を最新に保持すること
+ * - readonlyState[GetByRefSymbol](ref): ref の新しい値（読み取り専用ビュー）を返すこと
+ *
+ * スレッド/再入
+ * - 同期実行前提。calcListDiff 呼び出し中の再帰などに備えて、#listDiffByRef には一時的に null を格納
+ *
+ * 代表的な例外
  * - UPD-001/002: Engine/ReadonlyState の未初期化
  * - UPD-003/004/005/006: ListIndex/ParentInfo/OldList* の不整合や ListDiff 未生成
  * - PATH-101: PathNode が見つからない
  */
 class Renderer {
+    /**
+     * このレンダリングサイクルで「変更あり」となった Binding の集合。
+     * 注意: 実際に追加するのは各 binding.applyChange 実装側の責務。
+     */
     #updatedBindings = new Set();
+    /**
+     * 二重適用を避けるために処理済みとした参照。
+     * renderItem の再帰や依存関係の横断時に循環/重複を防ぐ。
+     */
     #processedRefs = new Set();
+    /**
+     * レンダリング対象のエンジン。state, pathManager, bindings などのファサード。
+     */
     #engine;
+    /**
+     * createReadonlyStateProxy により生成される読み取り専用ビュー。render 実行中のみ非 null。
+     */
     #readonlyState = null;
+    /**
+     * リスト参照ごとの差分キャッシュ。
+     * 値の意味:
+     * - undefined: まだ未計算
+     * - null: 計算中（再入保護）
+     * - IListDiff: 計算済み
+     */
     #listDiffByRef = new Map();
+    /**
+     * 親リスト参照ごとに「要素の新しい並び位置」を記録するためのインデックス配列。
+     * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
+     */
     #reorderIndexesByRef = new Map();
     constructor(engine) {
         this.#engine = engine;
     }
+    /**
+     * このサイクル中に更新された Binding の集合を返す（読み取り専用的に使用）。
+     */
     get updatedBindings() {
         return this.#updatedBindings;
     }
+    /**
+     * 既に処理済みの参照集合を返す。二重適用の防止に利用する。
+     */
     get processedRefs() {
         return this.#processedRefs;
     }
+    /**
+     * 読み取り専用 State ビューを取得する。render 実行中でなければ例外。
+     * Throws: UPD-002
+     */
     get readonlyState() {
         if (!this.#readonlyState) {
             raiseError({
@@ -2454,6 +2474,10 @@ class Renderer {
         }
         return this.#readonlyState;
     }
+    /**
+     * バッキングエンジンを取得する。未初期化の場合は例外。
+     * Throws: UPD-001
+     */
     get engine() {
         if (!this.#engine) {
             raiseError({
@@ -2467,6 +2491,17 @@ class Renderer {
     /**
      * リスト要素の並び替え要求（要素単位）を収集し、対応するリスト（親Ref）に対して
      * 位置変更（changeIndexes）や上書き（overwrites）を含む仮の ListDiff を生成して描画します。
+     *
+     * ポリシー
+     * - 受け取った items は「リスト要素の ref」。親リストの ref を導出して集約する。
+     * - 仮の IListDiff を構築し engine.saveListAndListIndexes に保存した後、親リストの PathNode から描画を再入する。
+     * - 既に lists に登録されているパターンは親リストとして扱い、要素→親の導出は行わない。
+     *
+     * Throws:
+     * - UPD-003: listIndex の不足
+     * - UPD-004: parentInfo 不整合 / 値に対応する旧インデックスが見つからない
+     * - UPD-005: oldListValue / oldListIndexes 欠落
+     * - PATH-101: 親リストの PathNode 未検出
      */
     reorderList(items) {
         const listRefs = new Set();
@@ -2549,6 +2584,7 @@ class Renderer {
                     }
                 }
                 this.#listDiffByRef.set(listRef, listDiff);
+                // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
                 this.engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
                 const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
                 if (node === null) {
@@ -2559,6 +2595,7 @@ class Renderer {
                         docsUrl: "./docs/error-codes.md#path",
                     });
                 }
+                // 親リスト単位で描画を再開する
                 this.renderItem(listRef, node);
             }
             finally {
@@ -2568,6 +2605,10 @@ class Renderer {
     /**
      * レンダリングのエントリポイント。ReadonlyState を生成し、
      * 並べ替え処理→各参照の描画の順に処理します。
+     *
+     * 注意
+     * - readonlyState はこのメソッドのスコープ内でのみ有効。
+     * - SetCacheableSymbol により参照解決のキャッシュをまとめて有効化できる。
      */
     render(items) {
         this.#listDiffByRef.clear();
@@ -2602,6 +2643,15 @@ class Renderer {
     /**
      * 参照 ref の旧値/新値と保存済みインデックスから ListDiff を計算し、
      * 変更があれば engine.saveListAndListIndexes に保存します。
+    *
+    * 引数
+    * - ref: 対象のリスト参照
+    * - _newListValue: isNewValue=true のときのみ使用する、呼び出し側で提供された新リスト値
+    * - isNewValue: true の場合、_newListValue を新値とみなす。false の場合は readonlyState から取得
+    *
+    * メモ
+    * - #listDiffByRef[ref] が undefined の場合にのみ計算を行い、差分をキャッシュする
+    * - old/new 値の参照比較で異なる場合に限り saveListAndListIndexes を呼び出す
      */
     calcListDiff(ref, _newListValue = undefined, isNewValue = false) {
         let listDiff = this.#listDiffByRef.get(ref);
@@ -2623,6 +2673,17 @@ class Renderer {
      * - まず自身のバインディング適用
      * - 次に静的依存（ワイルドカード含む）
      * - 最後に動的依存（ワイルドカードは階層的に展開）
+     *
+     * 静的依存（子ノード）
+     * - 子名が WILDCARD の場合: calcListDiff の adds を利用して各リスト要素に対し再帰描画
+     * - それ以外: 親の listIndex を引き継いで子参照を生成して再帰描画
+     *
+     * 動的依存
+     * - pathManager.dynamicDependencies に登録されたパスを基に、ワイルドカードを展開しつつ描画を再帰
+     *
+     * Throws
+     * - UPD-006: WILDCARD 分岐で ListDiff が未計算（null）の場合
+     * - PATH-101: 動的依存の PathNode 未検出
      */
     renderItem(ref, node) {
         if (this.processedRefs.has(ref)) {
@@ -2630,7 +2691,7 @@ class Renderer {
         }
         this.processedRefs.add(ref);
         // バインディングに変更を適用する
-        // 変更があったバインディングはupdatedBindingsに追加する
+        // 変更があったバインディングは updatedBindings に追加する（applyChange 実装の責務）
         const bindings = this.#engine.getBindings(ref);
         for (let i = 0; i < bindings.length; i++) {
             const binding = bindings[i];
@@ -2704,6 +2765,9 @@ class Renderer {
         }
     }
 }
+/**
+ * 便宜関数。Renderer のインスタンス化と render 呼び出しをまとめて行う。
+ */
 function render(refs, engine) {
     const renderer = new Renderer(engine);
     renderer.render(refs);
@@ -4485,15 +4549,37 @@ class BindContent {
     get id() {
         return this.#id;
     }
+    /**
+     * この BindContent が既に DOM にマウントされているかどうか。
+     * 判定は childNodes[0] の親が fragment 以外かで行う。
+     */
     get isMounted() {
         return this.childNodes.length > 0 && this.childNodes[0].parentNode !== this.fragment;
     }
+    /**
+     * 先頭の子ノードを返す。存在しなければ null。
+     */
     get firstChildNode() {
         return this.childNodes[0] ?? null;
     }
+    /**
+     * 末尾の子ノードを返す。存在しなければ null。
+     */
     get lastChildNode() {
         return this.childNodes[this.childNodes.length - 1] ?? null;
     }
+    /**
+     * 再帰的に最終ノード（末尾のバインディング配下も含む）を取得する。
+     *
+     * Params:
+     * - parentNode: 検証対象の親ノード（このノード配下にあることを期待）
+     *
+     * Returns:
+     * - 最終ノード（Node）または null（親子関係が崩れている場合）
+     *
+     * Throws:
+     * - BIND-104 子 BindContent が見つからない（不整合）
+     */
     getLastNode(parentNode) {
         const lastBinding = this.bindings[this.bindings.length - 1];
         const lastChildNode = this.lastChildNode;
@@ -4517,6 +4603,10 @@ class BindContent {
         return lastChildNode;
     }
     #currentLoopContext;
+    /**
+     * 現在のループ文脈（LoopContext）を返す。自身に無ければ親方向へ遡って探索し、
+     * 一度解決した値はフィールドにキャッシュする。
+     */
     get currentLoopContext() {
         if (typeof this.#currentLoopContext === "undefined") {
             let bindContent = this;
@@ -4529,6 +4619,12 @@ class BindContent {
         }
         return this.#currentLoopContext;
     }
+    /**
+     * コンストラクタ。
+     * - テンプレートから DocumentFragment と childNodes を構築
+     * - ループ参照（loopRef.listIndex）がある場合に LoopContext を生成
+     * - テンプレートに基づき Bindings を生成
+     */
     constructor(parentBinding, id, engine, loopRef) {
         this.parentBinding = parentBinding;
         this.#id = id;
@@ -4538,22 +4634,37 @@ class BindContent {
         this.loopContext = (loopRef.listIndex !== null) ? createLoopContext(loopRef, this) : null;
         this.bindings = createBindings(this, id, engine, this.fragment);
     }
+    /**
+     * 末尾にマウント（appendChild）。
+     * 注意: idempotent ではないため、重複マウントは呼び出し側で避けること。
+     */
     mount(parentNode) {
         for (let i = 0; i < this.childNodes.length; i++) {
             parentNode.appendChild(this.childNodes[i]);
         }
     }
+    /**
+     * 指定ノードの直前にマウント（insertBefore）。
+     */
     mountBefore(parentNode, beforeNode) {
         for (let i = 0; i < this.childNodes.length; i++) {
             parentNode.insertBefore(this.childNodes[i], beforeNode);
         }
     }
+    /**
+     * 指定ノードの直後にマウント（afterNode.nextSibling を before にして insertBefore）。
+     */
     mountAfter(parentNode, afterNode) {
         const beforeNode = afterNode?.nextSibling ?? null;
         for (let i = 0; i < this.childNodes.length; i++) {
             parentNode.insertBefore(this.childNodes[i], beforeNode);
         }
     }
+    /**
+     * アンマウント（親から childNodes を一括で取り外す）。
+     * コメント/テキストノードにも対応するため parentNode を使用。
+     * 親が既に無い場合は no-op。
+     */
     unmount() {
         // コメント/テキストノードでも確実に取得できるよう parentNode を使用する
         const parentNode = this.childNodes[0]?.parentNode ?? null;
@@ -4565,11 +4676,20 @@ class BindContent {
         }
     }
     bindings = [];
+    /**
+     * 生成済みの全 Binding を初期化。
+     * createBindContent 直後および assignListIndex 後に呼び出される。
+     */
     init() {
         for (let i = 0; i < this.bindings.length; i++) {
             this.bindings[i].init();
         }
     }
+    /**
+     * ループ中の ListIndex を再割当てし、Bindings を再初期化する。
+     * Throws:
+     * - BIND-201 LoopContext が未初期化
+     */
     assignListIndex(listIndex) {
         if (this.loopContext == null)
             raiseError({
@@ -4581,6 +4701,11 @@ class BindContent {
         this.loopContext.assignListIndex(listIndex);
         this.init();
     }
+    /**
+     * 変更適用エントリポイント。
+     * Renderer から呼ばれ、各 Binding に applyChange を委譲する。
+     * renderer.updatedBindings に載っているものは二重適用を避ける。
+     */
     applyChange(renderer) {
         for (let i = 0; i < this.bindings.length; i++) {
             const binding = this.bindings[i];
@@ -4678,6 +4803,17 @@ function attachShadow(element, config, styleSheet) {
     }
 }
 
+/**
+ * ComponentStateBinding
+ *
+ * 目的:
+ * - 親コンポーネントの状態パスと子コンポーネント側のサブパスを一対一で関連付け、
+ *   双方向にパス変換・参照できるようにする（親->子/子->親）。
+ *
+ * 制約:
+ * - 親パス/子パスは 1:1 のみ（重複登録は STATE-303）
+ * - 最長一致でのパス変換を行い、下位セグメントはそのまま連結
+ */
 class ComponentStateBinding {
     parentPaths = new Set();
     childPaths = new Set();
@@ -4723,6 +4859,7 @@ class ComponentStateBinding {
         return this.parentPathByChildPath.get(childPath);
     }
     toParentPathFromChildPath(childPath) {
+        // 子から親へ: 最長一致する childPaths のエントリを探し、残差のセグメントを親に連結
         const childPathInfo = getStructuredPathInfo(childPath);
         const matchPaths = childPathInfo.cumulativePathSet.intersection(this.childPaths);
         if (matchPaths.size === 0) {
@@ -4748,6 +4885,7 @@ class ComponentStateBinding {
         return matchParentPath + remainPath;
     }
     toChildPathFromParentPath(parentPath) {
+        // 親から子へ: 最長一致する parentPaths のエントリを探し、残差のセグメントを子に連結
         const parentPathInfo = getStructuredPathInfo(parentPath);
         const matchPaths = parentPathInfo.cumulativePathSet.intersection(this.parentPaths);
         if (matchPaths.size === 0) {
@@ -5810,19 +5948,15 @@ function registerComponentClass(tagName, componentClass) {
 }
 
 /**
- * loadFromImportMap.ts
+ * loadFromImportMap
  *
- * importmapの情報をもとに、Structiveのルートやコンポーネントを動的にロード・登録するユーティリティです。
+ * importmap のエイリアスを走査し、ルート/コンポーネントを自動登録する。
+ * - @routes/*: entryRoute でルーティング登録（/root → / に正規化）
+ * - @components/*: SFC を読み込み、ComponentClass を生成して registerComponentClass
+ * - #lazy サフィックスが付与されている場合は遅延ロード用に保持
  *
- * 主な役割:
- * - importmap.imports内のエイリアスを走査し、@routes/や@components/のプレフィックスで判定
- * - @routes/の場合はルーティング情報をentryRouteで登録
- * - @components/の場合はloadSingleFileComponentでSFCをロードし、createComponentClassでクラス化してregisterComponentClassで登録
- *
- * 設計ポイント:
- * - importmapのエイリアスを利用して、ルーティングやコンポーネントの自動登録を実現
- * - パスやタグ名の正規化、パラメータ除去なども自動で処理
- * - 非同期でSFCをロードし、動的なWeb Components登録に対応
+ * 戻り値: Promise<void>
+ * Throws: 重大な例外は基本なし（見つからないエイリアスは warn として扱う）
  */
 const ROUTES_KEY = "@routes/";
 const COMPONENTS_KEY = "@components/";

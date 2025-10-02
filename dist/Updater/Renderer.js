@@ -7,35 +7,79 @@ import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../utils";
 /**
- * Renderer は、State の変更に応じて各 Binding に applyChange を委譲し、
- * PathTree を辿りながら必要な箇所のみをレンダリングする責務を負います。
+ * Renderer は、State の変更（参照 IStatePropertyRef の集合）に対応して、
+ * PathTree を辿りつつ各 Binding（IBinding）へ applyChange を委譲するコーディネータです。
  *
- * - reorderList: 単一要素の並べ替え要求を取りまとめ、対応するリストの差分に変換
- * - render: ルート呼び出し。readonlyState を生成し、renderItem を走査
- * - renderItem: 静的/動的依存を処理しつつ、該当パスのバインディングに更新を適用
- * - calcListDiff: 参照 ref に対して ListDiff を計算し、必要に応じてエンジンに保存
+ * 主な役割
+ * - reorderList: 要素単位の並べ替え要求を収集し、親リスト単位の差分（IListDiff）へ変換して適用
+ * - render: エントリポイント。ReadonlyState を生成し、reorder → 各 ref の描画（renderItem）の順で実行
+ * - renderItem: 指定 ref に紐づく Binding を更新し、静的依存（子 PathNode）と動的依存を再帰的に辿る
+ * - calcListDiff: リスト参照に対し旧値/新値/旧インデックスから差分を計算し、必要であれば保存
  *
- * Throws（代表例）:
+ * コントラクト
+ * - Binding#applyChange(renderer): 変更があった場合は renderer.updatedBindings に自分自身を追加すること
+ * - engine.saveListAndListIndexes(ref, newValue, newIndexes): リストの論理的状態を最新に保持すること
+ * - readonlyState[GetByRefSymbol](ref): ref の新しい値（読み取り専用ビュー）を返すこと
+ *
+ * スレッド/再入
+ * - 同期実行前提。calcListDiff 呼び出し中の再帰などに備えて、#listDiffByRef には一時的に null を格納
+ *
+ * 代表的な例外
  * - UPD-001/002: Engine/ReadonlyState の未初期化
  * - UPD-003/004/005/006: ListIndex/ParentInfo/OldList* の不整合や ListDiff 未生成
  * - PATH-101: PathNode が見つからない
  */
 class Renderer {
+    /**
+     * このレンダリングサイクルで「変更あり」となった Binding の集合。
+     * 注意: 実際に追加するのは各 binding.applyChange 実装側の責務。
+     */
     #updatedBindings = new Set();
+    /**
+     * 二重適用を避けるために処理済みとした参照。
+     * renderItem の再帰や依存関係の横断時に循環/重複を防ぐ。
+     */
     #processedRefs = new Set();
+    /**
+     * レンダリング対象のエンジン。state, pathManager, bindings などのファサード。
+     */
     #engine;
+    /**
+     * createReadonlyStateProxy により生成される読み取り専用ビュー。render 実行中のみ非 null。
+     */
     #readonlyState = null;
+    /**
+     * リスト参照ごとの差分キャッシュ。
+     * 値の意味:
+     * - undefined: まだ未計算
+     * - null: 計算中（再入保護）
+     * - IListDiff: 計算済み
+     */
     #listDiffByRef = new Map();
+    /**
+     * 親リスト参照ごとに「要素の新しい並び位置」を記録するためのインデックス配列。
+     * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
+     */
     #reorderIndexesByRef = new Map();
     constructor(engine) {
         this.#engine = engine;
     }
+    /**
+     * このサイクル中に更新された Binding の集合を返す（読み取り専用的に使用）。
+     */
     get updatedBindings() {
         return this.#updatedBindings;
     }
+    /**
+     * 既に処理済みの参照集合を返す。二重適用の防止に利用する。
+     */
     get processedRefs() {
         return this.#processedRefs;
     }
+    /**
+     * 読み取り専用 State ビューを取得する。render 実行中でなければ例外。
+     * Throws: UPD-002
+     */
     get readonlyState() {
         if (!this.#readonlyState) {
             raiseError({
@@ -46,6 +90,10 @@ class Renderer {
         }
         return this.#readonlyState;
     }
+    /**
+     * バッキングエンジンを取得する。未初期化の場合は例外。
+     * Throws: UPD-001
+     */
     get engine() {
         if (!this.#engine) {
             raiseError({
@@ -59,6 +107,17 @@ class Renderer {
     /**
      * リスト要素の並び替え要求（要素単位）を収集し、対応するリスト（親Ref）に対して
      * 位置変更（changeIndexes）や上書き（overwrites）を含む仮の ListDiff を生成して描画します。
+     *
+     * ポリシー
+     * - 受け取った items は「リスト要素の ref」。親リストの ref を導出して集約する。
+     * - 仮の IListDiff を構築し engine.saveListAndListIndexes に保存した後、親リストの PathNode から描画を再入する。
+     * - 既に lists に登録されているパターンは親リストとして扱い、要素→親の導出は行わない。
+     *
+     * Throws:
+     * - UPD-003: listIndex の不足
+     * - UPD-004: parentInfo 不整合 / 値に対応する旧インデックスが見つからない
+     * - UPD-005: oldListValue / oldListIndexes 欠落
+     * - PATH-101: 親リストの PathNode 未検出
      */
     reorderList(items) {
         const listRefs = new Set();
@@ -141,6 +200,7 @@ class Renderer {
                     }
                 }
                 this.#listDiffByRef.set(listRef, listDiff);
+                // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
                 this.engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
                 const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
                 if (node === null) {
@@ -151,6 +211,7 @@ class Renderer {
                         docsUrl: "./docs/error-codes.md#path",
                     });
                 }
+                // 親リスト単位で描画を再開する
                 this.renderItem(listRef, node);
             }
             finally {
@@ -160,6 +221,10 @@ class Renderer {
     /**
      * レンダリングのエントリポイント。ReadonlyState を生成し、
      * 並べ替え処理→各参照の描画の順に処理します。
+     *
+     * 注意
+     * - readonlyState はこのメソッドのスコープ内でのみ有効。
+     * - SetCacheableSymbol により参照解決のキャッシュをまとめて有効化できる。
      */
     render(items) {
         this.#listDiffByRef.clear();
@@ -194,6 +259,15 @@ class Renderer {
     /**
      * 参照 ref の旧値/新値と保存済みインデックスから ListDiff を計算し、
      * 変更があれば engine.saveListAndListIndexes に保存します。
+    *
+    * 引数
+    * - ref: 対象のリスト参照
+    * - _newListValue: isNewValue=true のときのみ使用する、呼び出し側で提供された新リスト値
+    * - isNewValue: true の場合、_newListValue を新値とみなす。false の場合は readonlyState から取得
+    *
+    * メモ
+    * - #listDiffByRef[ref] が undefined の場合にのみ計算を行い、差分をキャッシュする
+    * - old/new 値の参照比較で異なる場合に限り saveListAndListIndexes を呼び出す
      */
     calcListDiff(ref, _newListValue = undefined, isNewValue = false) {
         let listDiff = this.#listDiffByRef.get(ref);
@@ -215,6 +289,17 @@ class Renderer {
      * - まず自身のバインディング適用
      * - 次に静的依存（ワイルドカード含む）
      * - 最後に動的依存（ワイルドカードは階層的に展開）
+     *
+     * 静的依存（子ノード）
+     * - 子名が WILDCARD の場合: calcListDiff の adds を利用して各リスト要素に対し再帰描画
+     * - それ以外: 親の listIndex を引き継いで子参照を生成して再帰描画
+     *
+     * 動的依存
+     * - pathManager.dynamicDependencies に登録されたパスを基に、ワイルドカードを展開しつつ描画を再帰
+     *
+     * Throws
+     * - UPD-006: WILDCARD 分岐で ListDiff が未計算（null）の場合
+     * - PATH-101: 動的依存の PathNode 未検出
      */
     renderItem(ref, node) {
         if (this.processedRefs.has(ref)) {
@@ -222,7 +307,7 @@ class Renderer {
         }
         this.processedRefs.add(ref);
         // バインディングに変更を適用する
-        // 変更があったバインディングはupdatedBindingsに追加する
+        // 変更があったバインディングは updatedBindings に追加する（applyChange 実装の責務）
         const bindings = this.#engine.getBindings(ref);
         for (let i = 0; i < bindings.length; i++) {
             const binding = bindings[i];
@@ -296,6 +381,9 @@ class Renderer {
         }
     }
 }
+/**
+ * 便宜関数。Renderer のインスタンス化と render 呼び出しをまとめて行う。
+ */
 export function render(refs, engine) {
     const renderer = new Renderer(engine);
     renderer.render(refs);
