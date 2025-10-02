@@ -133,15 +133,37 @@ class BindContent implements IBindContent {
   get id() {
     return this.#id;
   }
+  /**
+   * この BindContent が既に DOM にマウントされているかどうか。
+   * 判定は childNodes[0] の親が fragment 以外かで行う。
+   */
   get isMounted() {
     return this.childNodes.length > 0 && this.childNodes[0].parentNode !== this.fragment;
   }
+  /**
+   * 先頭の子ノードを返す。存在しなければ null。
+   */
   get firstChildNode() {
     return this.childNodes[0] ?? null;
   }
+  /**
+   * 末尾の子ノードを返す。存在しなければ null。
+   */
   get lastChildNode() {
     return this.childNodes[this.childNodes.length - 1] ?? null;
   }
+  /**
+   * 再帰的に最終ノード（末尾のバインディング配下も含む）を取得する。
+   *
+   * Params:
+   * - parentNode: 検証対象の親ノード（このノード配下にあることを期待）
+   *
+   * Returns:
+   * - 最終ノード（Node）または null（親子関係が崩れている場合）
+   *
+   * Throws:
+   * - BIND-104 子 BindContent が見つからない（不整合）
+   */
   getLastNode(parentNode: Node): Node | null {
     const lastBinding = this.bindings[this.bindings.length - 1];
     const lastChildNode = this.lastChildNode;
@@ -165,6 +187,10 @@ class BindContent implements IBindContent {
     return lastChildNode;
   }
   #currentLoopContext: ILoopContext | null | undefined;
+  /**
+   * 現在のループ文脈（LoopContext）を返す。自身に無ければ親方向へ遡って探索し、
+   * 一度解決した値はフィールドにキャッシュする。
+   */
   get currentLoopContext(): ILoopContext | null {
     if (typeof this.#currentLoopContext === "undefined") {
       let bindContent: IBindContent | null = this;
@@ -176,6 +202,12 @@ class BindContent implements IBindContent {
     }
     return this.#currentLoopContext;
   }
+  /**
+   * コンストラクタ。
+   * - テンプレートから DocumentFragment と childNodes を構築
+   * - ループ参照（loopRef.listIndex）がある場合に LoopContext を生成
+   * - テンプレートに基づき Bindings を生成
+   */
   constructor(
     parentBinding: IBinding | null,
     id           : number, 
@@ -195,22 +227,37 @@ class BindContent implements IBindContent {
       this.fragment
     );
   }
+  /**
+   * 末尾にマウント（appendChild）。
+   * 注意: idempotent ではないため、重複マウントは呼び出し側で避けること。
+   */
   mount(parentNode: Node) {
     for(let i = 0; i < this.childNodes.length; i++) {
       parentNode.appendChild(this.childNodes[i]);
     }
   }
+  /**
+   * 指定ノードの直前にマウント（insertBefore）。
+   */
   mountBefore(parentNode: Node, beforeNode: Node | null) {
     for(let i = 0; i < this.childNodes.length; i++) {
       parentNode.insertBefore(this.childNodes[i], beforeNode);
     }
   }
+  /**
+   * 指定ノードの直後にマウント（afterNode.nextSibling を before にして insertBefore）。
+   */
   mountAfter(parentNode: Node, afterNode: Node | null) {
     const beforeNode = afterNode?.nextSibling ?? null;
     for(let i = 0; i < this.childNodes.length; i++) {
       parentNode.insertBefore(this.childNodes[i], beforeNode);
     }
   }
+  /**
+   * アンマウント（親から childNodes を一括で取り外す）。
+   * コメント/テキストノードにも対応するため parentNode を使用。
+   * 親が既に無い場合は no-op。
+   */
   unmount() {
     // コメント/テキストノードでも確実に取得できるよう parentNode を使用する
     const parentNode = this.childNodes[0]?.parentNode ?? null;
@@ -222,11 +269,20 @@ class BindContent implements IBindContent {
     }
   }
   bindings: IBinding[] = [];
+  /**
+   * 生成済みの全 Binding を初期化。
+   * createBindContent 直後および assignListIndex 後に呼び出される。
+   */
   init() {
     for(let i = 0; i < this.bindings.length; i++) {
       this.bindings[i].init();
     }
   }
+  /**
+   * ループ中の ListIndex を再割当てし、Bindings を再初期化する。
+   * Throws:
+   * - BIND-201 LoopContext が未初期化
+   */
   assignListIndex(listIndex: IListIndex): void {
     if (this.loopContext == null) raiseError({
       code: "BIND-201",
@@ -237,6 +293,11 @@ class BindContent implements IBindContent {
     this.loopContext.assignListIndex(listIndex);
     this.init();
   }
+  /**
+   * 変更適用エントリポイント。
+   * Renderer から呼ばれ、各 Binding に applyChange を委譲する。
+   * renderer.updatedBindings に載っているものは二重適用を避ける。
+   */
   applyChange(renderer: IRenderer): void {
     for(let i = 0; i < this.bindings.length; i++) {
       const binding = this.bindings[i];

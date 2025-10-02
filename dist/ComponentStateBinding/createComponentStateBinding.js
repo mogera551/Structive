@@ -1,5 +1,16 @@
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { raiseError } from "../utils";
+/**
+ * ComponentStateBinding
+ *
+ * 目的:
+ * - 親コンポーネントの状態パスと子コンポーネント側のサブパスを一対一で関連付け、
+ *   双方向にパス変換・参照できるようにする（親->子/子->親）。
+ *
+ * 制約:
+ * - 親パス/子パスは 1:1 のみ（重複登録は STATE-303）
+ * - 最長一致でのパス変換を行い、下位セグメントはそのまま連結
+ */
 class ComponentStateBinding {
     parentPaths = new Set();
     childPaths = new Set();
@@ -45,6 +56,7 @@ class ComponentStateBinding {
         return this.parentPathByChildPath.get(childPath);
     }
     toParentPathFromChildPath(childPath) {
+        // 子から親へ: 最長一致する childPaths のエントリを探し、残差のセグメントを親に連結
         const childPathInfo = getStructuredPathInfo(childPath);
         const matchPaths = childPathInfo.cumulativePathSet.intersection(this.childPaths);
         if (matchPaths.size === 0) {
@@ -70,6 +82,7 @@ class ComponentStateBinding {
         return matchParentPath + remainPath;
     }
     toChildPathFromParentPath(parentPath) {
+        // 親から子へ: 最長一致する parentPaths のエントリを探し、残差のセグメントを子に連結
         const parentPathInfo = getStructuredPathInfo(parentPath);
         const matchPaths = parentPathInfo.cumulativePathSet.intersection(this.parentPaths);
         if (matchPaths.size === 0) {

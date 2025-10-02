@@ -1,3 +1,16 @@
+/**
+ * StatePropertyRef
+ *
+ * 目的:
+ * - State の構造化パス情報(IStructuredPathInfo)と、任意のリストインデックス(IListIndex)から
+ *   一意な参照オブジェクト(IStatePropertyRef)を生成・キャッシュする。
+ * - 同一(info,listIndex)組み合わせに対しては同一インスタンスを返し、比較やMapキーとして安定運用できるようにする。
+ *
+ * 実装メモ:
+ * - key は info.sid と listIndex.sid から合成（listIndex が null の場合は info.sid のみ）
+ * - listIndex は WeakRef で保持し、GC で消えた場合は LIST-201 を送出
+ * - キャッシュは listIndex 非 null の場合は WeakMap(listIndex) 配下に、null の場合は Map(info) に保持
+ */
 import { IListIndex } from "../ListIndex/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { raiseError } from "../utils";

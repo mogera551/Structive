@@ -1,3 +1,18 @@
+/**
+ * エラー生成ユーティリティ
+ *
+ * 目的:
+ * - 例外を構造化メタ情報付きで投げる（コード、コンテキスト、ヒント、ドキュメントURL、重大度、原因）
+ * - 既存の Error を踏襲しつつ、プロパティに追加情報を付与してデバッグ性を高める
+ *
+ * 使用例:
+ * raiseError({
+ *   code: 'UPD-001',
+ *   message: 'Engine not initialized',
+ *   context: { where: 'Renderer.render' },
+ *   docsUrl: './docs/error-codes.md#upd'
+ * });
+ */
 export type StructiveErrorPayload = {
   code: string;
   message: string;

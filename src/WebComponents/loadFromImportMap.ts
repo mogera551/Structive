@@ -1,17 +1,13 @@
 /**
- * loadFromImportMap.ts
+ * loadFromImportMap
  *
- * importmapの情報をもとに、Structiveのルートやコンポーネントを動的にロード・登録するユーティリティです。
+ * importmap のエイリアスを走査し、ルート/コンポーネントを自動登録する。
+ * - @routes/*: entryRoute でルーティング登録（/root → / に正規化）
+ * - @components/*: SFC を読み込み、ComponentClass を生成して registerComponentClass
+ * - #lazy サフィックスが付与されている場合は遅延ロード用に保持
  *
- * 主な役割:
- * - importmap.imports内のエイリアスを走査し、@routes/や@components/のプレフィックスで判定
- * - @routes/の場合はルーティング情報をentryRouteで登録
- * - @components/の場合はloadSingleFileComponentでSFCをロードし、createComponentClassでクラス化してregisterComponentClassで登録
- *
- * 設計ポイント:
- * - importmapのエイリアスを利用して、ルーティングやコンポーネントの自動登録を実現
- * - パスやタグ名の正規化、パラメータ除去なども自動で処理
- * - 非同期でSFCをロードし、動的なWeb Components登録に対応
+ * 戻り値: Promise<void>
+ * Throws: 重大な例外は基本なし（見つからないエイリアスは warn として扱う）
  */
 import { entryRoute } from "../Router/Router";
 import { raiseError } from "../utils";

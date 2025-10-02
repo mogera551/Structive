@@ -111,8 +111,52 @@ Structive のエラーは「何が・どこで・なぜ・どう直す」をす�
 ## TMP
 Template 系。主にテンプレート未登録、取得失敗、変換エラーなど。
 
+### TMP-001 Template not found
+- どこで: Template.registerTemplate 取得時/ComponentEngine 初期化時/Template.resolve
+- 発生条件: 指定した templateId で登録済みテンプレートが見つからない
+- message: `Template not found: ${templateId}`
+- context 例: `{ where: 'Template.registerTemplate|getTemplate', templateId }`
+- hint: `registerTemplate` の呼び出し順序と ID のスペルを確認。ビルド時のテンプレート取り込み漏れがないか確認
+
+### TMP-102 SVG template conversion failed
+- どこで: Template の SVG → DOM 変換処理（registerHtml / replaceTemplateTagWithComment 連携）
+- 発生条件: 無効な SVG 文字列やルート要素の欠落により DOM へ変換できない
+- message: `SVG template conversion failed`
+- context 例: `{ where: 'Template.registerHtml', templateId }`
+- hint: SVG のルート要素/名前空間を確認。無効なタグ/属性が含まれていないか検証
+
 ## BIND
 DataBinding / BindContent / BindingNode 系。data-bind 未設定、ノード未解決、クリエイタ未登録など。
+
+### BIND-101 Data-bind not registered
+- どこで: BindingBuilder.registerDataBindAttributes / ComponentEngine.setup（初期スキャン）
+- 発生条件: data-bind 属性に指定されたバインド名が未登録
+- message: `Data-bind not registered: ${bindName}`
+- context 例: `{ where: 'registerDataBindAttributes', bindName, nodePath }`
+- hint: フィルタ/バインド名の登録漏れを確認。typo や命名の不一致を修正
+
+### BIND-102 Node not found by nodePath
+- どこで: BindContent.createBindings / replaceTextNodeFromComment / getAbsoluteNodePath
+- 発生条件: 保存された nodePath から対象ノードを DOM 上で特定できない（テンプレート変換や差し替えの影響）
+- message: `Node not found by nodePath: ${nodePath}`
+- context 例: `{ where: 'BindContent.createBindings', templateId, nodePath }`
+- hint: テンプレート登録後に構造を変える操作がないか確認。nodePath の保存/復元の順序を見直す
+
+### BIND-103 Creator not found for bindText
+- どこで: BindingBuilder.getBindingNodeCreator / parseBindText
+- 発生条件: 解析した bindText に対応する BindingNode クリエータが未登録
+- message: `Creator not found for bindText: ${bindText}`
+- context 例: `{ where: 'getBindingNodeCreator', bindText }`
+- hint: 対応する BindingNode 実装が export / register されているか確認
+
+### BIND-201 bindContent is not initialized yet / Block parent node is not set
+- どこで: ComponentEngine.bindContent.get / ComponentEngine.connectedCallback（Block モード）
+- 発生条件: BindContent の初期化前にアクセスされた / Block の親ノードが未設定
+- message 例:
+  - `bindContent is not initialized yet`
+  - `Block parent node is not set`
+- context 例: `{ where: 'ComponentEngine.bindContent.get', componentId }`, `{ where: 'ComponentEngine.connectedCallback', mode: 'block' }`
+- hint: ComponentEngine の setup 順序を確認。Block/Inline の親要素を正しく解決する
 
 - 例（ComponentEngine 連携）
   - BIND-201 bindContent is not initialized yet
@@ -122,11 +166,101 @@ DataBinding / BindContent / BindingNode 系。data-bind 未設定、ノード未
     - context: { where: 'ComponentEngine.connectedCallback', mode: 'block' }
     - docs: #bind
 
+## ENG
+ComponentEngine（ライフサイクル・マウント）。
+
+### ENG-201 Lifecycle order violation
+- どこで: ComponentEngine.connectedCallback / disconnectedCallback / setup / teardown
+- 発生条件: ライフサイクル手順の逆順呼び出しや重複呼び出し（例: teardown 前に setup を再実行、二重 connectedCallback 等）
+- message: `Lifecycle order violation`
+- context 例: `{ where: 'ComponentEngine.connectedCallback|setup|teardown', mode }`
+- hint: setup → connected → （更新/描画）→ disconnected → teardown の順序を守る。多重ガードを実装/確認
+
+### ENG-202 Mount target missing
+- どこで: ComponentEngine.setup / mount 処理
+- 発生条件: 指定の Block/Inline モードで親ノード（マウント先）が取得できない
+- message: `Mount target missing`
+- context 例: `{ where: 'ComponentEngine.setup', mode, componentId }`
+- hint: 親要素のクエリ条件やテンプレート構造を見直す。Block/Inline の設定が実 DOM と一致しているか確認
+
+## COMP
+Component / WebComponents 登録・定義。
+
+### COMP-001 Component already defined
+- どこで: WebComponents.registerComponentClass / customElements.define
+- 発生条件: 既に同じタグ名で定義済みのコンポーネントを再登録しようとした
+- message: `Component already defined: ${tagName}`
+- context 例: `{ where: 'registerComponentClass', tagName }`
+- hint: 重複定義を避けるため、定義済みチェックやタグ名の一意性を担保。ビルド/バンドルの重複読込を確認
+
+### COMP-010 ShadowRoot not allowed
+- どこで: WebComponents.createComponentClass（Shadow DOM オプション適用時）
+- 発生条件: 設定や環境ポリシーにより ShadowRoot の作成が許可されていないのに使用しようとした
+- message: `ShadowRoot not allowed`
+- context 例: `{ where: 'createComponentClass', tagName, shadow: true }`
+- hint: Shadow DOM オプションを無効化するか、対応ブラウザ/設定でのみ有効にする。スタイルのスコープ化戦略を再検討
+
 ## UPD
 Updater / Renderer 系。エンジン未初期化、ReadonlyState 未初期化、レンダリング中断など。
 
+### UPD-001 Engine not initialized
+- どこで: Renderer.engine getter
+- 発生条件: Renderer がエンジン未保持の状態で engine アクセスが行われたとき（通常は発生しないガード）
+- message: `Engine not initialized`
+- context 例: `{ where: 'Renderer.engine' }`
+- hint: Renderer を new する際に IComponentEngine を必ず渡すこと
+
+### UPD-002 ReadonlyState not initialized
+- どこで: Renderer.readonlyState getter
+- 発生条件: render() 実行スコープ外で readonlyState にアクセスしたとき / SetCacheableSymbol ブロック外から参照したとき
+- message: `ReadonlyState not initialized`
+- context 例: `{ where: 'Renderer.readonlyState' }`
+- hint: readonlyState は render() 内部のみで有効。Binding 実装は applyChange(renderer) 内でのみ参照すること
+
+### UPD-003 ListIndex is null for ref
+- どこで: Renderer.reorderList
+- 発生条件: 並べ替え対象として渡された要素 ref が listIndex を保持していない（リスト要素参照ではない）
+- message: `ListIndex is null for ref: ${ref.key}`
+- context 例: `{ refKey, pattern }`
+- hint: reorderList に渡すのはリストの「要素」参照（items.* のようなワイルドカード展開済み）に限定すること
+
+### UPD-004 ParentInfo/ListIndex inconsistency
+- どこで: Renderer.reorderList
+- 発生条件:
+  - A: `parentInfo === null` の要素参照が渡された（親リストが特定できない）
+  - B: 旧リスト上で値に対応する ListIndex が見つからない
+- message:
+  - A: `ParentInfo is null for ref: ${ref.key}`
+  - B: `ListIndex not found for value: ${elementValue}`
+- context 例: `{ refKey, pattern }` / `{ refKey: listRef.key, pattern: listRef.info.pattern }`
+- hint: 親情報を保持する適切な参照を渡すこと。リスト値の同一性が保たれているか確認すること
+
+### UPD-005 OldListValue or OldListIndexes is null
+- どこで: Renderer.reorderList
+- 発生条件: engine.getListAndListIndexes(listRef) が旧リスト値/旧インデックスのいずれかを返さなかった
+- message: `OldListValue or OldListIndexes is null for ref: ${listRef.key}`
+- context 例: `{ refKey: listRef.key, pattern: listRef.info.pattern }`
+- hint: エンジン側で親リストの保存状態を正しく管理すること（初期化時に saveListAndListIndexes が呼ばれているか確認）
+
+### UPD-006 ListDiff is null during renderItem
+- どこで: Renderer.renderItem（静的依存で WILDCARD を辿る分岐）
+- 発生条件: calcListDiff の再入保護（null 一時格納）状態が解消されないまま参照された場合など、ListDiff が未確定
+- message: `ListDiff is null during renderItem`
+- context 例: `{ refKey: ref.key, pattern: ref.info.pattern }`
+- hint: 同期実行・一括キャッシュ（SetCacheableSymbol）内で処理されているか確認。Binding 側での過剰な再入を避ける
+
 ## PATH
 PathManager / PathTree 系。パスノード未検出、正規化失敗、ワイルドカード整合性など。
+
+### PATH-101 PathNode not found
+- どこで: Renderer.reorderList / Renderer.render / Renderer.renderItem（動的依存）
+- 発生条件:
+  - 親リストの PathNode を `findPathNodeByPath(rootNode, listRef.info.pattern)` で解決できない
+  - 個々の ref の PathNode を `findPathNodeByPath(rootNode, ref.info.pattern)` で解決できない
+  - 動的依存の PathNode を `findPathNodeByPath(rootNode, depInfo.pattern)` で解決できない
+- message: `PathNode not found: ${pattern}`
+- context 例: `{ pattern }`
+- hint: pattern が PathTree に登録済みか確認。PathManager の初期化順序、wildcard 展開の親パス登録漏れを点検
 
 ## CSS
 StyleSheet 登録・取得系。スタイルシート未登録、取得失敗など。
