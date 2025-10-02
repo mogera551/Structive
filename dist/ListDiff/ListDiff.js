@@ -1,4 +1,17 @@
 import { createListIndex } from "../ListIndex/ListIndex";
+/**
+ * 旧配列/新配列と旧インデックス配列から、追加・削除・位置変更・上書きの差分を計算します。
+ *
+ * 仕様ノート:
+ * - adds: 新規に現れた要素のインデックス（新規 ListIndex を割り当て）
+ * - removes: 旧配列で使用され、新配列で使われなくなったインデックス
+ * - changeIndexes: 値を再利用しつつ位置が変わったインデックス（DOMの並べ替え対象）
+ * - overwrites: 同じ位置に別の値が入った場合（再描画対象）
+ *
+ * 最適化ノート:
+ * - 双方空や参照同一は早期return
+ * - 片側空は全追加/全削除として扱う
+ */
 export function calcListDiff(parentListIndex, oldListValue, newListValue, oldIndexes) {
     const _newListValue = newListValue || [];
     const _oldListValue = oldListValue || [];

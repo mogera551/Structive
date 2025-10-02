@@ -25,26 +25,26 @@ import { addPathNode } from "../PathTree/PathNode.js";
 import { IStatePropertyRef } from "../StatePropertyRef/types.js";
 
 /**
- * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
- * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
+ * ComponentEngine は、Structive コンポーネントの状態・依存関係・
+ * バインディング・ライフサイクル・レンダリングを統合する中核エンジンです。
  *
  * 主な役割:
  * - 状態インスタンスやプロキシの生成・管理
- * - テンプレート・スタイルシート・フィルター・バインディング情報の管理
- * - 依存関係グラフ（dependentTree）の構築と管理
+ * - テンプレート/スタイルシート/フィルター/バインディングの管理
+ * - 依存関係グラフ（PathTree）の構築と管理
  * - バインディング情報やリスト情報の保存・取得
- * - ライフサイクル（connectedCallback/disconnectedCallback）処理
- * - Shadow DOMやスタイルシートの適用
+ * - ライフサイクル（connected/disconnected）処理
+ * - Shadow DOM の適用、またはブロックモードのプレースホルダー運用
  * - 状態プロパティの取得・設定
  * - バインディングの追加・存在判定・リスト管理
  *
- * 構造・設計上の特徴:
- * - 状態や依存関係、バインディング情報を効率的に管理するためのキャッシュやマップを多用
- * - テンプレートやリスト構造の多重管理に対応
- * - 非同期初期化やUpdaterによるバッチ的な状態更新設計
- * - 疎結合な設計で、各種ユーティリティやファクトリ関数と連携
+ * Throws（代表例）:
+ * - BIND-201 bindContent not initialized yet / Block parent node is not set
+ * - STATE-202 Failed to parse state from dataset
  *
- * 典型的なWeb Componentsのライフサイクルやリアクティブな状態管理を、Structive独自の構造で実現しています。
+ * 備考:
+ * - 非同期初期化（waitForInitialize）と切断待機（waitForDisconnected）を提供
+ * - Updater と連携したバッチ更新で効率的なレンダリングを実現
  */
 export class ComponentEngine implements IComponentEngine {
   type          : ComponentType = 'autonomous';

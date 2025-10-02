@@ -1,19 +1,16 @@
 /**
  * createReadonlyStateProxy.ts
  *
- * StateClassの「読み取り専用」プロキシを生成するための実装ファイルです。
+ * StateClass の「読み取り専用」プロキシを生成します。
  *
  * 主な役割:
- * - Stateオブジェクトに対して、読み取り専用のProxyを作成
- * - StateHandlerクラスで各種APIやトラップ（get/set）を実装
- * - getトラップでバインディングやAPI呼び出し、依存解決などに対応
- * - setトラップではエラーを投げて書き込みを禁止
+ * - State オブジェクトに対する読み取り専用の Proxy を作成
+ * - get トラップでバインディング/API呼び出し/依存解決/レンダラー連携に対応
+ * - set トラップは常に例外を投げて書き込みを禁止
+ * - has トラップで内部APIシンボル（GetByRefSymbol, SetCacheableSymbol 等）を公開
  *
- * 設計ポイント:
- * - StateHandlerはIReadonlyStateHandlerを実装し、状態管理やAPI呼び出しの基盤となる
- * - callableApiに各種APIシンボルと関数をマッピングし、柔軟なAPI拡張が可能
- * - createReadonlyStateProxyで一貫した生成・利用が可能
- * - 依存解決やキャッシュ、ループ・プロパティ参照スコープ管理など多機能な設計
+ * Throws:
+ * - STATE-202 Cannot set property ... of readonly state（set トラップ）
  */
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
@@ -59,9 +56,9 @@ class StateHandler implements IReadonlyStateHandler {
   ): boolean {
     raiseError({
       code: 'STATE-202',
-  message: `Cannot set property ${String(prop)} of readonly state`,
+      message: `Cannot set property ${String(prop)} of readonly state`,
       context: { where: 'createReadonlyStateProxy.set', prop: String(prop) },
-      docsUrl: '/docs/error-codes.md#state',
+  docsUrl: './docs/error-codes.md#state',
     });
   }
 

@@ -2036,6 +2036,19 @@ function createListIndex(parentListIndex, index) {
     return new ListIndex(parentListIndex, index);
 }
 
+/**
+ * 旧配列/新配列と旧インデックス配列から、追加・削除・位置変更・上書きの差分を計算します。
+ *
+ * 仕様ノート:
+ * - adds: 新規に現れた要素のインデックス（新規 ListIndex を割り当て）
+ * - removes: 旧配列で使用され、新配列で使われなくなったインデックス
+ * - changeIndexes: 値を再利用しつつ位置が変わったインデックス（DOMの並べ替え対象）
+ * - overwrites: 同じ位置に別の値が入った場合（再描画対象）
+ *
+ * 最適化ノート:
+ * - 双方空や参照同一は早期return
+ * - 片側空は全追加/全削除として扱う
+ */
 function calcListDiff(parentListIndex, oldListValue, newListValue, oldIndexes) {
     const _newListValue = newListValue || [];
     const _oldListValue = oldListValue || [];
@@ -2390,7 +2403,7 @@ class StateHandler {
             code: 'STATE-202',
             message: `Cannot set property ${String(prop)} of readonly state`,
             context: { where: 'createReadonlyStateProxy.set', prop: String(prop) },
-            docsUrl: '/docs/error-codes.md#state',
+            docsUrl: './docs/error-codes.md#state',
         });
     }
     has(target, prop) {
@@ -2401,6 +2414,20 @@ function createReadonlyStateProxy(engine, state, renderer = null) {
     return new Proxy(state, new StateHandler(engine, renderer));
 }
 
+/**
+ * Renderer は、State の変更に応じて各 Binding に applyChange を委譲し、
+ * PathTree を辿りながら必要な箇所のみをレンダリングする責務を負います。
+ *
+ * - reorderList: 単一要素の並べ替え要求を取りまとめ、対応するリストの差分に変換
+ * - render: ルート呼び出し。readonlyState を生成し、renderItem を走査
+ * - renderItem: 静的/動的依存を処理しつつ、該当パスのバインディングに更新を適用
+ * - calcListDiff: 参照 ref に対して ListDiff を計算し、必要に応じてエンジンに保存
+ *
+ * Throws（代表例）:
+ * - UPD-001/002: Engine/ReadonlyState の未初期化
+ * - UPD-003/004/005/006: ListIndex/ParentInfo/OldList* の不整合や ListDiff 未生成
+ * - PATH-101: PathNode が見つからない
+ */
 class Renderer {
     #updatedBindings = new Set();
     #processedRefs = new Set();
@@ -2437,6 +2464,10 @@ class Renderer {
         }
         return this.#engine;
     }
+    /**
+     * リスト要素の並び替え要求（要素単位）を収集し、対応するリスト（親Ref）に対して
+     * 位置変更（changeIndexes）や上書き（overwrites）を含む仮の ListDiff を生成して描画します。
+     */
     reorderList(items) {
         const listRefs = new Set();
         for (let i = 0; i < items.length; i++) {
@@ -2533,8 +2564,13 @@ class Renderer {
             }
         }
     }
+    /**
+     * レンダリングのエントリポイント。ReadonlyState を生成し、
+     * 並べ替え処理→各参照の描画の順に処理します。
+     */
     render(items) {
         this.#listDiffByRef.clear();
+        this.#reorderIndexesByRef.clear();
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
@@ -2562,6 +2598,10 @@ class Renderer {
             this.#readonlyState = null;
         }
     }
+    /**
+     * 参照 ref の旧値/新値と保存済みインデックスから ListDiff を計算し、
+     * 変更があれば engine.saveListAndListIndexes に保存します。
+     */
     calcListDiff(ref, _newListValue = undefined, isNewValue = false) {
         let listDiff = this.#listDiffByRef.get(ref);
         if (typeof listDiff === "undefined") {
@@ -2576,6 +2616,13 @@ class Renderer {
         }
         return listDiff;
     }
+    /**
+     * 単一の参照 ref と対応する PathNode を描画します。
+     *
+     * - まず自身のバインディング適用
+     * - 次に静的依存（ワイルドカード含む）
+     * - 最後に動的依存（ワイルドカードは階層的に展開）
+     */
     renderItem(ref, node) {
         if (this.processedRefs.has(ref)) {
             return; // すでに処理済みのRef情報はスキップ
@@ -2927,9 +2974,15 @@ const EMPTY_SET = new Set();
  *
  * 設計ポイント:
  * - applyChangeでリストの差分を検出し、BindContentの生成・削除・再利用を管理
- * - リオーダー（並び替え）処理と上書き処理を分離して効率的な更新を実現
+ * - 追加・削除が無い場合はリオーダー（並べ替え）のみをDOM移動で処理し、再描画を抑制
+ * - 上書き（overwrites）は同位置の内容変化のため、applyChangeを再実行
  * - BindContentのプール・インデックス管理でGCやDOM操作の最小化を図る
  * - バインディング状態やリストインデックス情報をエンジンに保存し、再描画や依存解決を容易にする
+ *
+ * Throws（代表例）:
+ * - BIND-201 ParentNode is null / BindContent not found など applyChange 実行時の不整合
+ * - BIND-202 Length is negative: プール長の不正設定
+ * - BIND-301 Not implemented. Use update or applyChange: assignValue は未実装
  *
  * ファクトリ関数 createBindingNodeFor でフィルタ・デコレータ適用済みインスタンスを生成
  */
@@ -2965,6 +3018,9 @@ class BindingNodeFor extends BindingNodeBlock {
         this.#bindContentByListIndex.set(listIndex, bindContent);
         return bindContent;
     }
+    /**
+     * BindContent を削除（アンマウント）し、ループ文脈のインデックスもクリアする。
+     */
     deleteBindContent(bindContent) {
         bindContent.unmount();
         bindContent.loopContext?.clearListIndex();
@@ -2984,7 +3040,7 @@ class BindingNodeFor extends BindingNodeBlock {
                 code: 'BIND-202',
                 message: 'Length is negative',
                 context: { where: 'BindingNodeFor.setPoolLength', length },
-                docsUrl: '/docs/error-codes.md#bind',
+                docsUrl: './docs/error-codes.md#bind',
             });
         }
         this.#bindContentPool.length = length;
@@ -3001,9 +3057,16 @@ class BindingNodeFor extends BindingNodeBlock {
             code: 'BIND-301',
             message: 'Not implemented. Use update or applyChange',
             context: { where: 'BindingNodeFor.assignValue' },
-            docsUrl: '/docs/error-codes.md#bind',
+            docsUrl: './docs/error-codes.md#bind',
         });
     }
+    /**
+     * リストの差分を適用して DOM とバインディングを更新する中核メソッド。
+     *
+     * - 追加/削除がある場合: add は生成+mount+applyChange、reuse は位置調整のみ
+     * - 追加/削除が無い場合: changeIndexes はDOM移動のみ（再描画なし）、overwrites は applyChange を呼ぶ
+     * - 全削除/全追加はフラグメント最適化を適用
+     */
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;
@@ -3016,14 +3079,14 @@ class BindingNodeFor extends BindingNodeBlock {
                 code: 'BIND-201',
                 message: 'ListDiff is null',
                 context: { where: 'BindingNodeFor.applyChange' },
-                docsUrl: '/docs/error-codes.md#bind',
+                docsUrl: './docs/error-codes.md#bind',
             });
         }
         const parentNode = this.node.parentNode ?? raiseError({
             code: 'BIND-201',
             message: 'ParentNode is null',
             context: { where: 'BindingNodeFor.applyChange' },
-            docsUrl: '/docs/error-codes.md#bind',
+            docsUrl: './docs/error-codes.md#bind',
         });
         // 全削除最適化のフラグ
         const isAllRemove = (listDiff.oldListValue?.length === listDiff.removes?.size && (listDiff.oldListValue?.length ?? 0) > 0);
@@ -3069,7 +3132,7 @@ class BindingNodeFor extends BindingNodeBlock {
                             code: 'BIND-201',
                             message: 'BindContent not found',
                             context: { where: 'BindingNodeFor.applyChange', when: 'removes' },
-                            docsUrl: '/docs/error-codes.md#bind',
+                            docsUrl: './docs/error-codes.md#bind',
                         });
                     }
                     this.deleteBindContent(bindContent);
@@ -3105,7 +3168,7 @@ class BindingNodeFor extends BindingNodeBlock {
                             code: 'BIND-201',
                             message: 'BindContent not found',
                             context: { where: 'BindingNodeFor.applyChange', when: 'reuse' },
-                            docsUrl: '/docs/error-codes.md#bind',
+                            docsUrl: './docs/error-codes.md#bind',
                         });
                     }
                     if (lastNode?.nextSibling !== bindContent.firstChildNode) {
@@ -3154,7 +3217,7 @@ class BindingNodeFor extends BindingNodeBlock {
                             code: 'BIND-201',
                             message: 'BindContent not found',
                             context: { where: 'BindingNodeFor.applyChange', when: 'overwrites' },
-                            docsUrl: '/docs/error-codes.md#bind',
+                            docsUrl: './docs/error-codes.md#bind',
                         });
                     }
                     bindContent.applyChange(renderer);
@@ -4323,7 +4386,7 @@ function createLoopContext(ref, bindContent) {
  * - テンプレート内容を複製した DocumentFragment
  *
  * Throws:
- * - TMP-001 Template not found: 未登録IDが指定された場合
+ * - BIND-101 Template not found: 未登録IDが指定された場合
  */
 function createContent(id) {
     const template = getTemplateById(id) ??
@@ -4406,7 +4469,7 @@ function createBindings(bindContent, id, engine, content) {
  * - assignListIndex でループ内のリストインデックスを再割り当て
  *
  * Throws（代表例）:
- * - TMP-001 Template not found: createContent 内で未登録テンプレートID
+ * - BIND-101 Template not found: createContent 内で未登録テンプレートID
  * - BIND-101/102/103: createBindings 内の data-bind 情報不足/不整合
  * - BIND-104 Child bindContent not found: getLastNode の子探索で不整合
  * - BIND-201 LoopContext is null: assignListIndex 実行時に LoopContext 未初期化
@@ -4491,12 +4554,13 @@ class BindContent {
         }
     }
     unmount() {
-        const parentElement = this.childNodes[0]?.parentElement ?? null;
-        if (parentElement === null) {
+        // コメント/テキストノードでも確実に取得できるよう parentNode を使用する
+        const parentNode = this.childNodes[0]?.parentNode ?? null;
+        if (parentNode === null) {
             return; // すでにDOMから削除されている場合は何もしない
         }
         for (let i = 0; i < this.childNodes.length; i++) {
-            parentElement.removeChild(this.childNodes[i]);
+            parentNode.removeChild(this.childNodes[i]);
         }
     }
     bindings = [];
@@ -4856,26 +4920,26 @@ function createComponentStateOutput(binding) {
 }
 
 /**
- * ComponentEngineクラスは、Structiveコンポーネントの状態管理・依存関係管理・
- * バインディング・ライフサイクル・レンダリングなどの中核的な処理を担うエンジンです。
+ * ComponentEngine は、Structive コンポーネントの状態・依存関係・
+ * バインディング・ライフサイクル・レンダリングを統合する中核エンジンです。
  *
  * 主な役割:
  * - 状態インスタンスやプロキシの生成・管理
- * - テンプレート・スタイルシート・フィルター・バインディング情報の管理
- * - 依存関係グラフ（dependentTree）の構築と管理
+ * - テンプレート/スタイルシート/フィルター/バインディングの管理
+ * - 依存関係グラフ（PathTree）の構築と管理
  * - バインディング情報やリスト情報の保存・取得
- * - ライフサイクル（connectedCallback/disconnectedCallback）処理
- * - Shadow DOMやスタイルシートの適用
+ * - ライフサイクル（connected/disconnected）処理
+ * - Shadow DOM の適用、またはブロックモードのプレースホルダー運用
  * - 状態プロパティの取得・設定
  * - バインディングの追加・存在判定・リスト管理
  *
- * 構造・設計上の特徴:
- * - 状態や依存関係、バインディング情報を効率的に管理するためのキャッシュやマップを多用
- * - テンプレートやリスト構造の多重管理に対応
- * - 非同期初期化やUpdaterによるバッチ的な状態更新設計
- * - 疎結合な設計で、各種ユーティリティやファクトリ関数と連携
+ * Throws（代表例）:
+ * - BIND-201 bindContent not initialized yet / Block parent node is not set
+ * - STATE-202 Failed to parse state from dataset
  *
- * 典型的なWeb Componentsのライフサイクルやリアクティブな状態管理を、Structive独自の構造で実現しています。
+ * 備考:
+ * - 非同期初期化（waitForInitialize）と切断待機（waitForDisconnected）を提供
+ * - Updater と連携したバッチ更新で効率的なレンダリングを実現
  */
 class ComponentEngine {
     type = 'autonomous';

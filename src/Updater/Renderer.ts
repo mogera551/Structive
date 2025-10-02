@@ -16,6 +16,20 @@ import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
 import { IRenderer } from "./types";
 
+/**
+ * Renderer は、State の変更に応じて各 Binding に applyChange を委譲し、
+ * PathTree を辿りながら必要な箇所のみをレンダリングする責務を負います。
+ *
+ * - reorderList: 単一要素の並べ替え要求を取りまとめ、対応するリストの差分に変換
+ * - render: ルート呼び出し。readonlyState を生成し、renderItem を走査
+ * - renderItem: 静的/動的依存を処理しつつ、該当パスのバインディングに更新を適用
+ * - calcListDiff: 参照 ref に対して ListDiff を計算し、必要に応じてエンジンに保存
+ *
+ * Throws（代表例）:
+ * - UPD-001/002: Engine/ReadonlyState の未初期化
+ * - UPD-003/004/005/006: ListIndex/ParentInfo/OldList* の不整合や ListDiff 未生成
+ * - PATH-101: PathNode が見つからない
+ */
 class Renderer implements IRenderer {
   #updatedBindings: Set<IBinding> = new Set();
   #processedRefs: Set<IStatePropertyRef> = new Set();
@@ -58,6 +72,10 @@ class Renderer implements IRenderer {
     return this.#engine;
   }
 
+  /**
+   * リスト要素の並び替え要求（要素単位）を収集し、対応するリスト（親Ref）に対して
+   * 位置変更（changeIndexes）や上書き（overwrites）を含む仮の ListDiff を生成して描画します。
+   */
   reorderList(items: IStatePropertyRef[]): void {
     const listRefs = new Set<IStatePropertyRef>();
     for(let i = 0; i < items.length; i++) {
@@ -154,8 +172,13 @@ class Renderer implements IRenderer {
     }
   }
 
+  /**
+   * レンダリングのエントリポイント。ReadonlyState を生成し、
+   * 並べ替え処理→各参照の描画の順に処理します。
+   */
   render(items: IStatePropertyRef[]): void {
     this.#listDiffByRef.clear();
+    this.#reorderIndexesByRef.clear();
     this.#processedRefs.clear();
     this.#updatedBindings.clear();
 
@@ -186,6 +209,10 @@ class Renderer implements IRenderer {
     }
   }
 
+  /**
+   * 参照 ref の旧値/新値と保存済みインデックスから ListDiff を計算し、
+   * 変更があれば engine.saveListAndListIndexes に保存します。
+   */
   calcListDiff(ref: IStatePropertyRef, _newListValue: any[] | undefined | null = undefined, isNewValue: boolean = false): IListDiff | null {
     let listDiff = this.#listDiffByRef.get(ref);
     if (typeof listDiff === "undefined") {
@@ -201,6 +228,13 @@ class Renderer implements IRenderer {
     return listDiff;
   }
 
+  /**
+   * 単一の参照 ref と対応する PathNode を描画します。
+   *
+   * - まず自身のバインディング適用
+   * - 次に静的依存（ワイルドカード含む）
+   * - 最後に動的依存（ワイルドカードは階層的に展開）
+   */
   renderItem(
     ref: IStatePropertyRef,
     node: IPathNode,

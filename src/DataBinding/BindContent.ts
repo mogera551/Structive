@@ -22,7 +22,7 @@ import { IStatePropertyRef } from "../StatePropertyRef/types.js";
  * - テンプレート内容を複製した DocumentFragment
  *
  * Throws:
- * - TMP-001 Template not found: 未登録IDが指定された場合
+ * - BIND-101 Template not found: 未登録IDが指定された場合
  */
 function createContent(id: number): DocumentFragment {
   const template = getTemplateById(id) ?? 
@@ -118,7 +118,7 @@ function createBindings(
  * - assignListIndex でループ内のリストインデックスを再割り当て
  *
  * Throws（代表例）:
- * - TMP-001 Template not found: createContent 内で未登録テンプレートID
+ * - BIND-101 Template not found: createContent 内で未登録テンプレートID
  * - BIND-101/102/103: createBindings 内の data-bind 情報不足/不整合
  * - BIND-104 Child bindContent not found: getLastNode の子探索で不整合
  * - BIND-201 LoopContext is null: assignListIndex 実行時に LoopContext 未初期化
@@ -212,12 +212,13 @@ class BindContent implements IBindContent {
     }
   }
   unmount() {
-    const parentElement = this.childNodes[0]?.parentElement ?? null;
-    if (parentElement === null) {
+    // コメント/テキストノードでも確実に取得できるよう parentNode を使用する
+    const parentNode = this.childNodes[0]?.parentNode ?? null;
+    if (parentNode === null) {
       return; // すでにDOMから削除されている場合は何もしない
     }
     for(let i = 0; i < this.childNodes.length; i++) {
-      parentElement.removeChild(this.childNodes[i]);
+      parentNode.removeChild(this.childNodes[i]);
     }
   }
   bindings: IBinding[] = [];

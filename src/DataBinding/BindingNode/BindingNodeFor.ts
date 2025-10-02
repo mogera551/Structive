@@ -25,9 +25,15 @@ const EMPTY_SET = new Set<any>();
  *
  * 設計ポイント:
  * - applyChangeでリストの差分を検出し、BindContentの生成・削除・再利用を管理
- * - リオーダー（並び替え）処理と上書き処理を分離して効率的な更新を実現
+ * - 追加・削除が無い場合はリオーダー（並べ替え）のみをDOM移動で処理し、再描画を抑制
+ * - 上書き（overwrites）は同位置の内容変化のため、applyChangeを再実行
  * - BindContentのプール・インデックス管理でGCやDOM操作の最小化を図る
  * - バインディング状態やリストインデックス情報をエンジンに保存し、再描画や依存解決を容易にする
+ *
+ * Throws（代表例）:
+ * - BIND-201 ParentNode is null / BindContent not found など applyChange 実行時の不整合
+ * - BIND-202 Length is negative: プール長の不正設定
+ * - BIND-301 Not implemented. Use update or applyChange: assignValue は未実装
  *
  * ファクトリ関数 createBindingNodeFor でフィルタ・デコレータ適用済みインスタンスを生成
  */
@@ -72,6 +78,9 @@ class BindingNodeFor extends BindingNodeBlock {
     return bindContent;
   }
 
+  /**
+   * BindContent を削除（アンマウント）し、ループ文脈のインデックスもクリアする。
+   */
   deleteBindContent(bindContent: IBindContent): void {
     bindContent.unmount();
     bindContent.loopContext?.clearListIndex();
@@ -93,7 +102,7 @@ class BindingNodeFor extends BindingNodeBlock {
         code: 'BIND-202',
         message: 'Length is negative',
         context: { where: 'BindingNodeFor.setPoolLength', length },
-        docsUrl: '/docs/error-codes.md#bind',
+        docsUrl: './docs/error-codes.md#bind',
       });
     }
     this.#bindContentPool.length = length;
@@ -112,10 +121,17 @@ class BindingNodeFor extends BindingNodeBlock {
       code: 'BIND-301',
       message: 'Not implemented. Use update or applyChange',
       context: { where: 'BindingNodeFor.assignValue' },
-      docsUrl: '/docs/error-codes.md#bind',
+      docsUrl: './docs/error-codes.md#bind',
     });
   }
 
+  /**
+   * リストの差分を適用して DOM とバインディングを更新する中核メソッド。
+   *
+   * - 追加/削除がある場合: add は生成+mount+applyChange、reuse は位置調整のみ
+   * - 追加/削除が無い場合: changeIndexes はDOM移動のみ（再描画なし）、overwrites は applyChange を呼ぶ
+   * - 全削除/全追加はフラグメント最適化を適用
+   */
   applyChange(renderer: IRenderer): void {
     if (renderer.updatedBindings.has(this.binding)) return;
     let newBindContents: IBindContent[] = [];
@@ -127,14 +143,14 @@ class BindingNodeFor extends BindingNodeBlock {
         code: 'BIND-201',
         message: 'ListDiff is null',
         context: { where: 'BindingNodeFor.applyChange' },
-        docsUrl: '/docs/error-codes.md#bind',
+        docsUrl: './docs/error-codes.md#bind',
       });
     }
     const parentNode = this.node.parentNode ?? raiseError({
       code: 'BIND-201',
       message: 'ParentNode is null',
       context: { where: 'BindingNodeFor.applyChange' },
-      docsUrl: '/docs/error-codes.md#bind',
+      docsUrl: './docs/error-codes.md#bind',
     });
     // 全削除最適化のフラグ
     const isAllRemove = (listDiff.oldListValue?.length === listDiff.removes?.size && (listDiff.oldListValue?.length ?? 0) > 0);
@@ -179,7 +195,7 @@ class BindingNodeFor extends BindingNodeBlock {
               code: 'BIND-201',
               message: 'BindContent not found',
               context: { where: 'BindingNodeFor.applyChange', when: 'removes' },
-              docsUrl: '/docs/error-codes.md#bind',
+              docsUrl: './docs/error-codes.md#bind',
             });
           }
           this.deleteBindContent(bindContent);
@@ -215,7 +231,7 @@ class BindingNodeFor extends BindingNodeBlock {
               code: 'BIND-201',
               message: 'BindContent not found',
               context: { where: 'BindingNodeFor.applyChange', when: 'reuse' },
-              docsUrl: '/docs/error-codes.md#bind',
+              docsUrl: './docs/error-codes.md#bind',
             });
           }
           if (lastNode?.nextSibling !== bindContent.firstChildNode) {
@@ -263,7 +279,7 @@ class BindingNodeFor extends BindingNodeBlock {
               code: 'BIND-201',
               message: 'BindContent not found',
               context: { where: 'BindingNodeFor.applyChange', when: 'overwrites' },
-              docsUrl: '/docs/error-codes.md#bind',
+              docsUrl: './docs/error-codes.md#bind',
             });
           }
           bindContent.applyChange(renderer);
