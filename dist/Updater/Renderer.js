@@ -141,6 +141,7 @@ class Renderer {
                     }
                 }
                 this.#listDiffByRef.set(listRef, listDiff);
+                this.engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
                 const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
                 if (node === null) {
                     raiseError({
