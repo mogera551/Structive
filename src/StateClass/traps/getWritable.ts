@@ -21,10 +21,10 @@ import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js"
 import { raiseError } from "../../utils.js";
 import { getListIndex } from "../methods/getListIndex.js";
 import { IWritableStateHandler, IWritableStateProxy } from "../types.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
-import { getByRefWritable } from "../methods/getByRefWritable.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAccessorSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
+import { getByRef } from "../methods/getByRef.js";
 import { setByRef } from "../methods/setByRef.js";
-import { getAllWritable } from "../apis/getAllWritable.js";
+import { getAll } from "../apis/getAll.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { trackDependency } from "../apis/trackDependency.js";
@@ -56,7 +56,7 @@ export function getWritable(
         case "$resolve":
           return resolve(target, prop, receiver, handler);
         case "$getAll":
-          return getAllWritable(target, prop, receiver, handler);
+          return getAll(target, prop, receiver, handler);
         case "$trackDependency":
           return trackDependency(target, prop, receiver, handler);
         case "$navigate":
@@ -68,21 +68,17 @@ export function getWritable(
     const resolvedInfo = getResolvedPathInfo(prop);
     const listIndex = getListIndex(resolvedInfo, receiver, handler);
     const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
-    return getByRefWritable(
-      target, 
-      ref,
-      receiver,
-      handler
-    );
-
+    return handler.accessor.getValue(ref);
   } else if (typeof prop === "symbol") {
     switch (prop) {
       case GetByRefSymbol: 
         return (ref: IStatePropertyRef) => 
-          getByRefWritable(target, ref, receiver, handler);
+          getByRef(target, ref, receiver, handler);
       case SetByRefSymbol: 
         return (ref: IStatePropertyRef, value: any) => 
           setByRef(target, ref, value, receiver, handler);
+      case GetAccessorSymbol:
+        return handler.accessor;
       case ConnectedCallbackSymbol:
         return () => connectedCallback(target, prop, receiver, handler);
       case DisconnectedCallbackSymbol: 

@@ -5,7 +5,7 @@ import { IBindingState } from "./BindingState/types";
 import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { IListIndex } from "../ListIndex/types";
-import { IRenderer } from "../Updater/types";
+import { IPropertyAccessor, IRenderer } from "../Updater/types";
 /**
  * DataBinding/types.ts
  *
@@ -61,7 +61,7 @@ export interface IBinding {
   bindingState     : IBindingState;
   bindContents     : IBindContent[];
   init(): void;
-  updateStateValue(writeState: IWritableStateProxy, value: any): void;
+  updateStateValue(accessor: IPropertyAccessor, value: any): void;
   notifyRedraw(refs: IStatePropertyRef[]): void;
   applyChange(renderer: IRenderer): void; // バインディングの変更を適用する
 }

@@ -20,7 +20,7 @@
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils";
-import { IWritableStateHandler, IWritableStateProxy } from "../types";
+import { IStateHandler, IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../types";
 import { checkDependency } from "./checkDependency";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 
@@ -33,17 +33,17 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
  * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
  * 
  * @param target    状態オブジェクト
- * @param info      構造化パス情報
- * @param listIndex リストインデックス（多重ループ対応）
+ * @param ref      構造化パス情報とリストインデックス
+ * @param force    キャッシュを無視して強制的に取得するかどうか
  * @param receiver  プロキシ
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-export function getByRefWritable(
+export function getByRef(
   target   : Object, 
   ref      : IStatePropertyRef,
-  receiver : IWritableStateProxy,
-  handler  : IWritableStateHandler
+  receiver : IStateProxy,
+  handler  : IStateHandler
 ): any {
   checkDependency(handler, ref);
 
@@ -60,15 +60,13 @@ export function getByRefWritable(
     });
   } else {
     // 存在しない場合は親infoを辿って再帰的に取得
-    const parentInfo = ref.info.parentInfo ?? raiseError({
+    const parentRef = ref.getParentRef() ?? raiseError({
       code: 'STATE-202',
-      message: 'propRef.stateProp.parentInfo is undefined',
+      message: 'propRef.getParentRef() returned null',
       context: { where: 'getByRefWritable', refPath: ref.info.pattern },
       docsUrl: '/docs/error-codes.md#state',
     });
-    const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
-    const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
-    const parentValue = getByRefWritable(target, parentRef, receiver, handler);
+    const parentValue = handler.accessor.getValue(parentRef);
     const lastSegment = ref.info.lastSegment;
     if (lastSegment === "*") {
       // ワイルドカードの場合はlistIndexのindexでアクセス

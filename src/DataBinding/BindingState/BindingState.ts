@@ -4,11 +4,12 @@ import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types.js";
 import { ILoopContext } from "../../LoopContext/types.js";
 import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
-import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
+import { IReadonlyStateProxy, IState, IStateProxy, IWritableStateProxy } from "../../StateClass/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
+import { IPropertyAccessor, IRenderer } from "../../Updater/types.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
@@ -78,11 +79,11 @@ class BindingState implements IBindingState {
     this.#nullRef = (this.#info.wildcardCount === 0) ? getStatePropertyRef(this.#info, null) : null;
     this.#filters = filters;
   }
-  getValue(state:IReadonlyStateProxy | IWritableStateProxy): any {
-    return state[GetByRefSymbol](this.ref);
+  getValue(accessor: IPropertyAccessor): any {
+    return accessor.getValue(this.ref);
   }
-  getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy): any {
-    let value = state[GetByRefSymbol](this.ref);
+  getFilteredValue(accessor: IPropertyAccessor): any {
+    let value = accessor.getValue(this.ref);
     for(let i = 0; i < this.#filters.length; i++) {
       value = this.#filters[i](value);
     }
@@ -110,8 +111,8 @@ class BindingState implements IBindingState {
     }
     this.binding.engine.saveBinding(this.ref, this.binding);
   }
-  assignValue(writeState: IWritableStateProxy, value: any) {
-    writeState[SetByRefSymbol](this.ref, value);
+  assignValue(accessor: IPropertyAccessor, value: any) {
+    accessor.setValue(this.ref, value);
   }
 }
 

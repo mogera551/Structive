@@ -72,7 +72,7 @@ class BindingStateIndex {
         this.#indexNumber = indexNumber;
         this.#filters = filters;
     }
-    getValue(state) {
+    getValue(accessor) {
         return this.listIndex?.index ?? raiseError({
             code: 'LIST-201',
             message: 'listIndex is null',
@@ -80,7 +80,7 @@ class BindingStateIndex {
             docsUrl: '/docs/error-codes.md#list',
         });
     }
-    getFilteredValue(state) {
+    getFilteredValue(accessor) {
         let value = this.listIndex?.index ?? raiseError({
             code: 'LIST-201',
             message: 'listIndex is null',
@@ -116,7 +116,7 @@ class BindingStateIndex {
             bindings.add(this.binding);
         }
     }
-    assignValue(writeState, value) {
+    assignValue(accessor, value) {
         raiseError({
             code: 'BIND-301',
             message: 'Not implemented',

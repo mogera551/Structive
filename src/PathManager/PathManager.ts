@@ -18,6 +18,7 @@ class PathManager implements IPathManager {
   optimizes: Set<string> = new Set<string>();
   staticDependencies: Dependencies<string> = new Map<string, Set<string>>();
   dynamicDependencies: Dependencies<string> = new Map<string, Set<string>>();
+  dynamicReverseDependencies: Dependencies<string> = new Map<string, Set<string>>();
   rootNode: IPathNode = createRootNode();
   #id: number;
   #stateClass: Constructor<any>;
@@ -97,6 +98,8 @@ class PathManager implements IPathManager {
   addDynamicDependency(target: string, source: string) {
     this.dynamicDependencies.get(source)?.add(target) ?? 
       this.dynamicDependencies.set(source, new Set([target]));
+    this.dynamicReverseDependencies.get(target)?.add(source) ?? 
+      this.dynamicReverseDependencies.set(target, new Set([source])); 
   }
 }
 

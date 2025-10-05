@@ -4,8 +4,8 @@ import { FilterWithOptions } from "../Filter/types";
 import { IState, IStructiveState } from "../StateClass/types";
 import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
 import { attachShadow } from "./attachShadow.js";
-import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
+import { ISaveInfoByStatePropertyRef, IComponentEngine } from "./types";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
@@ -18,11 +18,13 @@ import { IComponentStateOutput } from "../ComponentStateOutput/types.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
 import { IListIndex } from "../ListIndex/types.js";
 import { IPathManager } from "../PathManager/types.js";
-import { update } from "../Updater/Updater.js";
+import { createUpdater, update } from "../Updater/Updater.js";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef.js";
 import { RESERVED_WORD_SET } from "../constants.js";
 import { addPathNode } from "../PathTree/PathNode.js";
 import { IStatePropertyRef } from "../StatePropertyRef/types.js";
+import { ICacheEntry } from "../Cache/types.js";
+import { createCacheEntry } from "../Cache/CacheEntry.js";
 
 /**
  * ComponentEngine は、Structive コンポーネントの状態・依存関係・
@@ -84,6 +86,7 @@ export class ComponentEngine implements IComponentEngine {
   #blockPlaceholder: Comment | null = null; // ブロックプレースホルダー
   #blockParentNode: Node | null = null; // ブロックプレースホルダーの親ノード
   #ignoreDissconnectedCallback: boolean = false; // disconnectedCallbackを無視するフラグ
+  #updaterVersion: number = 1; // updaterのバージョン管理用
 
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
@@ -176,7 +179,7 @@ export class ComponentEngine implements IComponentEngine {
       this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
     }
 
-    await update(this, null, async (updater, stateProxy) => {
+    await update(this, null, async (updater, accessor) => {
       // 状態の初期レンダリングを行う
       for(const path of this.pathManager.alls) {
         const info = getStructuredPathInfo(path);
@@ -185,7 +188,7 @@ export class ComponentEngine implements IComponentEngine {
         const ref = getStatePropertyRef(info, null);
         updater.enqueueRef(ref);
       }
-      await stateProxy[ConnectedCallbackSymbol]();
+      await accessor.connectedCallback();
     });
 
     // レンダリングが終わってから実行する
@@ -198,8 +201,8 @@ export class ComponentEngine implements IComponentEngine {
     this.#waitForDisconnected = Promise.withResolvers<void>();
     try {
       if (this.#ignoreDissconnectedCallback) return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-      await update(this, null, async (updater, stateProxy) => {
-        await stateProxy[DisconnectedCallbackSymbol]();
+      await update(this, null, async (updater, accessor) => {
+        await accessor.disconnectedCallback();
       });
       // 親コンポーネントから登録を解除する
       this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
@@ -213,35 +216,28 @@ export class ComponentEngine implements IComponentEngine {
     }
   }
 
-  #saveInfoByStructuredPathId: { [id:number]: ISaveInfoByResolvedPathInfo } = {};
-  #saveInfoByResolvedPathInfoIdByListIndex: WeakMap<IListIndex, { [id:number]: ISaveInfoByResolvedPathInfo }> = new WeakMap();
-  #saveInfoByRef: WeakMap<IStatePropertyRef, ISaveInfoByResolvedPathInfo> = new WeakMap();
+  #saveInfoByStructuredPathId: { [id:number]: ISaveInfoByStatePropertyRef } = {};
+  #saveInfoByResolvedPathInfoIdByListIndex: WeakMap<IListIndex, { [id:number]: ISaveInfoByStatePropertyRef }> = new WeakMap();
 
-  createSaveInfo():ISaveInfoByResolvedPathInfo {
+  createSaveInfo(ref: IStatePropertyRef):ISaveInfoByStatePropertyRef {
     return {
       list          : null,
       listIndexes   : null,
       bindings      : [],
       listClone     : null,
+      cacheEntry    : createCacheEntry(this, ref),
     }
   }
 
-  getSaveInfoByStatePropertyRef(ref: IStatePropertyRef): ISaveInfoByResolvedPathInfo {
+  getSaveInfoByStatePropertyRef(ref: IStatePropertyRef): ISaveInfoByStatePropertyRef {
     if (ref.listIndex === null) {
       let saveInfo = this.#saveInfoByStructuredPathId[ref.info.id];
       if (typeof saveInfo === "undefined") {
-        saveInfo = this.createSaveInfo();
+        saveInfo = this.createSaveInfo(ref);
         this.#saveInfoByStructuredPathId[ref.info.id] = saveInfo;
       }
       return saveInfo;
     } else {
-/*
-      let saveInfo = this.#saveInfoByRef.get(ref);
-      if (typeof saveInfo === "undefined") {
-        saveInfo = this.createSaveInfo();
-        this.#saveInfoByRef.set(ref, saveInfo);
-      }
-*/
       let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
       if (typeof saveInfoByResolvedPathInfoId === "undefined") {
         saveInfoByResolvedPathInfoId = {};
@@ -249,10 +245,9 @@ export class ComponentEngine implements IComponentEngine {
       }
       let saveInfo = saveInfoByResolvedPathInfoId[ref.info.id];
       if (typeof saveInfo === "undefined") {
-        saveInfo = this.createSaveInfo();
+        saveInfo = this.createSaveInfo(ref);
         saveInfoByResolvedPathInfoId[ref.info.id] = saveInfo;
       }
-
       return saveInfo;
     }
   }
@@ -276,6 +271,14 @@ export class ComponentEngine implements IComponentEngine {
     saveInfo.listClone = list ? Array.from(list) : null;
   }
 
+  saveCacheEntry(
+    ref      : IStatePropertyRef,
+    entry    : ICacheEntry
+  ): void {
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
+    saveInfo.cacheEntry = entry;
+  }
+
   getBindings(ref: IStatePropertyRef): IBinding[] {
     const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
     return saveInfo.bindings;
@@ -294,15 +297,26 @@ export class ComponentEngine implements IComponentEngine {
     return [saveInfo.list, saveInfo.listIndexes, saveInfo.listClone];
   }
 
+  getCacheEntry(ref: IStatePropertyRef): ICacheEntry | null {
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
+    return saveInfo.cacheEntry;
+  }
+
+  hasCacheEntry(ref: IStatePropertyRef): boolean {
+    const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
+    return saveInfo.cacheEntry != null;
+  }
+
   getPropertyValue(ref: IStatePropertyRef): any {
     // プロパティの値を取得する
-    const stateProxy = createReadonlyStateProxy(this, this.state);
-    return stateProxy[GetByRefSymbol](ref);
+    const updater = createUpdater(this);
+    const accessor = updater.createPropertyAccessor();
+    return accessor.getValue(ref);
   }
   setPropertyValue(ref: IStatePropertyRef, value: any): void {
     // プロパティの値を設定する
-    update(this, null, async (updater, stateProxy) => {
-      stateProxy[SetByRefSymbol](ref, value);
+    update(this, null, async (updater, accessor) => {
+      accessor.setValue(ref, value);
     });
   }
   // Structive子コンポーネントを登録する
@@ -311,6 +325,10 @@ export class ComponentEngine implements IComponentEngine {
   }
   unregisterChildComponent(component: StructiveComponent): void {
     this.structiveChildComponents.delete(component);
+  }
+
+  getUpdaterVersion(): number {
+    return this.#updaterVersion++;
   }
   
 }

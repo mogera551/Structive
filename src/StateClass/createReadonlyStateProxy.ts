@@ -14,32 +14,55 @@
  */
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IReadonlyStateHandler, IState, IReadonlyStateProxy } from "./types";
+import { IReadonlyStateHandler, IState, IReadonlyStateProxy, IComponentEngineForStateClass, IStateProxy } from "./types";
 import { getReadonly as trapGet } from "./traps/getReadonly.js";
 import { raiseError } from "../utils";
 import { ILoopContext } from "../LoopContext/types";
-import { IRenderer } from "../Updater/types";
+import { IPropertyAccessor, IRenderer, IUpdateContext } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
-import { GetByRefSymbol, SetCacheableSymbol } from "./symbols";
+import { GetByRefSymbol } from "./symbols";
+import { createPropertyAccessor } from "../Updater/PropertyAccessor";
 
 const STACK_DEPTH = 32;
 
 class StateHandler implements IReadonlyStateHandler {
-  engine: IComponentEngine;
-  cache: Map<IStatePropertyRef, any> | null = null;
+  engine: IComponentEngineForStateClass;
+  #accessor: IPropertyAccessor | undefined = undefined;
   refStack: (IStatePropertyRef | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   lastRefStack: IStatePropertyRef | null = null;
-  loopContext: ILoopContext | null = null;
-  renderer: IRenderer | null = null;
-  #setMethods = new Set<PropertyKey>([ GetByRefSymbol, SetCacheableSymbol ]);
+  #setMethods = new Set<PropertyKey>([ GetByRefSymbol ]);
   #setApis = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
 
-  constructor(engine: IComponentEngine, renderer: IRenderer | null) {
+  constructor(engine: IComponentEngineForStateClass) {
     this.engine = engine;
-    this.renderer = renderer;
   }
 
+  setAccessor(context: IUpdateContext, proxy:IStateProxy): IPropertyAccessor {
+    this.#accessor = createPropertyAccessor(proxy, context);
+    return this.#accessor;
+  }
+
+  get accessor(): IPropertyAccessor {
+    if (!this.#accessor) {
+      raiseError({
+        code: 'STATE-201',
+        message: 'accessor is not set',
+        context: { where: 'StateHandler.accessor' },
+        docsUrl: '/docs/error-codes.md#state',
+        severity: 'error',
+      });
+    }
+    return this.#accessor;
+  }
+
+  /**
+   * getトラップ
+   * @param target 対象オブジェクト
+   * @param prop プロパティ名
+   * @param receiver プロキシ自身
+   * @returns プロパティの値
+   */
   get(
     target  : Object, 
     prop    : PropertyKey, 
@@ -48,6 +71,14 @@ class StateHandler implements IReadonlyStateHandler {
     return trapGet(target, prop, receiver, this);
   }
 
+  /**
+   * setトラップ
+   * @param target 対象オブジェクト
+   * @param prop プロパティ名
+   * @param value 新しい値
+   * @param receiver プロキシ自身
+   * @returns 成功した場合はtrue
+   */
   set(
     target  : Object, 
     prop    : PropertyKey, 
@@ -58,10 +89,16 @@ class StateHandler implements IReadonlyStateHandler {
       code: 'STATE-202',
       message: `Cannot set property ${String(prop)} of readonly state`,
       context: { where: 'createReadonlyStateProxy.set', prop: String(prop) },
-  docsUrl: './docs/error-codes.md#state',
+      docsUrl: './docs/error-codes.md#state',
     });
   }
 
+  /**
+   * hasトラップ
+   * @param target 対象オブジェクト
+   * @param prop プロパティ名
+   * @returns プロパティが存在する場合はtrue
+   */
   has(
     target: Object, 
     prop  : PropertyKey
@@ -71,9 +108,12 @@ class StateHandler implements IReadonlyStateHandler {
 }
 
 export function createReadonlyStateProxy(
-  engine: IComponentEngine, 
+  engine: IComponentEngineForStateClass, 
+  context: IUpdateContext,
   state: Object,
-  renderer: IRenderer | null = null,
 ): IReadonlyStateProxy {
-  return new Proxy<IState>(state, new StateHandler(engine, renderer)) as IReadonlyStateProxy;
+  const handler = new StateHandler(engine);
+  const stateProxy = new Proxy<IState>(state, handler) as IReadonlyStateProxy;
+  handler.setAccessor(context, stateProxy);
+  return stateProxy;
 }

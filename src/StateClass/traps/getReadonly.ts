@@ -21,15 +21,14 @@ import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js"
 import { raiseError } from "../../utils.js";
 import { getListIndex } from "../methods/getListIndex.js";
 import { IReadonlyStateHandler, IReadonlyStateProxy } from "../types.js";
-import { GetByRefSymbol, SetCacheableSymbol } from "../symbols.js";
-import { getByRefReadonly } from "../methods/getByRefReadonly.js";
-import { setCacheable } from "../methods/setCacheable.js";
-import { getAllReadonly } from "../apis/getAllReadonly.js";
+import { GetAccessorSymbol, GetByRefSymbol } from "../symbols.js";
 import { trackDependency } from "../apis/trackDependency.js";
 import { indexByIndexName } from "./indexByIndexName.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { resolve } from "../apis/resolve.js";
+import { getByRef } from "../methods/getByRef.js";
+import { getAll } from "../apis/getAll.js";
 
 
 export function getReadonly(
@@ -55,7 +54,7 @@ export function getReadonly(
         case "$resolve":
           return resolve(target, prop, receiver, handler);
         case "$getAll":
-          return getAllReadonly(target, prop, receiver, handler);
+          return getAll(target, prop, receiver, handler);
         case "$trackDependency":
           return trackDependency(target, prop, receiver, handler);
         case "$navigate":
@@ -67,20 +66,15 @@ export function getReadonly(
     const resolvedInfo = getResolvedPathInfo(prop);
     const listIndex = getListIndex(resolvedInfo, receiver, handler);
     const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
-    return getByRefReadonly(
-      target, 
-      ref,
-      receiver,
-      handler
-    );
+    return handler.accessor.getValue(ref);
 
   } else if (typeof prop === "symbol") {
     switch (prop) {
       case GetByRefSymbol: 
         return (ref: IStatePropertyRef) => 
-          getByRefReadonly(target, ref, receiver, handler);
-      case SetCacheableSymbol:
-        return (callback: () => void) => setCacheable(handler, callback)
+          getByRef(target, ref, receiver, handler);
+      case GetAccessorSymbol:
+        return handler.accessor;
       default:
         return Reflect.get(
           target, 

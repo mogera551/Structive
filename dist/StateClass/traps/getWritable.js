@@ -20,10 +20,10 @@ import { getRouter } from "../../Router/Router.js";
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { getListIndex } from "../methods/getListIndex.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
-import { getByRefWritable } from "../methods/getByRefWritable.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAccessorSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
+import { getByRef } from "../methods/getByRef.js";
 import { setByRef } from "../methods/setByRef.js";
-import { getAllWritable } from "../apis/getAllWritable.js";
+import { getAll } from "../apis/getAll.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { trackDependency } from "../apis/trackDependency.js";
@@ -48,7 +48,7 @@ export function getWritable(target, prop, receiver, handler) {
                 case "$resolve":
                     return resolve(target, prop, receiver, handler);
                 case "$getAll":
-                    return getAllWritable(target, prop, receiver, handler);
+                    return getAll(target, prop, receiver, handler);
                 case "$trackDependency":
                     return trackDependency(target, prop, receiver, handler);
                 case "$navigate":
@@ -60,14 +60,16 @@ export function getWritable(target, prop, receiver, handler) {
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
         const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
-        return getByRefWritable(target, ref, receiver, handler);
+        return handler.accessor.getValue(ref);
     }
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (ref) => getByRefWritable(target, ref, receiver, handler);
+                return (ref) => getByRef(target, ref, receiver, handler);
             case SetByRefSymbol:
                 return (ref, value) => setByRef(target, ref, value, receiver, handler);
+            case GetAccessorSymbol:
+                return handler.accessor;
             case ConnectedCallbackSymbol:
                 return () => connectedCallback(target, prop, receiver, handler);
             case DisconnectedCallbackSymbol:

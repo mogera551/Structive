@@ -1,11 +1,15 @@
 import { IComponentEngine } from "../ComponentEngine/types";
+import { IListDiff } from "../ListDiff/types";
 import { ILoopContext } from "../LoopContext/types";
-import { IWritableStateProxy } from "../StateClass/types";
+import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
+import { GetAccessorSymbol } from "../StateClass/symbols";
+import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
+import { createPropertyAccessor, createUpdateContext } from "./PropertyAccessor";
 import { render } from "./Renderer";
-import { IUpdater } from "./types";
+import { IPropertyAccessor, IUpdateContext, IUpdater } from "./types";
 
 
 /**
@@ -17,7 +21,31 @@ class Updater implements IUpdater {
   queue: IStatePropertyRef[] = [];
   #updating: boolean = false;
   #rendering: boolean = false;
-  #engine: IComponentEngine | null = null;
+  #engine: IComponentEngine;
+  #version: number;
+  #context: IUpdateContext;
+  /**
+   * リスト参照の差分計算キャッシュ。
+   */
+  #listDiffByRef: Map<IStatePropertyRef, IListDiff> = new Map();
+
+  constructor(engine: IComponentEngine, version: number) {
+    this.#engine = engine;
+    this.#version = version;
+    this.#context = createUpdateContext(engine, this, this.#version);
+  }
+
+  get version(): number {
+    return this.#version;
+  }
+
+  get context(): IUpdateContext {
+    return this.#context;
+  }
+
+  get listDiffByRef(): Map<IStatePropertyRef, IListDiff> {
+    return this.#listDiffByRef;
+  }
 
   // Ref情報をキューに追加
   enqueueRef(ref: IStatePropertyRef): void {
@@ -30,11 +58,10 @@ class Updater implements IUpdater {
   }
 
   // 状態更新開始
-  async beginUpdate(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (state: IWritableStateProxy) => Promise<void>): Promise<void> {
+  async beginUpdate(loopContext: ILoopContext | null, callback: (state: IWritableStateProxy) => Promise<void>): Promise<void> {
     try {
       this.#updating = true;
-      this.#engine = engine;
-      await useWritableStateProxy(engine, this, engine.state, loopContext, async (state:IWritableStateProxy) => {
+      await useWritableStateProxy(this.#engine, this.#context, this.#engine.state, loopContext, async (state:IWritableStateProxy) => {
         // 状態更新処理
         await callback(state);
       });
@@ -56,17 +83,31 @@ class Updater implements IUpdater {
           docsUrl: "./docs/error-codes.md#upd",
         });
         // レンダリング実行
-        render(queue, this.#engine);
+        render(queue, this.#engine, this, this.#version);
       }
     } finally {
       this.#rendering = false;
     }
   }
+
+  createReadonlyStateProxy(): IReadonlyStateProxy {
+    return createReadonlyStateProxy(this.#engine, this.#context, this.#engine.state);
+  }
+
+  createPropertyAccessor(): IPropertyAccessor {
+    const proxy = this.createReadonlyStateProxy();
+    return proxy[GetAccessorSymbol];
+  }
 }
 
-export async function update(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (updater: IUpdater, state: IWritableStateProxy) => Promise<void>): Promise<void> {
-  const updater = new Updater();
-  await updater.beginUpdate(engine, loopContext, async (state) => {
-    await callback(updater, state);
+export function createUpdater(engine:IComponentEngine): IUpdater {
+  return new Updater(engine, engine.getUpdaterVersion());
+}
+
+export async function update(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (updater: IUpdater, accessor: IPropertyAccessor) => Promise<void>): Promise<void> {
+  const updater = createUpdater(engine);
+  await updater.beginUpdate(loopContext, async (state) => {
+    await callback(updater, state[GetAccessorSymbol]);
   });
 }
+

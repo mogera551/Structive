@@ -30,24 +30,29 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
  * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
  *
  * @param target    状態オブジェクト
- * @param info      構造化パス情報
- * @param listIndex リストインデックス（多重ループ対応）
+ * @param ref      構造化パス情報とリストインデックス
+ * @param force    キャッシュを無視して強制的に取得するかどうか
  * @param receiver  プロキシ
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-export function getByRefReadonly(target, ref, receiver, handler) {
+export function getByRefReadonly(target, ref, force, receiver, handler) {
     checkDependency(handler, ref);
     let value;
     try {
+        const cacheEntry = handler.engine.getCacheEntry(ref);
+        if (cacheEntry === null) {
+            raiseError({
+                code: 'CACHE-201',
+                message: 'cacheEntry is null',
+                context: { where: 'getByRefReadonly', refPath: ref.info.pattern },
+                docsUrl: '/docs/error-codes.md#cache',
+            });
+        }
         // キャッシュが有効な場合はrefKeyで値をキャッシュ
-        if (handler.cache !== null) {
-            value = handler.cache.get(ref);
-            if (typeof value !== "undefined") {
-                return value;
-            }
-            if (handler.cache.has(ref)) {
-                return undefined;
+        if (!force) {
+            if (!cacheEntry.isDirty) {
+                return (value = cacheEntry.value);
             }
         }
         try {
@@ -72,7 +77,7 @@ export function getByRefReadonly(target, ref, receiver, handler) {
                 });
                 const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
                 const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
-                const parentValue = getByRefReadonly(target, parentRef, receiver, handler);
+                const parentValue = getByRefReadonly(target, parentRef, force, receiver, handler);
                 const lastSegment = ref.info.lastSegment;
                 if (lastSegment === "*") {
                     // ワイルドカードの場合はlistIndexのindexでアクセス
@@ -91,10 +96,8 @@ export function getByRefReadonly(target, ref, receiver, handler) {
             }
         }
         finally {
-            // キャッシュが有効な場合は取得値をキャッシュ
-            if (handler.cache !== null) {
-                handler.cache.set(ref, value);
-            }
+            // 取得値をキャッシュ
+            cacheEntry.setValue(value, handler.renderer?.version ?? -1);
         }
     }
     finally {

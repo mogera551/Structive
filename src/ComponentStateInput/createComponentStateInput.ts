@@ -18,11 +18,11 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
   }
 
   assignState(object: any): void {
-    update(this.engine, null, async (updater, stateProxy) => {
+    update(this.engine, null, async (updater, accessor) => {
       for(const [key, value] of Object.entries(object)) {
         const childPathInfo = getStructuredPathInfo(key);
         const childRef = getStatePropertyRef(childPathInfo, null);
-        stateProxy[SetByRefSymbol](childRef, value);
+        accessor.setValue(childRef, value);
       }     
     });
   }

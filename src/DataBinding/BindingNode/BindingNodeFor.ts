@@ -137,7 +137,7 @@ class BindingNodeFor extends BindingNodeBlock {
     let newBindContents: IBindContent[] = [];
     // 削除を先にする
     const removeBindContentsSet = new Set<IBindContent>();
-    const listDiff = renderer.calcListDiff(this.binding.bindingState.ref);
+    const listDiff = renderer.accessor.calcListDiff(this.binding.bindingState.ref);
     if (listDiff === null) {
       raiseError({
         code: 'BIND-201',

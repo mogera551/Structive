@@ -44,6 +44,39 @@ class StatePropertyRef implements IStatePropertyRef {
     this.#listIndexRef = listIndex !== null ? new WeakRef(listIndex) : null;
     this.key = createRefKey(info, listIndex);
   }
+
+  #parentRef: IStatePropertyRef | null | undefined = undefined;
+  getParentRef(): IStatePropertyRef | null {
+    if (typeof this.#parentRef !== "undefined") {
+      return this.#parentRef;
+    }
+    const parentInfo = this.info.parentInfo;
+    if (parentInfo === null) return (this.#parentRef = null);
+    if (parentInfo.wildcardCount === this.info.wildcardCount) {
+      return (this.#parentRef = getStatePropertyRef(parentInfo, this.listIndex));
+    } else if (parentInfo.wildcardCount < this.info.wildcardCount) {
+      if (parentInfo.wildcardCount > 0) {
+        const parentListIndex = this.listIndex?.at(parentInfo.wildcardCount - 1) ?? raiseError({
+          code: 'BIND-201',
+          message: 'Inconsistent wildcard count between parentInfo and info',
+          context: { infoPattern: this.info.pattern, parentPattern: parentInfo.pattern },
+          docsUrl: '/docs/error-codes.md#bind',
+          severity: 'error',
+        });
+        return (this.#parentRef = getStatePropertyRef(parentInfo, parentListIndex));
+      } else {
+        return (this.#parentRef = getStatePropertyRef(parentInfo, null));
+      }
+    } else {
+      raiseError({
+        code: 'BIND-201',
+        message: 'Inconsistent wildcard count between parentInfo and info',
+        context: { infoPattern: this.info.pattern, parentPattern: parentInfo.pattern },
+        docsUrl: '/docs/error-codes.md#bind',
+        severity: 'error',
+      });
+    }
+  }
 }
 
 const refByInfoByListIndex = new WeakMap<IListIndex, Map<IStructuredPathInfo, IStatePropertyRef>>();

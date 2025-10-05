@@ -1,24 +1,23 @@
 /**
- * getAllReadonly
+ * getAllWritable
  *
- * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する。
+ * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する（Writable版）。
  * Throws: LIST-201（インデックス未解決）、BIND-201（ワイルドカード情報不整合）
  */
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
-import { IStructuredPathInfo } from "../../StateProperty/types";
+import { IStructuredPathInfo } from "../../StateProperty/types.js";
 import { raiseError } from "../../utils.js";
-import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
-import { getContextListIndex } from "../methods/getContextListIndex";
+import { IStateHandler, IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../types.js";
+import { getContextListIndex } from "../methods/getContextListIndex.js";
 import { IListIndex } from "../../ListIndex/types.js";
-import { GetByRefSymbol } from "../symbols.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { resolve } from "./resolve.js";
 
-export function getAllReadonly(
+export function getAll(
   target: Object, 
   prop: PropertyKey, 
-  receiver: IReadonlyStateProxy,
-  handler: IReadonlyStateHandler
+  receiver: IStateProxy,
+  handler: IStateHandler
 ):Function {
     const resolveFn = resolve(target, prop, receiver, handler);
     return (path: string, indexes?: number[]): any[] => {
@@ -66,20 +65,13 @@ export function getAllReadonly(
           return;
         }
         const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-        let listIndexes = handler.engine.getListIndexes(wildcardRef);
-        if (listIndexes === null) {
-          receiver[GetByRefSymbol](wildcardRef);// 依存関係登録のために一度取得
-          listIndexes = handler.engine.getListIndexes(wildcardRef);
-          if (listIndexes === null) {
-            raiseError({
-              code: 'LIST-201',
-              message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
-              context: { pattern: wildcardParentPattern.pattern },
-              docsUrl: '/docs/error-codes.md#list',
-              severity: 'error',
-            });
-          }
-        }
+        const listIndexes = handler.accessor.getListIndexes(wildcardRef) ?? raiseError({
+          code: 'LIST-201',
+          message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
+          context: { pattern: wildcardParentPattern.pattern },
+          docsUrl: '/docs/error-codes.md#list',
+          severity: 'error',
+        });
         const index = indexes[indexPos] ?? null;
         if (index === null) {
           for(let i = 0; i < listIndexes.length; i++) {

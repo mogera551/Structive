@@ -10,7 +10,7 @@ export function trackDependency(
   return (path: string): void => {
     const lastInfo = handler.lastRefStack?.info ?? raiseError({
       code: 'STATE-202',
-  message: 'Internal error: lastRefStack is null',
+      message: 'Internal error: lastRefStack is null',
       context: { where: 'trackDependency', path },
       docsUrl: '/docs/error-codes.md#state',
     });

@@ -1,16 +1,15 @@
 /**
- * getAllReadonly
+ * getAllWritable
  *
- * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する。
+ * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する（Writable版）。
  * Throws: LIST-201（インデックス未解決）、BIND-201（ワイルドカード情報不整合）
  */
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
-import { getContextListIndex } from "../methods/getContextListIndex";
-import { GetByRefSymbol } from "../symbols.js";
+import { getContextListIndex } from "../methods/getContextListIndex.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { resolve } from "./resolve.js";
-export function getAllReadonly(target, prop, receiver, handler) {
+export function getAll(target, prop, receiver, handler) {
     const resolveFn = resolve(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
@@ -48,20 +47,13 @@ export function getAllReadonly(target, prop, receiver, handler) {
                 return;
             }
             const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-            let listIndexes = handler.engine.getListIndexes(wildcardRef);
-            if (listIndexes === null) {
-                receiver[GetByRefSymbol](wildcardRef, false); // 依存関係登録のために一度取得
-                listIndexes = handler.engine.getListIndexes(wildcardRef);
-                if (listIndexes === null) {
-                    raiseError({
-                        code: 'LIST-201',
-                        message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
-                        context: { pattern: wildcardParentPattern.pattern },
-                        docsUrl: '/docs/error-codes.md#list',
-                        severity: 'error',
-                    });
-                }
-            }
+            const listIndexes = handler.accessor.getListIndexes(wildcardRef) ?? raiseError({
+                code: 'LIST-201',
+                message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
+                context: { pattern: wildcardParentPattern.pattern },
+                docsUrl: '/docs/error-codes.md#list',
+                severity: 'error',
+            });
             const index = indexes[indexPos] ?? null;
             if (index === null) {
                 for (let i = 0; i < listIndexes.length; i++) {

@@ -1,17 +1,16 @@
 import { createBindContent } from "../DataBinding/BindContent.js";
 import { attachShadow } from "./attachShadow.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
-import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
 import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
 import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
-import { update } from "../Updater/Updater.js";
+import { createUpdater, update } from "../Updater/Updater.js";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef.js";
 import { RESERVED_WORD_SET } from "../constants.js";
 import { addPathNode } from "../PathTree/PathNode.js";
+import { createCacheEntry } from "../Cache/CacheEntry.js";
 /**
  * ComponentEngine は、Structive コンポーネントの状態・依存関係・
  * バインディング・ライフサイクル・レンダリングを統合する中核エンジンです。
@@ -68,6 +67,7 @@ export class ComponentEngine {
     #blockPlaceholder = null; // ブロックプレースホルダー
     #blockParentNode = null; // ブロックプレースホルダーの親ノード
     #ignoreDissconnectedCallback = false; // disconnectedCallbackを無視するフラグ
+    #updaterVersion = 1; // updaterのバージョン管理用
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {
@@ -157,7 +157,7 @@ export class ComponentEngine {
             });
             this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
         }
-        await update(this, null, async (updater, stateProxy) => {
+        await update(this, null, async (updater, accessor) => {
             // 状態の初期レンダリングを行う
             for (const path of this.pathManager.alls) {
                 const info = getStructuredPathInfo(path);
@@ -168,7 +168,7 @@ export class ComponentEngine {
                 const ref = getStatePropertyRef(info, null);
                 updater.enqueueRef(ref);
             }
-            await stateProxy[ConnectedCallbackSymbol]();
+            await accessor.connectedCallback();
         });
         // レンダリングが終わってから実行する
         queueMicrotask(() => {
@@ -180,8 +180,8 @@ export class ComponentEngine {
         try {
             if (this.#ignoreDissconnectedCallback)
                 return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-            await update(this, null, async (updater, stateProxy) => {
-                await stateProxy[DisconnectedCallbackSymbol]();
+            await update(this, null, async (updater, accessor) => {
+                await accessor.disconnectedCallback();
             });
             // 親コンポーネントから登録を解除する
             this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
@@ -197,32 +197,25 @@ export class ComponentEngine {
     }
     #saveInfoByStructuredPathId = {};
     #saveInfoByResolvedPathInfoIdByListIndex = new WeakMap();
-    #saveInfoByRef = new WeakMap();
-    createSaveInfo() {
+    createSaveInfo(ref) {
         return {
             list: null,
             listIndexes: null,
             bindings: [],
             listClone: null,
+            cacheEntry: createCacheEntry(this, ref),
         };
     }
     getSaveInfoByStatePropertyRef(ref) {
         if (ref.listIndex === null) {
             let saveInfo = this.#saveInfoByStructuredPathId[ref.info.id];
             if (typeof saveInfo === "undefined") {
-                saveInfo = this.createSaveInfo();
+                saveInfo = this.createSaveInfo(ref);
                 this.#saveInfoByStructuredPathId[ref.info.id] = saveInfo;
             }
             return saveInfo;
         }
         else {
-            /*
-                  let saveInfo = this.#saveInfoByRef.get(ref);
-                  if (typeof saveInfo === "undefined") {
-                    saveInfo = this.createSaveInfo();
-                    this.#saveInfoByRef.set(ref, saveInfo);
-                  }
-            */
             let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
             if (typeof saveInfoByResolvedPathInfoId === "undefined") {
                 saveInfoByResolvedPathInfoId = {};
@@ -230,7 +223,7 @@ export class ComponentEngine {
             }
             let saveInfo = saveInfoByResolvedPathInfoId[ref.info.id];
             if (typeof saveInfo === "undefined") {
-                saveInfo = this.createSaveInfo();
+                saveInfo = this.createSaveInfo(ref);
                 saveInfoByResolvedPathInfoId[ref.info.id] = saveInfo;
             }
             return saveInfo;
@@ -245,6 +238,10 @@ export class ComponentEngine {
         saveInfo.list = list;
         saveInfo.listIndexes = listIndexes;
         saveInfo.listClone = list ? Array.from(list) : null;
+    }
+    saveCacheEntry(ref, entry) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
+        saveInfo.cacheEntry = entry;
     }
     getBindings(ref) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
@@ -261,15 +258,24 @@ export class ComponentEngine {
         const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         return [saveInfo.list, saveInfo.listIndexes, saveInfo.listClone];
     }
+    getCacheEntry(ref) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
+        return saveInfo.cacheEntry;
+    }
+    hasCacheEntry(ref) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
+        return saveInfo.cacheEntry != null;
+    }
     getPropertyValue(ref) {
         // プロパティの値を取得する
-        const stateProxy = createReadonlyStateProxy(this, this.state);
-        return stateProxy[GetByRefSymbol](ref);
+        const updater = createUpdater(this);
+        const accessor = updater.createPropertyAccessor();
+        return accessor.getValue(ref);
     }
     setPropertyValue(ref, value) {
         // プロパティの値を設定する
-        update(this, null, async (updater, stateProxy) => {
-            stateProxy[SetByRefSymbol](ref, value);
+        update(this, null, async (updater, accessor) => {
+            accessor.setValue(ref, value);
         });
     }
     // Structive子コンポーネントを登録する
@@ -278,6 +284,9 @@ export class ComponentEngine {
     }
     unregisterChildComponent(component) {
         this.structiveChildComponents.delete(component);
+    }
+    getUpdaterVersion() {
+        return this.#updaterVersion++;
     }
 }
 export function createComponentEngine(config, component) {

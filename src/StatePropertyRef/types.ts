@@ -18,4 +18,5 @@ export interface IStatePropertyRef {
   info: IStructuredPathInfo;
   listIndex: IListIndex | null;
   key: string;
+  getParentRef(): IStatePropertyRef | null;
 }

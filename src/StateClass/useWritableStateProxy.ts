@@ -17,32 +17,58 @@
  */
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IState, IWritableStateHandler, IWritableStateProxy } from "./types";
+import { IComponentEngineForStateClass, IState, IStateProxy, IWritableStateHandler, IWritableStateProxy } from "./types";
 import { getWritable as trapGet } from "./traps/getWritable.js";
 import { set as trapSet } from "./traps/set.js";
 import { ILoopContext } from "../LoopContext/types";
 import { setLoopContext } from "./methods/setLoopContext";
-import { IUpdater } from "../Updater/types";
+import { IPropertyAccessor, IUpdateContext, IUpdater } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "./symbols";
+import { createPropertyAccessor } from "../Updater/PropertyAccessor";
+import { raiseError } from "../utils";
 
 const STACK_DEPTH = 32;
 
 class StateHandler implements IWritableStateHandler {
-  engine: IComponentEngine;
+  engine: IComponentEngineForStateClass;
+  #accessor: IPropertyAccessor | undefined = undefined;
   refStack: (IStatePropertyRef | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   lastRefStack: IStatePropertyRef | null = null;
   loopContext: ILoopContext | null = null;
-  updater: IUpdater;
   #setMethods = new Set<PropertyKey>([ GetByRefSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol ]);
   #setApis = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
-  
-  constructor(engine: IComponentEngine, updater: IUpdater) {
+
+  constructor(engine: IComponentEngineForStateClass) {
     this.engine = engine;
-    this.updater = updater;
   }
 
+  setAccessor(context: IUpdateContext, proxy:IStateProxy): IPropertyAccessor {
+    this.#accessor = createPropertyAccessor(proxy, context);
+    return this.#accessor;
+  }
+
+  get accessor(): IPropertyAccessor {
+    if (!this.#accessor) {
+      raiseError({
+        code: 'STATE-201',
+        message: 'accessor is not set',
+        context: { where: 'StateHandler.accessor' },
+        docsUrl: '/docs/error-codes.md#state',
+        severity: 'error',
+      });
+    }
+    return this.#accessor;
+  }
+
+  /**
+   * getトラップ
+   * @param target 対象オブジェクト
+   * @param prop プロパティ名
+   * @param receiver プロキシ自身
+   * @returns プロパティの値
+   */
   get(
     target  : Object, 
     prop    : PropertyKey, 
@@ -51,6 +77,14 @@ class StateHandler implements IWritableStateHandler {
     return trapGet(target, prop, receiver, this);
   }
 
+  /**
+   * setトラップ
+   * @param target 対象オブジェクト
+   * @param prop プロパティ名
+   * @param value 新しい値
+   * @param receiver プロキシ自身
+   * @returns 成功した場合はtrue
+   */
   set(
     target  : Object, 
     prop    : PropertyKey, 
@@ -60,6 +94,12 @@ class StateHandler implements IWritableStateHandler {
     return trapSet(target, prop, value, receiver, this);
   }
 
+  /**
+   * hasトラップ
+   * @param target 対象オブジェクト
+   * @param prop プロパティ名
+   * @returns プロパティが存在する場合はtrue
+   */
   has(
     target: Object, 
     prop  : PropertyKey
@@ -69,14 +109,15 @@ class StateHandler implements IWritableStateHandler {
 }
 
 export async function useWritableStateProxy(
-  engine: IComponentEngine, 
-  updater: IUpdater,
+  engine: IComponentEngineForStateClass, 
+  context: IUpdateContext,
   state: Object,
   loopContext: ILoopContext | null,
   callback: (stateProxy: IWritableStateProxy) => Promise<void>
 ): Promise<void> {
-  const handler = new StateHandler(engine, updater);
+  const handler = new StateHandler(engine);
   const stateProxy = new Proxy<IState>(state, handler) as IWritableStateProxy;
+  handler.setAccessor(context, stateProxy);
   return setLoopContext(handler, loopContext, async () => {
     await callback(stateProxy);
   });

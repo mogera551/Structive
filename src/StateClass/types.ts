@@ -20,9 +20,9 @@ import { ILoopContext } from "../LoopContext/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { Constructor } from "../types";
-import { IRenderer, IUpdater } from "../Updater/types";
+import { IPropertyAccessor, IRenderer, IUpdater } from "../Updater/types";
 import { IUserConfig } from "../WebComponents/types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetAccessorSymbol, GetByRefSymbol, SetByRefSymbol } from "./symbols";
 
 export interface IDependentProps {
   [propName: string]: string[];
@@ -41,12 +41,13 @@ export interface IState {
 
 export interface IReadonlyStateProxy extends IState {
   [GetByRefSymbol](ref: IStatePropertyRef): any;
-  [SetCacheableSymbol](callback: () => void): void;
+  [GetAccessorSymbol]: IPropertyAccessor;
 }
 
 export interface IWritableStateProxy extends IState {
   [GetByRefSymbol](ref: IStatePropertyRef): any;
   [SetByRefSymbol](ref: IStatePropertyRef, value: any): void;
+  [GetAccessorSymbol]: IPropertyAccessor;
   [ConnectedCallbackSymbol](): Promise<void>;
   [DisconnectedCallbackSymbol](): Promise<void>;
 }
@@ -61,20 +62,23 @@ export interface IStructiveStaticState {
 
 export type IStructiveState = Constructor<IState> & IStructiveStaticState;
 
+export type IComponentEngineForStateClass = Pick<IComponentEngine, 
+  "pathManager" | "stateOutput" | "owner" 
+>;
+
 export interface IReadonlyStateHandler {
-  engine      : IComponentEngine;
-  cache       : Map<IStatePropertyRef, any> | null;
+  engine      : IComponentEngineForStateClass;
+  accessor    : IPropertyAccessor;
   refStack    : (IStatePropertyRef | null)[];
   refIndex    : number;
   lastRefStack: IStatePropertyRef | null;
-  renderer    : IRenderer | null;
   get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IReadonlyStateProxy): boolean;
 }
 
 export interface IWritableStateHandler {
-  engine      : IComponentEngine;
-  updater     : IUpdater;
+  engine      : IComponentEngineForStateClass;
+  accessor    : IPropertyAccessor;
   refStack    : (IStatePropertyRef | null)[];
   refIndex    : number;
   lastRefStack: IStatePropertyRef | null;

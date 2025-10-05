@@ -13,6 +13,7 @@ class PathManager {
     optimizes = new Set();
     staticDependencies = new Map();
     dynamicDependencies = new Map();
+    dynamicReverseDependencies = new Map();
     rootNode = createRootNode();
     #id;
     #stateClass;
@@ -90,6 +91,8 @@ class PathManager {
     addDynamicDependency(target, source) {
         this.dynamicDependencies.get(source)?.add(target) ??
             this.dynamicDependencies.set(source, new Set([target]));
+        this.dynamicReverseDependencies.get(target)?.add(source) ??
+            this.dynamicReverseDependencies.set(target, new Set([source]));
     }
 }
 export function createPathManager(componentClass) {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getByRefWritable } from "../../src/StateClass/methods/getByRefWritable";
+import { getByRefWritable } from "../../src/StateClass/methods/getByRef";
 
 vi.mock("../../src/StateClass/methods/checkDependency", () => ({ checkDependency: () => {} }));
 

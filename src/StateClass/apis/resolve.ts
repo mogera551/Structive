@@ -18,12 +18,8 @@
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { IStateHandler, IStateProxy } from "../types";
-import { getByRefReadonly } from "../methods/getByRefReadonly";
 import { IListIndex } from "../../ListIndex/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
-import { getByRefWritable } from "../methods/getByRefWritable.js";
-import { SetCacheableSymbol } from "../symbols.js";
-import { setByRef } from "../methods/setByRef.js";
 
 export function resolve(
   target: Object, 
@@ -56,7 +52,7 @@ export function resolve(
     for(let i = 0; i < info.wildcardParentInfos.length; i++) {
       const wildcardParentPattern = info.wildcardParentInfos[i];
       const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-      const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardRef) ?? raiseError({
+      const listIndexes: IListIndex[] = handler.accessor.getListIndexes(wildcardRef) ?? raiseError({
         code: 'LIST-201',
         message: `ListIndexes not found: ${wildcardParentPattern.pattern}`,
         context: { pattern: wildcardParentPattern.pattern },
@@ -76,36 +72,10 @@ export function resolve(
     // WritableかReadonlyかを判定して適切なメソッドを呼び出す
     const ref = getStatePropertyRef(info, listIndex);
     const hasSetValue = typeof value !== "undefined";
-    if (SetCacheableSymbol in receiver && "cache" in handler) {
-      if (!hasSetValue) {
-        return getByRefReadonly(target, ref, receiver, handler);
-      } else {
-        // readonlyなので、setはできない
-        raiseError({
-          code: 'STATE-202',
-          message: `Cannot set value on a readonly proxy: ${path}`,
-          context: { path },
-          docsUrl: '/docs/error-codes.md#state',
-          severity: 'error',
-        });
-      }
-    } else if (!(SetCacheableSymbol in receiver) && !("cache" in handler)) {
-      if (!hasSetValue) {
-        return getByRefWritable(target, ref, receiver, handler);
-      } else {
-        setByRef(target, ref, value, receiver, handler);
-      }
+    if (!hasSetValue) {
+      return handler.accessor.getValue(ref);
     } else {
-      raiseError({
-        code: 'STATE-202',
-          message: 'Inconsistent proxy and handler types',
-        context: {
-          receiverHasSetCacheable: (SetCacheableSymbol in receiver),
-          handlerHasCache: ("cache" in handler),
-        },
-        docsUrl: '/docs/error-codes.md#state',
-        severity: 'error',
-      });
+      return handler.accessor.setValue(ref, value);
     }
   };
 } 

@@ -509,15 +509,15 @@ function generateId() {
 /**
  * registerStateClass.ts
  *
- * StateClassインスタンスをIDで登録・取得するための管理モジュールです。
+ * StateClassコンストラクタをIDで登録・取得するための管理モジュールです。
  *
  * 主な役割:
- * - stateClassById: IDをキーにStateClassインスタンスを管理するレコード
- * - registerStateClass: 指定IDでStateClassインスタンスを登録
- * - getStateClassById: 指定IDのStateClassインスタンスを取得（未登録時はエラーを投げる）
+ * - stateClassById: IDをキーにStateClassコンストラクタを管理するレコード
+ * - registerStateClass: 指定IDでStateClassコンストラクタを登録
+ * - getStateClassById: 指定IDのStateClassコンストラクタを取得（未登録時はエラーを投げる）
  *
  * 設計ポイント:
- * - グローバルにStateClassインスタンスを一元管理し、ID経由で高速にアクセス可能
+ * - グローバルにStateClassコンストラクタを一元管理し、ID経由で高速にアクセス可能
  * - 存在しないIDアクセス時はraiseErrorで明確な例外を発生
  */
 const stateClassById = {};
@@ -736,7 +736,7 @@ class BindingNode {
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;
-        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
+        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.accessor);
         this.assignValue(filteredValue);
         renderer.updatedBindings.add(this.binding);
     }
@@ -1140,6 +1140,42 @@ class StatePropertyRef {
         this.#listIndexRef = listIndex !== null ? new WeakRef(listIndex) : null;
         this.key = createRefKey(info, listIndex);
     }
+    #parentRef = undefined;
+    getParentRef() {
+        if (typeof this.#parentRef !== "undefined") {
+            return this.#parentRef;
+        }
+        const parentInfo = this.info.parentInfo;
+        if (parentInfo === null)
+            return (this.#parentRef = null);
+        if (parentInfo.wildcardCount === this.info.wildcardCount) {
+            return (this.#parentRef = getStatePropertyRef(parentInfo, this.listIndex));
+        }
+        else if (parentInfo.wildcardCount < this.info.wildcardCount) {
+            if (parentInfo.wildcardCount > 0) {
+                const parentListIndex = this.listIndex?.at(parentInfo.wildcardCount - 1) ?? raiseError({
+                    code: 'BIND-201',
+                    message: 'Inconsistent wildcard count between parentInfo and info',
+                    context: { infoPattern: this.info.pattern, parentPattern: parentInfo.pattern },
+                    docsUrl: '/docs/error-codes.md#bind',
+                    severity: 'error',
+                });
+                return (this.#parentRef = getStatePropertyRef(parentInfo, parentListIndex));
+            }
+            else {
+                return (this.#parentRef = getStatePropertyRef(parentInfo, null));
+            }
+        }
+        else {
+            raiseError({
+                code: 'BIND-201',
+                message: 'Inconsistent wildcard count between parentInfo and info',
+                context: { infoPattern: this.info.pattern, parentPattern: parentInfo.pattern },
+                docsUrl: '/docs/error-codes.md#bind',
+                severity: 'error',
+            });
+        }
+    }
 }
 const refByInfoByListIndex = new WeakMap();
 const refByInfoByNull = new Map();
@@ -1216,7 +1252,7 @@ function getListIndex(resolvedPath, receiver, handler) {
                         docsUrl: '/docs/error-codes.md#state',
                     });
                 const wildcardRef = getStatePropertyRef(wildcardParentPattern, parentListIndex);
-                const listIndexes = handler.engine.getListIndexes(wildcardRef) ??
+                const listIndexes = handler.accessor.getListIndexes(wildcardRef) ??
                     raiseError({
                         code: 'LIST-201',
                         message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
@@ -1252,278 +1288,37 @@ function getListIndex(resolvedPath, receiver, handler) {
 const symbolName$1 = "state";
 const GetByRefSymbol = Symbol.for(`${symbolName$1}.GetByRef`);
 const SetByRefSymbol = Symbol.for(`${symbolName$1}.SetByRef`);
-const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
+const GetAccessorSymbol = Symbol.for(`${symbolName$1}.GetAccessor`);
 const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
 const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
 
-function checkDependency(handler, ref) {
-    // 動的依存関係の登録
-    if (handler.refIndex >= 0) {
-        const lastInfo = handler.lastRefStack?.info ?? null;
-        if (lastInfo !== null) {
-            if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
-                !handler.engine.pathManager.setters.has(lastInfo.pattern) &&
-                lastInfo.pattern !== ref.info.pattern) {
-                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, ref.info.pattern);
-            }
-        }
-    }
-}
-
-function setStatePropertyRef(handler, ref, callback) {
-    handler.refIndex++;
-    if (handler.refIndex >= handler.refStack.length) {
-        handler.refStack.push(null);
-    }
-    handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
-    try {
-        return callback();
-    }
-    finally {
-        handler.refStack[handler.refIndex] = null;
-        handler.refIndex--;
-        handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
-    }
-}
-
-/**
- * getByRef.ts
- *
- * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
- * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
- *
- * 主な役割:
- * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
- * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
- * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
- * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
- * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
- *
- * 設計ポイント:
- * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
- * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
- * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
- * - finallyでキャッシュへの格納を保証
- */
-/**
- * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
- *
- * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
- * - キャッシュ機構（handler.cacheable時はrefKeyでキャッシュ）
- * - ネスト・ワイルドカード対応（親infoやlistIndexを辿って再帰的に値を取得）
- * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
- *
- * @param target    状態オブジェクト
- * @param info      構造化パス情報
- * @param listIndex リストインデックス（多重ループ対応）
- * @param receiver  プロキシ
- * @param handler   状態ハンドラ
- * @returns         対象プロパティの値
- */
-function getByRefWritable(target, ref, receiver, handler) {
-    checkDependency(handler, ref);
-    // 親子関係のあるgetterが存在する場合は、外部依存から取得
-    // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-    if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
-        return handler.engine.stateOutput.get(ref);
-    }
-    // パターンがtargetに存在する場合はgetter経由で取得
-    if (ref.info.pattern in target) {
-        return setStatePropertyRef(handler, ref, () => {
-            return Reflect.get(target, ref.info.pattern, receiver);
-        });
-    }
-    else {
-        // 存在しない場合は親infoを辿って再帰的に取得
-        const parentInfo = ref.info.parentInfo ?? raiseError({
+function trackDependency(target, prop, receiver, handler) {
+    return (path) => {
+        const lastInfo = handler.lastRefStack?.info ?? raiseError({
             code: 'STATE-202',
-            message: 'propRef.stateProp.parentInfo is undefined',
-            context: { where: 'getByRefWritable', refPath: ref.info.pattern },
+            message: 'Internal error: lastRefStack is null',
+            context: { where: 'trackDependency', path },
             docsUrl: '/docs/error-codes.md#state',
         });
-        const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
-        const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
-        const parentValue = getByRefWritable(target, parentRef, receiver, handler);
-        const lastSegment = ref.info.lastSegment;
-        if (lastSegment === "*") {
-            // ワイルドカードの場合はlistIndexのindexでアクセス
-            const index = ref.listIndex?.index ?? raiseError({
-                code: 'STATE-202',
-                message: 'propRef.listIndex?.index is undefined',
-                context: { where: 'getByRefWritable', refPath: ref.info.pattern },
-                docsUrl: '/docs/error-codes.md#state',
-            });
-            return Reflect.get(parentValue, index);
+        if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
+            lastInfo.pattern !== path) {
+            handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, path);
         }
-        else {
-            // 通常のプロパティアクセス
-            return Reflect.get(parentValue, lastSegment);
-        }
-    }
+    };
 }
 
 /**
- * setByRef.ts
- *
- * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
- * 状態オブジェクト（target）に値を設定するための関数（setByRef）の実装です。
- *
- * 主な役割:
- * - 指定されたパス・インデックスに対応するState値を設定（多重ループやワイルドカードにも対応）
- * - getter/setter経由で値設定時はSetStatePropertyRefSymbolでスコープを一時設定
- * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を設定
- * - 設定後はengine.updater.addUpdatedStatePropertyRefValueで更新情報を登録
- *
- * 設計ポイント:
- * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値設定を実現
- * - finallyで必ず更新情報を登録し、再描画や依存解決に利用
- * - getter/setter経由のスコープ切り替えも考慮した設計
+ * stackIndexByIndexName
+ * インデックス名からスタックインデックスへのマッピング
+ * $1 => 0
+ * $2 => 1
+ * :
+ * ${i + 1} => i
+ * i < MAX_WILDCARD_DEPTH
  */
-function setByRef(target, ref, value, receiver, handler) {
-    try {
-        // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
-        // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-        if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.setters.intersection(ref.info.cumulativePathSet).size === 0) {
-            return handler.engine.stateOutput.set(ref, value);
-        }
-        if (ref.info.pattern in target) {
-            return setStatePropertyRef(handler, ref, () => {
-                return Reflect.set(target, ref.info.pattern, value, receiver);
-            });
-        }
-        else {
-            const parentInfo = ref.info.parentInfo ?? raiseError({
-                code: 'STATE-202',
-                message: 'propRef.stateProp.parentInfo is undefined',
-                context: { where: 'setByRef', refPath: ref.info.pattern },
-                docsUrl: '/docs/error-codes.md#state',
-            });
-            const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
-            const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
-            const parentValue = getByRefWritable(target, parentRef, receiver, handler);
-            const lastSegment = ref.info.lastSegment;
-            if (lastSegment === "*") {
-                const index = ref.listIndex?.index ?? raiseError({
-                    code: 'STATE-202',
-                    message: 'propRef.listIndex?.index is undefined',
-                    context: { where: 'setByRef', refPath: ref.info.pattern },
-                    docsUrl: '/docs/error-codes.md#state',
-                });
-                return Reflect.set(parentValue, index, value);
-            }
-            else {
-                return Reflect.set(parentValue, lastSegment, value);
-            }
-        }
-    }
-    finally {
-        handler.updater.enqueueRef(ref);
-    }
-}
-
-/**
- * getByRef.ts
- *
- * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
- * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
- *
- * 主な役割:
- * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
- * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
- * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
- * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
- * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
- *
- * 設計ポイント:
- * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
- * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
- * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
- * - finallyでキャッシュへの格納を保証
- */
-/**
- * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
- *
- * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
- * - キャッシュ機構（handler.cacheable時はrefKeyでキャッシュ）
- * - ネスト・ワイルドカード対応（親infoやlistIndexを辿って再帰的に値を取得）
- * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
- *
- * @param target    状態オブジェクト
- * @param info      構造化パス情報
- * @param listIndex リストインデックス（多重ループ対応）
- * @param receiver  プロキシ
- * @param handler   状態ハンドラ
- * @returns         対象プロパティの値
- */
-function getByRefReadonly(target, ref, receiver, handler) {
-    checkDependency(handler, ref);
-    let value;
-    try {
-        // キャッシュが有効な場合はrefKeyで値をキャッシュ
-        if (handler.cache !== null) {
-            value = handler.cache.get(ref);
-            if (typeof value !== "undefined") {
-                return value;
-            }
-            if (handler.cache.has(ref)) {
-                return undefined;
-            }
-        }
-        try {
-            // 親子関係のあるgetterが存在する場合は、外部依存から取得
-            // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
-            if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
-                return (value = handler.engine.stateOutput.get(ref));
-            }
-            // パターンがtargetに存在する場合はgetter経由で取得
-            if (ref.info.pattern in target) {
-                return (value = setStatePropertyRef(handler, ref, () => {
-                    return Reflect.get(target, ref.info.pattern, receiver);
-                }));
-            }
-            else {
-                // 存在しない場合は親infoを辿って再帰的に取得
-                const parentInfo = ref.info.parentInfo ?? raiseError({
-                    code: 'STATE-202',
-                    message: 'propRef.stateProp.parentInfo is undefined',
-                    context: { where: 'getByRefReadonly', refPath: ref.info.pattern },
-                    docsUrl: '/docs/error-codes.md#state',
-                });
-                const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
-                const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
-                const parentValue = getByRefReadonly(target, parentRef, receiver, handler);
-                const lastSegment = ref.info.lastSegment;
-                if (lastSegment === "*") {
-                    // ワイルドカードの場合はlistIndexのindexでアクセス
-                    const index = ref.listIndex?.index ?? raiseError({
-                        code: 'STATE-202',
-                        message: 'propRef.listIndex?.index is undefined',
-                        context: { where: 'getByRefReadonly', refPath: ref.info.pattern },
-                        docsUrl: '/docs/error-codes.md#state',
-                    });
-                    return (value = Reflect.get(parentValue, index));
-                }
-                else {
-                    // 通常のプロパティアクセス
-                    return (value = Reflect.get(parentValue, lastSegment));
-                }
-            }
-        }
-        finally {
-            // キャッシュが有効な場合は取得値をキャッシュ
-            if (handler.cache !== null) {
-                handler.cache.set(ref, value);
-            }
-        }
-    }
-    finally {
-        // リストの場合、リスト差分計算
-        if (handler.renderer != null) {
-            if (handler.engine.pathManager.lists.has(ref.info.pattern)) {
-                handler.renderer.calcListDiff(ref, value, true);
-            }
-        }
-    }
+const indexByIndexName = {};
+for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
+    indexByIndexName[`$${i + 1}`] = i;
 }
 
 /**
@@ -1568,7 +1363,7 @@ function resolve(target, prop, receiver, handler) {
         for (let i = 0; i < info.wildcardParentInfos.length; i++) {
             const wildcardParentPattern = info.wildcardParentInfos[i];
             const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-            const listIndexes = handler.engine.getListIndexes(wildcardRef) ?? raiseError({
+            const listIndexes = handler.accessor.getListIndexes(wildcardRef) ?? raiseError({
                 code: 'LIST-201',
                 message: `ListIndexes not found: ${wildcardParentPattern.pattern}`,
                 context: { pattern: wildcardParentPattern.pattern },
@@ -1587,42 +1382,98 @@ function resolve(target, prop, receiver, handler) {
         // WritableかReadonlyかを判定して適切なメソッドを呼び出す
         const ref = getStatePropertyRef(info, listIndex);
         const hasSetValue = typeof value !== "undefined";
-        if (SetCacheableSymbol in receiver && "cache" in handler) {
-            if (!hasSetValue) {
-                return getByRefReadonly(target, ref, receiver, handler);
-            }
-            else {
-                // readonlyなので、setはできない
-                raiseError({
-                    code: 'STATE-202',
-                    message: `Cannot set value on a readonly proxy: ${path}`,
-                    context: { path },
-                    docsUrl: '/docs/error-codes.md#state',
-                    severity: 'error',
-                });
-            }
-        }
-        else if (!(SetCacheableSymbol in receiver) && !("cache" in handler)) {
-            if (!hasSetValue) {
-                return getByRefWritable(target, ref, receiver, handler);
-            }
-            else {
-                setByRef(target, ref, value, receiver, handler);
-            }
+        if (!hasSetValue) {
+            return handler.accessor.getValue(ref);
         }
         else {
-            raiseError({
-                code: 'STATE-202',
-                message: 'Inconsistent proxy and handler types',
-                context: {
-                    receiverHasSetCacheable: (SetCacheableSymbol in receiver),
-                    handlerHasCache: ("cache" in handler),
-                },
-                docsUrl: '/docs/error-codes.md#state',
-                severity: 'error',
-            });
+            return handler.accessor.setValue(ref, value);
         }
     };
+}
+
+function checkDependency(handler, ref) {
+    // 動的依存関係の登録
+    if (handler.refIndex >= 0) {
+        const lastInfo = handler.lastRefStack?.info ?? null;
+        if (lastInfo !== null) {
+            if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
+                !handler.engine.pathManager.setters.has(lastInfo.pattern) &&
+                lastInfo.pattern !== ref.info.pattern) {
+                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, ref.info.pattern);
+            }
+        }
+    }
+}
+
+function setStatePropertyRef(handler, ref, callback) {
+    handler.refIndex++;
+    if (handler.refIndex >= handler.refStack.length) {
+        handler.refStack.push(null);
+    }
+    handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
+    try {
+        return callback();
+    }
+    finally {
+        handler.refStack[handler.refIndex] = null;
+        handler.refIndex--;
+        handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+    }
+}
+
+/**
+ * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
+ *
+ * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
+ * - キャッシュ機構（handler.cacheable時はrefKeyでキャッシュ）
+ * - ネスト・ワイルドカード対応（親infoやlistIndexを辿って再帰的に値を取得）
+ * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
+ *
+ * @param target    状態オブジェクト
+ * @param ref      構造化パス情報とリストインデックス
+ * @param force    キャッシュを無視して強制的に取得するかどうか
+ * @param receiver  プロキシ
+ * @param handler   状態ハンドラ
+ * @returns         対象プロパティの値
+ */
+function getByRef(target, ref, receiver, handler) {
+    checkDependency(handler, ref);
+    // 親子関係のあるgetterが存在する場合は、外部依存から取得
+    // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
+    if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
+        return handler.engine.stateOutput.get(ref);
+    }
+    // パターンがtargetに存在する場合はgetter経由で取得
+    if (ref.info.pattern in target) {
+        return setStatePropertyRef(handler, ref, () => {
+            return Reflect.get(target, ref.info.pattern, receiver);
+        });
+    }
+    else {
+        // 存在しない場合は親infoを辿って再帰的に取得
+        const parentRef = ref.getParentRef() ?? raiseError({
+            code: 'STATE-202',
+            message: 'propRef.getParentRef() returned null',
+            context: { where: 'getByRefWritable', refPath: ref.info.pattern },
+            docsUrl: '/docs/error-codes.md#state',
+        });
+        const parentValue = handler.accessor.getValue(parentRef);
+        const lastSegment = ref.info.lastSegment;
+        if (lastSegment === "*") {
+            // ワイルドカードの場合はlistIndexのindexでアクセス
+            const index = ref.listIndex?.index ?? raiseError({
+                code: 'STATE-202',
+                message: 'propRef.listIndex?.index is undefined',
+                context: { where: 'getByRefWritable', refPath: ref.info.pattern },
+                docsUrl: '/docs/error-codes.md#state',
+            });
+            return Reflect.get(parentValue, index);
+        }
+        else {
+            // 通常のプロパティアクセス
+            return Reflect.get(parentValue, lastSegment);
+        }
+    }
 }
 
 /**
@@ -1631,7 +1482,7 @@ function resolve(target, prop, receiver, handler) {
  * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する（Writable版）。
  * Throws: LIST-201（インデックス未解決）、BIND-201（ワイルドカード情報不整合）
  */
-function getAllWritable(target, prop, receiver, handler) {
+function getAll(target, prop, receiver, handler) {
     const resolveFn = resolve(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
@@ -1669,7 +1520,7 @@ function getAllWritable(target, prop, receiver, handler) {
                 return;
             }
             const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-            const listIndexes = handler.engine.getListIndexes(wildcardRef) ?? raiseError({
+            const listIndexes = handler.accessor.getListIndexes(wildcardRef) ?? raiseError({
                 code: 'LIST-201',
                 message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
                 context: { pattern: wildcardParentPattern.pattern },
@@ -1710,51 +1561,6 @@ function getAllWritable(target, prop, receiver, handler) {
     };
 }
 
-const CONNECTED_CALLBACK = "$connectedCallback";
-async function connectedCallback(target, prop, receiver, handler) {
-    const callback = Reflect.get(target, CONNECTED_CALLBACK);
-    if (typeof callback === "function") {
-        await callback.call(receiver);
-    }
-}
-
-const DISCONNECTED_CALLBACK = "$disconnectedCallback";
-async function disconnectedCallback(target, prop, receiver, handler) {
-    const callback = Reflect.get(target, DISCONNECTED_CALLBACK);
-    if (typeof callback === "function") {
-        await callback.call(receiver);
-    }
-}
-
-function trackDependency(target, prop, receiver, handler) {
-    return (path) => {
-        const lastInfo = handler.lastRefStack?.info ?? raiseError({
-            code: 'STATE-202',
-            message: 'Internal error: lastRefStack is null',
-            context: { where: 'trackDependency', path },
-            docsUrl: '/docs/error-codes.md#state',
-        });
-        if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
-            lastInfo.pattern !== path) {
-            handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, path);
-        }
-    };
-}
-
-/**
- * stackIndexByIndexName
- * インデックス名からスタックインデックスへのマッピング
- * $1 => 0
- * $2 => 1
- * :
- * ${i + 1} => i
- * i < MAX_WILDCARD_DEPTH
- */
-const indexByIndexName = {};
-for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
-    indexByIndexName[`$${i + 1}`] = i;
-}
-
 /**
  * get.ts
  *
@@ -1773,7 +1579,7 @@ for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
  * - 通常のプロパティアクセスもバインディングや多重ループに対応
  * - シンボルAPIやReflect.getで拡張性・互換性も確保
  */
-function getWritable(target, prop, receiver, handler) {
+function getReadonly(target, prop, receiver, handler) {
     const index = indexByIndexName[prop];
     if (typeof index !== "undefined") {
         const listIndex = handler.lastRefStack?.listIndex;
@@ -1791,7 +1597,7 @@ function getWritable(target, prop, receiver, handler) {
                 case "$resolve":
                     return resolve(target, prop, receiver, handler);
                 case "$getAll":
-                    return getAllWritable(target, prop, receiver, handler);
+                    return getAll(target, prop, receiver, handler);
                 case "$trackDependency":
                     return trackDependency(target, prop, receiver, handler);
                 case "$navigate":
@@ -1803,131 +1609,18 @@ function getWritable(target, prop, receiver, handler) {
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
         const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
-        return getByRefWritable(target, ref, receiver, handler);
+        return handler.accessor.getValue(ref);
     }
     else if (typeof prop === "symbol") {
         switch (prop) {
             case GetByRefSymbol:
-                return (ref) => getByRefWritable(target, ref, receiver, handler);
-            case SetByRefSymbol:
-                return (ref, value) => setByRef(target, ref, value, receiver, handler);
-            case ConnectedCallbackSymbol:
-                return () => connectedCallback(target, prop, receiver);
-            case DisconnectedCallbackSymbol:
-                return () => disconnectedCallback(target, prop, receiver);
+                return (ref) => getByRef(target, ref, receiver, handler);
+            case GetAccessorSymbol:
+                return handler.accessor;
             default:
                 return Reflect.get(target, prop, receiver);
         }
     }
-}
-
-/**
- * set.ts
- *
- * StateClassのProxyトラップとして、プロパティ設定時の値セット処理を担う関数（set）の実装です。
- *
- * 主な役割:
- * - 文字列プロパティの場合、getResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
- * - setByRefで構造化パス・リストインデックスに対応した値設定を実行
- * - それ以外（シンボル等）の場合はReflect.setで通常のプロパティ設定を実行
- *
- * 設計ポイント:
- * - バインディングや多重ループ、ワイルドカードを含むパスにも柔軟に対応
- * - setByRefを利用することで、依存解決や再描画などの副作用も一元管理
- * - Reflect.setで標準的なプロパティ設定の互換性も確保
- */
-function set(target, prop, value, receiver, handler) {
-    if (typeof prop === "string") {
-        const resolvedInfo = getResolvedPathInfo(prop);
-        const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
-        return setByRef(target, ref, value, receiver, handler);
-    }
-    else {
-        return Reflect.set(target, prop, value, receiver);
-    }
-}
-
-/**
- * 状態プロパティ参照のスコープを一時的に設定し、非同期コールバックを実行します。
- *
- * @param handler   スコープ管理用のハンドラ
- * @param info      現在の構造化パス情報
- * @param listIndex 現在のリストインデックス（ネスト対応用）
- * @param callback  スコープ内で実行する非同期処理
- *
- * スタックに info と listIndex をpushし、callback実行後に必ずpopします。
- * これにより、非同期処理中も正しいスコープ情報が維持されます。
- */
-async function asyncSetStatePropertyRef(handler, ref, callback) {
-    handler.refIndex++;
-    if (handler.refIndex >= handler.refStack.length) {
-        handler.refStack.push(null);
-    }
-    handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
-    try {
-        await callback();
-    }
-    finally {
-        handler.refStack[handler.refIndex] = null;
-        handler.refIndex--;
-        handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
-    }
-}
-
-async function setLoopContext(handler, loopContext, callback) {
-    if (handler.loopContext) {
-        raiseError({
-            code: 'STATE-301',
-            message: 'already in loop context',
-            context: { where: 'setLoopContext' },
-            docsUrl: '/docs/error-codes.md#state',
-        });
-    }
-    handler.loopContext = loopContext;
-    try {
-        if (loopContext) {
-            await asyncSetStatePropertyRef(handler, loopContext.ref, callback);
-        }
-        else {
-            await callback();
-        }
-    }
-    finally {
-        handler.loopContext = null;
-    }
-}
-
-const STACK_DEPTH$1 = 32;
-let StateHandler$1 = class StateHandler {
-    engine;
-    refStack = Array(STACK_DEPTH$1).fill(null);
-    refIndex = -1;
-    lastRefStack = null;
-    loopContext = null;
-    updater;
-    #setMethods = new Set([GetByRefSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol]);
-    #setApis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
-    constructor(engine, updater) {
-        this.engine = engine;
-        this.updater = updater;
-    }
-    get(target, prop, receiver) {
-        return getWritable(target, prop, receiver, this);
-    }
-    set(target, prop, value, receiver) {
-        return set(target, prop, value, receiver, this);
-    }
-    has(target, prop) {
-        return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
-    }
-};
-async function useWritableStateProxy(engine, updater, state, loopContext, callback) {
-    const handler = new StateHandler$1(engine, updater);
-    const stateProxy = new Proxy(state, handler);
-    return setLoopContext(handler, loopContext, async () => {
-        await callback(stateProxy);
-    });
 }
 
 let version = 0;
@@ -2122,6 +1815,517 @@ function calcListDiff(parentListIndex, oldListValue, newListValue, oldIndexes) {
     }
 }
 
+class UpdateContext {
+    #version;
+    #engine;
+    #updater;
+    #listDiffByRef = new Map();
+    #stackRefsForCalcListDiff = new Set();
+    constructor(engine, updater, version) {
+        this.#engine = engine;
+        this.#updater = updater;
+        this.#version = version;
+    }
+    getCacheEntry(ref) {
+        return this.#engine.getCacheEntry(ref) ?? raiseError({
+            code: 'CACHE-201',
+            message: 'cacheEntry is null',
+            context: { where: 'PropertyAccessor.getCacheEntry', refPath: ref.info.pattern },
+            docsUrl: '/docs/error-codes.md#cache',
+        });
+    }
+    updateOnDirty(state, cacheEntry, ref) {
+        // キャッシュが古い場合は、最新の値を取得してキャッシュを更新
+        const value = state[GetByRefSymbol](ref);
+        cacheEntry.setValue(value, this.#version);
+        if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
+            this.calcListDiff(state, ref);
+        }
+        return value;
+    }
+    getValue(state, ref) {
+        const cacheEntry = this.getCacheEntry(ref);
+        if (cacheEntry.isDirty(state[GetAccessorSymbol])) {
+            this.updateOnDirty(state, cacheEntry, ref);
+        }
+        return cacheEntry.value;
+    }
+    forceUpdateCache(state, ref) {
+        // 強制的にキャッシュを更新
+        const cacheEntry = this.getCacheEntry(ref);
+        this.updateOnDirty(state, cacheEntry, ref);
+    }
+    setValue(state, ref, value) {
+        try {
+            state[SetByRefSymbol](ref, value);
+            const cacheEntry = this.getCacheEntry(ref);
+            cacheEntry.setValue(value, this.#version);
+        }
+        finally {
+            this.#updater.enqueueRef(ref);
+        }
+    }
+    getListIndexes(state, ref) {
+        const cacheEntry = this.getCacheEntry(ref);
+        if (cacheEntry.isDirty(state[GetAccessorSymbol])) {
+            this.updateOnDirty(state, cacheEntry, ref);
+        }
+        return this.#engine.getListIndexes(ref);
+    }
+    getListAndIndexes(state, ref) {
+        const cacheEntry = this.getCacheEntry(ref);
+        if (cacheEntry.isDirty(state[GetAccessorSymbol])) {
+            this.updateOnDirty(state, cacheEntry, ref);
+        }
+        return this.#engine.getListAndListIndexes(ref);
+    }
+    getBindings(state, ref) {
+        const cacheEntry = this.getCacheEntry(ref);
+        if (cacheEntry.isDirty(state[GetAccessorSymbol])) {
+            this.updateOnDirty(state, cacheEntry, ref);
+        }
+        return this.#engine.getBindings(ref);
+    }
+    calcListDiff(state, ref) {
+        if (this.#stackRefsForCalcListDiff.has(ref)) {
+            console.warn('Circular reference detected in calcListDiff:', Array.from(this.#stackRefsForCalcListDiff).map(r => r.key));
+            return null;
+        }
+        this.#stackRefsForCalcListDiff.add(ref);
+        try {
+            let listDiff = this.#listDiffByRef.get(ref);
+            const newListValue = this.getValue(state, ref);
+            if (typeof listDiff === "undefined") {
+                const [oldListValue, oldListIndexes] = this.#engine.getListAndListIndexes(ref);
+                listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
+                this.#listDiffByRef.set(ref, listDiff);
+                if (oldListValue !== newListValue) {
+                    this.#engine.saveListAndListIndexes(ref, newListValue, listDiff.newIndexes);
+                }
+            }
+            else {
+                if (listDiff.newListValue !== newListValue) {
+                    listDiff = calcListDiff(ref.listIndex, listDiff.oldListValue, newListValue, listDiff.oldIndexes);
+                    this.#listDiffByRef.set(ref, listDiff);
+                    this.#engine.saveListAndListIndexes(ref, newListValue, listDiff.newIndexes);
+                }
+            }
+            return listDiff;
+        }
+        finally {
+            this.#stackRefsForCalcListDiff.delete(ref);
+        }
+    }
+    getListDiff(ref) {
+        return this.#listDiffByRef.get(ref) ?? null;
+    }
+}
+function createUpdateContext(engine, updater, version) {
+    return new UpdateContext(engine, updater, version);
+}
+class PropertyAccessor {
+    #state;
+    #context;
+    constructor(state, context) {
+        this.#state = state;
+        this.#context = context;
+    }
+    getValue(ref) {
+        return this.#context.getValue(this.#state, ref);
+    }
+    forceUpdateCache(ref) {
+        this.#context.forceUpdateCache(this.#state, ref);
+    }
+    setValue(ref, value) {
+        if (!(SetByRefSymbol in this.#state)) {
+            raiseError({
+                code: "PROP-001",
+                message: "State is not writable",
+                docsUrl: "./docs/error-codes.md#prop",
+            });
+        }
+        this.#context.setValue(this.#state, ref, value);
+    }
+    getListIndexes(ref) {
+        return this.#context.getListIndexes(this.#state, ref);
+    }
+    getListAndIndexes(ref) {
+        return this.#context.getListAndIndexes(this.#state, ref);
+    }
+    getBindings(ref) {
+        return this.#context.getBindings(this.#state, ref);
+    }
+    calcListDiff(ref) {
+        return this.#context.calcListDiff(this.#state, ref);
+    }
+    getListDiff(ref) {
+        return this.#context.getListDiff(ref);
+    }
+    async connectedCallback() {
+        if (!(ConnectedCallbackSymbol in this.#state)) {
+            raiseError({
+                code: "PROP-002",
+                message: "State does not support connectedCallback",
+                docsUrl: "./docs/error-codes.md#prop",
+            });
+        }
+        return await this.#state[ConnectedCallbackSymbol]();
+    }
+    async disconnectedCallback() {
+        if (!(DisconnectedCallbackSymbol in this.#state)) {
+            raiseError({
+                code: "PROP-003",
+                message: "State does not support disconnectedCallback",
+                docsUrl: "./docs/error-codes.md#prop",
+            });
+        }
+        return await this.#state[DisconnectedCallbackSymbol]();
+    }
+    get state() {
+        return this.#state;
+    }
+}
+function createPropertyAccessor(state, context) {
+    return new PropertyAccessor(state, context);
+}
+
+const STACK_DEPTH$1 = 32;
+let StateHandler$1 = class StateHandler {
+    engine;
+    #accessor = undefined;
+    refStack = Array(STACK_DEPTH$1).fill(null);
+    refIndex = -1;
+    lastRefStack = null;
+    #setMethods = new Set([GetByRefSymbol]);
+    #setApis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
+    constructor(engine) {
+        this.engine = engine;
+    }
+    setAccessor(context, proxy) {
+        this.#accessor = createPropertyAccessor(proxy, context);
+        return this.#accessor;
+    }
+    get accessor() {
+        if (!this.#accessor) {
+            raiseError({
+                code: 'STATE-201',
+                message: 'accessor is not set',
+                context: { where: 'StateHandler.accessor' },
+                docsUrl: '/docs/error-codes.md#state',
+                severity: 'error',
+            });
+        }
+        return this.#accessor;
+    }
+    /**
+     * getトラップ
+     * @param target 対象オブジェクト
+     * @param prop プロパティ名
+     * @param receiver プロキシ自身
+     * @returns プロパティの値
+     */
+    get(target, prop, receiver) {
+        return getReadonly(target, prop, receiver, this);
+    }
+    /**
+     * setトラップ
+     * @param target 対象オブジェクト
+     * @param prop プロパティ名
+     * @param value 新しい値
+     * @param receiver プロキシ自身
+     * @returns 成功した場合はtrue
+     */
+    set(target, prop, value, receiver) {
+        raiseError({
+            code: 'STATE-202',
+            message: `Cannot set property ${String(prop)} of readonly state`,
+            context: { where: 'createReadonlyStateProxy.set', prop: String(prop) },
+            docsUrl: './docs/error-codes.md#state',
+        });
+    }
+    /**
+     * hasトラップ
+     * @param target 対象オブジェクト
+     * @param prop プロパティ名
+     * @returns プロパティが存在する場合はtrue
+     */
+    has(target, prop) {
+        return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
+    }
+};
+function createReadonlyStateProxy(engine, context, state) {
+    const handler = new StateHandler$1(engine);
+    const stateProxy = new Proxy(state, handler);
+    handler.setAccessor(context, stateProxy);
+    return stateProxy;
+}
+
+function setByRef(target, ref, value, receiver, handler) {
+    // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
+    // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
+    if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.setters.intersection(ref.info.cumulativePathSet).size === 0) {
+        return handler.engine.stateOutput.set(ref, value);
+    }
+    if (ref.info.pattern in target) {
+        return setStatePropertyRef(handler, ref, () => {
+            return Reflect.set(target, ref.info.pattern, value, receiver);
+        });
+    }
+    else {
+        const parentRef = ref.getParentRef() ?? raiseError({
+            code: 'STATE-202',
+            message: 'propRef.getParentRef() returned null',
+            context: { where: 'setByRef', refPath: ref.info.pattern },
+            docsUrl: '/docs/error-codes.md#state',
+        });
+        const parentValue = handler.accessor.getValue(parentRef);
+        const lastSegment = ref.info.lastSegment;
+        if (lastSegment === "*") {
+            const index = ref.listIndex?.index ?? raiseError({
+                code: 'STATE-202',
+                message: 'propRef.listIndex?.index is undefined',
+                context: { where: 'setByRef', refPath: ref.info.pattern },
+                docsUrl: '/docs/error-codes.md#state',
+            });
+            return Reflect.set(parentValue, index, value);
+        }
+        else {
+            return Reflect.set(parentValue, lastSegment, value);
+        }
+    }
+}
+
+const CONNECTED_CALLBACK = "$connectedCallback";
+async function connectedCallback(target, prop, receiver, handler) {
+    const callback = Reflect.get(target, CONNECTED_CALLBACK);
+    if (typeof callback === "function") {
+        await callback.call(receiver);
+    }
+}
+
+const DISCONNECTED_CALLBACK = "$disconnectedCallback";
+async function disconnectedCallback(target, prop, receiver, handler) {
+    const callback = Reflect.get(target, DISCONNECTED_CALLBACK);
+    if (typeof callback === "function") {
+        await callback.call(receiver);
+    }
+}
+
+/**
+ * get.ts
+ *
+ * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
+ *
+ * 主な役割:
+ * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $navigate）に応じた値やAPIを返却
+ * - 通常のプロパティはgetResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
+ * - getByRefで構造化パス・リストインデックスに対応した値を取得
+ * - シンボルプロパティの場合はhandler.callableApi経由でAPIを呼び出し
+ * - それ以外はReflect.getで通常のプロパティアクセスを実行
+ *
+ * 設計ポイント:
+ * - $1〜$9は直近のStatePropertyRefのリストインデックス値を返す特殊プロパティ
+ * - $resolve, $getAll, $navigateはAPI関数やルーターインスタンスを返す
+ * - 通常のプロパティアクセスもバインディングや多重ループに対応
+ * - シンボルAPIやReflect.getで拡張性・互換性も確保
+ */
+function getWritable(target, prop, receiver, handler) {
+    const index = indexByIndexName[prop];
+    if (typeof index !== "undefined") {
+        const listIndex = handler.lastRefStack?.listIndex;
+        return listIndex?.indexes[index] ?? raiseError({
+            code: 'LIST-201',
+            message: `ListIndex not found: ${prop.toString()}`,
+            context: { prop: String(prop), indexes: listIndex?.indexes ?? null, index },
+            docsUrl: '/docs/error-codes.md#list',
+            severity: 'error',
+        });
+    }
+    if (typeof prop === "string") {
+        if (prop[0] === "$") {
+            switch (prop) {
+                case "$resolve":
+                    return resolve(target, prop, receiver, handler);
+                case "$getAll":
+                    return getAll(target, prop, receiver, handler);
+                case "$trackDependency":
+                    return trackDependency(target, prop, receiver, handler);
+                case "$navigate":
+                    return (to) => getRouter()?.navigate(to);
+                case "$component":
+                    return handler.engine.owner;
+            }
+        }
+        const resolvedInfo = getResolvedPathInfo(prop);
+        const listIndex = getListIndex(resolvedInfo, receiver, handler);
+        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
+        return handler.accessor.getValue(ref);
+    }
+    else if (typeof prop === "symbol") {
+        switch (prop) {
+            case GetByRefSymbol:
+                return (ref) => getByRef(target, ref, receiver, handler);
+            case SetByRefSymbol:
+                return (ref, value) => setByRef(target, ref, value, receiver, handler);
+            case GetAccessorSymbol:
+                return handler.accessor;
+            case ConnectedCallbackSymbol:
+                return () => connectedCallback(target, prop, receiver);
+            case DisconnectedCallbackSymbol:
+                return () => disconnectedCallback(target, prop, receiver);
+            default:
+                return Reflect.get(target, prop, receiver);
+        }
+    }
+}
+
+/**
+ * set.ts
+ *
+ * StateClassのProxyトラップとして、プロパティ設定時の値セット処理を担う関数（set）の実装です。
+ *
+ * 主な役割:
+ * - 文字列プロパティの場合、getResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
+ * - setByRefで構造化パス・リストインデックスに対応した値設定を実行
+ * - それ以外（シンボル等）の場合はReflect.setで通常のプロパティ設定を実行
+ *
+ * 設計ポイント:
+ * - バインディングや多重ループ、ワイルドカードを含むパスにも柔軟に対応
+ * - setByRefを利用することで、依存解決や再描画などの副作用も一元管理
+ * - Reflect.setで標準的なプロパティ設定の互換性も確保
+ */
+function set(target, prop, value, receiver, handler) {
+    if (typeof prop === "string") {
+        const resolvedInfo = getResolvedPathInfo(prop);
+        const listIndex = getListIndex(resolvedInfo, receiver, handler);
+        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
+        handler.accessor.setValue(ref, value);
+        return true;
+    }
+    else {
+        return Reflect.set(target, prop, value, receiver);
+    }
+}
+
+/**
+ * 状態プロパティ参照のスコープを一時的に設定し、非同期コールバックを実行します。
+ *
+ * @param handler   スコープ管理用のハンドラ
+ * @param info      現在の構造化パス情報
+ * @param listIndex 現在のリストインデックス（ネスト対応用）
+ * @param callback  スコープ内で実行する非同期処理
+ *
+ * スタックに info と listIndex をpushし、callback実行後に必ずpopします。
+ * これにより、非同期処理中も正しいスコープ情報が維持されます。
+ */
+async function asyncSetStatePropertyRef(handler, ref, callback) {
+    handler.refIndex++;
+    if (handler.refIndex >= handler.refStack.length) {
+        handler.refStack.push(null);
+    }
+    handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
+    try {
+        await callback();
+    }
+    finally {
+        handler.refStack[handler.refIndex] = null;
+        handler.refIndex--;
+        handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+    }
+}
+
+async function setLoopContext(handler, loopContext, callback) {
+    if (handler.loopContext) {
+        raiseError({
+            code: 'STATE-301',
+            message: 'already in loop context',
+            context: { where: 'setLoopContext' },
+            docsUrl: '/docs/error-codes.md#state',
+        });
+    }
+    handler.loopContext = loopContext;
+    try {
+        if (loopContext) {
+            await asyncSetStatePropertyRef(handler, loopContext.ref, callback);
+        }
+        else {
+            await callback();
+        }
+    }
+    finally {
+        handler.loopContext = null;
+    }
+}
+
+const STACK_DEPTH = 32;
+class StateHandler {
+    engine;
+    #accessor = undefined;
+    refStack = Array(STACK_DEPTH).fill(null);
+    refIndex = -1;
+    lastRefStack = null;
+    loopContext = null;
+    #setMethods = new Set([GetByRefSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol]);
+    #setApis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
+    constructor(engine) {
+        this.engine = engine;
+    }
+    setAccessor(context, proxy) {
+        this.#accessor = createPropertyAccessor(proxy, context);
+        return this.#accessor;
+    }
+    get accessor() {
+        if (!this.#accessor) {
+            raiseError({
+                code: 'STATE-201',
+                message: 'accessor is not set',
+                context: { where: 'StateHandler.accessor' },
+                docsUrl: '/docs/error-codes.md#state',
+                severity: 'error',
+            });
+        }
+        return this.#accessor;
+    }
+    /**
+     * getトラップ
+     * @param target 対象オブジェクト
+     * @param prop プロパティ名
+     * @param receiver プロキシ自身
+     * @returns プロパティの値
+     */
+    get(target, prop, receiver) {
+        return getWritable(target, prop, receiver, this);
+    }
+    /**
+     * setトラップ
+     * @param target 対象オブジェクト
+     * @param prop プロパティ名
+     * @param value 新しい値
+     * @param receiver プロキシ自身
+     * @returns 成功した場合はtrue
+     */
+    set(target, prop, value, receiver) {
+        return set(target, prop, value, receiver, this);
+    }
+    /**
+     * hasトラップ
+     * @param target 対象オブジェクト
+     * @param prop プロパティ名
+     * @returns プロパティが存在する場合はtrue
+     */
+    has(target, prop) {
+        return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
+    }
+}
+async function useWritableStateProxy(engine, context, state, loopContext, callback) {
+    const handler = new StateHandler(engine);
+    const stateProxy = new Proxy(state, handler);
+    handler.setAccessor(context, stateProxy);
+    return setLoopContext(handler, loopContext, async () => {
+        await callback(stateProxy);
+    });
+}
+
 class NodePath {
     parentPath;
     currentPath;
@@ -2192,204 +2396,6 @@ function addPathNode(rootNode, path) {
     }
 }
 
-function setCacheable(handler, callback) {
-    handler.cache = new Map();
-    try {
-        callback();
-    }
-    finally {
-        handler.cache = null;
-    }
-}
-
-/**
- * getAllReadonly
- *
- * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する。
- * Throws: LIST-201（インデックス未解決）、BIND-201（ワイルドカード情報不整合）
- */
-function getAllReadonly(target, prop, receiver, handler) {
-    const resolveFn = resolve(target, prop, receiver, handler);
-    return (path, indexes) => {
-        const info = getStructuredPathInfo(path);
-        const lastInfo = handler.lastRefStack?.info ?? null;
-        if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
-            // gettersに含まれる場合は依存関係を登録
-            if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
-                !handler.engine.pathManager.setters.has(lastInfo.pattern)) {
-                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
-            }
-        }
-        if (typeof indexes === "undefined") {
-            for (let i = 0; i < info.wildcardInfos.length; i++) {
-                const wildcardPattern = info.wildcardInfos[i] ?? raiseError({
-                    code: 'BIND-201',
-                    message: 'wildcardPattern is null',
-                    context: { index: i, infoPattern: info.pattern },
-                    docsUrl: '/docs/error-codes.md#bind',
-                    severity: 'error',
-                });
-                const listIndex = getContextListIndex(handler, wildcardPattern.pattern);
-                if (listIndex) {
-                    indexes = listIndex.indexes;
-                    break;
-                }
-            }
-            if (typeof indexes === "undefined") {
-                indexes = [];
-            }
-        }
-        const walkWildcardPattern = (wildcardParentInfos, wildardIndexPos, listIndex, indexes, indexPos, parentIndexes, results) => {
-            const wildcardParentPattern = wildcardParentInfos[wildardIndexPos] ?? null;
-            if (wildcardParentPattern === null) {
-                results.push(parentIndexes);
-                return;
-            }
-            const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-            let listIndexes = handler.engine.getListIndexes(wildcardRef);
-            if (listIndexes === null) {
-                receiver[GetByRefSymbol](wildcardRef); // 依存関係登録のために一度取得
-                listIndexes = handler.engine.getListIndexes(wildcardRef);
-                if (listIndexes === null) {
-                    raiseError({
-                        code: 'LIST-201',
-                        message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
-                        context: { pattern: wildcardParentPattern.pattern },
-                        docsUrl: '/docs/error-codes.md#list',
-                        severity: 'error',
-                    });
-                }
-            }
-            const index = indexes[indexPos] ?? null;
-            if (index === null) {
-                for (let i = 0; i < listIndexes.length; i++) {
-                    const listIndex = listIndexes[i];
-                    walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
-                }
-            }
-            else {
-                const listIndex = listIndexes[index] ?? raiseError({
-                    code: 'LIST-201',
-                    message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
-                    context: { pattern: wildcardParentPattern.pattern, index },
-                    docsUrl: '/docs/error-codes.md#list',
-                    severity: 'error',
-                });
-                if ((wildardIndexPos + 1) < wildcardParentInfos.length) {
-                    walkWildcardPattern(wildcardParentInfos, wildardIndexPos + 1, listIndex, indexes, indexPos + 1, parentIndexes.concat(listIndex.index), results);
-                }
-                else {
-                    // 最終ワイルドカード層まで到達しているので、結果を確定
-                    results.push(parentIndexes.concat(listIndex.index));
-                }
-            }
-        };
-        const resultIndexes = [];
-        walkWildcardPattern(info.wildcardParentInfos, 0, null, indexes, 0, [], resultIndexes);
-        const resultValues = [];
-        for (let i = 0; i < resultIndexes.length; i++) {
-            resultValues.push(resolveFn(info.pattern, resultIndexes[i]));
-        }
-        return resultValues;
-    };
-}
-
-/**
- * get.ts
- *
- * StateClassのProxyトラップとして、プロパティアクセス時の値取得処理を担う関数（get）の実装です。
- *
- * 主な役割:
- * - 文字列プロパティの場合、特殊プロパティ（$1〜$9, $resolve, $getAll, $navigate）に応じた値やAPIを返却
- * - 通常のプロパティはgetResolvedPathInfoでパス情報を解決し、getListIndexでリストインデックスを取得
- * - getByRefで構造化パス・リストインデックスに対応した値を取得
- * - シンボルプロパティの場合はhandler.callableApi経由でAPIを呼び出し
- * - それ以外はReflect.getで通常のプロパティアクセスを実行
- *
- * 設計ポイント:
- * - $1〜$9は直近のStatePropertyRefのリストインデックス値を返す特殊プロパティ
- * - $resolve, $getAll, $navigateはAPI関数やルーターインスタンスを返す
- * - 通常のプロパティアクセスもバインディングや多重ループに対応
- * - シンボルAPIやReflect.getで拡張性・互換性も確保
- */
-function getReadonly(target, prop, receiver, handler) {
-    const index = indexByIndexName[prop];
-    if (typeof index !== "undefined") {
-        const listIndex = handler.lastRefStack?.listIndex;
-        return listIndex?.indexes[index] ?? raiseError({
-            code: 'LIST-201',
-            message: `ListIndex not found: ${prop.toString()}`,
-            context: { prop: String(prop), indexes: listIndex?.indexes ?? null, index },
-            docsUrl: '/docs/error-codes.md#list',
-            severity: 'error',
-        });
-    }
-    if (typeof prop === "string") {
-        if (prop[0] === "$") {
-            switch (prop) {
-                case "$resolve":
-                    return resolve(target, prop, receiver, handler);
-                case "$getAll":
-                    return getAllReadonly(target, prop, receiver, handler);
-                case "$trackDependency":
-                    return trackDependency(target, prop, receiver, handler);
-                case "$navigate":
-                    return (to) => getRouter()?.navigate(to);
-                case "$component":
-                    return handler.engine.owner;
-            }
-        }
-        const resolvedInfo = getResolvedPathInfo(prop);
-        const listIndex = getListIndex(resolvedInfo, receiver, handler);
-        const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
-        return getByRefReadonly(target, ref, receiver, handler);
-    }
-    else if (typeof prop === "symbol") {
-        switch (prop) {
-            case GetByRefSymbol:
-                return (ref) => getByRefReadonly(target, ref, receiver, handler);
-            case SetCacheableSymbol:
-                return (callback) => setCacheable(handler, callback);
-            default:
-                return Reflect.get(target, prop, receiver);
-        }
-    }
-}
-
-const STACK_DEPTH = 32;
-class StateHandler {
-    engine;
-    cache = null;
-    refStack = Array(STACK_DEPTH).fill(null);
-    refIndex = -1;
-    lastRefStack = null;
-    loopContext = null;
-    renderer = null;
-    #setMethods = new Set([GetByRefSymbol, SetCacheableSymbol]);
-    #setApis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
-    constructor(engine, renderer) {
-        this.engine = engine;
-        this.renderer = renderer;
-    }
-    get(target, prop, receiver) {
-        return getReadonly(target, prop, receiver, this);
-    }
-    set(target, prop, value, receiver) {
-        raiseError({
-            code: 'STATE-202',
-            message: `Cannot set property ${String(prop)} of readonly state`,
-            context: { where: 'createReadonlyStateProxy.set', prop: String(prop) },
-            docsUrl: './docs/error-codes.md#state',
-        });
-    }
-    has(target, prop) {
-        return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
-    }
-}
-function createReadonlyStateProxy(engine, state, renderer = null) {
-    return new Proxy(state, new StateHandler(engine, renderer));
-}
-
 /**
  * Renderer は、State の変更（参照 IStatePropertyRef の集合）に対応して、
  * PathTree を辿りつつ各 Binding（IBinding）へ applyChange を委譲するコーディネータです。
@@ -2415,6 +2421,13 @@ function createReadonlyStateProxy(engine, state, renderer = null) {
  */
 class Renderer {
     /**
+     * Updaterのバージョン
+     */
+    #version;
+    get version() {
+        return this.#version;
+    }
+    /**
      * このレンダリングサイクルで「変更あり」となった Binding の集合。
      * 注意: 実際に追加するのは各 binding.applyChange 実装側の責務。
      */
@@ -2428,25 +2441,20 @@ class Renderer {
      * レンダリング対象のエンジン。state, pathManager, bindings などのファサード。
      */
     #engine;
+    #updater;
     /**
      * createReadonlyStateProxy により生成される読み取り専用ビュー。render 実行中のみ非 null。
      */
     #readonlyState = null;
     /**
-     * リスト参照ごとの差分キャッシュ。
-     * 値の意味:
-     * - undefined: まだ未計算
-     * - null: 計算中（再入保護）
-     * - IListDiff: 計算済み
-     */
-    #listDiffByRef = new Map();
-    /**
      * 親リスト参照ごとに「要素の新しい並び位置」を記録するためのインデックス配列。
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
      */
     #reorderIndexesByRef = new Map();
-    constructor(engine) {
+    constructor(engine, updater, version) {
         this.#engine = engine;
+        this.#updater = updater;
+        this.#version = version;
     }
     /**
      * このサイクル中に更新された Binding の集合を返す（読み取り専用的に使用）。
@@ -2479,14 +2487,20 @@ class Renderer {
      * Throws: UPD-001
      */
     get engine() {
-        if (!this.#engine) {
-            raiseError({
-                code: "UPD-001",
-                message: "Engine not initialized",
-                docsUrl: "./docs/error-codes.md#upd",
-            });
-        }
         return this.#engine;
+    }
+    /**
+     *
+     */
+    get updater() {
+        return this.#updater;
+    }
+    get accessor() {
+        return this.readonlyState[GetAccessorSymbol] ?? raiseError({
+            code: "UPD-002",
+            message: "ReadonlyState not initialized",
+            docsUrl: "./docs/error-codes.md#upd",
+        });
     }
     /**
      * リスト要素の並び替え要求（要素単位）を収集し、対応するリスト（親Ref）に対して
@@ -2524,7 +2538,12 @@ class Renderer {
                     docsUrl: "./docs/error-codes.md#upd",
                 });
             }
-            const listRef = getStatePropertyRef(ref.info.parentInfo, ref.listIndex?.at(-2) || null);
+            const listRef = ref.getParentRef() ?? raiseError({
+                code: "UPD-004",
+                message: `ParentInfo is null for ref: ${ref.key}`,
+                context: { refKey: ref.key, pattern: ref.info.pattern },
+                docsUrl: "./docs/error-codes.md#upd",
+            });
             if (listRefs.has(listRef)) {
                 // リストの差分計算は後続のcalcListDiffで行うので、リオーダーのための計算はスキップ
                 continue;
@@ -2543,7 +2562,6 @@ class Renderer {
             indexes.push(listIndex.index);
         }
         for (const [listRef, indexes] of this.#reorderIndexesByRef) {
-            this.#listDiffByRef.set(listRef, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
             // listRefのリスト要素をindexesの順に並び替える
             try {
                 const newListValue = this.readonlyState[GetByRefSymbol](listRef);
@@ -2583,7 +2601,7 @@ class Renderer {
                         listDiff.changeIndexes?.add(listIndex);
                     }
                 }
-                this.#listDiffByRef.set(listRef, listDiff);
+                //        this.#listDiffByRef.set(listRef, listDiff);
                 // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
                 this.engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
                 const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
@@ -2611,61 +2629,31 @@ class Renderer {
      * - SetCacheableSymbol により参照解決のキャッシュをまとめて有効化できる。
      */
     render(items) {
-        this.#listDiffByRef.clear();
         this.#reorderIndexesByRef.clear();
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
-        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#engine.state, this);
+        this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#updater.context, this.#engine.state);
         try {
-            readonlyState[SetCacheableSymbol](() => {
-                // まずはリストの並び替えを処理
-                this.reorderList(items);
-                for (let i = 0; i < items.length; i++) {
-                    const ref = items[i];
-                    const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
-                    if (node === null) {
-                        raiseError({
-                            code: "PATH-101",
-                            message: `PathNode not found: ${ref.info.pattern}`,
-                            context: { pattern: ref.info.pattern },
-                            docsUrl: "./docs/error-codes.md#path",
-                        });
-                    }
-                    this.renderItem(ref, node);
+            // まずはリストの並び替えを処理
+            this.reorderList(items);
+            for (let i = 0; i < items.length; i++) {
+                const ref = items[i];
+                const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
+                if (node === null) {
+                    raiseError({
+                        code: "PATH-101",
+                        message: `PathNode not found: ${ref.info.pattern}`,
+                        context: { pattern: ref.info.pattern },
+                        docsUrl: "./docs/error-codes.md#path",
+                    });
                 }
-            });
+                this.renderItem(ref, node);
+            }
         }
         finally {
             this.#readonlyState = null;
         }
-    }
-    /**
-     * 参照 ref の旧値/新値と保存済みインデックスから ListDiff を計算し、
-     * 変更があれば engine.saveListAndListIndexes に保存します。
-    *
-    * 引数
-    * - ref: 対象のリスト参照
-    * - _newListValue: isNewValue=true のときのみ使用する、呼び出し側で提供された新リスト値
-    * - isNewValue: true の場合、_newListValue を新値とみなす。false の場合は readonlyState から取得
-    *
-    * メモ
-    * - #listDiffByRef[ref] が undefined の場合にのみ計算を行い、差分をキャッシュする
-    * - old/new 値の参照比較で異なる場合に限り saveListAndListIndexes を呼び出す
-     */
-    calcListDiff(ref, _newListValue = undefined, isNewValue = false) {
-        let listDiff = this.#listDiffByRef.get(ref);
-        if (typeof listDiff === "undefined") {
-            this.#listDiffByRef.set(ref, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
-            const [oldListValue, oldListIndexes] = this.engine.getListAndListIndexes(ref);
-            let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
-            listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
-            this.#listDiffByRef.set(ref, listDiff);
-            if (oldListValue !== newListValue) {
-                this.engine.saveListAndListIndexes(ref, newListValue, listDiff.newIndexes);
-            }
-        }
-        return listDiff;
     }
     /**
      * 単一の参照 ref と対応する PathNode を描画します。
@@ -2692,7 +2680,7 @@ class Renderer {
         this.processedRefs.add(ref);
         // バインディングに変更を適用する
         // 変更があったバインディングは updatedBindings に追加する（applyChange 実装の責務）
-        const bindings = this.#engine.getBindings(ref);
+        const bindings = this.accessor.getBindings(ref);
         for (let i = 0; i < bindings.length; i++) {
             const binding = bindings[i];
             if (this.updatedBindings.has(binding)) {
@@ -2700,11 +2688,22 @@ class Renderer {
             }
             binding.applyChange(this);
         }
+        const diff = this.accessor.calcListDiff(ref);
+        if (diff !== null) {
+            for (const listIndex of diff.changeIndexes ?? []) {
+                const bindings = this.#engine.bindingsByListIndex.get(listIndex);
+                for (const binding of bindings ?? []) {
+                    if (this.updatedBindings.has(binding)) {
+                        continue; // すでに更新済みのバインディングはスキップ
+                    }
+                    binding.applyChange(this);
+                }
+            }
+        }
         // 静的な依存関係を辿る
         for (const [name, childNode] of node.childNodeByName) {
             const childInfo = getStructuredPathInfo(childNode.currentPath);
             if (name === WILDCARD) {
-                const diff = this.calcListDiff(ref);
                 if (diff === null) {
                     raiseError({
                         code: "UPD-006",
@@ -2740,7 +2739,7 @@ class Renderer {
                 if (depInfo.wildcardCount > 0) {
                     const infos = depInfo.wildcardParentInfos;
                     const walk = (depRef, index, nextInfo) => {
-                        const listIndexes = this.#engine.getListIndexes(depRef) || [];
+                        const listIndexes = this.accessor.getListIndexes(depRef) || [];
                         if ((index + 1) < infos.length) {
                             for (let i = 0; i < listIndexes.length; i++) {
                                 const nextRef = getStatePropertyRef(nextInfo, listIndexes[i]);
@@ -2767,9 +2766,12 @@ class Renderer {
 }
 /**
  * 便宜関数。Renderer のインスタンス化と render 呼び出しをまとめて行う。
+ * @param refs 描画対象の参照集合
+ * @param engine コンポーネントエンジン
+ * @param version Updaterのバージョン
  */
-function render(refs, engine) {
-    const renderer = new Renderer(engine);
+function render(refs, engine, updater, version) {
+    const renderer = new Renderer(engine, updater, version);
     renderer.render(refs);
 }
 
@@ -2782,7 +2784,27 @@ class Updater {
     queue = [];
     #updating = false;
     #rendering = false;
-    #engine = null;
+    #engine;
+    #version;
+    #context;
+    /**
+     * リスト参照の差分計算キャッシュ。
+     */
+    #listDiffByRef = new Map();
+    constructor(engine, version) {
+        this.#engine = engine;
+        this.#version = version;
+        this.#context = createUpdateContext(engine, this, this.#version);
+    }
+    get version() {
+        return this.#version;
+    }
+    get context() {
+        return this.#context;
+    }
+    get listDiffByRef() {
+        return this.#listDiffByRef;
+    }
     // Ref情報をキューに追加
     enqueueRef(ref) {
         this.queue.push(ref);
@@ -2794,11 +2816,10 @@ class Updater {
         });
     }
     // 状態更新開始
-    async beginUpdate(engine, loopContext, callback) {
+    async beginUpdate(loopContext, callback) {
         try {
             this.#updating = true;
-            this.#engine = engine;
-            await useWritableStateProxy(engine, this, engine.state, loopContext, async (state) => {
+            await useWritableStateProxy(this.#engine, this.#context, this.#engine.state, loopContext, async (state) => {
                 // 状態更新処理
                 await callback(state);
             });
@@ -2821,18 +2842,28 @@ class Updater {
                         docsUrl: "./docs/error-codes.md#upd",
                     });
                 // レンダリング実行
-                render(queue, this.#engine);
+                render(queue, this.#engine, this, this.#version);
             }
         }
         finally {
             this.#rendering = false;
         }
     }
+    createReadonlyStateProxy() {
+        return createReadonlyStateProxy(this.#engine, this.#context, this.#engine.state);
+    }
+    createPropertyAccessor() {
+        const proxy = this.createReadonlyStateProxy();
+        return proxy[GetAccessorSymbol];
+    }
+}
+function createUpdater(engine) {
+    return new Updater(engine, engine.getUpdaterVersion());
 }
 async function update(engine, loopContext, callback) {
-    const updater = new Updater();
-    await updater.beginUpdate(engine, loopContext, async (state) => {
-        await callback(updater, state);
+    const updater = createUpdater(engine);
+    await updater.beginUpdate(loopContext, async (state) => {
+        await callback(updater, state[GetAccessorSymbol]);
     });
 }
 
@@ -2876,9 +2907,9 @@ class BindingNodeEvent extends BindingNode {
         if (options.includes("stopPropagation")) {
             e.stopPropagation();
         }
-        await update(engine, loopContext, async (updater, state) => {
+        await update(engine, loopContext, async (updater, accessor) => {
             // stateProxyを生成し、バインディング値を実行
-            const func = this.binding.bindingState.getValue(state);
+            const func = this.binding.bindingState.getValue(accessor);
             if (typeof func !== "function") {
                 raiseError({
                     code: 'BIND-201',
@@ -2888,7 +2919,7 @@ class BindingNodeEvent extends BindingNode {
                     severity: 'error',
                 });
             }
-            await Reflect.apply(func, state, [e, ...indexes]);
+            await Reflect.apply(func, accessor.state, [e, ...indexes]);
         });
     }
     applyChange(renderer) {
@@ -2986,7 +3017,7 @@ class BindingNodeIf extends BindingNodeBlock {
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;
-        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
+        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.accessor);
         if (typeof filteredValue !== "boolean") {
             raiseError({
                 code: 'BIND-201',
@@ -3138,7 +3169,7 @@ class BindingNodeFor extends BindingNodeBlock {
         let newBindContents = [];
         // 削除を先にする
         const removeBindContentsSet = new Set();
-        const listDiff = renderer.calcListDiff(this.binding.bindingState.ref);
+        const listDiff = renderer.accessor.calcListDiff(this.binding.bindingState.ref);
         if (listDiff === null) {
             raiseError({
                 code: 'BIND-201',
@@ -3404,8 +3435,8 @@ class BindingNodeProperty extends BindingNode {
         this.node.addEventListener(eventName, async () => {
             const loopContext = this.binding.parentBindContent.currentLoopContext;
             const value = this.filteredValue;
-            await update(engine, loopContext, async (updater, state) => {
-                binding.updateStateValue(state, value);
+            await update(engine, loopContext, async (updater, accessor) => {
+                binding.updateStateValue(accessor, value);
             });
         });
     }
@@ -3743,11 +3774,11 @@ class BindingState {
         this.#nullRef = (this.#info.wildcardCount === 0) ? getStatePropertyRef(this.#info, null) : null;
         this.#filters = filters;
     }
-    getValue(state) {
-        return state[GetByRefSymbol](this.ref);
+    getValue(accessor) {
+        return accessor.getValue(this.ref);
     }
-    getFilteredValue(state) {
-        let value = state[GetByRefSymbol](this.ref);
+    getFilteredValue(accessor) {
+        let value = accessor.getValue(this.ref);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -3775,8 +3806,8 @@ class BindingState {
         }
         this.binding.engine.saveBinding(this.ref, this.binding);
     }
-    assignValue(writeState, value) {
-        writeState[SetByRefSymbol](this.ref, value);
+    assignValue(accessor, value) {
+        accessor.setValue(this.ref, value);
     }
 }
 const createBindingState = (name, filterTexts) => (binding, filters) => {
@@ -3856,7 +3887,7 @@ class BindingStateIndex {
         this.#indexNumber = indexNumber;
         this.#filters = filters;
     }
-    getValue(state) {
+    getValue(accessor) {
         return this.listIndex?.index ?? raiseError({
             code: 'LIST-201',
             message: 'listIndex is null',
@@ -3864,7 +3895,7 @@ class BindingStateIndex {
             docsUrl: '/docs/error-codes.md#list',
         });
     }
-    getFilteredValue(state) {
+    getFilteredValue(accessor) {
         let value = this.listIndex?.index ?? raiseError({
             code: 'LIST-201',
             message: 'listIndex is null',
@@ -3900,7 +3931,7 @@ class BindingStateIndex {
             bindings.add(this.binding);
         }
     }
-    assignValue(writeState, value) {
+    assignValue(accessor, value) {
         raiseError({
             code: 'BIND-301',
             message: 'Not implemented',
@@ -4329,8 +4360,8 @@ class Binding {
         this.bindingNode.init();
         this.bindingState.init();
     }
-    updateStateValue(writeState, value) {
-        return this.bindingState.assignValue(writeState, value);
+    updateStateValue(accessor, value) {
+        return this.bindingState.assignValue(accessor, value);
     }
     notifyRedraw(refs) {
         this.bindingNode.notifyRedraw(refs);
@@ -4944,11 +4975,11 @@ class ComponentStateInputHandler {
         this.engine = engine;
     }
     assignState(object) {
-        update(this.engine, null, async (updater, stateProxy) => {
+        update(this.engine, null, async (updater, accessor) => {
             for (const [key, value] of Object.entries(object)) {
                 const childPathInfo = getStructuredPathInfo(key);
                 const childRef = getStatePropertyRef(childPathInfo, null);
-                stateProxy[SetByRefSymbol](childRef, value);
+                accessor.setValue(childRef, value);
             }
         });
     }
@@ -5032,8 +5063,8 @@ class ComponentStateOutput {
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(ref.info.pattern));
         const engine = binding.engine;
         const parentRef = getStatePropertyRef(parentPathInfo, ref.listIndex ?? binding.bindingState.listIndex);
-        update(engine, null, async (updater, stateProxy) => {
-            stateProxy[SetByRefSymbol](parentRef, value);
+        update(engine, null, async (updater, accessor) => {
+            accessor.setValue(parentRef, value);
         });
         return true;
     }
@@ -5056,6 +5087,124 @@ class ComponentStateOutput {
 }
 function createComponentStateOutput(binding) {
     return new ComponentStateOutput(binding);
+}
+
+function isPrimitive(value) {
+    return (value === null || value === undefined || typeof value !== 'object');
+}
+class CacheEntry {
+    #value;
+    #version = -1;
+    #engine;
+    #ref;
+    #stacks = new Set();
+    constructor(engine, ref) {
+        this.#engine = engine;
+        this.#ref = ref;
+        this.#value = undefined;
+    }
+    get value() {
+        return this.#value?.constructor === WeakRef ? this.#value.deref() : this.#value;
+    }
+    get version() {
+        return this.#version;
+    }
+    setValue(value, version) {
+        this.#value = isPrimitive(value) ? value : new WeakRef(value);
+        this.#version = version;
+    }
+    getCacheEntry(ref) {
+        const cacheEntry = this.#engine.getCacheEntry(ref);
+        if (cacheEntry === null) {
+            raiseError({
+                code: 'CACHE-200',
+                message: 'Cache entry is null',
+                context: { where: 'CacheEntry.getCacheEntry', refPath: ref.info.pattern },
+                docsUrl: '/docs/error-codes.md#cache',
+            });
+        }
+        return cacheEntry;
+    }
+    isDirty(accessor, tracedRefs = new Set()) {
+        if (this.#stacks.has(this.#ref)) {
+            console.warn('Circular reference detected in cache entry dirty check:', Array.from(this.#stacks).map(r => r.key));
+            return false;
+        }
+        this.#stacks.add(this.#ref);
+        try {
+            // すでにトレース済みの場合はスキップ
+            if (tracedRefs.has(this.#ref)) {
+                return false;
+            }
+            tracedRefs.add(this.#ref);
+            // 自分のバージョンが0未満の場合は常にダーティとみなす
+            if (this.#version < 0) {
+                return true;
+            }
+            // 親の依存チェック
+            const parentRef = this.#ref.getParentRef();
+            if (parentRef !== null) {
+                const parentCacheEntry = this.getCacheEntry(parentRef);
+                if (this.version < parentCacheEntry.version)
+                    return true;
+                if (parentCacheEntry.isDirty(accessor, tracedRefs))
+                    return true;
+            }
+            // 動的依存チェック
+            const deps = this.#engine.pathManager.dynamicReverseDependencies.get(this.#ref.info.pattern);
+            if (typeof deps === "undefined" || deps.size === 0) {
+                return false;
+            }
+            for (const depPath of deps) {
+                const depInfo = getStructuredPathInfo(depPath);
+                if (depInfo.wildcardCount === 0) {
+                    // ワイルドカードがない場合はそのままチェック
+                    const depRef = getStatePropertyRef(depInfo, null);
+                    const depCacheEntry = this.getCacheEntry(depRef);
+                    if (this.version < depCacheEntry.version)
+                        return true;
+                    if (depCacheEntry.isDirty(accessor, tracedRefs))
+                        return true;
+                }
+                else {
+                    // ワイルドカードがある場合はリストインデックスをたどってチェック
+                    const infos = depInfo.wildcardParentInfos;
+                    const walk = (depRef, index, nextInfo) => {
+                        const listIndexes = accessor.getListIndexes(depRef) || [];
+                        if ((index + 1) < infos.length) {
+                            for (let i = 0; i < listIndexes.length; i++) {
+                                const nextRef = getStatePropertyRef(nextInfo, listIndexes[i]);
+                                if (walk(nextRef, index + 1, infos[index + 1]))
+                                    return true;
+                            }
+                        }
+                        else {
+                            for (let i = 0; i < listIndexes.length; i++) {
+                                const subDepRef = getStatePropertyRef(depInfo, listIndexes[i]);
+                                const depCacheEntry = this.getCacheEntry(subDepRef);
+                                if (this.version < depCacheEntry.version)
+                                    return true;
+                                if (depCacheEntry.isDirty(accessor, tracedRefs))
+                                    return true;
+                            }
+                        }
+                        return false;
+                    };
+                    const startRef = getStatePropertyRef(depInfo.wildcardParentInfos[0], null);
+                    if (walk(startRef, 0, depInfo.wildcardParentInfos[1] || null)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        finally {
+            this.#stacks.delete(this.#ref);
+        }
+    }
+}
+function createCacheEntry(engine, ref) {
+    return new CacheEntry(engine, ref);
 }
 
 /**
@@ -5114,6 +5263,7 @@ class ComponentEngine {
     #blockPlaceholder = null; // ブロックプレースホルダー
     #blockParentNode = null; // ブロックプレースホルダーの親ノード
     #ignoreDissconnectedCallback = false; // disconnectedCallbackを無視するフラグ
+    #updaterVersion = 1; // updaterのバージョン管理用
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {
@@ -5203,7 +5353,7 @@ class ComponentEngine {
             });
             this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
         }
-        await update(this, null, async (updater, stateProxy) => {
+        await update(this, null, async (updater, accessor) => {
             // 状態の初期レンダリングを行う
             for (const path of this.pathManager.alls) {
                 const info = getStructuredPathInfo(path);
@@ -5214,7 +5364,7 @@ class ComponentEngine {
                 const ref = getStatePropertyRef(info, null);
                 updater.enqueueRef(ref);
             }
-            await stateProxy[ConnectedCallbackSymbol]();
+            await accessor.connectedCallback();
         });
         // レンダリングが終わってから実行する
         queueMicrotask(() => {
@@ -5226,8 +5376,8 @@ class ComponentEngine {
         try {
             if (this.#ignoreDissconnectedCallback)
                 return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-            await update(this, null, async (updater, stateProxy) => {
-                await stateProxy[DisconnectedCallbackSymbol]();
+            await update(this, null, async (updater, accessor) => {
+                await accessor.disconnectedCallback();
             });
             // 親コンポーネントから登録を解除する
             this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
@@ -5243,32 +5393,25 @@ class ComponentEngine {
     }
     #saveInfoByStructuredPathId = {};
     #saveInfoByResolvedPathInfoIdByListIndex = new WeakMap();
-    #saveInfoByRef = new WeakMap();
-    createSaveInfo() {
+    createSaveInfo(ref) {
         return {
             list: null,
             listIndexes: null,
             bindings: [],
             listClone: null,
+            cacheEntry: createCacheEntry(this, ref),
         };
     }
     getSaveInfoByStatePropertyRef(ref) {
         if (ref.listIndex === null) {
             let saveInfo = this.#saveInfoByStructuredPathId[ref.info.id];
             if (typeof saveInfo === "undefined") {
-                saveInfo = this.createSaveInfo();
+                saveInfo = this.createSaveInfo(ref);
                 this.#saveInfoByStructuredPathId[ref.info.id] = saveInfo;
             }
             return saveInfo;
         }
         else {
-            /*
-                  let saveInfo = this.#saveInfoByRef.get(ref);
-                  if (typeof saveInfo === "undefined") {
-                    saveInfo = this.createSaveInfo();
-                    this.#saveInfoByRef.set(ref, saveInfo);
-                  }
-            */
             let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
             if (typeof saveInfoByResolvedPathInfoId === "undefined") {
                 saveInfoByResolvedPathInfoId = {};
@@ -5276,7 +5419,7 @@ class ComponentEngine {
             }
             let saveInfo = saveInfoByResolvedPathInfoId[ref.info.id];
             if (typeof saveInfo === "undefined") {
-                saveInfo = this.createSaveInfo();
+                saveInfo = this.createSaveInfo(ref);
                 saveInfoByResolvedPathInfoId[ref.info.id] = saveInfo;
             }
             return saveInfo;
@@ -5291,6 +5434,10 @@ class ComponentEngine {
         saveInfo.list = list;
         saveInfo.listIndexes = listIndexes;
         saveInfo.listClone = list ? Array.from(list) : null;
+    }
+    saveCacheEntry(ref, entry) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
+        saveInfo.cacheEntry = entry;
     }
     getBindings(ref) {
         const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
@@ -5307,15 +5454,24 @@ class ComponentEngine {
         const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
         return [saveInfo.list, saveInfo.listIndexes, saveInfo.listClone];
     }
+    getCacheEntry(ref) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
+        return saveInfo.cacheEntry;
+    }
+    hasCacheEntry(ref) {
+        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
+        return saveInfo.cacheEntry != null;
+    }
     getPropertyValue(ref) {
         // プロパティの値を取得する
-        const stateProxy = createReadonlyStateProxy(this, this.state);
-        return stateProxy[GetByRefSymbol](ref);
+        const updater = createUpdater(this);
+        const accessor = updater.createPropertyAccessor();
+        return accessor.getValue(ref);
     }
     setPropertyValue(ref, value) {
         // プロパティの値を設定する
-        update(this, null, async (updater, stateProxy) => {
-            stateProxy[SetByRefSymbol](ref, value);
+        update(this, null, async (updater, accessor) => {
+            accessor.setValue(ref, value);
         });
     }
     // Structive子コンポーネントを登録する
@@ -5324,6 +5480,9 @@ class ComponentEngine {
     }
     unregisterChildComponent(component) {
         this.structiveChildComponents.delete(component);
+    }
+    getUpdaterVersion() {
+        return this.#updaterVersion++;
     }
 }
 function createComponentEngine(config, component) {
@@ -5654,6 +5813,7 @@ class PathManager {
     optimizes = new Set();
     staticDependencies = new Map();
     dynamicDependencies = new Map();
+    dynamicReverseDependencies = new Map();
     rootNode = createRootNode();
     #id;
     #stateClass;
@@ -5731,6 +5891,8 @@ class PathManager {
     addDynamicDependency(target, source) {
         this.dynamicDependencies.get(source)?.add(target) ??
             this.dynamicDependencies.set(source, new Set([target]));
+        this.dynamicReverseDependencies.get(target)?.add(source) ??
+            this.dynamicReverseDependencies.set(target, new Set([source]));
     }
 }
 function createPathManager(componentClass) {

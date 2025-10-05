@@ -19,7 +19,7 @@ import { IListIndex } from "../../ListIndex/types";
 import { IResolvedPathInfo } from "../../StateProperty/types";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils.js";
-import { IStateHandler, IReadonlyStateProxy, IStateProxy } from "../types";
+import { IStateHandler, IStateProxy } from "../types";
 import { getContextListIndex } from "./getContextListIndex";
 
 export function getListIndex(
@@ -56,7 +56,7 @@ export function getListIndex(
             docsUrl: '/docs/error-codes.md#state',
           });
         const wildcardRef = getStatePropertyRef(wildcardParentPattern, parentListIndex);
-        const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardRef) ?? 
+        const listIndexes: IListIndex[] = handler.accessor.getListIndexes(wildcardRef) ?? 
           raiseError({
             code: 'LIST-201',
             message: `ListIndex not found: ${wildcardParentPattern.pattern}`,

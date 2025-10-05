@@ -1,5 +1,4 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
-import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { raiseError } from "../../utils.js";
@@ -65,11 +64,11 @@ class BindingState {
         this.#nullRef = (this.#info.wildcardCount === 0) ? getStatePropertyRef(this.#info, null) : null;
         this.#filters = filters;
     }
-    getValue(state) {
-        return state[GetByRefSymbol](this.ref);
+    getValue(accessor) {
+        return accessor.getValue(this.ref);
     }
-    getFilteredValue(state) {
-        let value = state[GetByRefSymbol](this.ref);
+    getFilteredValue(accessor) {
+        let value = accessor.getValue(this.ref);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -97,8 +96,8 @@ class BindingState {
         }
         this.binding.engine.saveBinding(this.ref, this.binding);
     }
-    assignValue(writeState, value) {
-        writeState[SetByRefSymbol](this.ref, value);
+    assignValue(accessor, value) {
+        accessor.setValue(this.ref, value);
     }
 }
 export const createBindingState = (name, filterTexts) => (binding, filters) => {

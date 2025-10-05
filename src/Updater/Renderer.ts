@@ -7,14 +7,14 @@ import { IListIndex } from "../ListIndex/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
 import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
-import { GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
+import { GetAccessorSymbol, GetByRefSymbol } from "../StateClass/symbols";
 import { IReadonlyStateProxy } from "../StateClass/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
-import { IRenderer } from "./types";
+import { IPropertyAccessor, IRenderer, IUpdater } from "./types";
 
 /**
  * Renderer は、State の変更（参照 IStatePropertyRef の集合）に対応して、
@@ -41,6 +41,13 @@ import { IRenderer } from "./types";
  */
 class Renderer implements IRenderer {
   /**
+   * Updaterのバージョン
+   */
+  #version: number;
+  get version(): number {
+    return this.#version;
+  }
+  /**
    * このレンダリングサイクルで「変更あり」となった Binding の集合。
    * 注意: 実際に追加するのは各 binding.applyChange 実装側の責務。
    */
@@ -54,26 +61,21 @@ class Renderer implements IRenderer {
    * レンダリング対象のエンジン。state, pathManager, bindings などのファサード。
    */
   #engine: IComponentEngine;
+  #updater: IUpdater;
   /**
    * createReadonlyStateProxy により生成される読み取り専用ビュー。render 実行中のみ非 null。
    */
   #readonlyState: IReadonlyStateProxy | null = null;
-  /**
-   * リスト参照ごとの差分キャッシュ。
-   * 値の意味:
-   * - undefined: まだ未計算
-   * - null: 計算中（再入保護）
-   * - IListDiff: 計算済み
-   */
-  #listDiffByRef: Map<IStatePropertyRef, IListDiff | null> = new Map();
   /**
    * 親リスト参照ごとに「要素の新しい並び位置」を記録するためのインデックス配列。
    * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
    */
   #reorderIndexesByRef: Map<IStatePropertyRef, number[]> = new Map();
 
-  constructor(engine: IComponentEngine) {
+  constructor(engine: IComponentEngine, updater: IUpdater, version: number) {
     this.#engine = engine;
+    this.#updater = updater;
+    this.#version = version;
   }
 
   /**
@@ -110,14 +112,23 @@ class Renderer implements IRenderer {
    * Throws: UPD-001
    */
   get engine(): IComponentEngine {
-    if (!this.#engine) {
-      raiseError({
-        code: "UPD-001",
-        message: "Engine not initialized",
-        docsUrl: "./docs/error-codes.md#upd",
-      });
-    }
     return this.#engine;
+  }
+
+  /**
+   * 
+   */
+  get updater(): IUpdater {
+    return this.#updater;
+  }
+
+
+  get accessor(): IPropertyAccessor {
+    return this.readonlyState[GetAccessorSymbol] ?? raiseError({
+      code: "UPD-002",
+      message: "ReadonlyState not initialized",
+      docsUrl: "./docs/error-codes.md#upd",
+    });
   }
 
   /**
@@ -156,7 +167,12 @@ class Renderer implements IRenderer {
           docsUrl: "./docs/error-codes.md#upd",
         });
       }
-      const listRef = getStatePropertyRef(ref.info.parentInfo, ref.listIndex?.at(-2) || null);
+      const listRef = ref.getParentRef() ?? raiseError({
+        code: "UPD-004",
+        message: `ParentInfo is null for ref: ${ref.key}`,
+        context: { refKey: ref.key, pattern: ref.info.pattern },
+        docsUrl: "./docs/error-codes.md#upd",
+      });
       if (listRefs.has(listRef)) {
         // リストの差分計算は後続のcalcListDiffで行うので、リオーダーのための計算はスキップ
         continue;
@@ -175,7 +191,6 @@ class Renderer implements IRenderer {
       indexes.push(listIndex.index);
     }
     for(const [ listRef, indexes ] of this.#reorderIndexesByRef) {
-      this.#listDiffByRef.set(listRef, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
       // listRefのリスト要素をindexesの順に並び替える
       try {
         const newListValue = this.readonlyState[GetByRefSymbol](listRef);
@@ -214,9 +229,9 @@ class Renderer implements IRenderer {
             listDiff.changeIndexes?.add(listIndex);
           }
         }
-  this.#listDiffByRef.set(listRef, listDiff);
-  // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
-  this.engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
+//        this.#listDiffByRef.set(listRef, listDiff);
+        // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
+        this.engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
 
         const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
         if (node === null) {
@@ -243,64 +258,32 @@ class Renderer implements IRenderer {
    * - SetCacheableSymbol により参照解決のキャッシュをまとめて有効化できる。
    */
   render(items: IStatePropertyRef[]): void {
-    this.#listDiffByRef.clear();
     this.#reorderIndexesByRef.clear();
     this.#processedRefs.clear();
     this.#updatedBindings.clear();
 
     // 実際のレンダリングロジックを実装
-    const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#engine.state, this);
+    this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#updater.context, this.#engine.state);
     try {
-      readonlyState[SetCacheableSymbol](() => {
-        // まずはリストの並び替えを処理
-        this.reorderList(items);
+      // まずはリストの並び替えを処理
+      this.reorderList(items);
 
-        for(let i = 0; i < items.length; i++) {
-          const ref = items[i];
-          const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
-          if (node === null) {
-            raiseError({
-              code: "PATH-101",
-              message: `PathNode not found: ${ref.info.pattern}`,
-              context: { pattern: ref.info.pattern },
-              docsUrl: "./docs/error-codes.md#path",
-            });
-          }
-          this.renderItem(ref, node);
+      for(let i = 0; i < items.length; i++) {
+        const ref = items[i];
+        const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
+        if (node === null) {
+          raiseError({
+            code: "PATH-101",
+            message: `PathNode not found: ${ref.info.pattern}`,
+            context: { pattern: ref.info.pattern },
+            docsUrl: "./docs/error-codes.md#path",
+          });
         }
-      });
-
+        this.renderItem(ref, node);
+      }
     } finally {
       this.#readonlyState = null;
     }
-  }
-
-  /**
-   * 参照 ref の旧値/新値と保存済みインデックスから ListDiff を計算し、
-   * 変更があれば engine.saveListAndListIndexes に保存します。
-  *
-  * 引数
-  * - ref: 対象のリスト参照
-  * - _newListValue: isNewValue=true のときのみ使用する、呼び出し側で提供された新リスト値
-  * - isNewValue: true の場合、_newListValue を新値とみなす。false の場合は readonlyState から取得
-  *
-  * メモ
-  * - #listDiffByRef[ref] が undefined の場合にのみ計算を行い、差分をキャッシュする
-  * - old/new 値の参照比較で異なる場合に限り saveListAndListIndexes を呼び出す
-   */
-  calcListDiff(ref: IStatePropertyRef, _newListValue: any[] | undefined | null = undefined, isNewValue: boolean = false): IListDiff | null {
-    let listDiff = this.#listDiffByRef.get(ref);
-    if (typeof listDiff === "undefined") {
-      this.#listDiffByRef.set(ref, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
-      const [ oldListValue, oldListIndexes ] = this.engine.getListAndListIndexes(ref);
-      let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
-      listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
-      this.#listDiffByRef.set(ref, listDiff);
-      if (oldListValue !== newListValue) {
-        this.engine.saveListAndListIndexes(ref, newListValue, listDiff.newIndexes);
-      }
-    }
-    return listDiff;
   }
 
   /**
@@ -332,7 +315,7 @@ class Renderer implements IRenderer {
 
     // バインディングに変更を適用する
     // 変更があったバインディングは updatedBindings に追加する（applyChange 実装の責務）
-    const bindings = this.#engine.getBindings(ref);
+    const bindings = this.accessor.getBindings(ref);
     for(let i = 0; i < bindings.length; i++) {
       const binding = bindings[i];
       if (this.updatedBindings.has(binding)) {
@@ -340,12 +323,23 @@ class Renderer implements IRenderer {
       }
       binding.applyChange(this);
     }
+    const diff = this.accessor.calcListDiff(ref);
+    if (diff !== null) {
+      for(const listIndex of diff.changeIndexes ?? []) {
+        const bindings = this.#engine.bindingsByListIndex.get(listIndex);
+        for(const binding of bindings ?? []) {
+          if (this.updatedBindings.has(binding)) {
+            continue; // すでに更新済みのバインディングはスキップ
+          }
+          binding.applyChange(this);
+        }
+      }
+    }
 
     // 静的な依存関係を辿る
     for(const [ name, childNode ] of node.childNodeByName) {
       const childInfo = getStructuredPathInfo(childNode.currentPath);
       if (name === WILDCARD) {
-        const diff = this.calcListDiff(ref);
         if (diff === null) {
           raiseError({
             code: "UPD-006",
@@ -381,7 +375,7 @@ class Renderer implements IRenderer {
         if (depInfo.wildcardCount > 0) {
           const infos = depInfo.wildcardParentInfos;
           const walk = (depRef: IStatePropertyRef, index: number, nextInfo: IStructuredPathInfo) => {
-            const listIndexes = this.#engine.getListIndexes(depRef) || [];
+            const listIndexes = this.accessor.getListIndexes(depRef) || [];
             if ((index + 1) < infos.length) {
               for(let i = 0; i < listIndexes.length; i++) {
                 const nextRef = getStatePropertyRef(nextInfo, listIndexes[i]);
@@ -407,8 +401,16 @@ class Renderer implements IRenderer {
 
 /**
  * 便宜関数。Renderer のインスタンス化と render 呼び出しをまとめて行う。
+ * @param refs 描画対象の参照集合
+ * @param engine コンポーネントエンジン
+ * @param version Updaterのバージョン
  */
-export function render(refs: IStatePropertyRef[], engine: IComponentEngine): void {
-  const renderer = new Renderer(engine);
+export function render(
+  refs: IStatePropertyRef[], 
+  engine: IComponentEngine, 
+  updater: IUpdater,
+  version: number
+): void {
+  const renderer = new Renderer(engine, updater, version);
   renderer.render(refs);
 }

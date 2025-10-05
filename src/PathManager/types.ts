@@ -51,6 +51,7 @@ export interface IPathManager {
    * value: 依存先のパスのセット
    */
   dynamicDependencies: Dependencies<string>;
+  dynamicReverseDependencies: Dependencies<string>;
   /**
    * 動的依存関係を追加する
    * @param target 依存先のパス

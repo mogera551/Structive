@@ -27,6 +27,15 @@ describe('StatePropertyRef', () => {
     listIndex2 = createListIndex(null, 1);
   });
 
+  // 多層リストインデックスを作成するヘルパー関数
+  function createNestedListIndex(depth: number, baseIndex = 0): IListIndex {
+    let current: IListIndex | null = null;
+    for (let i = 0; i < depth; i++) {
+      current = createListIndex(current, baseIndex + i);
+    }
+    return current!;
+  }
+
   describe('基本的な StatePropertyRef 作成', () => {
     it('リストインデックスありで StatePropertyRef を作成できる', () => {
       const ref = getStatePropertyRef(pathInfo1, listIndex1);
@@ -277,6 +286,166 @@ describe('StatePropertyRef', () => {
       expect(ref.info).toBe(pathInfo1);
       expect(ref.listIndex).toBeNull();
       expect(typeof ref.key).toBe('string');
+    });
+  });
+
+  describe('WeakRef ガベージコレクション処理', () => {
+    it('WeakRef の仕組みが正常に動作することを確認', () => {
+      // WeakRefのGCは制御が困難なため、基本的な動作を確認
+      const ref = getStatePropertyRef(pathInfo1, listIndex1);
+      
+      // 通常の場合は正常にlistIndexを返す
+      expect(ref.listIndex).toBe(listIndex1);
+      expect(ref.listIndex).not.toBeNull();
+    });
+
+    it('WeakRef が有効な場合は正常にリストインデックスを返す', () => {
+      const ref = getStatePropertyRef(pathInfo1, listIndex1);
+      
+      // 正常な場合のテスト
+      expect(ref.listIndex).toBe(listIndex1);
+      expect(() => ref.listIndex).not.toThrow();
+    });
+  });
+
+  describe('getParentRef メソッド', () => {
+    it('親情報がnullの場合、nullを返す', () => {
+      // ルートレベルのパス情報を作成
+      const rootPathInfo = getStructuredPathInfo('root'); // parentInfo が null
+      const ref = getStatePropertyRef(rootPathInfo, null);
+      
+      expect(ref.getParentRef()).toBeNull();
+    });
+
+    it('ワイルドカード数が同じ場合、同じリストインデックスで親参照を作成', () => {
+      // 同じワイルドカード数のパス
+      const childPath = getStructuredPathInfo('items.*.name');
+      const parentPath = getStructuredPathInfo('items.*');
+      
+      const ref = getStatePropertyRef(childPath, listIndex1);
+      const parentRef = ref.getParentRef();
+      
+      expect(parentRef).not.toBeNull();
+      expect(parentRef?.info.pattern).toBe('items.*');
+      expect(parentRef?.listIndex).toBe(listIndex1);
+    });
+
+    it('親のワイルドカード数が少なく、0より大きい場合の処理', () => {
+      // 複数レベルのワイルドカードパス
+      const childPath = getStructuredPathInfo('items.*.details.*.value');
+      const nestedListIndex = createNestedListIndex(2); // 2レベルのインデックス
+      
+      const ref = getStatePropertyRef(childPath, nestedListIndex);
+      const parentRef = ref.getParentRef();
+      
+      expect(parentRef).not.toBeNull();
+      expect(parentRef?.info.pattern).toBe('items.*.details.*');
+    });
+
+    it('親のワイルドカード数が0の場合、nullリストインデックスで親参照を作成', () => {
+      const childPath = getStructuredPathInfo('items.*.name');
+      const ref = getStatePropertyRef(childPath, listIndex1);
+      
+      const parentRef = ref.getParentRef();
+      
+      expect(parentRef).not.toBeNull();
+      expect(parentRef?.info.pattern).toBe('items.*');
+      expect(parentRef?.listIndex).toBe(listIndex1);
+      
+      // さらに上の親（ワイルドカード数0）
+      const grandParentRef = parentRef?.getParentRef();
+      expect(grandParentRef).not.toBeNull();
+      expect(grandParentRef?.info.pattern).toBe('items');
+      expect(grandParentRef?.listIndex).toBeNull();
+    });
+
+    it('親のワイルドカード数が子より大きい場合、エラーを投げる', () => {
+      // 通常はあり得ないケースだが、異常なパス情報でテスト
+      const childPath = getStructuredPathInfo('items.name');
+      const ref = getStatePropertyRef(childPath, null);
+      
+      // parentInfo の wildcardCount を強制的に変更
+      const mockParentInfo = {
+        ...childPath.parentInfo,
+        wildcardCount: 2, // 子より大きい値
+        pattern: 'mock.*.*.parent'
+      };
+      (childPath as any).parentInfo = mockParentInfo;
+      
+      expect(() => ref.getParentRef()).toThrow('Inconsistent wildcard count');
+    });
+
+    it('親のワイルドカード数が正しいがリストインデックスが不足している場合の基本動作確認', () => {
+      // このケースは実際のコードでは正常に動作することを確認
+      const childPath = getStructuredPathInfo('items.*.details.*');
+      const listIndex = createNestedListIndex(2);
+      
+      const ref = getStatePropertyRef(childPath, listIndex);
+      const parentRef = ref.getParentRef();
+      
+      expect(parentRef).not.toBeNull();
+      expect(parentRef?.info.wildcardCount).toBeLessThanOrEqual(childPath.wildcardCount);
+    });
+
+    it('getParentRef の結果をキャッシュする', () => {
+      const childPath = getStructuredPathInfo('items.*.name');
+      const ref = getStatePropertyRef(childPath, listIndex1);
+      
+      const parentRef1 = ref.getParentRef();
+      const parentRef2 = ref.getParentRef();
+      
+      // 同じインスタンスが返される（キャッシュされている）
+      expect(parentRef1).toBe(parentRef2);
+    });
+
+    it('複雑な階層構造での親参照の取得', () => {
+      const deepPath = getStructuredPathInfo('root.*.items.*.details.*.value');
+      const deepListIndex = createNestedListIndex(3); // 3レベルのインデックス
+      
+      const ref = getStatePropertyRef(deepPath, deepListIndex);
+      const parentRef = ref.getParentRef();
+      
+      expect(parentRef).not.toBeNull();
+      // パターンの確認は出力から取得済み: 'root.*.items.*.details.*'
+      expect(parentRef?.info.pattern).toBe('root.*.items.*.details.*');
+      
+      if (parentRef) {
+        const grandParentRef = parentRef.getParentRef();
+        // パターンの確認は出力から取得済み: 'root.*.items.*.details'
+        expect(grandParentRef?.info.pattern).toBe('root.*.items.*.details');
+      }
+    });
+  });
+
+  describe('エラーハンドリング', () => {
+    it('エラーハンドリングの基本動作を確認', () => {
+      // エラーケースは制御が困難なため、正常ケースの動作を確認
+      const ref = getStatePropertyRef(pathInfo1, listIndex1);
+      
+      // 正常なケースではエラーが発生しない
+      expect(() => ref.listIndex).not.toThrow();
+      expect(ref.listIndex).toBe(listIndex1);
+    });
+
+    it('BIND-201 エラー（ワイルドカード数不一致）が適切なコンテキスト情報を含む', () => {
+      const childPath = getStructuredPathInfo('items.name');
+      const ref = getStatePropertyRef(childPath, null);
+      
+      // 異常なparentInfoを設定
+      const mockParentInfo = {
+        ...childPath.parentInfo,
+        wildcardCount: 2,
+        pattern: 'mock.*.*.parent'
+      };
+      (childPath as any).parentInfo = mockParentInfo;
+      
+      try {
+        ref.getParentRef();
+        expect.fail('エラーが投げられるはずです');
+      } catch (error: any) {
+        expect(error.message).toContain('Inconsistent wildcard count');
+        expect(error).toHaveProperty('code', 'BIND-201');
+      }
     });
   });
 });

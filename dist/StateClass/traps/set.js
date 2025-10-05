@@ -16,13 +16,13 @@
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { getListIndex } from "../methods/getListIndex.js";
-import { setByRef } from "../methods/setByRef.js";
 export function set(target, prop, value, receiver, handler) {
     if (typeof prop === "string") {
         const resolvedInfo = getResolvedPathInfo(prop);
         const listIndex = getListIndex(resolvedInfo, receiver, handler);
         const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
-        return setByRef(target, ref, value, receiver, handler);
+        handler.accessor.setValue(ref, value);
+        return true;
     }
     else {
         return Reflect.set(target, prop, value, receiver);

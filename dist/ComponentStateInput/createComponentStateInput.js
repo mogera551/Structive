@@ -1,4 +1,3 @@
-import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { update } from "../Updater/Updater";
@@ -12,11 +11,11 @@ class ComponentStateInputHandler {
         this.engine = engine;
     }
     assignState(object) {
-        update(this.engine, null, async (updater, stateProxy) => {
+        update(this.engine, null, async (updater, accessor) => {
             for (const [key, value] of Object.entries(object)) {
                 const childPathInfo = getStructuredPathInfo(key);
                 const childRef = getStatePropertyRef(childPathInfo, null);
-                stateProxy[SetByRefSymbol](childRef, value);
+                accessor.setValue(childRef, value);
             }
         });
     }

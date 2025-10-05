@@ -1,6 +1,8 @@
 import { IBinding } from "../DataBinding/types";
 import { IListDiff } from "../ListDiff/types";
-import { IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
+import { IListIndex } from "../ListIndex/types";
+import { ILoopContext } from "../LoopContext/types";
+import { IReadonlyStateProxy, IState, IStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 
 /**
@@ -8,17 +10,35 @@ import { IStatePropertyRef } from "../StatePropertyRef/types";
  */
 export interface IUpdater {
   /**
+   * Updaterのバージョン
+   */
+  readonly version: number;
+  /**
+   * リスト参照の差分計算キャッシュ。
+   */
+  readonly listDiffByRef: Map<IStatePropertyRef, IListDiff>;
+
+  readonly context: IUpdateContext;
+
+  /**
    * 更新したRef情報をキューに追加します。
    * @param ref 更新するStateプロパティの参照情報 (IStatePropertyRef)
    * @param value 新しい値
    */
   enqueueRef(ref: IStatePropertyRef): void;
+  beginUpdate(loopContext: ILoopContext | null, callback: (state: IWritableStateProxy) => Promise<void>): Promise<void>;
+  createReadonlyStateProxy(): IReadonlyStateProxy;
+  createPropertyAccessor(): IPropertyAccessor;
 }
 
 /**
  * レンダラー
  */
 export interface IRenderer {
+  /**
+   * Updaterのバージョン
+   */
+  version: number;
   /**
    * 更新済みのBindingのセット
    */
@@ -32,7 +52,10 @@ export interface IRenderer {
   /**
    * 読み取り専用状態プロキシ
    */
-  readonlyState: IReadonlyStateProxy;
+  readonly readonlyState: IReadonlyStateProxy;
+
+  readonly updater: IUpdater;
+  readonly accessor: IPropertyAccessor;
 
   /**
    * レンダリング開始
@@ -40,11 +63,29 @@ export interface IRenderer {
    */
   render(items: IStatePropertyRef[]): void;
 
-  /**
-   * リストの差分結果を取得する
-   * @param ref 参照情報
-   * @param newListValue 新しいリストの値
-   * @param isNewValue 新しい値をセットしたかどうか
-   */
-  calcListDiff(ref: IStatePropertyRef, newListValue?: any[] | undefined | null, isNewValue?: boolean): IListDiff | null;
+}
+
+export interface IUpdateContext {
+  getValue(state: IStateProxy, ref: IStatePropertyRef): any;
+  forceUpdateCache(state: IStateProxy, ref: IStatePropertyRef): void;
+  setValue(state: IStateProxy, ref: IStatePropertyRef, value: any): void;
+  getListIndexes(state: IStateProxy, ref: IStatePropertyRef): IListIndex[] | null;
+  getListAndIndexes(state: IStateProxy, ref: IStatePropertyRef): [ any[] | null, IListIndex[] | null, any[] | null ];
+  getBindings(state: IStateProxy, ref: IStatePropertyRef): IBinding[];
+  calcListDiff(state: IStateProxy, ref: IStatePropertyRef): IListDiff | null;
+  getListDiff(ref: IStatePropertyRef): IListDiff | null;
+}
+
+export interface IPropertyAccessor {
+  getValue(ref: IStatePropertyRef): any;
+  forceUpdateCache(ref: IStatePropertyRef): void;
+  setValue(ref: IStatePropertyRef, value: any): void;
+  getListIndexes(ref: IStatePropertyRef): IListIndex[] | null;
+  getListAndIndexes(ref: IStatePropertyRef): [ any[] | null, IListIndex[] | null, any[] | null ];
+  getBindings(ref: IStatePropertyRef): IBinding[];
+  calcListDiff(ref: IStatePropertyRef): IListDiff | null;
+  getListDiff(ref: IStatePropertyRef): IListDiff | null;
+  connectedCallback(): Promise<void>;
+  disconnectedCallback(): Promise<void>;
+  readonly state: IStateProxy;
 }

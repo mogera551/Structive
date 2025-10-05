@@ -30,13 +30,8 @@ export function set(
     const resolvedInfo = getResolvedPathInfo(prop);
     const listIndex = getListIndex(resolvedInfo, receiver, handler);
     const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
-    return setByRef(
-      target, 
-      ref,
-      value, 
-      receiver,
-      handler
-    );
+    handler.accessor.setValue(ref, value);
+    return true;
   } else {
     return Reflect.set(
       target, 

@@ -1,3 +1,4 @@
+import { ICacheEntry } from "../Cache/types";
 import { IComponentStateInput } from "../ComponentStateInput/types";
 import { IComponentStateOutput } from "../ComponentStateOutput/types";
 import { IBindContent, IBinding } from "../DataBinding/types";
@@ -51,22 +52,28 @@ export interface IComponentEngine {
 
   saveBinding(ref: IStatePropertyRef, binding: IBinding): void;
   saveListAndListIndexes(ref: IStatePropertyRef, list: any[] | null, listIndexes: IListIndex[] | null): void;
+  saveCacheEntry(ref: IStatePropertyRef, entry: ICacheEntry): void;
   getBindings(ref: IStatePropertyRef): IBinding[];
   getListIndexes(ref: IStatePropertyRef): IListIndex[] | null;
   getListAndListIndexes(ref: IStatePropertyRef): [any[] | null, IListIndex[] | null, any[] | null];
+  getCacheEntry(ref: IStatePropertyRef): ICacheEntry | null;
+  hasCacheEntry(ref: IStatePropertyRef): boolean;
 
   getPropertyValue(ref: IStatePropertyRef): any; // プロパティの値を取得する
   setPropertyValue(ref: IStatePropertyRef, value: any): void; // プロパティの値を設定する
   registerChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録する
   unregisterChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録解除する
+
+  getUpdaterVersion(): number; // updaterのバージョンを取得する
 }
 
 /**
  * パス解決済みのバインディング情報をまとめて管理する型
  */
-export interface ISaveInfoByResolvedPathInfo {
+export interface ISaveInfoByStatePropertyRef {
   list       : any[] | null;
   listIndexes: IListIndex[] | null;
   bindings   : IBinding[];
   listClone  : any[] | null;
+  cacheEntry : ICacheEntry | null;
 }

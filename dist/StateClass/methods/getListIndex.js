@@ -31,7 +31,7 @@ export function getListIndex(resolvedPath, receiver, handler) {
                         docsUrl: '/docs/error-codes.md#state',
                     });
                 const wildcardRef = getStatePropertyRef(wildcardParentPattern, parentListIndex);
-                const listIndexes = handler.engine.getListIndexes(wildcardRef) ??
+                const listIndexes = handler.accessor.getListIndexes(wildcardRef) ??
                     raiseError({
                         code: 'LIST-201',
                         message: `ListIndex not found: ${wildcardParentPattern.pattern}`,

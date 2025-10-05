@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getAllWritable } from "../../src/StateClass/apis/getAllWritable.js";
+import { getAllWritable } from "../../src/StateClass/apis/getAll.js";
 
 // Mock utils (payload/legacy 両対応)
 const raiseErrorMock = vi.fn((arg: any) => { throw new Error(typeof arg === 'string' ? arg : (arg?.message ?? String(arg))); });
