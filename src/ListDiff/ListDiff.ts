@@ -65,11 +65,22 @@ export function calcListDiff(
     const adds = new Set<IListIndex>();
     const removes = new Set<IListIndex>();
     const changeIndexes = new Set<IListIndex>();
-    const newIndexes: IListIndex[] = [];
-    const usedOldIndexes = new Set<number>();
+    let newIndexes: IListIndex[] = [];
+    let usedOldIndexes = new Set<IListIndex>();
+    let maybeSame = _oldListValue.length === _newListValue.length;
     
+    // 新しい配列を走査し、追加・再利用・位置変更を判定
+   
     for(let i = 0; i < _newListValue.length; i++) {
       const newValue = _newListValue[i];
+      if (maybeSame) {
+        if (newValue === _oldListValue[i]) {
+          continue;
+        }
+        newIndexes = _oldIndexes.slice(0, i);
+        usedOldIndexes = new Set(newIndexes);
+        maybeSame = false;
+      }
       const oldIndex = indexByValue.get(newValue);
       
       if (oldIndex === undefined) {
@@ -84,15 +95,25 @@ export function calcListDiff(
           existingListIndex.index = i;
           changeIndexes.add(existingListIndex);
         }
-        usedOldIndexes.add(oldIndex);
+        usedOldIndexes.add(existingListIndex);
         newIndexes.push(existingListIndex);
       }
+    }
+    if (maybeSame) {
+      // 参照同一だった場合
+      return {
+        oldListValue,
+        newListValue,
+        oldIndexes: _oldIndexes,
+        newIndexes: _oldIndexes,
+      };
     }
     
     // 使用されなかった古いインデックスを削除対象に追加
     for(let i = 0; i < _oldIndexes.length; i++) {
-      if (!usedOldIndexes.has(i)) {
-        removes.add(_oldIndexes[i]);
+      const oldIndex = _oldIndexes[i];
+      if (!usedOldIndexes.has(oldIndex)) {
+        removes.add(oldIndex);
       }
     }
     return {
