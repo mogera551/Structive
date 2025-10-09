@@ -2567,7 +2567,7 @@ class Renderer {
             // listRefのリスト要素をindexesの順に並び替える
             try {
                 const newListValue = this.readonlyState[GetByRefSymbol](listRef);
-                const [, oldListIndexes, oldListValue] = this.engine.getListAndListIndexes(listRef);
+                const { listClone: oldListValue, listIndexes: oldListIndexes } = this.engine.getListAndListIndexes(listRef);
                 if (oldListValue == null || oldListIndexes == null) {
                     raiseError({
                         code: "UPD-005",
@@ -2677,7 +2677,7 @@ class Renderer {
         let listDiff = this.#listDiffByRef.get(ref);
         if (typeof listDiff === "undefined") {
             this.#listDiffByRef.set(ref, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
-            const [oldListValue, oldListIndexes] = this.engine.getListAndListIndexes(ref);
+            const { list: oldListValue, listIndexes: oldListIndexes } = this.engine.getListAndListIndexes(ref);
             let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
             listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
             this.#listDiffByRef.set(ref, listDiff);
@@ -5100,6 +5100,11 @@ function createComponentStateOutput(binding) {
  * - 非同期初期化（waitForInitialize）と切断待機（waitForDisconnected）を提供
  * - Updater と連携したバッチ更新で効率的なレンダリングを実現
  */
+const EMPTY_SAVE_INFO = {
+    list: null,
+    listIndexes: null,
+    listClone: null,
+};
 class ComponentEngine {
     type = 'autonomous';
     config;
@@ -5264,68 +5269,47 @@ class ComponentEngine {
     #saveInfoByStructuredPathId = {};
     #saveInfoByResolvedPathInfoIdByListIndex = new WeakMap();
     #saveInfoByRef = new WeakMap();
-    createSaveInfo() {
-        return {
-            list: null,
-            listIndexes: null,
-            bindings: [],
-            listClone: null,
-        };
-    }
-    getSaveInfoByStatePropertyRef(ref) {
-        if (ref.listIndex === null) {
-            let saveInfo = this.#saveInfoByStructuredPathId[ref.info.id];
-            if (typeof saveInfo === "undefined") {
-                saveInfo = this.createSaveInfo();
-                this.#saveInfoByStructuredPathId[ref.info.id] = saveInfo;
-            }
-            return saveInfo;
-        }
-        else {
-            /*
-                  let saveInfo = this.#saveInfoByRef.get(ref);
-                  if (typeof saveInfo === "undefined") {
-                    saveInfo = this.createSaveInfo();
-                    this.#saveInfoByRef.set(ref, saveInfo);
-                  }
-            */
-            let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
-            if (typeof saveInfoByResolvedPathInfoId === "undefined") {
-                saveInfoByResolvedPathInfoId = {};
-                this.#saveInfoByResolvedPathInfoIdByListIndex.set(ref.listIndex, saveInfoByResolvedPathInfoId);
-            }
-            let saveInfo = saveInfoByResolvedPathInfoId[ref.info.id];
-            if (typeof saveInfo === "undefined") {
-                saveInfo = this.createSaveInfo();
-                saveInfoByResolvedPathInfoId[ref.info.id] = saveInfo;
-            }
-            return saveInfo;
-        }
-    }
+    #listByRef = new WeakMap();
+    #listIndexesByRef = new WeakMap();
+    #bindingsByRef = new WeakMap();
+    #listCloneByRef = new WeakMap();
     saveBinding(ref, binding) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        saveInfo.bindings.push(binding);
+        const bindings = this.#bindingsByRef.get(ref);
+        if (typeof bindings !== "undefined") {
+            bindings.push(binding);
+            return;
+        }
+        this.#bindingsByRef.set(ref, [binding]);
     }
     saveListAndListIndexes(ref, list, listIndexes) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        saveInfo.list = list;
-        saveInfo.listIndexes = listIndexes;
-        saveInfo.listClone = list ? Array.from(list) : null;
+        if (this.pathManager.lists.has(ref.info.pattern)) {
+            const saveInfo = {
+                list: list,
+                listIndexes: listIndexes,
+                listClone: list ? Array.from(list) : null,
+            };
+            this.#saveInfoByRef.set(ref, saveInfo);
+        }
     }
     getBindings(ref) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        return saveInfo.bindings;
+        const bindings = this.#bindingsByRef.get(ref);
+        if (typeof bindings !== "undefined") {
+            return bindings;
+        }
+        return [];
     }
     getListIndexes(ref) {
         if (this.stateOutput.startsWith(ref.info)) {
             return this.stateOutput.getListIndexes(ref);
         }
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        return saveInfo.listIndexes;
+        return this.#saveInfoByRef.get(ref)?.listIndexes ?? null;
     }
     getListAndListIndexes(ref) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        return [saveInfo.list, saveInfo.listIndexes, saveInfo.listClone];
+        const saveInfo = this.#saveInfoByRef.get(ref);
+        if (typeof saveInfo === "undefined") {
+            return EMPTY_SAVE_INFO;
+        }
+        return saveInfo;
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する

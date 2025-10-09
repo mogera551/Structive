@@ -34,6 +34,11 @@ import { addPathNode } from "../PathTree/PathNode.js";
  * - 非同期初期化（waitForInitialize）と切断待機（waitForDisconnected）を提供
  * - Updater と連携したバッチ更新で効率的なレンダリングを実現
  */
+const EMPTY_SAVE_INFO = {
+    list: null,
+    listIndexes: null,
+    listClone: null,
+};
 export class ComponentEngine {
     type = 'autonomous';
     config;
@@ -198,68 +203,47 @@ export class ComponentEngine {
     #saveInfoByStructuredPathId = {};
     #saveInfoByResolvedPathInfoIdByListIndex = new WeakMap();
     #saveInfoByRef = new WeakMap();
-    createSaveInfo() {
-        return {
-            list: null,
-            listIndexes: null,
-            bindings: [],
-            listClone: null,
-        };
-    }
-    getSaveInfoByStatePropertyRef(ref) {
-        if (ref.listIndex === null) {
-            let saveInfo = this.#saveInfoByStructuredPathId[ref.info.id];
-            if (typeof saveInfo === "undefined") {
-                saveInfo = this.createSaveInfo();
-                this.#saveInfoByStructuredPathId[ref.info.id] = saveInfo;
-            }
-            return saveInfo;
-        }
-        else {
-            /*
-                  let saveInfo = this.#saveInfoByRef.get(ref);
-                  if (typeof saveInfo === "undefined") {
-                    saveInfo = this.createSaveInfo();
-                    this.#saveInfoByRef.set(ref, saveInfo);
-                  }
-            */
-            let saveInfoByResolvedPathInfoId = this.#saveInfoByResolvedPathInfoIdByListIndex.get(ref.listIndex);
-            if (typeof saveInfoByResolvedPathInfoId === "undefined") {
-                saveInfoByResolvedPathInfoId = {};
-                this.#saveInfoByResolvedPathInfoIdByListIndex.set(ref.listIndex, saveInfoByResolvedPathInfoId);
-            }
-            let saveInfo = saveInfoByResolvedPathInfoId[ref.info.id];
-            if (typeof saveInfo === "undefined") {
-                saveInfo = this.createSaveInfo();
-                saveInfoByResolvedPathInfoId[ref.info.id] = saveInfo;
-            }
-            return saveInfo;
-        }
-    }
+    #listByRef = new WeakMap();
+    #listIndexesByRef = new WeakMap();
+    #bindingsByRef = new WeakMap();
+    #listCloneByRef = new WeakMap();
     saveBinding(ref, binding) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        saveInfo.bindings.push(binding);
+        const bindings = this.#bindingsByRef.get(ref);
+        if (typeof bindings !== "undefined") {
+            bindings.push(binding);
+            return;
+        }
+        this.#bindingsByRef.set(ref, [binding]);
     }
     saveListAndListIndexes(ref, list, listIndexes) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        saveInfo.list = list;
-        saveInfo.listIndexes = listIndexes;
-        saveInfo.listClone = list ? Array.from(list) : null;
+        if (this.pathManager.lists.has(ref.info.pattern)) {
+            const saveInfo = {
+                list: list,
+                listIndexes: listIndexes,
+                listClone: list ? Array.from(list) : null,
+            };
+            this.#saveInfoByRef.set(ref, saveInfo);
+        }
     }
     getBindings(ref) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        return saveInfo.bindings;
+        const bindings = this.#bindingsByRef.get(ref);
+        if (typeof bindings !== "undefined") {
+            return bindings;
+        }
+        return [];
     }
     getListIndexes(ref) {
         if (this.stateOutput.startsWith(ref.info)) {
             return this.stateOutput.getListIndexes(ref);
         }
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        return saveInfo.listIndexes;
+        return this.#saveInfoByRef.get(ref)?.listIndexes ?? null;
     }
     getListAndListIndexes(ref) {
-        const saveInfo = this.getSaveInfoByStatePropertyRef(ref);
-        return [saveInfo.list, saveInfo.listIndexes, saveInfo.listClone];
+        const saveInfo = this.#saveInfoByRef.get(ref);
+        if (typeof saveInfo === "undefined") {
+            return EMPTY_SAVE_INFO;
+        }
+        return saveInfo;
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する

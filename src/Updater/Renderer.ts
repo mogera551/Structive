@@ -179,7 +179,7 @@ class Renderer implements IRenderer {
       // listRefのリスト要素をindexesの順に並び替える
       try {
         const newListValue = this.readonlyState[GetByRefSymbol](listRef);
-        const [ , oldListIndexes, oldListValue ] = this.engine.getListAndListIndexes(listRef);
+        const { listClone: oldListValue, listIndexes: oldListIndexes } = this.engine.getListAndListIndexes(listRef);
         if (oldListValue == null || oldListIndexes == null) {
           raiseError({
             code: "UPD-005",
@@ -214,9 +214,9 @@ class Renderer implements IRenderer {
             listDiff.changeIndexes?.add(listIndex);
           }
         }
-  this.#listDiffByRef.set(listRef, listDiff);
-  // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
-  this.engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
+        this.#listDiffByRef.set(listRef, listDiff);
+        // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
+        this.engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
 
         const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
         if (node === null) {
@@ -292,7 +292,7 @@ class Renderer implements IRenderer {
     let listDiff = this.#listDiffByRef.get(ref);
     if (typeof listDiff === "undefined") {
       this.#listDiffByRef.set(ref, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
-      const [ oldListValue, oldListIndexes ] = this.engine.getListAndListIndexes(ref);
+      const { list: oldListValue, listIndexes: oldListIndexes } = this.engine.getListAndListIndexes(ref);
       let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
       listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
       this.#listDiffByRef.set(ref, listDiff);
