@@ -1,5 +1,5 @@
 import { IComponentEngine } from "../ComponentEngine/types";
-import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
+import { IReadonlyStateProxy, IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { IRenderer } from "../Updater/types";
 import { CreateBindingNodeByNodeFn, IBindingNode } from "./BindingNode/types";
@@ -50,8 +50,8 @@ class Binding implements IBinding {
     this.bindingState.init();
   }
 
-  updateStateValue(writeState:IWritableStateProxy, value: any) {
-    return this.bindingState.assignValue(writeState, value);
+  updateStateValue(writeState:IWritableStateProxy, handler: IWritableStateHandler, value: any) {
+    return this.bindingState.assignValue(writeState, handler, value);
   }
 
   notifyRedraw(refs: IStatePropertyRef[]) {

@@ -2,7 +2,7 @@ import { ILoopContext } from "../LoopContext/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IBindingNode } from "./BindingNode/types";
 import { IBindingState } from "./BindingState/types";
-import { IReadonlyStateProxy, IWritableStateProxy } from "../StateClass/types";
+import { IReadonlyStateProxy, IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { IListIndex } from "../ListIndex/types";
 import { IRenderer } from "../Updater/types";
@@ -61,7 +61,7 @@ export interface IBinding {
   bindingState     : IBindingState;
   bindContents     : IBindContent[];
   init(): void;
-  updateStateValue(writeState: IWritableStateProxy, value: any): void;
+  updateStateValue(writeState: IWritableStateProxy, handler: IWritableStateHandler, value: any): void;
   notifyRedraw(refs: IStatePropertyRef[]): void;
   applyChange(renderer: IRenderer): void; // バインディングの変更を適用する
 }

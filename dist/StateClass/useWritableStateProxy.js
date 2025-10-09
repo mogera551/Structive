@@ -30,6 +30,6 @@ export async function useWritableStateProxy(engine, updater, state, loopContext,
     const handler = new StateHandler(engine, updater);
     const stateProxy = new Proxy(state, handler);
     return setLoopContext(handler, loopContext, async () => {
-        await callback(stateProxy);
+        await callback(stateProxy, handler);
     });
 }

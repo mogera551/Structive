@@ -1,7 +1,7 @@
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { IListIndex } from "../../ListIndex/types";
-import { IReadonlyStateProxy, IWritableStateProxy } from "../../StateClass/types";
+import { IReadonlyStateHandler, IReadonlyStateProxy, IWritableStateHandler, IWritableStateProxy } from "../../StateClass/types";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { IBinding } from "../types";
@@ -25,9 +25,9 @@ export interface IBindingState {
   readonly ref          : IStatePropertyRef | never;
   readonly filters      : Filters;
   init(): void;
-  assignValue(writeState:IWritableStateProxy, value:any): void;
-  getValue(state:IReadonlyStateProxy | IWritableStateProxy): any; // 現在の値を返す
-  getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy): any; // フィルタを適用して値を返す
+  assignValue(writeState:IWritableStateProxy, handler:IWritableStateHandler, value:any): void;
+  getValue(state:IReadonlyStateProxy | IWritableStateProxy, handler:IReadonlyStateHandler | IWritableStateHandler): any; // 現在の値を返す
+  getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy, handler:IReadonlyStateHandler | IWritableStateHandler): any; // フィルタを適用して値を返す
 }
 
 /**

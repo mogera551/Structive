@@ -55,9 +55,9 @@ class BindingNodeEvent extends BindingNode {
     if (options.includes("stopPropagation")) {
       e.stopPropagation();
     }
-    await update(engine, loopContext, async (updater, state) => {
+    await update(engine, loopContext, async (updater, state, handler) => {
       // stateProxyを生成し、バインディング値を実行
-      const func = this.binding.bindingState.getValue(state);
+      const func = this.binding.bindingState.getValue(state, handler);
       if (typeof func !== "function") {
         raiseError({
           code: 'BIND-201',

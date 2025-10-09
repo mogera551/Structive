@@ -1,6 +1,6 @@
 import { IBinding } from "../DataBinding/types";
 import { IListDiff } from "../ListDiff/types";
-import { IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
+import { IReadonlyStateHandler, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 
 /**
@@ -33,6 +33,7 @@ export interface IRenderer {
    * 読み取り専用状態プロキシ
    */
   readonlyState: IReadonlyStateProxy;
+  readonlyHandler: IReadonlyStateHandler;
 
   /**
    * レンダリング開始

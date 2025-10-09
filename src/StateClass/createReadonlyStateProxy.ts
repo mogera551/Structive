@@ -70,10 +70,13 @@ class StateHandler implements IReadonlyStateHandler {
   }
 }
 
+export function createReadonlyStateHandler(engine: IComponentEngine, renderer: IRenderer | null): IReadonlyStateHandler {
+  return new StateHandler(engine, renderer);
+}
+
 export function createReadonlyStateProxy(
-  engine: IComponentEngine, 
   state: Object,
-  renderer: IRenderer | null = null,
+  handler: IReadonlyStateHandler,
 ): IReadonlyStateProxy {
-  return new Proxy<IState>(state, new StateHandler(engine, renderer)) as IReadonlyStateProxy;
+  return new Proxy<IState>(state, handler) as IReadonlyStateProxy;
 }

@@ -87,7 +87,7 @@ export class BindingNode implements IBindingNode {
   }
   applyChange(renderer: IRenderer): void {
     if (renderer.updatedBindings.has(this.binding)) return;
-    const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
+    const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState, renderer.readonlyHandler);
     this.assignValue(filteredValue);
     renderer.updatedBindings.add(this.binding);
   }

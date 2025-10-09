@@ -18,7 +18,7 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
   }
 
   assignState(object: any): void {
-    update(this.engine, null, async (updater, stateProxy) => {
+    update(this.engine, null, async (updater, stateProxy, handler) => {
       for(const [key, value] of Object.entries(object)) {
         const childPathInfo = getStructuredPathInfo(key);
         const childRef = getStatePropertyRef(childPathInfo, null);
@@ -40,7 +40,7 @@ class ComponentStateInputHandler implements IComponentStateInputHandler {
         const childRef = getStatePropertyRef(childPathInfo, childListIndex);
         const value = this.engine.getPropertyValue(childRef);
         // Ref情報をもとに状態更新キューに追加
-        update(this.engine, null, async (updater, stateProxy) => {
+        update(this.engine, null, async (updater, stateProxy, handler) => {
           const childRef = getStatePropertyRef(childPathInfo, childListIndex);
           updater.enqueueRef(childRef);
         });

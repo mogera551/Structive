@@ -6,9 +6,9 @@ import { IListDiff } from "../ListDiff/types";
 import { IListIndex } from "../ListIndex/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
-import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
+import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
-import { IReadonlyStateProxy } from "../StateClass/types";
+import { IReadonlyStateHandler, IReadonlyStateProxy } from "../StateClass/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
@@ -58,6 +58,8 @@ class Renderer implements IRenderer {
    * createReadonlyStateProxy により生成される読み取り専用ビュー。render 実行中のみ非 null。
    */
   #readonlyState: IReadonlyStateProxy | null = null;
+
+  #readonlyHandler : IReadonlyStateHandler | null = null;
   /**
    * リスト参照ごとの差分キャッシュ。
    * 値の意味:
@@ -103,6 +105,17 @@ class Renderer implements IRenderer {
       });
     }
     return this.#readonlyState;
+  }
+
+  get readonlyHandler(): IReadonlyStateHandler {
+    if (!this.#readonlyHandler) {
+      raiseError({
+        code: "UPD-002",
+        message: "ReadonlyHandler not initialized",
+        docsUrl: "./docs/error-codes.md#upd",
+      });
+    }
+    return this.#readonlyHandler;
   }
 
   /**
@@ -249,7 +262,8 @@ class Renderer implements IRenderer {
     this.#updatedBindings.clear();
 
     // 実際のレンダリングロジックを実装
-    const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#engine.state, this);
+    this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this);
+    const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#readonlyHandler);
     try {
       readonlyState[SetCacheableSymbol](() => {
         // まずはリストの並び替えを処理

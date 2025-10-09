@@ -1,6 +1,6 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { ILoopContext } from "../LoopContext/types";
-import { IWritableStateProxy } from "../StateClass/types";
+import { IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
@@ -30,13 +30,13 @@ class Updater implements IUpdater {
   }
 
   // 状態更新開始
-  async beginUpdate(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (state: IWritableStateProxy) => Promise<void>): Promise<void> {
+  async beginUpdate(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (state: IWritableStateProxy, handler: IWritableStateHandler) => Promise<void>): Promise<void> {
     try {
       this.#updating = true;
       this.#engine = engine;
-      await useWritableStateProxy(engine, this, engine.state, loopContext, async (state:IWritableStateProxy) => {
+      await useWritableStateProxy(engine, this, engine.state, loopContext, async (state:IWritableStateProxy, handler:IWritableStateHandler) => {
         // 状態更新処理
-        await callback(state);
+        await callback(state, handler);
       });
     } finally {
       this.#updating = false;
@@ -64,9 +64,9 @@ class Updater implements IUpdater {
   }
 }
 
-export async function update(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (updater: IUpdater, state: IWritableStateProxy) => Promise<void>): Promise<void> {
+export async function update(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (updater: IUpdater, state: IWritableStateProxy, handler: IWritableStateHandler) => Promise<void>): Promise<void> {
   const updater = new Updater();
-  await updater.beginUpdate(engine, loopContext, async (state) => {
-    await callback(updater, state);
+  await updater.beginUpdate(engine, loopContext, async (state, handler) => {
+    await callback(updater, state, handler);
   });
 }

@@ -3,7 +3,7 @@ import { attachShadow } from "./attachShadow.js";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
-import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
+import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
 import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
 import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
@@ -162,7 +162,7 @@ export class ComponentEngine {
             });
             this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
         }
-        await update(this, null, async (updater, stateProxy) => {
+        await update(this, null, async (updater, stateProxy, handler) => {
             // 状態の初期レンダリングを行う
             for (const path of this.pathManager.alls) {
                 const info = getStructuredPathInfo(path);
@@ -185,7 +185,7 @@ export class ComponentEngine {
         try {
             if (this.#ignoreDissconnectedCallback)
                 return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-            await update(this, null, async (updater, stateProxy) => {
+            await update(this, null, async (updater, stateProxy, handler) => {
                 await stateProxy[DisconnectedCallbackSymbol]();
             });
             // 親コンポーネントから登録を解除する
@@ -247,12 +247,13 @@ export class ComponentEngine {
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する
-        const stateProxy = createReadonlyStateProxy(this, this.state);
+        const handler = createReadonlyStateHandler(this, null);
+        const stateProxy = createReadonlyStateProxy(this, handler);
         return stateProxy[GetByRefSymbol](ref);
     }
     setPropertyValue(ref, value) {
         // プロパティの値を設定する
-        update(this, null, async (updater, stateProxy) => {
+        update(this, null, async (updater, stateProxy, handler) => {
             stateProxy[SetByRefSymbol](ref, value);
         });
     }

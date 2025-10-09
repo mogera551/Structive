@@ -1,7 +1,7 @@
 import { WILDCARD } from "../constants";
 import { calcListDiff } from "../ListDiff/ListDiff";
 import { findPathNodeByPath } from "../PathTree/PathNode";
-import { createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
+import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
@@ -48,6 +48,7 @@ class Renderer {
      * createReadonlyStateProxy により生成される読み取り専用ビュー。render 実行中のみ非 null。
      */
     #readonlyState = null;
+    #readonlyHandler = null;
     /**
      * リスト参照ごとの差分キャッシュ。
      * 値の意味:
@@ -89,6 +90,16 @@ class Renderer {
             });
         }
         return this.#readonlyState;
+    }
+    get readonlyHandler() {
+        if (!this.#readonlyHandler) {
+            raiseError({
+                code: "UPD-002",
+                message: "ReadonlyHandler not initialized",
+                docsUrl: "./docs/error-codes.md#upd",
+            });
+        }
+        return this.#readonlyHandler;
     }
     /**
      * バッキングエンジンを取得する。未初期化の場合は例外。
@@ -232,7 +243,8 @@ class Renderer {
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
-        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#engine.state, this);
+        this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this);
+        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#readonlyHandler);
         try {
             readonlyState[SetCacheableSymbol](() => {
                 // まずはリストの並び替えを処理

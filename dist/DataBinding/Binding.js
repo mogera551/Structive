@@ -33,8 +33,8 @@ class Binding {
         this.bindingNode.init();
         this.bindingState.init();
     }
-    updateStateValue(writeState, value) {
-        return this.bindingState.assignValue(writeState, value);
+    updateStateValue(writeState, handler, value) {
+        return this.bindingState.assignValue(writeState, handler, value);
     }
     notifyRedraw(refs) {
         this.bindingNode.notifyRedraw(refs);

@@ -31,6 +31,9 @@ class StateHandler {
         return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
     }
 }
-export function createReadonlyStateProxy(engine, state, renderer = null) {
-    return new Proxy(state, new StateHandler(engine, renderer));
+export function createReadonlyStateHandler(engine, renderer) {
+    return new StateHandler(engine, renderer);
+}
+export function createReadonlyStateProxy(state, handler) {
+    return new Proxy(state, handler);
 }

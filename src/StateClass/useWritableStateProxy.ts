@@ -73,12 +73,12 @@ export async function useWritableStateProxy(
   updater: IUpdater,
   state: Object,
   loopContext: ILoopContext | null,
-  callback: (stateProxy: IWritableStateProxy) => Promise<void>
+  callback: (stateProxy: IWritableStateProxy, handler: IWritableStateHandler) => Promise<void>
 ): Promise<void> {
   const handler = new StateHandler(engine, updater);
   const stateProxy = new Proxy<IState>(state, handler) as IWritableStateProxy;
   return setLoopContext(handler, loopContext, async () => {
-    await callback(stateProxy);
+    await callback(stateProxy, handler);
   });
 }
 

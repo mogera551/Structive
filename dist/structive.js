@@ -736,7 +736,7 @@ class BindingNode {
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;
-        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
+        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState, renderer.readonlyHandler);
         this.assignValue(filteredValue);
         renderer.updatedBindings.add(this.binding);
     }
@@ -1926,7 +1926,7 @@ async function useWritableStateProxy(engine, updater, state, loopContext, callba
     const handler = new StateHandler$1(engine, updater);
     const stateProxy = new Proxy(state, handler);
     return setLoopContext(handler, loopContext, async () => {
-        await callback(stateProxy);
+        await callback(stateProxy, handler);
     });
 }
 
@@ -2406,8 +2406,11 @@ class StateHandler {
         return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
     }
 }
-function createReadonlyStateProxy(engine, state, renderer = null) {
-    return new Proxy(state, new StateHandler(engine, renderer));
+function createReadonlyStateHandler(engine, renderer) {
+    return new StateHandler(engine, renderer);
+}
+function createReadonlyStateProxy(state, handler) {
+    return new Proxy(state, handler);
 }
 
 /**
@@ -2452,6 +2455,7 @@ class Renderer {
      * createReadonlyStateProxy により生成される読み取り専用ビュー。render 実行中のみ非 null。
      */
     #readonlyState = null;
+    #readonlyHandler = null;
     /**
      * リスト参照ごとの差分キャッシュ。
      * 値の意味:
@@ -2493,6 +2497,16 @@ class Renderer {
             });
         }
         return this.#readonlyState;
+    }
+    get readonlyHandler() {
+        if (!this.#readonlyHandler) {
+            raiseError({
+                code: "UPD-002",
+                message: "ReadonlyHandler not initialized",
+                docsUrl: "./docs/error-codes.md#upd",
+            });
+        }
+        return this.#readonlyHandler;
     }
     /**
      * バッキングエンジンを取得する。未初期化の場合は例外。
@@ -2636,7 +2650,8 @@ class Renderer {
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
-        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#engine.state, this);
+        this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this);
+        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#readonlyHandler);
         try {
             readonlyState[SetCacheableSymbol](() => {
                 // まずはリストの並び替えを処理
@@ -2818,9 +2833,9 @@ class Updater {
         try {
             this.#updating = true;
             this.#engine = engine;
-            await useWritableStateProxy(engine, this, engine.state, loopContext, async (state) => {
+            await useWritableStateProxy(engine, this, engine.state, loopContext, async (state, handler) => {
                 // 状態更新処理
-                await callback(state);
+                await callback(state, handler);
             });
         }
         finally {
@@ -2851,8 +2866,8 @@ class Updater {
 }
 async function update(engine, loopContext, callback) {
     const updater = new Updater();
-    await updater.beginUpdate(engine, loopContext, async (state) => {
-        await callback(updater, state);
+    await updater.beginUpdate(engine, loopContext, async (state, handler) => {
+        await callback(updater, state, handler);
     });
 }
 
@@ -2896,9 +2911,9 @@ class BindingNodeEvent extends BindingNode {
         if (options.includes("stopPropagation")) {
             e.stopPropagation();
         }
-        await update(engine, loopContext, async (updater, state) => {
+        await update(engine, loopContext, async (updater, state, handler) => {
             // stateProxyを生成し、バインディング値を実行
-            const func = this.binding.bindingState.getValue(state);
+            const func = this.binding.bindingState.getValue(state, handler);
             if (typeof func !== "function") {
                 raiseError({
                     code: 'BIND-201',
@@ -3006,7 +3021,7 @@ class BindingNodeIf extends BindingNodeBlock {
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this.binding))
             return;
-        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
+        const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState, renderer.readonlyHandler);
         if (typeof filteredValue !== "boolean") {
             raiseError({
                 code: 'BIND-201',
@@ -3424,8 +3439,8 @@ class BindingNodeProperty extends BindingNode {
         this.node.addEventListener(eventName, async () => {
             const loopContext = this.binding.parentBindContent.currentLoopContext;
             const value = this.filteredValue;
-            await update(engine, loopContext, async (updater, state) => {
-                binding.updateStateValue(state, value);
+            await update(engine, loopContext, async (updater, state, handler) => {
+                binding.updateStateValue(state, handler, value);
             });
         });
     }
@@ -3763,11 +3778,20 @@ class BindingState {
         this.#nullRef = (this.#info.wildcardCount === 0) ? getStatePropertyRef(this.#info, null) : null;
         this.#filters = filters;
     }
-    getValue(state) {
+    getValue(state, handler) {
         return state[GetByRefSymbol](this.ref);
     }
-    getFilteredValue(state) {
-        let value = state[GetByRefSymbol](this.ref);
+    getFilteredValue(state, handler) {
+        let value;
+        if (state.has(SetByRefSymbol)) {
+            // WritableStateProxy
+            value = getByRefWritable(this.binding.engine.state, this.ref, state, handler);
+        }
+        else {
+            // ReadonlyStateProxy
+            value = getByRefReadonly(this.binding.engine.state, this.ref, state, handler);
+        }
+        //    let value = state[GetByRefSymbol](this.ref);
         for (let i = 0; i < this.#filters.length; i++) {
             value = this.#filters[i](value);
         }
@@ -3795,8 +3819,9 @@ class BindingState {
         }
         this.binding.engine.saveBinding(this.ref, this.binding);
     }
-    assignValue(writeState, value) {
-        writeState[SetByRefSymbol](this.ref, value);
+    assignValue(writeState, handler, value) {
+        setByRef(this.binding.engine.state, this.ref, value, writeState, handler);
+        //    writeState[SetByRefSymbol](this.ref, value);
     }
 }
 const createBindingState = (name, filterTexts) => (binding, filters) => {
@@ -3876,7 +3901,7 @@ class BindingStateIndex {
         this.#indexNumber = indexNumber;
         this.#filters = filters;
     }
-    getValue(state) {
+    getValue(state, handler) {
         return this.listIndex?.index ?? raiseError({
             code: 'LIST-201',
             message: 'listIndex is null',
@@ -3884,7 +3909,7 @@ class BindingStateIndex {
             docsUrl: '/docs/error-codes.md#list',
         });
     }
-    getFilteredValue(state) {
+    getFilteredValue(state, handler) {
         let value = this.listIndex?.index ?? raiseError({
             code: 'LIST-201',
             message: 'listIndex is null',
@@ -3920,7 +3945,7 @@ class BindingStateIndex {
             bindings.add(this.binding);
         }
     }
-    assignValue(writeState, value) {
+    assignValue(writeState, handler, value) {
         raiseError({
             code: 'BIND-301',
             message: 'Not implemented',
@@ -4349,8 +4374,8 @@ class Binding {
         this.bindingNode.init();
         this.bindingState.init();
     }
-    updateStateValue(writeState, value) {
-        return this.bindingState.assignValue(writeState, value);
+    updateStateValue(writeState, handler, value) {
+        return this.bindingState.assignValue(writeState, handler, value);
     }
     notifyRedraw(refs) {
         this.bindingNode.notifyRedraw(refs);
@@ -4964,7 +4989,7 @@ class ComponentStateInputHandler {
         this.engine = engine;
     }
     assignState(object) {
-        update(this.engine, null, async (updater, stateProxy) => {
+        update(this.engine, null, async (updater, stateProxy, handler) => {
             for (const [key, value] of Object.entries(object)) {
                 const childPathInfo = getStructuredPathInfo(key);
                 const childRef = getStatePropertyRef(childPathInfo, null);
@@ -4985,7 +5010,7 @@ class ComponentStateInputHandler {
                 const childRef = getStatePropertyRef(childPathInfo, childListIndex);
                 const value = this.engine.getPropertyValue(childRef);
                 // Ref情報をもとに状態更新キューに追加
-                update(this.engine, null, async (updater, stateProxy) => {
+                update(this.engine, null, async (updater, stateProxy, handler) => {
                     const childRef = getStatePropertyRef(childPathInfo, childListIndex);
                     updater.enqueueRef(childRef);
                 });
@@ -5052,7 +5077,7 @@ class ComponentStateOutput {
         const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(ref.info.pattern));
         const engine = binding.engine;
         const parentRef = getStatePropertyRef(parentPathInfo, ref.listIndex ?? binding.bindingState.listIndex);
-        update(engine, null, async (updater, stateProxy) => {
+        update(engine, null, async (updater, stateProxy, handler) => {
             stateProxy[SetByRefSymbol](parentRef, value);
         });
         return true;
@@ -5228,7 +5253,7 @@ class ComponentEngine {
             });
             this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
         }
-        await update(this, null, async (updater, stateProxy) => {
+        await update(this, null, async (updater, stateProxy, handler) => {
             // 状態の初期レンダリングを行う
             for (const path of this.pathManager.alls) {
                 const info = getStructuredPathInfo(path);
@@ -5251,7 +5276,7 @@ class ComponentEngine {
         try {
             if (this.#ignoreDissconnectedCallback)
                 return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-            await update(this, null, async (updater, stateProxy) => {
+            await update(this, null, async (updater, stateProxy, handler) => {
                 await stateProxy[DisconnectedCallbackSymbol]();
             });
             // 親コンポーネントから登録を解除する
@@ -5313,12 +5338,13 @@ class ComponentEngine {
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する
-        const stateProxy = createReadonlyStateProxy(this, this.state);
+        const handler = createReadonlyStateHandler(this, null);
+        const stateProxy = createReadonlyStateProxy(this, handler);
         return stateProxy[GetByRefSymbol](ref);
     }
     setPropertyValue(ref, value) {
         // プロパティの値を設定する
-        update(this, null, async (updater, stateProxy) => {
+        update(this, null, async (updater, stateProxy, handler) => {
             stateProxy[SetByRefSymbol](ref, value);
         });
     }

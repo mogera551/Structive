@@ -26,9 +26,9 @@ class Updater {
         try {
             this.#updating = true;
             this.#engine = engine;
-            await useWritableStateProxy(engine, this, engine.state, loopContext, async (state) => {
+            await useWritableStateProxy(engine, this, engine.state, loopContext, async (state, handler) => {
                 // 状態更新処理
-                await callback(state);
+                await callback(state, handler);
             });
         }
         finally {
@@ -59,7 +59,7 @@ class Updater {
 }
 export async function update(engine, loopContext, callback) {
     const updater = new Updater();
-    await updater.beginUpdate(engine, loopContext, async (state) => {
-        await callback(updater, state);
+    await updater.beginUpdate(engine, loopContext, async (state, handler) => {
+        await callback(updater, state, handler);
     });
 }

@@ -76,7 +76,7 @@ class BindingNodeIf extends BindingNodeBlock {
    */
   applyChange(renderer: IRenderer): void {
     if (renderer.updatedBindings.has(this.binding)) return;
-    const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState);
+    const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState, renderer.readonlyHandler);
     if (typeof filteredValue !== "boolean") {
       raiseError({
         code: 'BIND-201',

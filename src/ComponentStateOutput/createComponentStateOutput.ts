@@ -41,7 +41,7 @@ class ComponentStateOutput implements IComponentStateOutput {
     const parentPathInfo = getStructuredPathInfo(this.binding.toParentPathFromChildPath(ref.info.pattern));
     const engine = binding.engine;
     const parentRef = getStatePropertyRef(parentPathInfo, ref.listIndex ?? binding.bindingState.listIndex);
-    update(engine, null, async (updater, stateProxy) => {
+    update(engine, null, async (updater, stateProxy, handler) => {
       stateProxy[SetByRefSymbol](parentRef, value);
     });
     return true;
