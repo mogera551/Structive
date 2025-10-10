@@ -248,7 +248,7 @@ export class ComponentEngine {
     getPropertyValue(ref) {
         // プロパティの値を取得する
         const handler = createReadonlyStateHandler(this, null);
-        const stateProxy = createReadonlyStateProxy(this, handler);
+        const stateProxy = createReadonlyStateProxy(this.state, handler);
         return stateProxy[GetByRefSymbol](ref);
     }
     setPropertyValue(ref, value) {

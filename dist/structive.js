@@ -2651,7 +2651,7 @@ class Renderer {
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
         this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this);
-        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#readonlyHandler);
+        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine.state, this.#readonlyHandler);
         try {
             readonlyState[SetCacheableSymbol](() => {
                 // まずはリストの並び替えを処理
@@ -3779,11 +3779,20 @@ class BindingState {
         this.#filters = filters;
     }
     getValue(state, handler) {
-        return state[GetByRefSymbol](this.ref);
+        let value;
+        if (SetByRefSymbol in state) {
+            // WritableStateProxy
+            value = getByRefWritable(this.binding.engine.state, this.ref, state, handler);
+        }
+        else {
+            // ReadonlyStateProxy
+            value = getByRefReadonly(this.binding.engine.state, this.ref, state, handler);
+        }
+        return value;
     }
     getFilteredValue(state, handler) {
         let value;
-        if (state.has(SetByRefSymbol)) {
+        if (SetByRefSymbol in state) {
             // WritableStateProxy
             value = getByRefWritable(this.binding.engine.state, this.ref, state, handler);
         }
@@ -5339,7 +5348,7 @@ class ComponentEngine {
     getPropertyValue(ref) {
         // プロパティの値を取得する
         const handler = createReadonlyStateHandler(this, null);
-        const stateProxy = createReadonlyStateProxy(this, handler);
+        const stateProxy = createReadonlyStateProxy(this.state, handler);
         return stateProxy[GetByRefSymbol](ref);
     }
     setPropertyValue(ref, value) {
