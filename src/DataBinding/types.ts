@@ -38,6 +38,7 @@ export interface IBindContent {
   readonly firstChildNode    : Node | null;
   readonly lastChildNode     : Node | null;
   readonly currentLoopContext: ILoopContext | null;
+  readonly hasBlockBinding    : boolean; // bindingsの中にblockバインディングが含まれるか
   mount(parentNode:Node):void;
   mountBefore(parentNode:Node, beforeNode:Node | null):void;
   mountAfter(parentNode:Node, afterNode:Node | null):void
@@ -45,6 +46,7 @@ export interface IBindContent {
   fragment: DocumentFragment; // unmount時にchildNodesをfragmentに移動する
   childNodes: Node[];
   bindings: IBinding[];
+  blockBindings: IBinding[]; // bindingsの中でblockバインディングのみを抽出した配列
   init(): void;
   assignListIndex(listIndex: IListIndex): void;
   getLastNode(parentNode: Node): Node | null;

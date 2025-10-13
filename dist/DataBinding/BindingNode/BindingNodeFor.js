@@ -206,6 +206,10 @@ class BindingNodeFor extends BindingNodeBlock {
                 if (adds.has(listIndex)) {
                     bindContent = this.createBindContent(listIndex);
                     bindContent.mountAfter(fragmentParentNode, lastNode);
+                    //for(let i = 0; i < bindContent.blockBindings.length; i++) {
+                    //  const blockBinding = bindContent.blockBindings[i];
+                    //  blockBinding.applyChange(renderer);
+                    //}
                     bindContent.applyChange(renderer);
                 }
                 else {

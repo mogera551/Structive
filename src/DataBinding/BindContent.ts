@@ -11,6 +11,7 @@ import { hasLazyLoadComponents, loadLazyLoadComponent } from "../WebComponents/l
 import { IListIndex } from "../ListIndex/types.js";
 import { IRenderer } from "../Updater/types.js";
 import { IStatePropertyRef } from "../StatePropertyRef/types.js";
+import { BindingNode } from "./BindingNode/BindingNode.js";
 
 /**
  * 指定テンプレートIDから DocumentFragment を生成するヘルパー。
@@ -65,7 +66,7 @@ function createBindings(
   id         : number, 
   engine     : IComponentEngine, 
   content    : DocumentFragment
-): IBinding[] {
+): [IBinding[], IBinding[]] {
   const attributes = getDataBindAttributesById(id) ?? 
     raiseError({
       code: "BIND-101",
@@ -74,6 +75,7 @@ function createBindings(
       docsUrl: "./docs/error-codes.md#bind",
     });
   const bindings: IBinding[] = [];
+  const blockBindings: IBinding[] = [];
   for(let i = 0; i < attributes.length; i++) {
     const attribute = attributes[i];
     const node = resolveNodeFromPath(content, attribute.nodePath) ?? 
@@ -99,10 +101,13 @@ function createBindings(
         creator.createBindingNode, 
         creator.createBindingState
       );
+      if (binding.bindingNode.isBlock) {
+        blockBindings.push(binding);
+      }
       bindings.push(binding);
     }
   }
-  return bindings;
+  return [bindings, blockBindings];
 }
 
 /**
@@ -129,6 +134,8 @@ class BindContent implements IBindContent {
   childNodes   : Node[];
   fragment     : DocumentFragment;
   engine       : IComponentEngine | undefined;
+  bindings: IBinding[] = [];
+  blockBindings: IBinding[] = [];
   #id;
   get id() {
     return this.#id;
@@ -151,6 +158,10 @@ class BindContent implements IBindContent {
    */
   get lastChildNode() {
     return this.childNodes[this.childNodes.length - 1] ?? null;
+  }
+
+  get hasBlockBinding() {
+    return this.blockBindings.length > 0;
   }
   /**
    * 再帰的に最終ノード（末尾のバインディング配下も含む）を取得する。
@@ -220,12 +231,14 @@ class BindContent implements IBindContent {
     this.childNodes = Array.from(this.fragment.childNodes);
     this.engine = engine;
     this.loopContext = (loopRef.listIndex !== null) ? createLoopContext(loopRef, this) : null;
-    this.bindings = createBindings(
+    const [ bindings, blockBindings ] = createBindings(
       this, 
       id, 
       engine, 
       this.fragment
     );
+    this.bindings = bindings;
+    this.blockBindings = blockBindings;
   }
   /**
    * 末尾にマウント（appendChild）。
@@ -268,7 +281,6 @@ class BindContent implements IBindContent {
       parentNode.removeChild(this.childNodes[i]);
     }
   }
-  bindings: IBinding[] = [];
   /**
    * 生成済みの全 Binding を初期化。
    * createBindContent 直後および assignListIndex 後に呼び出される。

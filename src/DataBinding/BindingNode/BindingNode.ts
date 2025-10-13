@@ -104,4 +104,8 @@ export class BindingNode implements IBindingNode {
   get isFor(): boolean {
     return false;
   }
+
+  get isBlock(): boolean {
+    return false;
+  }
 }

@@ -26,6 +26,7 @@ export interface IBindingNode {
   readonly binding        : IBinding;
   readonly filters        : Filters;
   readonly isSelectElement: boolean;
+  readonly isBlock        : boolean;
   readonly isFor          : boolean;
   readonly bindContents   : IBindContent[];
   readonly value        : any;

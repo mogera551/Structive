@@ -18,6 +18,9 @@ export class BindingNodeBlock extends BindingNode {
     get id() {
         return this.#id;
     }
+    get isBlock() {
+        return true;
+    }
     constructor(binding, node, name, filters, decorates) {
         super(binding, node, name, filters, decorates);
         const id = this.node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN) ?? raiseError({

@@ -90,4 +90,7 @@ export class BindingNode {
     get isFor() {
         return false;
     }
+    get isBlock() {
+        return false;
+    }
 }

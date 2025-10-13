@@ -22,6 +22,11 @@ export class BindingNodeBlock extends BindingNode {
   get id(): number {
     return this.#id;
   }
+
+  get isBlock(): boolean {
+    return true;
+  }
+  
   constructor(
     binding   : IBinding, 
     node      : Node, 

@@ -752,6 +752,9 @@ class BindingNode {
     get isFor() {
         return false;
     }
+    get isBlock() {
+        return false;
+    }
 }
 
 /**
@@ -2985,6 +2988,9 @@ class BindingNodeBlock extends BindingNode {
     get id() {
         return this.#id;
     }
+    get isBlock() {
+        return true;
+    }
     constructor(binding, node, name, filters, decorates) {
         super(binding, node, name, filters, decorates);
         const id = this.node.textContent?.slice(COMMENT_TEMPLATE_MARK_LEN$1) ?? raiseError({
@@ -3287,6 +3293,10 @@ class BindingNodeFor extends BindingNodeBlock {
                 if (adds.has(listIndex)) {
                     bindContent = this.createBindContent(listIndex);
                     bindContent.mountAfter(fragmentParentNode, lastNode);
+                    //for(let i = 0; i < bindContent.blockBindings.length; i++) {
+                    //  const blockBinding = bindContent.blockBindings[i];
+                    //  blockBinding.applyChange(renderer);
+                    //}
                     bindContent.applyChange(renderer);
                 }
                 else {
@@ -4574,6 +4584,7 @@ function createBindings(bindContent, id, engine, content) {
             docsUrl: "./docs/error-codes.md#bind",
         });
     const bindings = [];
+    const blockBindings = [];
     for (let i = 0; i < attributes.length; i++) {
         const attribute = attributes[i];
         const node = resolveNodeFromPath(content, attribute.nodePath) ??
@@ -4593,10 +4604,13 @@ function createBindings(bindContent, id, engine, content) {
                     docsUrl: "./docs/error-codes.md#bind",
                 });
             const binding = createBinding(bindContent, node, engine, creator.createBindingNode, creator.createBindingState);
+            if (binding.bindingNode.isBlock) {
+                blockBindings.push(binding);
+            }
             bindings.push(binding);
         }
     }
-    return bindings;
+    return [bindings, blockBindings];
 }
 /**
  * BindContent は、テンプレートから生成された DOM 断片（DocumentFragment）と
@@ -4622,6 +4636,8 @@ class BindContent {
     childNodes;
     fragment;
     engine;
+    bindings = [];
+    blockBindings = [];
     #id;
     get id() {
         return this.#id;
@@ -4644,6 +4660,9 @@ class BindContent {
      */
     get lastChildNode() {
         return this.childNodes[this.childNodes.length - 1] ?? null;
+    }
+    get hasBlockBinding() {
+        return this.blockBindings.length > 0;
     }
     /**
      * 再帰的に最終ノード（末尾のバインディング配下も含む）を取得する。
@@ -4709,7 +4728,9 @@ class BindContent {
         this.childNodes = Array.from(this.fragment.childNodes);
         this.engine = engine;
         this.loopContext = (loopRef.listIndex !== null) ? createLoopContext(loopRef, this) : null;
-        this.bindings = createBindings(this, id, engine, this.fragment);
+        const [bindings, blockBindings] = createBindings(this, id, engine, this.fragment);
+        this.bindings = bindings;
+        this.blockBindings = blockBindings;
     }
     /**
      * 末尾にマウント（appendChild）。
@@ -4752,7 +4773,6 @@ class BindContent {
             parentNode.removeChild(this.childNodes[i]);
         }
     }
-    bindings = [];
     /**
      * 生成済みの全 Binding を初期化。
      * createBindContent 直後および assignListIndex 後に呼び出される。
