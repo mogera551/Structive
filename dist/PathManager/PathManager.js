@@ -87,7 +87,13 @@ class PathManager {
             }
         }
     }
+    #dianamicDependencyKeys = new Set();
     addDynamicDependency(target, source) {
+        const key = `${source}=>${target}`;
+        if (this.#dianamicDependencyKeys.has(key)) {
+            return;
+        }
+        this.#dianamicDependencyKeys.add(key);
         this.dynamicDependencies.get(source)?.add(target) ??
             this.dynamicDependencies.set(source, new Set([target]));
     }

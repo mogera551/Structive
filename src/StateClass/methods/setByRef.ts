@@ -36,9 +36,23 @@ export function setByRef(
       return handler.engine.stateOutput.set(ref, value);
     }
     if (ref.info.pattern in target) {
+      handler.refIndex++;
+      if (handler.refIndex >= handler.refStack.length) {
+        handler.refStack.push(null);
+      }
+      handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
+      try {
+        return Reflect.set(target, ref.info.pattern, value, receiver);
+      } finally {
+        handler.refStack[handler.refIndex] = null;
+        handler.refIndex--;
+        handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+      }
+/*
       return setStatePropertyRef(handler, ref, () => {
         return Reflect.set(target, ref.info.pattern, value, receiver);
       });
+*/
     } else {
       const parentInfo = ref.info.parentInfo ?? raiseError({
         code: 'STATE-202',

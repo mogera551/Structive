@@ -23,27 +23,27 @@ class StatePropertyRef {
     }
 }
 const refByInfoByListIndex = new WeakMap();
-const refByInfoByNull = new Map();
+const refByInfoByNull = {};
 export function getStatePropertyRef(info, listIndex) {
     let ref = null;
     if (listIndex !== null) {
         let refByInfo = refByInfoByListIndex.get(listIndex);
         if (typeof refByInfo === "undefined") {
-            refByInfo = new Map();
+            refByInfo = {};
             refByInfoByListIndex.set(listIndex, refByInfo);
         }
-        ref = refByInfo.get(info);
+        ref = refByInfo[info.pattern];
         if (typeof ref === "undefined") {
             ref = new StatePropertyRef(info, listIndex);
-            refByInfo.set(info, ref);
+            refByInfo[info.pattern] = ref;
         }
         return ref;
     }
     else {
-        ref = refByInfoByNull.get(info);
+        ref = refByInfoByNull[info.pattern];
         if (typeof ref === "undefined") {
             ref = new StatePropertyRef(info, null);
-            refByInfoByNull.set(info, ref);
+            refByInfoByNull[info.pattern] = ref;
         }
         return ref;
     }

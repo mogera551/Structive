@@ -18,7 +18,6 @@
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils.js";
 import { getByRefWritable } from "./getByRefWritable";
-import { setStatePropertyRef } from "./setStatePropertyRef";
 export function setByRef(target, ref, value, receiver, handler) {
     try {
         // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
@@ -27,9 +26,24 @@ export function setByRef(target, ref, value, receiver, handler) {
             return handler.engine.stateOutput.set(ref, value);
         }
         if (ref.info.pattern in target) {
-            return setStatePropertyRef(handler, ref, () => {
+            handler.refIndex++;
+            if (handler.refIndex >= handler.refStack.length) {
+                handler.refStack.push(null);
+            }
+            handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
+            try {
                 return Reflect.set(target, ref.info.pattern, value, receiver);
-            });
+            }
+            finally {
+                handler.refStack[handler.refIndex] = null;
+                handler.refIndex--;
+                handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+            }
+            /*
+                  return setStatePropertyRef(handler, ref, () => {
+                    return Reflect.set(target, ref.info.pattern, value, receiver);
+                  });
+            */
         }
         else {
             const parentInfo = ref.info.parentInfo ?? raiseError({

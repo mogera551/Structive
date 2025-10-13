@@ -2,7 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { getByRefReadonly } from "../../StateClass/methods/getByRefReadonly.js";
 import { getByRefWritable } from "../../StateClass/methods/getByRefWritable.js";
 import { setByRef } from "../../StateClass/methods/setByRef.js";
-import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
+import { SetByRefSymbol } from "../../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { raiseError } from "../../utils.js";
@@ -69,11 +69,20 @@ class BindingState {
         this.#filters = filters;
     }
     getValue(state, handler) {
-        return state[GetByRefSymbol](this.ref);
+        let value;
+        if (SetByRefSymbol in state) {
+            // WritableStateProxy
+            value = getByRefWritable(this.binding.engine.state, this.ref, state, handler);
+        }
+        else {
+            // ReadonlyStateProxy
+            value = getByRefReadonly(this.binding.engine.state, this.ref, state, handler);
+        }
+        return value;
     }
     getFilteredValue(state, handler) {
         let value;
-        if (state.has(SetByRefSymbol)) {
+        if (SetByRefSymbol in state) {
             // WritableStateProxy
             value = getByRefWritable(this.binding.engine.state, this.ref, state, handler);
         }

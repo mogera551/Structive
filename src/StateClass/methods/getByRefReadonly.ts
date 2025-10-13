@@ -67,9 +67,23 @@ export function getByRefReadonly(
       }
       // パターンがtargetに存在する場合はgetter経由で取得
       if (ref.info.pattern in target) {
+        handler.refIndex++;
+        if (handler.refIndex >= handler.refStack.length) {
+          handler.refStack.push(null);
+        }
+        handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
+        try {
+          return (value = Reflect.get(target, ref.info.pattern, receiver));
+        } finally {
+          handler.refStack[handler.refIndex] = null;
+          handler.refIndex--;
+          handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+        }
+/*
         return (value = setStatePropertyRef(handler, ref, () => {
           return Reflect.get(target, ref.info.pattern, receiver);
         }));
+*/
       } else {
         // 存在しない場合は親infoを辿って再帰的に取得
         const parentInfo = ref.info.parentInfo ?? raiseError({

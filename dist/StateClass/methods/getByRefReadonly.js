@@ -20,7 +20,6 @@
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils";
 import { checkDependency } from "./checkDependency";
-import { setStatePropertyRef } from "./setStatePropertyRef";
 /**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
  *
@@ -58,9 +57,24 @@ export function getByRefReadonly(target, ref, receiver, handler) {
             }
             // パターンがtargetに存在する場合はgetter経由で取得
             if (ref.info.pattern in target) {
-                return (value = setStatePropertyRef(handler, ref, () => {
-                    return Reflect.get(target, ref.info.pattern, receiver);
-                }));
+                handler.refIndex++;
+                if (handler.refIndex >= handler.refStack.length) {
+                    handler.refStack.push(null);
+                }
+                handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
+                try {
+                    return (value = Reflect.get(target, ref.info.pattern, receiver));
+                }
+                finally {
+                    handler.refStack[handler.refIndex] = null;
+                    handler.refIndex--;
+                    handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+                }
+                /*
+                        return (value = setStatePropertyRef(handler, ref, () => {
+                          return Reflect.get(target, ref.info.pattern, receiver);
+                        }));
+                */
             }
             else {
                 // 存在しない場合は親infoを辿って再帰的に取得

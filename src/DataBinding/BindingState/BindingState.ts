@@ -82,17 +82,24 @@ class BindingState implements IBindingState {
     this.#filters = filters;
   }
   getValue(state:IReadonlyStateProxy | IWritableStateProxy, handler:IReadonlyStateHandler | IWritableStateHandler): any {
-    return state[GetByRefSymbol](this.ref);
-  }
-  getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy, handler:IReadonlyStateHandler | IWritableStateHandler): any {
     let value;
-    if (state.has(SetByRefSymbol)) {
+    if (SetByRefSymbol in state) {
       // WritableStateProxy
       value = getByRefWritable(this.binding.engine.state, this.ref, state as IWritableStateProxy, handler as IWritableStateHandler);
     } else {
       // ReadonlyStateProxy
       value = getByRefReadonly(this.binding.engine.state, this.ref, state as IReadonlyStateProxy, handler as IReadonlyStateHandler);
-
+    }
+    return value;
+  }
+  getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy, handler:IReadonlyStateHandler | IWritableStateHandler): any {
+    let value;
+    if (SetByRefSymbol in state) {
+      // WritableStateProxy
+      value = getByRefWritable(this.binding.engine.state, this.ref, state as IWritableStateProxy, handler as IWritableStateHandler);
+    } else {
+      // ReadonlyStateProxy
+      value = getByRefReadonly(this.binding.engine.state, this.ref, state as IReadonlyStateProxy, handler as IReadonlyStateHandler);
     }
 //    let value = state[GetByRefSymbol](this.ref);
     for(let i = 0; i < this.#filters.length; i++) {

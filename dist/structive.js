@@ -1142,27 +1142,27 @@ class StatePropertyRef {
     }
 }
 const refByInfoByListIndex = new WeakMap();
-const refByInfoByNull = new Map();
+const refByInfoByNull = {};
 function getStatePropertyRef(info, listIndex) {
     let ref = null;
     if (listIndex !== null) {
         let refByInfo = refByInfoByListIndex.get(listIndex);
         if (typeof refByInfo === "undefined") {
-            refByInfo = new Map();
+            refByInfo = {};
             refByInfoByListIndex.set(listIndex, refByInfo);
         }
-        ref = refByInfo.get(info);
+        ref = refByInfo[info.pattern];
         if (typeof ref === "undefined") {
             ref = new StatePropertyRef(info, listIndex);
-            refByInfo.set(info, ref);
+            refByInfo[info.pattern] = ref;
         }
         return ref;
     }
     else {
-        ref = refByInfoByNull.get(info);
+        ref = refByInfoByNull[info.pattern];
         if (typeof ref === "undefined") {
             ref = new StatePropertyRef(info, null);
-            refByInfoByNull.set(info, ref);
+            refByInfoByNull[info.pattern] = ref;
         }
         return ref;
     }
@@ -1270,22 +1270,6 @@ function checkDependency(handler, ref) {
     }
 }
 
-function setStatePropertyRef(handler, ref, callback) {
-    handler.refIndex++;
-    if (handler.refIndex >= handler.refStack.length) {
-        handler.refStack.push(null);
-    }
-    handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
-    try {
-        return callback();
-    }
-    finally {
-        handler.refStack[handler.refIndex] = null;
-        handler.refIndex--;
-        handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
-    }
-}
-
 /**
  * getByRef.ts
  *
@@ -1329,9 +1313,24 @@ function getByRefWritable(target, ref, receiver, handler) {
     }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (ref.info.pattern in target) {
-        return setStatePropertyRef(handler, ref, () => {
+        handler.refIndex++;
+        if (handler.refIndex >= handler.refStack.length) {
+            handler.refStack.push(null);
+        }
+        handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
+        try {
             return Reflect.get(target, ref.info.pattern, receiver);
-        });
+        }
+        finally {
+            handler.refStack[handler.refIndex] = null;
+            handler.refIndex--;
+            handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+        }
+        /*
+            return setStatePropertyRef(handler, ref, () => {
+              return Reflect.get(target, ref.info.pattern, receiver);
+            });
+        */
     }
     else {
         // 存在しない場合は親infoを辿って再帰的に取得
@@ -1387,9 +1386,24 @@ function setByRef(target, ref, value, receiver, handler) {
             return handler.engine.stateOutput.set(ref, value);
         }
         if (ref.info.pattern in target) {
-            return setStatePropertyRef(handler, ref, () => {
+            handler.refIndex++;
+            if (handler.refIndex >= handler.refStack.length) {
+                handler.refStack.push(null);
+            }
+            handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
+            try {
                 return Reflect.set(target, ref.info.pattern, value, receiver);
-            });
+            }
+            finally {
+                handler.refStack[handler.refIndex] = null;
+                handler.refIndex--;
+                handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+            }
+            /*
+                  return setStatePropertyRef(handler, ref, () => {
+                    return Reflect.set(target, ref.info.pattern, value, receiver);
+                  });
+            */
         }
         else {
             const parentInfo = ref.info.parentInfo ?? raiseError({
@@ -1477,9 +1491,24 @@ function getByRefReadonly(target, ref, receiver, handler) {
             }
             // パターンがtargetに存在する場合はgetter経由で取得
             if (ref.info.pattern in target) {
-                return (value = setStatePropertyRef(handler, ref, () => {
-                    return Reflect.get(target, ref.info.pattern, receiver);
-                }));
+                handler.refIndex++;
+                if (handler.refIndex >= handler.refStack.length) {
+                    handler.refStack.push(null);
+                }
+                handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
+                try {
+                    return (value = Reflect.get(target, ref.info.pattern, receiver));
+                }
+                finally {
+                    handler.refStack[handler.refIndex] = null;
+                    handler.refIndex--;
+                    handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+                }
+                /*
+                        return (value = setStatePropertyRef(handler, ref, () => {
+                          return Reflect.get(target, ref.info.pattern, receiver);
+                        }));
+                */
             }
             else {
                 // 存在しない場合は親infoを辿って再帰的に取得
@@ -2651,7 +2680,7 @@ class Renderer {
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
         this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this);
-        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#readonlyHandler);
+        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine.state, this.#readonlyHandler);
         try {
             readonlyState[SetCacheableSymbol](() => {
                 // まずはリストの並び替えを処理
@@ -3244,14 +3273,13 @@ class BindingNodeFor extends BindingNodeBlock {
         let lastBindContent = null;
         const firstNode = this.node;
         this.bindContentLastIndex = this.poolLength - 1;
-        const isAllAppend = listDiff.newListValue?.length === listDiff.adds?.size && (listDiff.newListValue?.length ?? 0) > 0;
         // リオーダー判定: 追加・削除がなく、並び替え（changeIndexes）または上書き（overwrites）のみの場合
         const isReorder = (listDiff.adds?.size ?? 0) === 0 && (listDiff.removes?.size ?? 0) === 0 &&
             ((listDiff.changeIndexes?.size ?? 0) > 0 || (listDiff.overwrites?.size ?? 0) > 0);
         if (!isReorder) {
             // 全追加の場合、バッファリングしてから一括追加する
-            const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
-            const fragmentFirstNode = isAllAppend ? null : firstNode;
+            const fragmentParentNode = parentNode;
+            const fragmentFirstNode = firstNode;
             const adds = listDiff.adds ?? EMPTY_SET;
             for (const listIndex of listDiff.newIndexes) {
                 const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
@@ -3277,11 +3305,6 @@ class BindingNodeFor extends BindingNodeBlock {
                 }
                 newBindContents.push(bindContent);
                 lastBindContent = bindContent;
-            }
-            // 全追加最適化
-            if (isAllAppend) {
-                const beforeNode = firstNode.nextSibling;
-                parentNode.insertBefore(fragmentParentNode, beforeNode);
             }
         }
         else {
@@ -3779,11 +3802,20 @@ class BindingState {
         this.#filters = filters;
     }
     getValue(state, handler) {
-        return state[GetByRefSymbol](this.ref);
+        let value;
+        if (SetByRefSymbol in state) {
+            // WritableStateProxy
+            value = getByRefWritable(this.binding.engine.state, this.ref, state, handler);
+        }
+        else {
+            // ReadonlyStateProxy
+            value = getByRefReadonly(this.binding.engine.state, this.ref, state, handler);
+        }
+        return value;
     }
     getFilteredValue(state, handler) {
         let value;
-        if (state.has(SetByRefSymbol)) {
+        if (SetByRefSymbol in state) {
             // WritableStateProxy
             value = getByRefWritable(this.binding.engine.state, this.ref, state, handler);
         }
@@ -5339,7 +5371,7 @@ class ComponentEngine {
     getPropertyValue(ref) {
         // プロパティの値を取得する
         const handler = createReadonlyStateHandler(this, null);
-        const stateProxy = createReadonlyStateProxy(this, handler);
+        const stateProxy = createReadonlyStateProxy(this.state, handler);
         return stateProxy[GetByRefSymbol](ref);
     }
     setPropertyValue(ref, value) {
@@ -5758,7 +5790,13 @@ class PathManager {
             }
         }
     }
+    #dianamicDependencyKeys = new Set();
     addDynamicDependency(target, source) {
+        const key = `${source}=>${target}`;
+        if (this.#dianamicDependencyKeys.has(key)) {
+            return;
+        }
+        this.#dianamicDependencyKeys.add(key);
         this.dynamicDependencies.get(source)?.add(target) ??
             this.dynamicDependencies.set(source, new Set([target]));
     }

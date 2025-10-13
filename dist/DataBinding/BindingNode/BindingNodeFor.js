@@ -6,6 +6,11 @@ import { createBindContent } from "../BindContent.js";
 import { BindingNodeBlock } from "./BindingNodeBlock.js";
 const EMPTY_SET = new Set();
 /**
+ * フラグメントに追加し、一括でノードで追加するかのフラグ
+ * ベンチマークの結果で判断する
+ */
+const USE_ALL_APPEND = false;
+/**
  * BindingNodeForクラスは、forバインディング（配列やリストの繰り返し描画）を担当するバインディングノードの実装です。
  *
  * 主な役割:
@@ -186,7 +191,7 @@ class BindingNodeFor extends BindingNodeBlock {
         let lastBindContent = null;
         const firstNode = this.node;
         this.bindContentLastIndex = this.poolLength - 1;
-        const isAllAppend = listDiff.newListValue?.length === listDiff.adds?.size && (listDiff.newListValue?.length ?? 0) > 0;
+        const isAllAppend = USE_ALL_APPEND && (listDiff.newListValue?.length === listDiff.adds?.size && (listDiff.newListValue?.length ?? 0) > 0);
         // リオーダー判定: 追加・削除がなく、並び替え（changeIndexes）または上書き（overwrites）のみの場合
         const isReorder = (listDiff.adds?.size ?? 0) === 0 && (listDiff.removes?.size ?? 0) === 0 &&
             ((listDiff.changeIndexes?.size ?? 0) > 0 || (listDiff.overwrites?.size ?? 0) > 0);

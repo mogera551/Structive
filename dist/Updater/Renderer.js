@@ -244,7 +244,7 @@ class Renderer {
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
         this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this);
-        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine, this.#readonlyHandler);
+        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine.state, this.#readonlyHandler);
         try {
             readonlyState[SetCacheableSymbol](() => {
                 // まずはリストの並び替えを処理
