@@ -14,7 +14,9 @@ class PathManager implements IPathManager {
   elements: Set<string> = new Set<string>();
   funcs: Set<string> = new Set<string>();
   getters: Set<string> = new Set<string>();
+  onlyGetters: Set<string> = new Set<string>();
   setters: Set<string> = new Set<string>();
+  getterSetters: Set<string> = new Set<string>();
   optimizes: Set<string> = new Set<string>();
   staticDependencies: Dependencies<string> = new Map<string, Set<string>>();
   dynamicDependencies: Dependencies<string> = new Map<string, Set<string>>();
@@ -57,6 +59,12 @@ class PathManager implements IPathManager {
           }
           if (hasSetter) {
             this.setters.add(key);
+          }
+          if (hasGetter && !hasSetter) {
+            this.onlyGetters.add(key);
+          }
+          if (hasGetter && hasSetter) {
+            this.getterSetters.add(key);
           }
         }
       }

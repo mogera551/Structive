@@ -1,7 +1,13 @@
 import { IComponentEngine } from "../ComponentEngine/types";
+import { WILDCARD } from "../constants";
+import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
+import { findPathNodeByPath } from "../PathTree/PathNode";
+import { IPathNode } from "../PathTree/types";
 import { IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
+import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
 import { render } from "./Renderer";
@@ -17,7 +23,11 @@ class Updater implements IUpdater {
   queue: IStatePropertyRef[] = [];
   #updating: boolean = false;
   #rendering: boolean = false;
-  #engine: IComponentEngine | null = null;
+  #engine: IComponentEngine;
+
+  constructor(engine: IComponentEngine) {
+    this.#engine = engine;
+  }
 
   // Ref情報をキューに追加
   enqueueRef(ref: IStatePropertyRef): void {
@@ -30,11 +40,10 @@ class Updater implements IUpdater {
   }
 
   // 状態更新開始
-  async beginUpdate(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (state: IWritableStateProxy, handler: IWritableStateHandler) => Promise<void>): Promise<void> {
+  async beginUpdate(loopContext: ILoopContext | null, callback: (state: IWritableStateProxy, handler: IWritableStateHandler) => Promise<void>): Promise<void> {
     try {
       this.#updating = true;
-      this.#engine = engine;
-      await useWritableStateProxy(engine, this, engine.state, loopContext, async (state:IWritableStateProxy, handler:IWritableStateHandler) => {
+      await useWritableStateProxy(this.#engine, this, this.#engine.state, loopContext, async (state:IWritableStateProxy, handler:IWritableStateHandler) => {
         // 状態更新処理
         await callback(state, handler);
       });
@@ -62,11 +71,71 @@ class Updater implements IUpdater {
       this.#rendering = false;
     }
   }
+
+  staticTraverseForPrepare(ref: IStatePropertyRef, node: IPathNode, renderInfo: any, isSource: boolean): void {
+    if (renderInfo.staticVisited.has(ref)) return;
+    renderInfo.staticVisited.add(ref);
+
+    let addIndexes: IListIndex[] | null = null;
+    if(this.#engine.pathManager.lists.has(ref.info.pattern)) {
+      if (isSource) {
+        // リスト差分取得
+      } else {
+        // リストはすべて新規
+        addIndexes=[];
+      }
+    }
+
+    // 子ノードを再帰的に処理
+    for(const [name, childNode] of node.childNodeByName.entries()) {
+      const childInfo = getStructuredPathInfo(childNode.currentPath);
+      if (name !== WILDCARD) {
+        const childRef = getStatePropertyRef(childInfo, ref.listIndex);
+        this.staticTraverseForPrepare(childRef, childNode, renderInfo, false);
+      } else {
+        if (addIndexes === null) {
+          raiseError({
+            code: "UPD-002",
+            message: "Wildcard processing not implemented",
+            docsUrl: "./docs/error-codes.md#upd",
+          });
+        }
+        for(let i = 0; i < addIndexes.length; i++) {
+          const childIndex = addIndexes[i];
+          const childRef = getStatePropertyRef(childInfo, childIndex);
+          this.staticTraverseForPrepare(childRef, childNode, renderInfo, false);
+        }
+      }
+    }
+
+    // 動的依存関係エントリーポイントの登録
+    if (this.#engine.pathManager.dynamicDependencies.has(ref.info.pattern)) {
+      renderInfo.dynamicDependencyEntryPoints.add(ref);
+    }
+
+  }
+
+  prepareRender(ref: IStatePropertyRef): void {
+    const renderInfo = {
+      staticVisited: new Set<IStatePropertyRef>(),
+      dynamicDependencyEntryPoints: new Set<IStatePropertyRef>(),
+    };
+    const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
+    if (node === null) {
+      raiseError({
+        code: "UPD-003",
+        message: `Path node not found for pattern: ${ref.info.pattern}`,
+        docsUrl: "./docs/error-codes.md#upd",
+      });
+    }
+    this.staticTraverseForPrepare(ref, node, renderInfo, true);
+  }
 }
 
+
 export async function update(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (updater: IUpdater, state: IWritableStateProxy, handler: IWritableStateHandler) => Promise<void>): Promise<void> {
-  const updater = new Updater();
-  await updater.beginUpdate(engine, loopContext, async (state, handler) => {
+  const updater = new Updater(engine);
+  await updater.beginUpdate(loopContext, async (state, handler) => {
     await callback(updater, state, handler);
   });
 }

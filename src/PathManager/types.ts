@@ -27,14 +27,24 @@ export interface IPathManager {
   funcs: Set<string>;
   /**
    * getter定義のあるパスのセット
-   * prototype.getDefinePropewrties()から取得される
+   * prototype.getDefineProperties()から取得される
    */
   getters: Set<string>;
   /**
+   * getterのみ定義のあるパスのセット
+   * prototype.getDefineProperties()から取得される
+   */
+  onlyGetters: Set<string>;
+  /**
    * setter定義のあるパスのセット
-   * prototype.getDefinePropewrties()から取得される
+   * prototype.getDefineProperties()から取得される
    */
   setters: Set<string>;
+  /**
+   * getter/setter両方定義のあるパスのセット
+   * prototype.getDefineProperties()から取得される
+   */
+  getterSetters: Set<string>;
   /**
    * 最適化されたgetter/setterパスのセット
    */
@@ -57,6 +67,8 @@ export interface IPathManager {
    * @param source 依存元のパス
    */
   addDynamicDependency(target: string, source: string): void;
-
+  /**
+   * パスツリーのルートノード
+   */
   rootNode: IPathNode;
 }

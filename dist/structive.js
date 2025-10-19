@@ -1047,6 +1047,76 @@ function getStructuredPathInfo(structuredPath) {
     return (_cache$3[structuredPath] = new StructuredPathInfo(structuredPath));
 }
 
+class NodePath {
+    parentPath;
+    currentPath;
+    name;
+    childNodeByName;
+    level;
+    constructor(parentPath, name, level) {
+        this.parentPath = parentPath;
+        this.currentPath = parentPath ? parentPath + "." + name : name;
+        this.name = name;
+        this.level = level;
+        this.childNodeByName = new Map();
+    }
+    find(segments, segIndex = 0) {
+        if (segIndex >= segments.length) {
+            return null;
+        }
+        const currentSegment = segments[segIndex];
+        const childNode = this.childNodeByName.get(currentSegment);
+        if (childNode) {
+            if (segIndex === segments.length - 1) {
+                return childNode;
+            }
+            return childNode.find(segments, segIndex + 1);
+        }
+        return null;
+    }
+    appendChild(childName) {
+        let childNode = this.childNodeByName.get(childName);
+        if (!childNode) {
+            const currentPath = this.parentPath ? this.parentPath + "." + this.name : this.name;
+            childNode = new NodePath(currentPath, childName, this.level + 1);
+            this.childNodeByName.set(childName, childNode);
+        }
+        return childNode;
+    }
+}
+function createRootNode() {
+    return new NodePath("", "", 0);
+}
+const cache$1 = new Map();
+function findPathNodeByPath(rootNode, path) {
+    let nodeCache = cache$1.get(rootNode);
+    if (!nodeCache) {
+        nodeCache = new Map();
+        cache$1.set(rootNode, nodeCache);
+    }
+    let cachedNode = nodeCache.get(path) ?? null;
+    if (cachedNode) {
+        return cachedNode;
+    }
+    const info = getStructuredPathInfo(path);
+    cachedNode = rootNode.find(info.pathSegments);
+    nodeCache.set(path, cachedNode);
+    return cachedNode;
+}
+function addPathNode(rootNode, path) {
+    const info = getStructuredPathInfo(path);
+    if (info.parentPath === null) {
+        return rootNode.appendChild(path);
+    }
+    else {
+        let parentNode = findPathNodeByPath(rootNode, info.parentPath);
+        if (parentNode === null) {
+            parentNode = addPathNode(rootNode, info.parentPath);
+        }
+        return parentNode.appendChild(info.lastSegment);
+    }
+}
+
 /**
  * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
  * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
@@ -1264,8 +1334,7 @@ function checkDependency(handler, ref) {
     if (handler.refIndex >= 0) {
         const lastInfo = handler.lastRefStack?.info ?? null;
         if (lastInfo !== null) {
-            if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
-                !handler.engine.pathManager.setters.has(lastInfo.pattern) &&
+            if (handler.engine.pathManager.onlyGetters.has(lastInfo.pattern) &&
                 lastInfo.pattern !== ref.info.pattern) {
                 handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, ref.info.pattern);
             }
@@ -1581,8 +1650,7 @@ function resolve(target, prop, receiver, handler) {
         const lastInfo = handler.lastRefStack?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
-            if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
-                !handler.engine.pathManager.setters.has(lastInfo.pattern)) {
+            if (handler.engine.pathManager.onlyGetters.has(lastInfo.pattern)) {
                 handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
             }
         }
@@ -1670,8 +1738,7 @@ function getAllWritable(target, prop, receiver, handler) {
         const lastInfo = handler.lastRefStack?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
-            if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
-                !handler.engine.pathManager.setters.has(lastInfo.pattern)) {
+            if (handler.engine.pathManager.onlyGetters.has(lastInfo.pattern)) {
                 handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
             }
         }
@@ -2174,76 +2241,6 @@ function calcListDiff(parentListIndex, oldListValue, newListValue, oldIndexes) {
     }
 }
 
-class NodePath {
-    parentPath;
-    currentPath;
-    name;
-    childNodeByName;
-    level;
-    constructor(parentPath, name, level) {
-        this.parentPath = parentPath;
-        this.currentPath = parentPath ? parentPath + "." + name : name;
-        this.name = name;
-        this.level = level;
-        this.childNodeByName = new Map();
-    }
-    find(segments, segIndex = 0) {
-        if (segIndex >= segments.length) {
-            return null;
-        }
-        const currentSegment = segments[segIndex];
-        const childNode = this.childNodeByName.get(currentSegment);
-        if (childNode) {
-            if (segIndex === segments.length - 1) {
-                return childNode;
-            }
-            return childNode.find(segments, segIndex + 1);
-        }
-        return null;
-    }
-    appendChild(childName) {
-        let childNode = this.childNodeByName.get(childName);
-        if (!childNode) {
-            const currentPath = this.parentPath ? this.parentPath + "." + this.name : this.name;
-            childNode = new NodePath(currentPath, childName, this.level + 1);
-            this.childNodeByName.set(childName, childNode);
-        }
-        return childNode;
-    }
-}
-function createRootNode() {
-    return new NodePath("", "", 0);
-}
-const cache$1 = new Map();
-function findPathNodeByPath(rootNode, path) {
-    let nodeCache = cache$1.get(rootNode);
-    if (!nodeCache) {
-        nodeCache = new Map();
-        cache$1.set(rootNode, nodeCache);
-    }
-    let cachedNode = nodeCache.get(path) ?? null;
-    if (cachedNode) {
-        return cachedNode;
-    }
-    const info = getStructuredPathInfo(path);
-    cachedNode = rootNode.find(info.pathSegments);
-    nodeCache.set(path, cachedNode);
-    return cachedNode;
-}
-function addPathNode(rootNode, path) {
-    const info = getStructuredPathInfo(path);
-    if (info.parentPath === null) {
-        return rootNode.appendChild(path);
-    }
-    else {
-        let parentNode = findPathNodeByPath(rootNode, info.parentPath);
-        if (parentNode === null) {
-            parentNode = addPathNode(rootNode, info.parentPath);
-        }
-        return parentNode.appendChild(info.lastSegment);
-    }
-}
-
 function setCacheable(handler, callback) {
     handler.cache = new Map();
     try {
@@ -2267,8 +2264,7 @@ function getAllReadonly(target, prop, receiver, handler) {
         const lastInfo = handler.lastRefStack?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
-            if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
-                !handler.engine.pathManager.setters.has(lastInfo.pattern)) {
+            if (handler.engine.pathManager.onlyGetters.has(lastInfo.pattern)) {
                 handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
             }
         }
@@ -2849,7 +2845,10 @@ class Updater {
     queue = [];
     #updating = false;
     #rendering = false;
-    #engine = null;
+    #engine;
+    constructor(engine) {
+        this.#engine = engine;
+    }
     // Ref情報をキューに追加
     enqueueRef(ref) {
         this.queue.push(ref);
@@ -2861,11 +2860,10 @@ class Updater {
         });
     }
     // 状態更新開始
-    async beginUpdate(engine, loopContext, callback) {
+    async beginUpdate(loopContext, callback) {
         try {
             this.#updating = true;
-            this.#engine = engine;
-            await useWritableStateProxy(engine, this, engine.state, loopContext, async (state, handler) => {
+            await useWritableStateProxy(this.#engine, this, this.#engine.state, loopContext, async (state, handler) => {
                 // 状態更新処理
                 await callback(state, handler);
             });
@@ -2895,10 +2893,64 @@ class Updater {
             this.#rendering = false;
         }
     }
+    staticTraverseForPrepare(ref, node, renderInfo, isSource) {
+        if (renderInfo.staticVisited.has(ref))
+            return;
+        renderInfo.staticVisited.add(ref);
+        let addIndexes = null;
+        if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
+            if (isSource) ;
+            else {
+                // リストはすべて新規
+                addIndexes = [];
+            }
+        }
+        // 子ノードを再帰的に処理
+        for (const [name, childNode] of node.childNodeByName.entries()) {
+            const childInfo = getStructuredPathInfo(ref.info.pattern + "." + name);
+            if (name !== WILDCARD) {
+                const childRef = getStatePropertyRef(childInfo, ref.listIndex);
+                this.staticTraverseForPrepare(childRef, childNode, renderInfo, false);
+            }
+            else {
+                if (addIndexes === null) {
+                    raiseError({
+                        code: "UPD-002",
+                        message: "Wildcard processing not implemented",
+                        docsUrl: "./docs/error-codes.md#upd",
+                    });
+                }
+                for (let i = 0; i < addIndexes.length; i++) {
+                    const childIndex = addIndexes[i];
+                    const childRef = getStatePropertyRef(childInfo, childIndex);
+                    this.staticTraverseForPrepare(childRef, childNode, renderInfo, false);
+                }
+            }
+        }
+        // 動的依存関係エントリーポイントの登録
+        if (this.#engine.pathManager.dynamicDependencies.has(ref.info.pattern)) {
+            renderInfo.dynamicDependencyEntryPoints.add(ref);
+        }
+    }
+    prepareRender(ref) {
+        const renderInfo = {
+            staticVisited: new Set(),
+            dynamicDependencyEntryPoints: new Set(),
+        };
+        const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
+        if (node === null) {
+            raiseError({
+                code: "UPD-003",
+                message: `Path node not found for pattern: ${ref.info.pattern}`,
+                docsUrl: "./docs/error-codes.md#upd",
+            });
+        }
+        this.staticTraverseForPrepare(ref, node, renderInfo, true);
+    }
 }
 async function update(engine, loopContext, callback) {
-    const updater = new Updater();
-    await updater.beginUpdate(engine, loopContext, async (state, handler) => {
+    const updater = new Updater(engine);
+    await updater.beginUpdate(loopContext, async (state, handler) => {
         await callback(updater, state, handler);
     });
 }
@@ -5732,6 +5784,7 @@ class PathManager {
     elements = new Set();
     funcs = new Set();
     getters = new Set();
+    onlyGetters = new Set();
     setters = new Set();
     optimizes = new Set();
     staticDependencies = new Map();
@@ -5774,6 +5827,9 @@ class PathManager {
                     }
                     if (hasSetter) {
                         this.setters.add(key);
+                    }
+                    if (hasGetter && !hasSetter) {
+                        this.onlyGetters.add(key);
                     }
                 }
             }
