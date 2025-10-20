@@ -4,7 +4,9 @@ import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
-import { IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
+import { getByRefWritable } from "../StateClass/methods/getByRefWritable";
+import { GetByRefSymbol } from "../StateClass/symbols";
+import { IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
@@ -72,26 +74,46 @@ class Updater implements IUpdater {
     }
   }
 
-  staticTraverseForPrepare(ref: IStatePropertyRef, node: IPathNode, renderInfo: any, isSource: boolean): void {
+  /**
+   * getterではないパスの収集をする
+   * getterの子要素は対象としない
+   * getterの演算前に、状態を確定させる目的で使用する
+   * @param ref 
+   * @param node 
+   * @param renderInfo 
+   * @param isSource 
+   * @returns 
+   */
+  staticTraverseForPrepare(
+    state: IStateProxy,
+    ref: IStatePropertyRef, 
+    node: IPathNode, 
+    renderInfo: any, 
+    isSource: boolean
+  ): void {
     if (renderInfo.staticVisited.has(ref)) return;
     renderInfo.staticVisited.add(ref);
 
     let addIndexes: IListIndex[] | null = null;
     if(this.#engine.pathManager.lists.has(ref.info.pattern)) {
+      // ToDo:直接getByRefWritableをコールして最適化する
+      const newValue = state[GetByRefSymbol](ref);
       if (isSource) {
         // リスト差分取得
       } else {
         // リストはすべて新規
-        addIndexes=[];
+
+        addIndexes = [];
       }
     }
 
     // 子ノードを再帰的に処理
     for(const [name, childNode] of node.childNodeByName.entries()) {
+
       const childInfo = getStructuredPathInfo(childNode.currentPath);
       if (name !== WILDCARD) {
         const childRef = getStatePropertyRef(childInfo, ref.listIndex);
-        this.staticTraverseForPrepare(childRef, childNode, renderInfo, false);
+        this.staticTraverseForPrepare(state, childRef, childNode, renderInfo, false);
       } else {
         if (addIndexes === null) {
           raiseError({
@@ -103,7 +125,7 @@ class Updater implements IUpdater {
         for(let i = 0; i < addIndexes.length; i++) {
           const childIndex = addIndexes[i];
           const childRef = getStatePropertyRef(childInfo, childIndex);
-          this.staticTraverseForPrepare(childRef, childNode, renderInfo, false);
+          this.staticTraverseForPrepare(state, childRef, childNode, renderInfo, false);
         }
       }
     }
@@ -115,10 +137,11 @@ class Updater implements IUpdater {
 
   }
 
-  prepareRender(ref: IStatePropertyRef): void {
+  prepareRender(state: IStateProxy, ref: IStatePropertyRef): void {
     const renderInfo = {
       staticVisited: new Set<IStatePropertyRef>(),
       dynamicDependencyEntryPoints: new Set<IStatePropertyRef>(),
+      cacheValueByRef: new Map<IStatePropertyRef, any>(),
     };
     const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
     if (node === null) {
@@ -128,7 +151,7 @@ class Updater implements IUpdater {
         docsUrl: "./docs/error-codes.md#upd",
       });
     }
-    this.staticTraverseForPrepare(ref, node, renderInfo, true);
+    this.staticTraverseForPrepare(state, ref, node, renderInfo, true);
   }
 }
 
