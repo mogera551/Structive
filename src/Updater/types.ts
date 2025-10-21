@@ -1,5 +1,7 @@
+import { ISaveInfoByResolvedPathInfo } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
 import { IListDiff } from "../ListDiff/types";
+import { IListIndex } from "../ListIndex/types";
 import { IReadonlyStateHandler, IReadonlyStateProxy, IStructiveState, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 
@@ -48,4 +50,20 @@ export interface IRenderer {
    * @param isNewValue 新しい値をセットしたかどうか
    */
   calcListDiff(ref: IStatePropertyRef, newListValue?: any[] | undefined | null, isNewValue?: boolean): IListDiff | null;
+}
+
+
+export interface IRenderInfo {
+  /**
+   * 収集済みのRefセット
+   */
+  collectVisited: Set<IStatePropertyRef>;
+  /**
+   * 収集済みのGetterのRefセット
+   */
+  collectGetterVisited: Set<IStatePropertyRef>;
+  dynamicDependencyEntryPoints: Set<IStatePropertyRef>;
+  cacheValueByRef: Map<IStatePropertyRef, any>;
+  oldValueAndIndexesByRef: Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo>;
+  listDiffByRef: Map<IStatePropertyRef, IListDiff>;
 }
