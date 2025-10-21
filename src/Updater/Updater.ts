@@ -1,5 +1,7 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { WILDCARD } from "../constants";
+import { calcListDiff } from "../ListDiff/ListDiff";
+import { createListIndex } from "../ListIndex/ListIndex";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
@@ -76,7 +78,8 @@ class Updater implements IUpdater {
 
   /**
    * getterではないパスの収集をする
-   * getterの子要素は対象としない
+   * getterとその子要素は対象としない
+   * あわせて更新情報を作成する
    * getterの演算前に、状態を確定させる目的で使用する
    * @param ref 
    * @param node 
@@ -84,7 +87,8 @@ class Updater implements IUpdater {
    * @param isSource 
    * @returns 
    */
-  staticTraverseForPrepare(
+  recursiveCollectUpdates(
+    engine: IComponentEngine,
     state: IStateProxy,
     ref: IStatePropertyRef, 
     node: IPathNode, 
@@ -97,23 +101,44 @@ class Updater implements IUpdater {
     let addIndexes: IListIndex[] | null = null;
     if(this.#engine.pathManager.lists.has(ref.info.pattern)) {
       // ToDo:直接getByRefWritableをコールして最適化する
+      const lists = renderInfo.oldValueAndIndexesByRef.get(ref);
+      let oldValue: any[];
+      let oldIndexes: IListIndex[] | null;
+      if (typeof lists !== "undefined") {
+        [ oldValue, oldIndexes ] = lists;
+      } else {
+        const { list, listIndexes } = engine.getListAndListIndexes(ref);
+        oldValue = list ?? [];
+        oldIndexes = listIndexes;
+        renderInfo.oldValueAndIndexesByRef.set(ref, [ oldValue, oldIndexes ]);
+      }
       const newValue = state[GetByRefSymbol](ref);
+      const parentListIndex = ref.listIndex?.parentListIndex ?? null;
       if (isSource) {
         // リスト差分取得
+        const diff = calcListDiff(parentListIndex, oldValue, newValue ?? [], oldIndexes);
+        addIndexes = Array.from(diff.adds ?? []);
       } else {
         // リストはすべて新規
-
         addIndexes = [];
+        for(let i = 0; i < (newValue?.length ?? 0); i++) {
+          const newListIndex = createListIndex(parentListIndex, 0);
+          addIndexes.push(newListIndex);
+        }
       }
     }
 
     // 子ノードを再帰的に処理
     for(const [name, childNode] of node.childNodeByName.entries()) {
+      if (engine.pathManager.getters.has(childNode.currentPath)) {
+        // getterの子要素は対象外
+        continue;
+      }
 
       const childInfo = getStructuredPathInfo(childNode.currentPath);
       if (name !== WILDCARD) {
         const childRef = getStatePropertyRef(childInfo, ref.listIndex);
-        this.staticTraverseForPrepare(state, childRef, childNode, renderInfo, false);
+        this.recursiveCollectUpdates(engine, state, childRef, childNode, renderInfo, false);
       } else {
         if (addIndexes === null) {
           raiseError({
@@ -125,23 +150,20 @@ class Updater implements IUpdater {
         for(let i = 0; i < addIndexes.length; i++) {
           const childIndex = addIndexes[i];
           const childRef = getStatePropertyRef(childInfo, childIndex);
-          this.staticTraverseForPrepare(state, childRef, childNode, renderInfo, false);
+          this.recursiveCollectUpdates(engine, state, childRef, childNode, renderInfo, false);
         }
       }
     }
 
-    // 動的依存関係エントリーポイントの登録
-    if (this.#engine.pathManager.dynamicDependencies.has(ref.info.pattern)) {
-      renderInfo.dynamicDependencyEntryPoints.add(ref);
-    }
-
   }
 
-  prepareRender(state: IStateProxy, ref: IStatePropertyRef): void {
+  prepareRender(engine: IComponentEngine, state: IStateProxy, ref: IStatePropertyRef): void {
     const renderInfo = {
       staticVisited: new Set<IStatePropertyRef>(),
       dynamicDependencyEntryPoints: new Set<IStatePropertyRef>(),
+      /** */
       cacheValueByRef: new Map<IStatePropertyRef, any>(),
+      oldValueAndIndexesByRef: new Map<IStatePropertyRef, [ any[], IListIndex[] | null ]>(),
     };
     const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
     if (node === null) {
@@ -151,7 +173,7 @@ class Updater implements IUpdater {
         docsUrl: "./docs/error-codes.md#upd",
       });
     }
-    this.staticTraverseForPrepare(state, ref, node, renderInfo, true);
+    this.recursiveCollectUpdates(engine, state, ref, node, renderInfo, true);
   }
 }
 
