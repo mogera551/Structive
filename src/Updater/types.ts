@@ -53,17 +53,24 @@ export interface IRenderer {
 }
 
 
-export interface IRenderInfo {
+export interface IUpdateInfo {
   /**
-   * 収集済みのRefセット
+   * 更新されたRefのセット
+   * この集合からレンダリング対象のバインドを決定する
    */
-  collectVisited: Set<IStatePropertyRef>;
+  updatedRefs: Set<IStatePropertyRef>;
   /**
-   * 収集済みのGetterのRefセット
+   * キャッシュされた値のマップ
+   * getterの値をキャッシュするために使用されます。
    */
-  collectGetterVisited: Set<IStatePropertyRef>;
-  dynamicDependencyEntryPoints: Set<IStatePropertyRef>;
   cacheValueByRef: Map<IStatePropertyRef, any>;
+  /**
+   * 以前の値とインデックス情報を取得するためのマップ
+   */
   oldValueAndIndexesByRef: Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo>;
+  /**
+   * リスト差分のマップ
+   * for描画時に使用されます。
+   */
   listDiffByRef: Map<IStatePropertyRef, IListDiff>;
 }

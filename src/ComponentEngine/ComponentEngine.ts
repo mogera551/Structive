@@ -113,6 +113,8 @@ export class ComponentEngine implements IComponentEngine {
   }
 
   setup(): void {
+    // 実体化された state オブジェクトのプロパティをすべて PathManager に登録する
+    // ToDo:prototypeを遡ったほうが良い
     for(const path in this.state) {
       if (RESERVED_WORD_SET.has(path) || this.pathManager.alls.has(path)) {
         continue;

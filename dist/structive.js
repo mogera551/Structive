@@ -920,6 +920,218 @@ const RESERVED_WORD_SET = new Set([
     "null", "true", "false", "new", "return",
 ]);
 
+let version = 0;
+let id = 0;
+class ListIndex {
+    #parentListIndex = null;
+    #pos = 0;
+    #index = 0;
+    #version;
+    #id = ++id;
+    #sid = this.#id.toString();
+    constructor(parentListIndex, index) {
+        this.#parentListIndex = parentListIndex;
+        this.#pos = parentListIndex ? parentListIndex.position + 1 : 0;
+        this.#index = index;
+        this.#version = version;
+    }
+    get parentListIndex() {
+        return this.#parentListIndex;
+    }
+    get id() {
+        return this.#id;
+    }
+    get sid() {
+        return this.#sid;
+    }
+    get position() {
+        return this.#pos;
+    }
+    get length() {
+        return this.#pos + 1;
+    }
+    get index() {
+        return this.#index;
+    }
+    set index(value) {
+        this.#index = value;
+        this.#version = ++version;
+        this.indexes[this.#pos] = value;
+    }
+    get version() {
+        return this.#version;
+    }
+    get dirty() {
+        if (this.#parentListIndex === null) {
+            return false;
+        }
+        else {
+            return this.#parentListIndex.dirty || this.#parentListIndex.version > this.#version;
+        }
+    }
+    #indexes;
+    get indexes() {
+        if (this.#parentListIndex === null) {
+            if (typeof this.#indexes === "undefined") {
+                this.#indexes = [this.#index];
+            }
+        }
+        else {
+            if (typeof this.#indexes === "undefined" || this.dirty) {
+                this.#indexes = [...this.#parentListIndex.indexes, this.#index];
+                this.#version = version;
+            }
+        }
+        return this.#indexes;
+    }
+    #listIndexes;
+    get listIndexes() {
+        if (this.#parentListIndex === null) {
+            if (typeof this.#listIndexes === "undefined") {
+                this.#listIndexes = [new WeakRef(this)];
+            }
+        }
+        else {
+            if (typeof this.#listIndexes === "undefined") {
+                this.#listIndexes = [...this.#parentListIndex.listIndexes, new WeakRef(this)];
+            }
+        }
+        return this.#listIndexes;
+    }
+    get varName() {
+        return `${this.position + 1}`;
+    }
+    at(pos) {
+        if (pos >= 0) {
+            return this.listIndexes[pos]?.deref() || null;
+        }
+        else {
+            return this.listIndexes[this.listIndexes.length + pos]?.deref() || null;
+        }
+    }
+}
+function createListIndex(parentListIndex, index) {
+    return new ListIndex(parentListIndex, index);
+}
+
+/**
+ * 旧配列/新配列と旧インデックス配列から、追加・削除・位置変更・上書きの差分を計算します。
+ *
+ * 仕様ノート:
+ * - adds: 新規に現れた要素のインデックス（新規 ListIndex を割り当て）
+ * - removes: 旧配列で使用され、新配列で使われなくなったインデックス
+ * - changeIndexes: 値を再利用しつつ位置が変わったインデックス（DOMの並べ替え対象）
+ * - overwrites: 同じ位置に別の値が入った場合（再描画対象）
+ *
+ * 最適化ノート:
+ * - 双方空や参照同一は早期return
+ * - 片側空は全追加/全削除として扱う
+ */
+function calcListDiff(parentListIndex, oldListValue, newListValue, oldIndexes) {
+    const _newListValue = newListValue || [];
+    const _oldListValue = oldListValue || [];
+    const _oldIndexes = oldIndexes || [];
+    // 参照の同一性、または両方とも空の場合の早期リターン
+    if (_newListValue === _oldListValue || (_newListValue.length === 0 && _oldListValue.length === 0)) {
+        return {
+            oldListValue,
+            newListValue,
+            oldIndexes: _oldIndexes,
+            newIndexes: _oldIndexes,
+        };
+    }
+    if (_newListValue.length === 0) {
+        return {
+            oldListValue,
+            newListValue,
+            oldIndexes: _oldIndexes,
+            newIndexes: [],
+            removes: new Set(_oldIndexes),
+        };
+    }
+    else if (_oldListValue.length === 0) {
+        const newIndexes = [];
+        for (let i = 0; i < _newListValue.length; i++) {
+            newIndexes.push(createListIndex(parentListIndex, i));
+        }
+        return {
+            oldListValue,
+            newListValue,
+            oldIndexes: _oldIndexes,
+            newIndexes,
+            adds: new Set(newIndexes),
+        };
+    }
+    else {
+        // インデックスベースのマップを使用して効率化
+        const indexByValue = new Map();
+        for (let i = 0; i < _oldListValue.length; i++) {
+            // 重複値の場合は最後のインデックスが優先される（既存動作を維持）
+            indexByValue.set(_oldListValue[i], i);
+        }
+        const adds = new Set();
+        const removes = new Set();
+        const changeIndexes = new Set();
+        let newIndexes = [];
+        let usedOldIndexes = new Set();
+        let maybeSame = _oldListValue.length === _newListValue.length;
+        // 新しい配列を走査し、追加・再利用・位置変更を判定
+        for (let i = 0; i < _newListValue.length; i++) {
+            const newValue = _newListValue[i];
+            if (maybeSame) {
+                if (newValue === _oldListValue[i]) {
+                    continue;
+                }
+                newIndexes = _oldIndexes.slice(0, i);
+                usedOldIndexes = new Set(newIndexes);
+                maybeSame = false;
+            }
+            const oldIndex = indexByValue.get(newValue);
+            if (oldIndex === undefined) {
+                // 新しい要素
+                const newListIndex = createListIndex(parentListIndex, i);
+                adds.add(newListIndex);
+                newIndexes.push(newListIndex);
+            }
+            else {
+                // 既存要素の再利用
+                const existingListIndex = _oldIndexes[oldIndex];
+                if (existingListIndex.index !== i) {
+                    existingListIndex.index = i;
+                    changeIndexes.add(existingListIndex);
+                }
+                usedOldIndexes.add(existingListIndex);
+                newIndexes.push(existingListIndex);
+            }
+        }
+        if (maybeSame) {
+            // 参照同一だった場合
+            return {
+                oldListValue,
+                newListValue,
+                oldIndexes: _oldIndexes,
+                newIndexes: _oldIndexes,
+            };
+        }
+        // 使用されなかった古いインデックスを削除対象に追加
+        for (let i = 0; i < _oldIndexes.length; i++) {
+            const oldIndex = _oldIndexes[i];
+            if (!usedOldIndexes.has(oldIndex)) {
+                removes.add(oldIndex);
+            }
+        }
+        return {
+            oldListValue,
+            newListValue,
+            oldIndexes: _oldIndexes,
+            newIndexes,
+            adds,
+            removes,
+            changeIndexes,
+        };
+    }
+}
+
 /**
  * getStructuredPathInfo.ts
  *
@@ -1116,6 +1328,13 @@ function addPathNode(rootNode, path) {
         return parentNode.appendChild(info.lastSegment);
     }
 }
+
+const symbolName$1 = "state";
+const GetByRefSymbol = Symbol.for(`${symbolName$1}.GetByRef`);
+const SetByRefSymbol = Symbol.for(`${symbolName$1}.SetByRef`);
+const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
+const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
+const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
 
 /**
  * プロパティ名に"constructor"や"toString"などの予約語やオブジェクトのプロパティ名を
@@ -1321,13 +1540,6 @@ function getListIndex(resolvedPath, receiver, handler) {
             });
     }
 }
-
-const symbolName$1 = "state";
-const GetByRefSymbol = Symbol.for(`${symbolName$1}.GetByRef`);
-const SetByRefSymbol = Symbol.for(`${symbolName$1}.SetByRef`);
-const SetCacheableSymbol = Symbol.for(`${symbolName$1}.SetCacheable`);
-const ConnectedCallbackSymbol = Symbol.for(`${symbolName$1}.ConnectedCallback`);
-const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallback`);
 
 function checkDependency(handler, ref) {
     // 動的依存関係の登録
@@ -1825,6 +2037,35 @@ async function disconnectedCallback(target, prop, receiver, handler) {
     }
 }
 
+/**
+ * trackDependency.ts
+ *
+ * StateClassのAPIとして、getterチェーン中に参照されたパス間の
+ * 依存関係を動的に登録するための関数（trackDependency）の実装です。
+ *
+ * 主な役割:
+ * - 現在解決中のStatePropertyRef（lastRefStack）を取得
+ * - pathManager.gettersに登録されているgetterの場合のみ依存を追跡
+ * - 自身と同一パターンでない参照に対してaddDynamicDependencyを呼び出す
+ *
+ * 設計ポイント:
+ * - lastRefStackが存在しない場合はSTATE-202エラーを発生させる
+ * - getter同士の再帰（自己依存）は登録しない
+ * - 動的依存はpathManagerに集約し、キャッシュの無効化に利用する
+ */
+/**
+ * 現在解決中のgetterから、指定されたパスへの動的依存を登録する関数を返します。
+ *
+ * - pathManager.gettersに登録されているgetterのみ依存追跡を行う
+ * - 自己参照は除外し、異なるパターン間の依存だけを記録
+ * - 動的依存はpathManager.addDynamicDependencyで集中管理される
+ *
+ * @param target   プロキシ対象オブジェクト
+ * @param prop     アクセスされたプロパティキー
+ * @param receiver プロキシレシーバ
+ * @param handler  StateClassハンドラ
+ * @returns        引数pathで指定されたパターンへの依存を登録する無名関数
+ */
 function trackDependency(target, prop, receiver, handler) {
     return (path) => {
         const lastInfo = handler.lastRefStack?.info ?? raiseError({
@@ -2027,218 +2268,6 @@ async function useWritableStateProxy(engine, updater, state, loopContext, callba
     return setLoopContext(handler, loopContext, async () => {
         await callback(stateProxy, handler);
     });
-}
-
-let version = 0;
-let id = 0;
-class ListIndex {
-    #parentListIndex = null;
-    #pos = 0;
-    #index = 0;
-    #version;
-    #id = ++id;
-    #sid = this.#id.toString();
-    constructor(parentListIndex, index) {
-        this.#parentListIndex = parentListIndex;
-        this.#pos = parentListIndex ? parentListIndex.position + 1 : 0;
-        this.#index = index;
-        this.#version = version;
-    }
-    get parentListIndex() {
-        return this.#parentListIndex;
-    }
-    get id() {
-        return this.#id;
-    }
-    get sid() {
-        return this.#sid;
-    }
-    get position() {
-        return this.#pos;
-    }
-    get length() {
-        return this.#pos + 1;
-    }
-    get index() {
-        return this.#index;
-    }
-    set index(value) {
-        this.#index = value;
-        this.#version = ++version;
-        this.indexes[this.#pos] = value;
-    }
-    get version() {
-        return this.#version;
-    }
-    get dirty() {
-        if (this.#parentListIndex === null) {
-            return false;
-        }
-        else {
-            return this.#parentListIndex.dirty || this.#parentListIndex.version > this.#version;
-        }
-    }
-    #indexes;
-    get indexes() {
-        if (this.#parentListIndex === null) {
-            if (typeof this.#indexes === "undefined") {
-                this.#indexes = [this.#index];
-            }
-        }
-        else {
-            if (typeof this.#indexes === "undefined" || this.dirty) {
-                this.#indexes = [...this.#parentListIndex.indexes, this.#index];
-                this.#version = version;
-            }
-        }
-        return this.#indexes;
-    }
-    #listIndexes;
-    get listIndexes() {
-        if (this.#parentListIndex === null) {
-            if (typeof this.#listIndexes === "undefined") {
-                this.#listIndexes = [new WeakRef(this)];
-            }
-        }
-        else {
-            if (typeof this.#listIndexes === "undefined") {
-                this.#listIndexes = [...this.#parentListIndex.listIndexes, new WeakRef(this)];
-            }
-        }
-        return this.#listIndexes;
-    }
-    get varName() {
-        return `${this.position + 1}`;
-    }
-    at(pos) {
-        if (pos >= 0) {
-            return this.listIndexes[pos]?.deref() || null;
-        }
-        else {
-            return this.listIndexes[this.listIndexes.length + pos]?.deref() || null;
-        }
-    }
-}
-function createListIndex(parentListIndex, index) {
-    return new ListIndex(parentListIndex, index);
-}
-
-/**
- * 旧配列/新配列と旧インデックス配列から、追加・削除・位置変更・上書きの差分を計算します。
- *
- * 仕様ノート:
- * - adds: 新規に現れた要素のインデックス（新規 ListIndex を割り当て）
- * - removes: 旧配列で使用され、新配列で使われなくなったインデックス
- * - changeIndexes: 値を再利用しつつ位置が変わったインデックス（DOMの並べ替え対象）
- * - overwrites: 同じ位置に別の値が入った場合（再描画対象）
- *
- * 最適化ノート:
- * - 双方空や参照同一は早期return
- * - 片側空は全追加/全削除として扱う
- */
-function calcListDiff(parentListIndex, oldListValue, newListValue, oldIndexes) {
-    const _newListValue = newListValue || [];
-    const _oldListValue = oldListValue || [];
-    const _oldIndexes = oldIndexes || [];
-    // 参照の同一性、または両方とも空の場合の早期リターン
-    if (_newListValue === _oldListValue || (_newListValue.length === 0 && _oldListValue.length === 0)) {
-        return {
-            oldListValue,
-            newListValue,
-            oldIndexes: _oldIndexes,
-            newIndexes: _oldIndexes,
-        };
-    }
-    if (_newListValue.length === 0) {
-        return {
-            oldListValue,
-            newListValue,
-            oldIndexes: _oldIndexes,
-            newIndexes: [],
-            removes: new Set(_oldIndexes),
-        };
-    }
-    else if (_oldListValue.length === 0) {
-        const newIndexes = [];
-        for (let i = 0; i < _newListValue.length; i++) {
-            newIndexes.push(createListIndex(parentListIndex, i));
-        }
-        return {
-            oldListValue,
-            newListValue,
-            oldIndexes: _oldIndexes,
-            newIndexes,
-            adds: new Set(newIndexes),
-        };
-    }
-    else {
-        // インデックスベースのマップを使用して効率化
-        const indexByValue = new Map();
-        for (let i = 0; i < _oldListValue.length; i++) {
-            // 重複値の場合は最後のインデックスが優先される（既存動作を維持）
-            indexByValue.set(_oldListValue[i], i);
-        }
-        const adds = new Set();
-        const removes = new Set();
-        const changeIndexes = new Set();
-        let newIndexes = [];
-        let usedOldIndexes = new Set();
-        let maybeSame = _oldListValue.length === _newListValue.length;
-        // 新しい配列を走査し、追加・再利用・位置変更を判定
-        for (let i = 0; i < _newListValue.length; i++) {
-            const newValue = _newListValue[i];
-            if (maybeSame) {
-                if (newValue === _oldListValue[i]) {
-                    continue;
-                }
-                newIndexes = _oldIndexes.slice(0, i);
-                usedOldIndexes = new Set(newIndexes);
-                maybeSame = false;
-            }
-            const oldIndex = indexByValue.get(newValue);
-            if (oldIndex === undefined) {
-                // 新しい要素
-                const newListIndex = createListIndex(parentListIndex, i);
-                adds.add(newListIndex);
-                newIndexes.push(newListIndex);
-            }
-            else {
-                // 既存要素の再利用
-                const existingListIndex = _oldIndexes[oldIndex];
-                if (existingListIndex.index !== i) {
-                    existingListIndex.index = i;
-                    changeIndexes.add(existingListIndex);
-                }
-                usedOldIndexes.add(existingListIndex);
-                newIndexes.push(existingListIndex);
-            }
-        }
-        if (maybeSame) {
-            // 参照同一だった場合
-            return {
-                oldListValue,
-                newListValue,
-                oldIndexes: _oldIndexes,
-                newIndexes: _oldIndexes,
-            };
-        }
-        // 使用されなかった古いインデックスを削除対象に追加
-        for (let i = 0; i < _oldIndexes.length; i++) {
-            const oldIndex = _oldIndexes[i];
-            if (!usedOldIndexes.has(oldIndex)) {
-                removes.add(oldIndex);
-            }
-        }
-        return {
-            oldListValue,
-            newListValue,
-            oldIndexes: _oldIndexes,
-            newIndexes,
-            adds,
-            removes,
-            changeIndexes,
-        };
-    }
 }
 
 function setCacheable(handler, callback) {
@@ -2846,12 +2875,26 @@ class Updater {
     #updating = false;
     #rendering = false;
     #engine;
+    #state = undefined;
+    #updateInfo;
     constructor(engine) {
         this.#engine = engine;
+        this.#updateInfo = {
+            updatedRefs: new Set(),
+            cacheValueByRef: new Map(),
+            oldValueAndIndexesByRef: new Map(),
+            listDiffByRef: new Map(),
+        };
+    }
+    get state() {
+        if (!this.#state)
+            throw new Error("State not initialized");
+        return this.#state;
     }
     // Ref情報をキューに追加
     enqueueRef(ref) {
         this.queue.push(ref);
+        this.prepareRender(this.#engine, this.state, this.#updateInfo, ref);
         if (this.#rendering)
             return;
         this.#rendering = true;
@@ -2865,6 +2908,7 @@ class Updater {
             this.#updating = true;
             await useWritableStateProxy(this.#engine, this, this.#engine.state, loopContext, async (state, handler) => {
                 // 状態更新処理
+                this.#state = state;
                 await callback(state, handler);
             });
         }
@@ -2893,50 +2937,189 @@ class Updater {
             this.#rendering = false;
         }
     }
-    staticTraverseForPrepare(ref, node, renderInfo, isSource) {
-        if (renderInfo.staticVisited.has(ref))
+    getOldListAndListIndexes(engine, updateInfo, ref) {
+        let saveInfo = updateInfo.oldValueAndIndexesByRef.get(ref);
+        if (typeof saveInfo === "undefined") {
+            saveInfo = engine.getListAndListIndexes(ref);
+            updateInfo.oldValueAndIndexesByRef.set(ref, saveInfo);
+        }
+        return saveInfo;
+    }
+    /**
+     * getterではないパスの収集をする
+     * getterとその子要素は対象としない
+     * あわせて更新情報を作成する
+     * getterの演算前に、状態を確定させる目的で使用する
+     * @param ref
+     * @param node
+     * @param updateInfo
+     * @param isSource
+     * @returns
+     */
+    recursiveCollectUpdates(engine, state, ref, node, updateInfo, visitedRefs, isSource) {
+        if (visitedRefs.has(ref))
             return;
-        renderInfo.staticVisited.add(ref);
-        let addIndexes = null;
-        if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
-            if (isSource) ;
+        visitedRefs.add(ref);
+        let diff = null;
+        if (engine.pathManager.lists.has(ref.info.pattern)) {
+            const { list: oldValue, listIndexes: oldIndexes } = this.getOldListAndListIndexes(engine, updateInfo, ref);
+            // ToDo:直接getByRefWritableをコールして最適化する
+            const newValue = state[GetByRefSymbol](ref);
+            const parentListIndex = ref.listIndex?.parentListIndex ?? null;
+            if (isSource) {
+                // リスト差分取得
+                diff = calcListDiff(parentListIndex, oldValue, newValue ?? [], oldIndexes);
+            }
             else {
                 // リストはすべて新規
-                addIndexes = [];
+                diff = {
+                    adds: undefined,
+                    oldListValue: null,
+                    newListValue: newValue,
+                    oldIndexes: [],
+                    newIndexes: [],
+                };
+                for (let i = 0; i < (newValue?.length ?? 0); i++) {
+                    const newListIndex = createListIndex(parentListIndex, 0);
+                    diff.newIndexes.push(newListIndex);
+                }
+                diff.adds = new Set(diff.newIndexes);
             }
+            updateInfo.listDiffByRef.set(ref, diff);
         }
         // 子ノードを再帰的に処理
         for (const [name, childNode] of node.childNodeByName.entries()) {
-            const childInfo = getStructuredPathInfo(ref.info.pattern + "." + name);
+            if (engine.pathManager.getters.has(childNode.currentPath)) {
+                // getterの要素は対象外
+                continue;
+            }
+            const childInfo = getStructuredPathInfo(childNode.currentPath);
             if (name !== WILDCARD) {
                 const childRef = getStatePropertyRef(childInfo, ref.listIndex);
-                this.staticTraverseForPrepare(childRef, childNode, renderInfo, false);
+                this.recursiveCollectUpdates(engine, state, childRef, childNode, updateInfo, visitedRefs, false);
             }
             else {
-                if (addIndexes === null) {
+                if (diff === null) {
                     raiseError({
                         code: "UPD-002",
                         message: "Wildcard processing not implemented",
                         docsUrl: "./docs/error-codes.md#upd",
                     });
                 }
-                for (let i = 0; i < addIndexes.length; i++) {
-                    const childIndex = addIndexes[i];
+                for (let childIndex of (diff?.adds ?? [])) {
                     const childRef = getStatePropertyRef(childInfo, childIndex);
-                    this.staticTraverseForPrepare(childRef, childNode, renderInfo, false);
+                    this.recursiveCollectUpdates(engine, state, childRef, childNode, updateInfo, visitedRefs, false);
                 }
             }
         }
-        // 動的依存関係エントリーポイントの登録
-        if (this.#engine.pathManager.dynamicDependencies.has(ref.info.pattern)) {
-            renderInfo.dynamicDependencyEntryPoints.add(ref);
+    }
+    recursiveCollectGetterUpdates(engine, state, ref, node, updateInfo, collectRefs, visitedRefs, isSource) {
+        if (visitedRefs.has(ref))
+            return;
+        visitedRefs.add(ref);
+        let diff = null;
+        let newValue = undefined;
+        let isSetNewValue = false;
+        if (!collectRefs.has(ref)) {
+            // 
+            if (engine.pathManager.lists.has(ref.info.pattern)) {
+                diff = updateInfo.listDiffByRef?.get(ref) ?? null;
+                if (diff === null) {
+                    const { list: oldValue, listIndexes: oldIndexes } = this.getOldListAndListIndexes(engine, updateInfo, ref);
+                    // ToDo:直接getByRefWritableをコールして最適化する
+                    newValue = state[GetByRefSymbol](ref);
+                    isSetNewValue = true;
+                    const parentListIndex = ref.listIndex?.parentListIndex ?? null;
+                    diff = calcListDiff(parentListIndex, oldValue, newValue ?? [], oldIndexes);
+                    updateInfo.listDiffByRef.set(ref, diff);
+                }
+            }
+        }
+        else {
+            if (engine.pathManager.lists.has(ref.info.pattern)) {
+                diff = updateInfo.listDiffByRef.get(ref) ?? null;
+            }
+        }
+        if (engine.pathManager.getters.has(ref.info.pattern)) {
+            if (!isSetNewValue) {
+                newValue = state[GetByRefSymbol](ref);
+                isSetNewValue = true;
+            }
+            updateInfo.cacheValueByRef.set(ref, newValue);
+        }
+        // 子ノードを再帰的に処理
+        for (const [name, childNode] of node.childNodeByName.entries()) {
+            const childInfo = getStructuredPathInfo(childNode.currentPath);
+            if (name !== WILDCARD) {
+                const childRef = getStatePropertyRef(childInfo, ref.listIndex);
+                this.recursiveCollectGetterUpdates(engine, state, childRef, childNode, updateInfo, collectRefs, visitedRefs, false);
+            }
+            else {
+                if (diff === null) {
+                    raiseError({
+                        code: "UPD-002",
+                        message: "Wildcard processing not implemented",
+                        docsUrl: "./docs/error-codes.md#upd",
+                    });
+                }
+                for (let childIndex of (diff?.adds ?? [])) {
+                    const childRef = getStatePropertyRef(childInfo, childIndex);
+                    this.recursiveCollectGetterUpdates(engine, state, childRef, childNode, updateInfo, collectRefs, visitedRefs, false);
+                }
+            }
+        }
+        // 依存関係を再帰的に処理
+        for (const depPath of engine.pathManager.dynamicDependencies.get(ref.info.pattern) ?? []) {
+            const depInfo = getStructuredPathInfo(depPath);
+            const depNode = findPathNodeByPath(engine.pathManager.rootNode, depPath);
+            if (depNode === null) {
+                raiseError({
+                    code: "UPD-004",
+                    message: `Path node not found for dependency: ${depPath}`,
+                    docsUrl: "./docs/error-codes.md#upd",
+                });
+            }
+            if (depInfo.wildcardCount === 0) {
+                const depRef = getStatePropertyRef(depInfo, null);
+                this.recursiveCollectGetterUpdates(engine, state, depRef, depNode, updateInfo, collectRefs, visitedRefs, false);
+            }
+            else {
+                const matchPathSet = ref.info.wildcardParentPathSet.intersection(depInfo.wildcardParentPathSet);
+                const matchCount = matchPathSet.size;
+                if (matchCount >= depInfo.wildcardCount) {
+                    const depListIndex = ref.listIndex?.at(depInfo.wildcardCount - 1) ?? raiseError({
+                        code: "UPD-005",
+                        message: `ListIndex not found for dependency: ${depPath}`,
+                    });
+                    const depRef = getStatePropertyRef(depInfo, depListIndex);
+                    this.recursiveCollectGetterUpdates(engine, state, depRef, depNode, updateInfo, collectRefs, visitedRefs, false);
+                }
+                else {
+                    const walk = (parentListIndex, pathIndex, wildcardParentPaths) => {
+                        if (pathIndex <= wildcardParentPaths.length - 1) {
+                            const wildcardParentPath = wildcardParentPaths[pathIndex];
+                            const wildcardParentInfo = getStructuredPathInfo(wildcardParentPath);
+                            const wildcardRef = getStatePropertyRef(wildcardParentInfo, parentListIndex);
+                            // ToDo:過去インデックスではだめ
+                            const wildcardListIndexes = this.getOldListAndListIndexes(engine, updateInfo, wildcardRef)?.listIndexes ?? [];
+                            for (const wildcardListIndex of wildcardListIndexes) {
+                                walk(wildcardListIndex, pathIndex + 1, wildcardParentPaths);
+                            }
+                        }
+                        else {
+                            const depRef = getStatePropertyRef(depInfo, parentListIndex);
+                            this.recursiveCollectGetterUpdates(engine, state, depRef, depNode, updateInfo, collectRefs, visitedRefs, false);
+                        }
+                    };
+                    const parentListIndex = ref.listIndex?.at(matchCount - 1) ?? null;
+                    const pathIndex = matchCount;
+                    const wildcardParentPaths = depInfo.wildcardParentPaths;
+                    walk(parentListIndex, pathIndex, wildcardParentPaths);
+                }
+            }
         }
     }
-    prepareRender(ref) {
-        const renderInfo = {
-            staticVisited: new Set(),
-            dynamicDependencyEntryPoints: new Set(),
-        };
+    prepareRender(engine, state, updateInfo, ref) {
         const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
         if (node === null) {
             raiseError({
@@ -2945,7 +3128,11 @@ class Updater {
                 docsUrl: "./docs/error-codes.md#upd",
             });
         }
-        this.staticTraverseForPrepare(ref, node, renderInfo, true);
+        const collectRefs = new Set();
+        this.recursiveCollectUpdates(engine, state, ref, node, updateInfo, collectRefs, true);
+        const collectGetterRefs = new Set();
+        this.recursiveCollectGetterUpdates(engine, state, ref, node, updateInfo, collectRefs, collectGetterRefs, true);
+        updateInfo.updatedRefs = updateInfo.updatedRefs.union(collectRefs).union(collectGetterRefs);
     }
 }
 async function update(engine, loopContext, callback) {
@@ -5288,6 +5475,8 @@ class ComponentEngine {
         return this.owner.constructor.pathManager;
     }
     setup() {
+        // 実体化された state オブジェクトのプロパティをすべて PathManager に登録する
+        // ToDo:prototypeを遡ったほうが良い
         for (const path in this.state) {
             if (RESERVED_WORD_SET.has(path) || this.pathManager.alls.has(path)) {
                 continue;
@@ -5786,6 +5975,7 @@ class PathManager {
     getters = new Set();
     onlyGetters = new Set();
     setters = new Set();
+    getterSetters = new Set();
     optimizes = new Set();
     staticDependencies = new Map();
     dynamicDependencies = new Map();
@@ -5830,6 +6020,9 @@ class PathManager {
                     }
                     if (hasGetter && !hasSetter) {
                         this.onlyGetters.add(key);
+                    }
+                    if (hasGetter && hasSetter) {
+                        this.getterSetters.add(key);
                     }
                 }
             }

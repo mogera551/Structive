@@ -9,7 +9,9 @@ class PathManager {
     elements = new Set();
     funcs = new Set();
     getters = new Set();
+    onlyGetters = new Set();
     setters = new Set();
+    getterSetters = new Set();
     optimizes = new Set();
     staticDependencies = new Map();
     dynamicDependencies = new Map();
@@ -51,6 +53,12 @@ class PathManager {
                     }
                     if (hasSetter) {
                         this.setters.add(key);
+                    }
+                    if (hasGetter && !hasSetter) {
+                        this.onlyGetters.add(key);
+                    }
+                    if (hasGetter && hasSetter) {
+                        this.getterSetters.add(key);
                     }
                 }
             }

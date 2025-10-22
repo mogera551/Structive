@@ -28,8 +28,7 @@ export function resolve(target, prop, receiver, handler) {
         const lastInfo = handler.lastRefStack?.info ?? null;
         if (lastInfo !== null && lastInfo.pattern !== info.pattern) {
             // gettersに含まれる場合は依存関係を登録
-            if (handler.engine.pathManager.getters.has(lastInfo.pattern) &&
-                !handler.engine.pathManager.setters.has(lastInfo.pattern)) {
+            if (handler.engine.pathManager.onlyGetters.has(lastInfo.pattern)) {
                 handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, info.pattern);
             }
         }
