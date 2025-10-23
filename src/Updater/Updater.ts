@@ -152,6 +152,7 @@ class Updater implements IUpdater {
         }
         diff.adds = new Set<IListIndex>(diff.newIndexes);
       }
+      engine.saveListAndListIndexes(ref, newValue, diff.newIndexes);
       updateInfo.listDiffByRef.set(ref, diff);
     }
 
@@ -210,6 +211,7 @@ class Updater implements IUpdater {
           isSetNewValue = true;
           const parentListIndex = ref.listIndex;
           diff = calcListDiff(parentListIndex, oldValue, newValue ?? [], oldIndexes);
+          engine.saveListAndListIndexes(ref, newValue, diff.newIndexes);
           updateInfo.listDiffByRef.set(ref, diff);
         }
       }
@@ -219,6 +221,7 @@ class Updater implements IUpdater {
       }
 
     }
+/*
     if (engine.pathManager.getters.has(ref.info.pattern)) {
       if (!isSetNewValue) {
         newValue = state[GetByRefSymbol](ref);
@@ -226,7 +229,7 @@ class Updater implements IUpdater {
       }
       updateInfo.cacheValueByRef.set(ref, newValue);
     }
-
+*/
     // 子ノードを再帰的に処理
     for(const [name, childNode] of node.childNodeByName.entries()) {
       const childInfo = getStructuredPathInfo(childNode.currentPath);
@@ -278,8 +281,7 @@ class Updater implements IUpdater {
               const wildcardParentPath = wildcardParentPaths[pathIndex];
               const wildcardParentInfo = getStructuredPathInfo(wildcardParentPath);
               const wildcardRef = getStatePropertyRef(wildcardParentInfo, parentListIndex);
-              // ToDo:過去インデックスではだめ
-              const wildcardListIndexes = this.getOldListAndListIndexes(engine, updateInfo, wildcardRef)?.listIndexes ?? [];
+              const wildcardListIndexes = engine.getListAndListIndexes(wildcardRef)?.listIndexes ?? [];
               for(const wildcardListIndex of wildcardListIndexes) {
                 walk(wildcardListIndex, pathIndex + 1, wildcardParentPaths);
               }
