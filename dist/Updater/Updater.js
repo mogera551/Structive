@@ -108,7 +108,7 @@ class Updater {
             const { list: oldValue, listIndexes: oldIndexes } = this.getOldListAndListIndexes(engine, updateInfo, ref);
             // ToDo:直接getByRefWritableをコールして最適化する
             const newValue = state[GetByRefSymbol](ref);
-            const parentListIndex = ref.listIndex?.parentListIndex ?? null;
+            const parentListIndex = ref.listIndex;
             if (isSource) {
                 // リスト差分取得
                 diff = calcListDiff(parentListIndex, oldValue, newValue ?? [], oldIndexes);
@@ -172,7 +172,7 @@ class Updater {
                     // ToDo:直接getByRefWritableをコールして最適化する
                     newValue = state[GetByRefSymbol](ref);
                     isSetNewValue = true;
-                    const parentListIndex = ref.listIndex?.parentListIndex ?? null;
+                    const parentListIndex = ref.listIndex;
                     diff = calcListDiff(parentListIndex, oldValue, newValue ?? [], oldIndexes);
                     updateInfo.listDiffByRef.set(ref, diff);
                 }
