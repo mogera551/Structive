@@ -4,7 +4,7 @@ import { FilterWithOptions } from "../Filter/types";
 import { IState, IStructiveState } from "../StateClass/types";
 import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
 import { attachShadow } from "./attachShadow.js";
-import { ISaveInfoByResolvedPathInfo, IComponentEngine } from "./types";
+import { ISaveInfoByResolvedPathInfo, IComponentEngine, ICacheEntry } from "./types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
@@ -62,6 +62,7 @@ export class ComponentEngine implements IComponentEngine {
   inputFilters  : FilterWithOptions;
   outputFilters : FilterWithOptions;
   #bindContent  :IBindContent | null = null;
+ 
   get bindContent(): IBindContent {
     if (this.#bindContent === null) {
       raiseError({
@@ -91,6 +92,16 @@ export class ComponentEngine implements IComponentEngine {
   #blockParentNode: Node | null = null; // ブロックプレースホルダーの親ノード
   #ignoreDissconnectedCallback: boolean = false; // disconnectedCallbackを無視するフラグ
 
+  #currentVersion: number = 0;
+  get currentVersion(): number {
+    return this.#currentVersion;
+  }
+
+  versionUp(): number {
+    return ++this.#currentVersion;
+  }
+
+  cache: WeakMap<IStatePropertyRef, ICacheEntry> = new WeakMap(); // StatePropertyRefごとのキャッシュエントリ
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
     if (this.config.extends) {

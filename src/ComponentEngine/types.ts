@@ -36,6 +36,8 @@ export interface IComponentEngine {
   baseClass     : typeof HTMLElement;
   owner         : StructiveComponent;
   waitForInitialize: PromiseWithResolvers<void>;
+  readonly currentVersion: number;
+  cache: WeakMap<IStatePropertyRef, ICacheEntry>; // StatePropertyRefごとのキャッシュエントリ
 
   bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する
 
@@ -59,6 +61,8 @@ export interface IComponentEngine {
   setPropertyValue(ref: IStatePropertyRef, value: any): void; // プロパティの値を設定する
   registerChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録する
   unregisterChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録解除する
+
+  versionUp(): number;
 }
 
 /**
@@ -68,4 +72,10 @@ export interface ISaveInfoByResolvedPathInfo {
   list       : any[] | null;
   listIndexes: IListIndex[] | null;
   listClone  : any[] | null;
+}
+
+export interface ICacheEntry {
+  value: any;
+  version: number;
+  revision: number;
 }

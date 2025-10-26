@@ -9,6 +9,9 @@ import { IStatePropertyRef } from "../StatePropertyRef/types";
  * 状態管理を更新し、必要に応じてレンダリングを行うインターフェース
  */
 export interface IUpdater {
+  readonly version: number;
+  readonly revision: number;
+  revisionByUpdatedPath: Map<string, number>;
   /**
    * 更新したRef情報をキューに追加します。
    * @param ref 更新するStateプロパティの参照情報 (IStatePropertyRef)

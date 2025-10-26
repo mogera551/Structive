@@ -73,6 +73,14 @@ export class ComponentEngine {
     #blockPlaceholder = null; // ブロックプレースホルダー
     #blockParentNode = null; // ブロックプレースホルダーの親ノード
     #ignoreDissconnectedCallback = false; // disconnectedCallbackを無視するフラグ
+    #currentVersion = 0;
+    get currentVersion() {
+        return this.#currentVersion;
+    }
+    versionUp() {
+        return ++this.#currentVersion;
+    }
+    cache = new WeakMap(); // StatePropertyRefごとのキャッシュエントリ
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {

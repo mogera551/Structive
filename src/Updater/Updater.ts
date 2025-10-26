@@ -12,6 +12,7 @@ import { GetByRefSymbol } from "../StateClass/symbols";
 import { IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
+import { IStructuredPathInfo } from "../StateProperty/types";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
@@ -32,8 +33,28 @@ class Updater implements IUpdater {
   #state: IStateProxy | undefined = undefined;
   #updateInfo: IUpdateInfo;
 
+  #version: number;
+  #revision: number = 0;
+  #cacheValueByRef: WeakMap<IStatePropertyRef, any> = new WeakMap();
+  #listDiffByRef: WeakMap<IStatePropertyRef, IListDiff> = new WeakMap();
+  #oldValueAndIndexesByRef: WeakMap<IStatePropertyRef, ISaveInfoByResolvedPathInfo> = new WeakMap();
+  #revisionByUpdatedPath: Map<string, number> = new Map();
+
+  get revisionByUpdatedPath(): Map<string, number> {
+    return this.#revisionByUpdatedPath;
+  }
+
+  get version(): number {
+    return this.#version;
+  }
+
+  get revision(): number {
+    return this.#revision;
+  }
+
   constructor(engine: IComponentEngine) {
     this.#engine = engine;
+    this.#version = engine.versionUp();
     this.#updateInfo = {
       updatedRefs: new Set<IStatePropertyRef>(),
       cacheValueByRef: new Map<IStatePropertyRef, any>(),
@@ -49,8 +70,9 @@ class Updater implements IUpdater {
 
   // Ref情報をキューに追加
   enqueueRef(ref: IStatePropertyRef): void {
+    this.#revision++;
     this.queue.push(ref);
-    this.prepareRender(this.#engine, this.state, this.#updateInfo, ref);
+    this.collectMaybeUpdates(this.#engine, ref.info.pattern, this.#revisionByUpdatedPath, this.#revision);
     if (this.#rendering) return;
     this.#rendering = true;
     queueMicrotask(() => {
@@ -105,214 +127,48 @@ class Updater implements IUpdater {
     return saveInfo;
   }
 
-  /**
-   * getterではないパスの収集をする
-   * getterとその子要素は対象としない
-   * あわせて更新情報を作成する
-   * getterの演算前に、状態を確定させる目的で使用する
-   * @param ref 
-   * @param node 
-   * @param updateInfo 
-   * @param isSource 
-   * @returns 
-   */
-  recursiveCollectUpdates(
+  recursiveCollectMaybeUpdates(
     engine: IComponentEngine,
-    state: IStateProxy,
-    ref: IStatePropertyRef, 
-    node: IPathNode, 
-    updateInfo: IUpdateInfo, 
-    visitedRefs: Set<IStatePropertyRef>,
-    isSource: boolean
+    path: string,
+    node: IPathNode,
+    revisionByUpdatedPath: Map<string, number>,
+    revision: number,
+    visitedInfo: Set<string>,
   ): void {
-    if (visitedRefs.has(ref)) return;
-    visitedRefs.add(ref);
+    if (visitedInfo.has(path)) return;
+    visitedInfo.add(path);
+    revisionByUpdatedPath.set(path, revision);
 
-    let diff: IListDiff | null = null;
-    if (engine.pathManager.lists.has(ref.info.pattern)) {
-      const { list:oldValue, listIndexes:oldIndexes } = this.getOldListAndListIndexes(engine, updateInfo, ref);
-      // ToDo:直接getByRefWritableをコールして最適化する
-      const newValue = state[GetByRefSymbol](ref);
-      const parentListIndex = ref.listIndex;
-      if (isSource) {
-        // リスト差分取得
-        diff = calcListDiff(parentListIndex, oldValue, newValue ?? [], oldIndexes);
-      } else {
-        // リストはすべて新規
-        diff = {
-          adds: undefined,
-          oldListValue: null,
-          newListValue: newValue,
-          oldIndexes: [],
-          newIndexes: [],
-        }
-        for(let i = 0; i < (newValue?.length ?? 0); i++) {
-          const newListIndex = createListIndex(parentListIndex, 0);
-          diff.newIndexes.push(newListIndex);
-        }
-        diff.adds = new Set<IListIndex>(diff.newIndexes);
-      }
-      engine.saveListAndListIndexes(ref, newValue, diff.newIndexes);
-      updateInfo.listDiffByRef.set(ref, diff);
-    }
-
-    // 子ノードを再帰的に処理
     for(const [name, childNode] of node.childNodeByName.entries()) {
-      if (engine.pathManager.getters.has(childNode.currentPath)) {
-        // getterの要素は対象外
-        continue;
-      }
-
-      const childInfo = getStructuredPathInfo(childNode.currentPath);
-      if (name !== WILDCARD) {
-        const childRef = getStatePropertyRef(childInfo, ref.listIndex);
-        this.recursiveCollectUpdates(engine, state, childRef, childNode, updateInfo, visitedRefs, false);
-      } else {
-        if (diff === null) {
-          raiseError({
-            code: "UPD-002",
-            message: "Wildcard processing not implemented",
-            docsUrl: "./docs/error-codes.md#upd",
-          });
-        }
-        for(let childIndex of (diff?.adds ?? [])) {
-          const childRef = getStatePropertyRef(childInfo, childIndex);
-          this.recursiveCollectUpdates(engine, state, childRef, childNode, updateInfo, visitedRefs, false);
-        }
-      }
+      const childPath = childNode.currentPath;
+      this.recursiveCollectMaybeUpdates(engine, childPath, childNode, revisionByUpdatedPath, revision, visitedInfo);
     }
 
-  }
-
-  recursiveCollectGetterUpdates(
-    engine: IComponentEngine,
-    state: IStateProxy,
-    ref: IStatePropertyRef, 
-    node: IPathNode, 
-    updateInfo: IUpdateInfo, 
-    collectRefs: Set<IStatePropertyRef>,
-    visitedRefs: Set<IStatePropertyRef>,
-    isSource: boolean
-  ): void {
-    if (visitedRefs.has(ref)) return;
-    visitedRefs.add(ref);
-
-    let diff : IListDiff | null = null;
-    let newValue : any = undefined;
-    let isSetNewValue: boolean = false;
-    if (!collectRefs.has(ref)) {
-      // 
-      if (engine.pathManager.lists.has(ref.info.pattern)) {
-        diff = updateInfo.listDiffByRef?.get(ref) ?? null;
-        if (diff === null) {
-          const { list:oldValue, listIndexes:oldIndexes } = this.getOldListAndListIndexes(engine, updateInfo, ref);
-          // ToDo:直接getByRefWritableをコールして最適化する
-          newValue = state[GetByRefSymbol](ref);
-          isSetNewValue = true;
-          const parentListIndex = ref.listIndex;
-          diff = calcListDiff(parentListIndex, oldValue, newValue ?? [], oldIndexes);
-          engine.saveListAndListIndexes(ref, newValue, diff.newIndexes);
-          updateInfo.listDiffByRef.set(ref, diff);
-        }
-      }
-    } else {
-      if (engine.pathManager.lists.has(ref.info.pattern)) {
-        diff = updateInfo.listDiffByRef.get(ref) ?? null;
-      }
-
-    }
-/*
-    if (engine.pathManager.getters.has(ref.info.pattern)) {
-      if (!isSetNewValue) {
-        newValue = state[GetByRefSymbol](ref);
-        isSetNewValue = true;
-      }
-      updateInfo.cacheValueByRef.set(ref, newValue);
-    }
-*/
-    // 子ノードを再帰的に処理
-    for(const [name, childNode] of node.childNodeByName.entries()) {
-      const childInfo = getStructuredPathInfo(childNode.currentPath);
-      if (name !== WILDCARD) {
-        const childRef = getStatePropertyRef(childInfo, ref.listIndex);
-        this.recursiveCollectGetterUpdates(engine, state, childRef, childNode, updateInfo, collectRefs, visitedRefs, false);
-      } else {
-        if (diff === null) {
-          raiseError({
-            code: "UPD-002",
-            message: "Wildcard processing not implemented",
-            docsUrl: "./docs/error-codes.md#upd",
-          });
-        }
-        for(let childIndex of (diff?.adds ?? [])) {
-          const childRef = getStatePropertyRef(childInfo, childIndex);
-          this.recursiveCollectGetterUpdates(engine, state, childRef, childNode, updateInfo, collectRefs, visitedRefs, false);
-        }
-      }
-    }
-
-    // 依存関係を再帰的に処理
-    for(const depPath of engine.pathManager.dynamicDependencies.get(ref.info.pattern) ?? []) {
-      const depInfo = getStructuredPathInfo(depPath);
+    const deps = engine.pathManager.dynamicDependencies.get(path) ?? [];
+    for(const depPath of deps) {
       const depNode = findPathNodeByPath(engine.pathManager.rootNode, depPath);
       if (depNode === null) {
         raiseError({
           code: "UPD-004",
-          message: `Path node not found for dependency: ${depPath}`,
+          message: `Path node not found for pattern: ${depPath}`,
           docsUrl: "./docs/error-codes.md#upd",
         });
       }
-      if (depInfo.wildcardCount === 0) {
-        const depRef = getStatePropertyRef(depInfo, null);
-        this.recursiveCollectGetterUpdates(engine, state, depRef, depNode, updateInfo, collectRefs, visitedRefs, false);
-      } else {
-        const matchPathSet = ref.info.wildcardParentPathSet.intersection(depInfo.wildcardParentPathSet);
-        const matchCount = matchPathSet.size;
-        if (matchCount >= depInfo.wildcardCount) {
-          const depListIndex = ref.listIndex?.at(depInfo.wildcardCount - 1) ?? raiseError({
-            code: "UPD-005",
-            message: `ListIndex not found for dependency: ${depPath}`,
-          });
-          const depRef = getStatePropertyRef(depInfo, depListIndex);
-          this.recursiveCollectGetterUpdates(engine, state, depRef, depNode, updateInfo, collectRefs, visitedRefs, false);
-        } else {
-          const walk = (parentListIndex: IListIndex | null, pathIndex: number, wildcardParentPaths: string[]) => {
-            if (pathIndex <= wildcardParentPaths.length - 1) {
-              const wildcardParentPath = wildcardParentPaths[pathIndex];
-              const wildcardParentInfo = getStructuredPathInfo(wildcardParentPath);
-              const wildcardRef = getStatePropertyRef(wildcardParentInfo, parentListIndex);
-              const wildcardListIndexes = engine.getListAndListIndexes(wildcardRef)?.listIndexes ?? [];
-              for(const wildcardListIndex of wildcardListIndexes) {
-                walk(wildcardListIndex, pathIndex + 1, wildcardParentPaths);
-              }
-            } else {
-              const depRef = getStatePropertyRef(depInfo, parentListIndex);
-              this.recursiveCollectGetterUpdates(engine, state, depRef, depNode, updateInfo, collectRefs, visitedRefs, false);
-            }
-          }
-          const parentListIndex = ref.listIndex?.at(matchCount - 1) ?? null;
-          const pathIndex = matchCount;
-          const wildcardParentPaths = depInfo.wildcardParentPaths;
-          walk(parentListIndex, pathIndex, wildcardParentPaths);
-        }
-      }
+      this.recursiveCollectMaybeUpdates(engine, depPath
+        , depNode, revisionByUpdatedPath, revision, visitedInfo);
     }
   }
 
-  prepareRender(engine: IComponentEngine, state: IStateProxy, updateInfo: IUpdateInfo, ref: IStatePropertyRef): void {
-    const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
+  collectMaybeUpdates(engine: IComponentEngine, path: string, revisionByUpdatePath: Map<string, number>, revision: number): void {
+    const node = findPathNodeByPath(engine.pathManager.rootNode, path);
     if (node === null) {
       raiseError({
         code: "UPD-003",
-        message: `Path node not found for pattern: ${ref.info.pattern}`,
+        message: `Path node not found for pattern: ${path}`,
         docsUrl: "./docs/error-codes.md#upd",
       });
     }
-    const collectRefs = new Set<IStatePropertyRef>();
-    this.recursiveCollectUpdates(engine, state, ref, node, updateInfo, collectRefs, true);
-    const collectGetterRefs = new Set<IStatePropertyRef>();
-    this.recursiveCollectGetterUpdates(engine, state, ref, node, updateInfo, collectRefs, collectGetterRefs, true);
-    updateInfo.updatedRefs = updateInfo.updatedRefs.union(collectRefs).union(collectGetterRefs);
+    this.recursiveCollectMaybeUpdates(engine, path, node, revisionByUpdatePath, revision, new Set<string>());
   }
 }
 

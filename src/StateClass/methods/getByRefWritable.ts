@@ -45,6 +45,28 @@ export function getByRefWritable(
   receiver : IWritableStateProxy,
   handler  : IWritableStateHandler
 ): any {
+  let value: any;
+  const cacheable = handler.engine.pathManager.getters.has(ref.info.pattern);
+  if (cacheable) {
+    const cacheEntry = handler.engine.cache.get(ref);
+    const revision = handler.updater.revisionByUpdatedPath.get(ref.info.pattern);
+    if (typeof cacheEntry !== "undefined") {
+      if (typeof revision === "undefined") {
+        // 更新なし
+        return cacheEntry.value;
+      } else {
+        if (cacheEntry.version > handler.updater.version) {
+          // これは非同期更新が発生した場合にありえる
+          return cacheEntry.value;
+        }
+        if (cacheEntry.version < handler.updater.version || cacheEntry.revision < revision) {
+          // 更新あり
+        } else {
+          return cacheEntry.value;
+        }
+      }
+    }
+  }
   checkDependency(handler, ref);
 
   // 親子関係のあるgetterが存在する場合は、外部依存から取得
@@ -61,17 +83,13 @@ export function getByRefWritable(
     }
     handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
     try {
-      return Reflect.get(target, ref.info.pattern, receiver);
+      return value = Reflect.get(target, ref.info.pattern, receiver);
     } finally {
       handler.refStack[handler.refIndex] = null;
       handler.refIndex--;
       handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+      handler.engine.cache.set(ref, { value, version: handler.updater.version, revision: handler.updater.revision });
     }
-/*
-    return setStatePropertyRef(handler, ref, () => {
-      return Reflect.get(target, ref.info.pattern, receiver);
-    });
-*/
   } else {
     // 存在しない場合は親infoを辿って再帰的に取得
     const parentInfo = ref.info.parentInfo ?? raiseError({
