@@ -4,17 +4,17 @@ import { GetByRefSymbol, SetCacheableSymbol } from "./symbols";
 const STACK_DEPTH = 32;
 class StateHandler {
     engine;
+    updater;
     cache = null;
     refStack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
     lastRefStack = null;
     loopContext = null;
-    renderer = null;
     #setMethods = new Set([GetByRefSymbol, SetCacheableSymbol]);
     #setApis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
-    constructor(engine, renderer) {
+    constructor(engine, updater) {
         this.engine = engine;
-        this.renderer = renderer;
+        this.updater = updater;
     }
     get(target, prop, receiver) {
         return trapGet(target, prop, receiver, this);
@@ -31,8 +31,8 @@ class StateHandler {
         return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
     }
 }
-export function createReadonlyStateHandler(engine, renderer) {
-    return new StateHandler(engine, renderer);
+export function createReadonlyStateHandler(engine, updater) {
+    return new StateHandler(engine, updater);
 }
 export function createReadonlyStateProxy(state, handler) {
     return new Proxy(state, handler);

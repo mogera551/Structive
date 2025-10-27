@@ -18,7 +18,7 @@ import { IReadonlyStateHandler, IState, IReadonlyStateProxy } from "./types";
 import { getReadonly as trapGet } from "./traps/getReadonly.js";
 import { raiseError } from "../utils";
 import { ILoopContext } from "../LoopContext/types";
-import { IRenderer } from "../Updater/types";
+import { IRenderer, IUpdater } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { GetByRefSymbol, SetCacheableSymbol } from "./symbols";
 
@@ -26,18 +26,18 @@ const STACK_DEPTH = 32;
 
 class StateHandler implements IReadonlyStateHandler {
   engine: IComponentEngine;
+  updater: IUpdater;
   cache: Map<IStatePropertyRef, any> | null = null;
   refStack: (IStatePropertyRef | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   lastRefStack: IStatePropertyRef | null = null;
   loopContext: ILoopContext | null = null;
-  renderer: IRenderer | null = null;
   #setMethods = new Set<PropertyKey>([ GetByRefSymbol, SetCacheableSymbol ]);
   #setApis = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
 
-  constructor(engine: IComponentEngine, renderer: IRenderer | null) {
+  constructor(engine: IComponentEngine, updater: IUpdater) {
     this.engine = engine;
-    this.renderer = renderer;
+    this.updater = updater;
   }
 
   get(
@@ -70,8 +70,8 @@ class StateHandler implements IReadonlyStateHandler {
   }
 }
 
-export function createReadonlyStateHandler(engine: IComponentEngine, renderer: IRenderer | null): IReadonlyStateHandler {
-  return new StateHandler(engine, renderer);
+export function createReadonlyStateHandler(engine: IComponentEngine, updater: IUpdater): IReadonlyStateHandler {
+  return new StateHandler(engine, updater);
 }
 
 export function createReadonlyStateProxy(

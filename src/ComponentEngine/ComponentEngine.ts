@@ -292,9 +292,13 @@ export class ComponentEngine implements IComponentEngine {
 
   getPropertyValue(ref: IStatePropertyRef): any {
     // プロパティの値を取得する
+    //ToDo: Readableを考える
+    /*
     const handler = createReadonlyStateHandler(this, null);
     const stateProxy = createReadonlyStateProxy(this.state, handler);
     return stateProxy[GetByRefSymbol](ref);
+    */
+    return null;
   }
   setPropertyValue(ref: IStatePropertyRef, value: any): void {
     // プロパティの値を設定する

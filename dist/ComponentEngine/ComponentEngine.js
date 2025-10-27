@@ -1,9 +1,8 @@
 import { createBindContent } from "../DataBinding/BindContent.js";
 import { attachShadow } from "./attachShadow.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
-import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy.js";
 import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
 import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
@@ -257,9 +256,13 @@ export class ComponentEngine {
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する
+        //ToDo: Readableを考える
+        /*
         const handler = createReadonlyStateHandler(this, null);
         const stateProxy = createReadonlyStateProxy(this.state, handler);
         return stateProxy[GetByRefSymbol](ref);
+        */
+        return null;
     }
     setPropertyValue(ref, value) {
         // プロパティの値を設定する

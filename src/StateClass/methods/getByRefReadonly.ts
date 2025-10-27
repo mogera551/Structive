@@ -118,10 +118,12 @@ export function getByRefReadonly(
     }
   } finally {
     // リストの場合、リスト差分計算
+/*
     if (handler.renderer != null) {
       if (handler.engine.pathManager.lists.has(ref.info.pattern)) {
         handler.renderer.calcListDiff(ref, value as any[] | undefined | null, true);
       }
     }
+*/
   }
 }

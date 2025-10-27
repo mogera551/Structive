@@ -1637,11 +1637,13 @@ function getByRefReadonly(target, ref, receiver, handler) {
     }
     finally {
         // リストの場合、リスト差分計算
-        if (handler.renderer != null) {
-            if (handler.engine.pathManager.lists.has(ref.info.pattern)) {
-                handler.renderer.calcListDiff(ref, value, true);
+        /*
+            if (handler.renderer != null) {
+              if (handler.engine.pathManager.lists.has(ref.info.pattern)) {
+                handler.renderer.calcListDiff(ref, value as any[] | undefined | null, true);
+              }
             }
-        }
+        */
     }
 }
 
@@ -2454,17 +2456,17 @@ function getReadonly(target, prop, receiver, handler) {
 const STACK_DEPTH = 32;
 class StateHandler {
     engine;
+    updater;
     cache = null;
     refStack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
     lastRefStack = null;
     loopContext = null;
-    renderer = null;
     #setMethods = new Set([GetByRefSymbol, SetCacheableSymbol]);
     #setApis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
-    constructor(engine, renderer) {
+    constructor(engine, updater) {
         this.engine = engine;
-        this.renderer = renderer;
+        this.updater = updater;
     }
     get(target, prop, receiver) {
         return getReadonly(target, prop, receiver, this);
@@ -2481,8 +2483,8 @@ class StateHandler {
         return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
     }
 }
-function createReadonlyStateHandler(engine, renderer) {
-    return new StateHandler(engine, renderer);
+function createReadonlyStateHandler(engine, updater) {
+    return new StateHandler(engine, updater);
 }
 function createReadonlyStateProxy(state, handler) {
     return new Proxy(state, handler);
@@ -2544,8 +2546,10 @@ class Renderer {
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
      */
     #reorderIndexesByRef = new Map();
-    constructor(engine) {
+    #updater;
+    constructor(engine, updater) {
         this.#engine = engine;
+        this.#updater = updater;
     }
     /**
      * このサイクル中に更新された Binding の集合を返す（読み取り専用的に使用）。
@@ -2725,7 +2729,7 @@ class Renderer {
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
-        this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this);
+        this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this.#updater);
         const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine.state, this.#readonlyHandler);
         try {
             readonlyState[SetCacheableSymbol](() => {
@@ -2878,8 +2882,8 @@ class Renderer {
 /**
  * 便宜関数。Renderer のインスタンス化と render 呼び出しをまとめて行う。
  */
-function render(refs, engine) {
-    const renderer = new Renderer(engine);
+function render(refs, engine, updater) {
+    const renderer = new Renderer(engine, updater);
     renderer.render(refs);
 }
 
@@ -2965,7 +2969,7 @@ class Updater {
                         docsUrl: "./docs/error-codes.md#upd",
                     });
                 // レンダリング実行
-                render(queue, this.#engine);
+                render(queue, this.#engine, this);
             }
         }
         finally {
@@ -5518,9 +5522,13 @@ class ComponentEngine {
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する
+        //ToDo: Readableを考える
+        /*
         const handler = createReadonlyStateHandler(this, null);
         const stateProxy = createReadonlyStateProxy(this.state, handler);
         return stateProxy[GetByRefSymbol](ref);
+        */
+        return null;
     }
     setPropertyValue(ref, value) {
         // プロパティの値を設定する

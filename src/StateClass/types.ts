@@ -63,11 +63,11 @@ export type IStructiveState = Constructor<IState> & IStructiveStaticState;
 
 export interface IReadonlyStateHandler {
   engine      : IComponentEngine;
+  updater     : IUpdater;
   cache       : Map<IStatePropertyRef, any> | null;
   refStack    : (IStatePropertyRef | null)[];
   refIndex    : number;
   lastRefStack: IStatePropertyRef | null;
-  renderer    : IRenderer | null;
   get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IReadonlyStateProxy): boolean;
 }

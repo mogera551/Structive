@@ -84,7 +84,7 @@ class Updater {
                         docsUrl: "./docs/error-codes.md#upd",
                     });
                 // レンダリング実行
-                render(queue, this.#engine);
+                render(queue, this.#engine, this);
             }
         }
         finally {

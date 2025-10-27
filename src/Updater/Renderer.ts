@@ -14,7 +14,7 @@ import { IStructuredPathInfo } from "../StateProperty/types";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
-import { IRenderer } from "./types";
+import { IRenderer, IUpdater } from "./types";
 
 /**
  * Renderer は、State の変更（参照 IStatePropertyRef の集合）に対応して、
@@ -74,8 +74,11 @@ class Renderer implements IRenderer {
    */
   #reorderIndexesByRef: Map<IStatePropertyRef, number[]> = new Map();
 
-  constructor(engine: IComponentEngine) {
+  #updater: IUpdater;
+
+  constructor(engine: IComponentEngine, updater: IUpdater) {
     this.#engine = engine;
+    this.#updater = updater;
   }
 
   /**
@@ -262,7 +265,7 @@ class Renderer implements IRenderer {
     this.#updatedBindings.clear();
 
     // 実際のレンダリングロジックを実装
-    this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this);
+    this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this.#updater);
     const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine.state, this.#readonlyHandler);
     try {
       readonlyState[SetCacheableSymbol](() => {
@@ -424,7 +427,7 @@ class Renderer implements IRenderer {
 /**
  * 便宜関数。Renderer のインスタンス化と render 呼び出しをまとめて行う。
  */
-export function render(refs: IStatePropertyRef[], engine: IComponentEngine): void {
-  const renderer = new Renderer(engine);
+export function render(refs: IStatePropertyRef[], engine: IComponentEngine, updater: IUpdater): void {
+  const renderer = new Renderer(engine, updater);
   renderer.render(refs);
 }

@@ -62,8 +62,10 @@ class Renderer {
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
      */
     #reorderIndexesByRef = new Map();
-    constructor(engine) {
+    #updater;
+    constructor(engine, updater) {
         this.#engine = engine;
+        this.#updater = updater;
     }
     /**
      * このサイクル中に更新された Binding の集合を返す（読み取り専用的に使用）。
@@ -243,7 +245,7 @@ class Renderer {
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
-        this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this);
+        this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this.#updater);
         const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine.state, this.#readonlyHandler);
         try {
             readonlyState[SetCacheableSymbol](() => {
@@ -396,7 +398,7 @@ class Renderer {
 /**
  * 便宜関数。Renderer のインスタンス化と render 呼び出しをまとめて行う。
  */
-export function render(refs, engine) {
-    const renderer = new Renderer(engine);
+export function render(refs, engine, updater) {
+    const renderer = new Renderer(engine, updater);
     renderer.render(refs);
 }
