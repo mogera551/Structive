@@ -174,13 +174,19 @@ class Updater implements IUpdater {
     path: string,
     node: IPathNode,
     visitedInfo: Set<string>,
+    isSource: boolean
   ): void {
     if (visitedInfo.has(path)) return;
+    // swapの場合スキップしたい
+    if (isSource && engine.pathManager.elements.has(path)) {
+      return;
+
+    }
     visitedInfo.add(path);
 
     for(const [name, childNode] of node.childNodeByName.entries()) {
       const childPath = childNode.currentPath;
-      this.recursiveCollectMaybeUpdates(engine, childPath, childNode, visitedInfo);
+      this.recursiveCollectMaybeUpdates(engine, childPath, childNode, visitedInfo, false);
     }
 
     const deps = engine.pathManager.dynamicDependencies.get(path) ?? [];
@@ -193,7 +199,7 @@ class Updater implements IUpdater {
           docsUrl: "./docs/error-codes.md#upd",
         });
       }
-      this.recursiveCollectMaybeUpdates(engine, depPath, depNode, visitedInfo);
+      this.recursiveCollectMaybeUpdates(engine, depPath, depNode, visitedInfo, false);
     }
   }
 
@@ -212,10 +218,10 @@ class Updater implements IUpdater {
     let updatedPaths = this.#cacheUpdatedPathsByPath.get(path);
     if (typeof updatedPaths === "undefined") {
       updatedPaths = new Set<string>();
-      this.recursiveCollectMaybeUpdates(engine, path, node, updatedPaths);
+      this.recursiveCollectMaybeUpdates(engine, path, node, updatedPaths, true);
     }
     for(const updatedPath of updatedPaths) {
-      revisionByUpdatedPath.set(path, revision);
+      revisionByUpdatedPath.set(updatedPath, revision);
     }
     this.#cacheUpdatedPathsByPath.set(path, updatedPaths);
   }
