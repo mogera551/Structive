@@ -1,7 +1,7 @@
 /**
- * getAllWritable
+ * getAllReadonly
  *
- * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する（Writable版）。
+ * ワイルドカードを含む State パスから、対象となる全要素を配列で取得する。
  * Throws: LIST-201（インデックス未解決）、BIND-201（ワイルドカード情報不整合）
  */
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
@@ -9,8 +9,8 @@ import { raiseError } from "../../utils.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { resolve } from "./resolve.js";
-import { getByRefWritable } from "../methods/getByRefWritable.js";
-export function getAllWritable(target, prop, receiver, handler) {
+import { getByRef } from "../methods/getByRef.js";
+export function getAll(target, prop, receiver, handler) {
     const resolveFn = resolve(target, prop, receiver, handler);
     return (path, indexes) => {
         const info = getStructuredPathInfo(path);
@@ -47,7 +47,7 @@ export function getAllWritable(target, prop, receiver, handler) {
                 return;
             }
             const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-            const tmpValue = getByRefWritable(target, wildcardRef, receiver, handler);
+            const tmpValue = getByRef(target, wildcardRef, receiver, handler);
             const listIndexes = handler.engine.getListIndexes(wildcardRef);
             if (listIndexes === null) {
                 raiseError({

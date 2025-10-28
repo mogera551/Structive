@@ -23,6 +23,7 @@ export function calcListDiff(parentListIndex, oldListValue, newListValue, oldInd
             newListValue,
             oldIndexes: _oldIndexes,
             newIndexes: _oldIndexes,
+            same: true,
         };
     }
     if (_newListValue.length === 0) {
@@ -32,6 +33,7 @@ export function calcListDiff(parentListIndex, oldListValue, newListValue, oldInd
             oldIndexes: _oldIndexes,
             newIndexes: [],
             removes: new Set(_oldIndexes),
+            same: false,
         };
     }
     else if (_oldListValue.length === 0) {
@@ -45,6 +47,7 @@ export function calcListDiff(parentListIndex, oldListValue, newListValue, oldInd
             oldIndexes: _oldIndexes,
             newIndexes,
             adds: new Set(newIndexes),
+            same: false,
         };
     }
     else {
@@ -96,6 +99,7 @@ export function calcListDiff(parentListIndex, oldListValue, newListValue, oldInd
                 newListValue,
                 oldIndexes: _oldIndexes,
                 newIndexes: _oldIndexes,
+                same: true,
             };
         }
         // 使用されなかった古いインデックスを削除対象に追加
@@ -113,6 +117,7 @@ export function calcListDiff(parentListIndex, oldListValue, newListValue, oldInd
             adds,
             removes,
             changeIndexes,
+            same: false,
         };
     }
 }

@@ -32,6 +32,7 @@ export function calcListDiff(
       newListValue,
       oldIndexes: _oldIndexes,
       newIndexes: _oldIndexes,
+      same: true,
     };
   }
   if (_newListValue.length === 0) {
@@ -41,6 +42,7 @@ export function calcListDiff(
       oldIndexes: _oldIndexes,
       newIndexes: [],
       removes: new Set(_oldIndexes),
+      same: false,
     };
   } else if (_oldListValue.length === 0) {
     const newIndexes = [];
@@ -53,6 +55,7 @@ export function calcListDiff(
       oldIndexes: _oldIndexes,
       newIndexes,
       adds: new Set(newIndexes),
+      same: false,
     };
   } else {
     // インデックスベースのマップを使用して効率化
@@ -106,6 +109,7 @@ export function calcListDiff(
         newListValue,
         oldIndexes: _oldIndexes,
         newIndexes: _oldIndexes,
+        same: true,
       };
     }
     
@@ -124,6 +128,7 @@ export function calcListDiff(
       adds,
       removes,
       changeIndexes,
+      same: false,
     };
   }
 }

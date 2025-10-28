@@ -1,13 +1,10 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
-import { IListIndex } from "../../ListIndex/types.js";
 import { ILoopContext } from "../../LoopContext/types.js";
-import { getByRefReadonly } from "../../StateClass/methods/getByRefReadonly.js";
-import { getByRefWritable } from "../../StateClass/methods/getByRefWritable.js";
+import { getByRef } from "../../StateClass/methods/getByRef.js";
 import { setByRef } from "../../StateClass/methods/setByRef.js";
-import { GetByRefSymbol, SetByRefSymbol } from "../../StateClass/symbols.js";
-import { IReadonlyStateHandler, IReadonlyStateProxy, IWritableStateHandler, IWritableStateProxy } from "../../StateClass/types";
+import { IStateHandler, IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../../StateClass/types";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
@@ -81,27 +78,11 @@ class BindingState implements IBindingState {
     this.#nullRef = (this.#info.wildcardCount === 0) ? getStatePropertyRef(this.#info, null) : null;
     this.#filters = filters;
   }
-  getValue(state:IReadonlyStateProxy | IWritableStateProxy, handler:IReadonlyStateHandler | IWritableStateHandler): any {
-    let value;
-    if (SetByRefSymbol in state) {
-      // WritableStateProxy
-      value = getByRefWritable(this.binding.engine.state, this.ref, state as IWritableStateProxy, handler as IWritableStateHandler);
-    } else {
-      // ReadonlyStateProxy
-      value = getByRefReadonly(this.binding.engine.state, this.ref, state as IReadonlyStateProxy, handler as IReadonlyStateHandler);
-    }
-    return value;
+  getValue(state:IStateProxy, handler:IStateHandler): any {
+    return getByRef(this.binding.engine.state, this.ref, state, handler);
   }
-  getFilteredValue(state:IReadonlyStateProxy | IWritableStateProxy, handler:IReadonlyStateHandler | IWritableStateHandler): any {
-    let value;
-    if (SetByRefSymbol in state) {
-      // WritableStateProxy
-      value = getByRefWritable(this.binding.engine.state, this.ref, state as IWritableStateProxy, handler as IWritableStateHandler);
-    } else {
-      // ReadonlyStateProxy
-      value = getByRefReadonly(this.binding.engine.state, this.ref, state as IReadonlyStateProxy, handler as IReadonlyStateHandler);
-    }
-//    let value = state[GetByRefSymbol](this.ref);
+  getFilteredValue(state:IStateProxy, handler:IStateHandler): any {
+    let value = getByRef(this.binding.engine.state, this.ref, state, handler);
     for(let i = 0; i < this.#filters.length; i++) {
       value = this.#filters[i](value);
     }

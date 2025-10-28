@@ -15,7 +15,8 @@ export type ReadonlyStateCallback = (state: IReadonlyStateProxy, handler: IReado
 export interface IUpdater {
   readonly version: number;
   readonly revision: number;
-  revisionByUpdatedPath: Map<string, number>;
+  readonly revisionByUpdatedPath: Map<string, number>;
+  readonly listDiffByRef: WeakMap<IStatePropertyRef, IListDiff>;
   /**
    * 更新したRef情報をキューに追加します。
    * @param ref 更新するStateプロパティの参照情報 (IStatePropertyRef)
@@ -32,6 +33,9 @@ export interface IUpdater {
    * 
    */
   createReadonlyState(callback: ReadonlyStateCallback): any;
+
+  calcListDiff(ref: IStatePropertyRef, newListValue?: any): boolean;
+  getListDiff(ref: IStatePropertyRef): IListDiff | undefined;
 }
 
 /**

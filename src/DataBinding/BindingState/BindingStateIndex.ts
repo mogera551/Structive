@@ -2,8 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { ILoopContext } from "../../LoopContext/types.js";
-import { IReadonlyStateHandler, IReadonlyStateProxy, IWritableStateHandler, IWritableStateProxy } from "../../StateClass/types";
-import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
+import { IStateHandler, IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../../StateClass/types";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { CreateBindingStateFn, IBindingState } from "./types";
@@ -84,7 +83,7 @@ class BindingStateIndex implements IBindingState {
     this.#indexNumber = indexNumber;
     this.#filters = filters;
   }
-  getValue(state: IReadonlyStateProxy | IWritableStateProxy, handler:IReadonlyStateHandler | IWritableStateHandler) {
+  getValue(state: IStateProxy, handler: IStateHandler) {
     return this.listIndex?.index ?? raiseError({
       code: 'LIST-201',
       message: 'listIndex is null',
@@ -92,7 +91,7 @@ class BindingStateIndex implements IBindingState {
       docsUrl: '/docs/error-codes.md#list',
     });
   }
-  getFilteredValue(state: IReadonlyStateProxy | IWritableStateProxy, handler:IReadonlyStateHandler | IWritableStateHandler) {
+  getFilteredValue(state: IStateProxy, handler: IStateHandler) {
     let value = this.listIndex?.index ?? raiseError({
       code: 'LIST-201',
       message: 'listIndex is null',

@@ -41,7 +41,6 @@ export interface IState {
 
 export interface IReadonlyStateProxy extends IState {
   [GetByRefSymbol](ref: IStatePropertyRef): any;
-  [SetCacheableSymbol](callback: () => void): void;
 }
 
 export interface IWritableStateProxy extends IState {
@@ -64,10 +63,12 @@ export type IStructiveState = Constructor<IState> & IStructiveStaticState;
 export interface IReadonlyStateHandler {
   engine      : IComponentEngine;
   updater     : IUpdater;
-  cache       : Map<IStatePropertyRef, any> | null;
   refStack    : (IStatePropertyRef | null)[];
   refIndex    : number;
   lastRefStack: IStatePropertyRef | null;
+  loopContext : ILoopContext | null;
+  symbols     : Set<PropertyKey>;
+  apis        : Set<PropertyKey>;
   get(target  : Object, prop: PropertyKey, receiver: IReadonlyStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IReadonlyStateProxy): boolean;
 }
@@ -79,6 +80,8 @@ export interface IWritableStateHandler {
   refIndex    : number;
   lastRefStack: IStatePropertyRef | null;
   loopContext : ILoopContext | null;
+  symbols     : Set<PropertyKey>;
+  apis        : Set<PropertyKey>;
   get(target  : Object, prop: PropertyKey, receiver: IWritableStateProxy): any;
   set(target  : Object, prop: PropertyKey, value: any, receiver: IWritableStateProxy): boolean;
 }

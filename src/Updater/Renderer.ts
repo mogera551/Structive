@@ -207,6 +207,7 @@ class Renderer implements IRenderer {
           newIndexes: Array.from(oldListIndexes),
           changeIndexes: new Set(),
           overwrites: new Set(),
+          same: true,
         };
         for(let i = 0; i < indexes.length; i++) {
           const index = indexes[i];
@@ -225,6 +226,7 @@ class Renderer implements IRenderer {
             listDiff.newIndexes[index] = listIndex;
             listDiff.changeIndexes?.add(listIndex);
           }
+          listDiff.same = false;
         }
         this.#listDiffByRef.set(listRef, listDiff);
         // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
@@ -301,19 +303,9 @@ class Renderer implements IRenderer {
   * - #listDiffByRef[ref] が undefined の場合にのみ計算を行い、差分をキャッシュする
   * - old/new 値の参照比較で異なる場合に限り saveListAndListIndexes を呼び出す
    */
-  calcListDiff(ref: IStatePropertyRef, _newListValue: any[] | undefined | null = undefined, isNewValue: boolean = false): IListDiff | null {
-    let listDiff = this.#listDiffByRef.get(ref);
-    if (typeof listDiff === "undefined") {
-      this.#listDiffByRef.set(ref, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
-      const { list: oldListValue, listIndexes: oldListIndexes } = this.engine.getListAndListIndexes(ref);
-      let newListValue = isNewValue ? _newListValue : this.readonlyState[GetByRefSymbol](ref);
-      listDiff = calcListDiff(ref.listIndex, oldListValue, newListValue, oldListIndexes);
-      this.#listDiffByRef.set(ref, listDiff);
-      if (oldListValue !== newListValue) {
-        this.engine.saveListAndListIndexes(ref, newListValue, listDiff.newIndexes);
-      }
-    }
-    return listDiff;
+  calcListDiff(ref: IStatePropertyRef): IListDiff | null {
+    const tmpValue = this.readonlyState[GetByRefSymbol](ref);
+    return this.#updater.getListDiff(ref) ?? null;
   }
 
   /**
@@ -358,7 +350,7 @@ class Renderer implements IRenderer {
     for(const [ name, childNode ] of node.childNodeByName) {
       const childInfo = getStructuredPathInfo(childNode.currentPath);
       if (name === WILDCARD) {
-        const diff = this.calcListDiff(ref);
+        const diff = this.#updater.getListDiff(ref) ?? null;
         if (diff === null) {
           raiseError({
             code: "UPD-006",
@@ -394,6 +386,7 @@ class Renderer implements IRenderer {
         if (depInfo.wildcardCount > 0) {
           const infos = depInfo.wildcardParentInfos;
           const walk = (depRef: IStatePropertyRef, index: number, nextInfo: IStructuredPathInfo) => {
+            const tmpValue = this.readonlyState[GetByRefSymbol](depRef);
             const listIndexes = this.#engine.getListIndexes(depRef) || [];
             if ((index + 1) < infos.length) {
               for(let i = 0; i < listIndexes.length; i++) {

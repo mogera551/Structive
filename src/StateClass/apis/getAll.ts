@@ -7,18 +7,18 @@
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { IStructuredPathInfo } from "../../StateProperty/types";
 import { raiseError } from "../../utils.js";
-import { IReadonlyStateProxy, IReadonlyStateHandler } from "../types";
+import { IStateProxy, IStateHandler } from "../types";
 import { getContextListIndex } from "../methods/getContextListIndex";
 import { IListIndex } from "../../ListIndex/types.js";
-import { GetByRefSymbol } from "../symbols.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { resolve } from "./resolve.js";
+import { getByRef } from "../methods/getByRef.js";
 
-export function getAllReadonly(
+export function getAll(
   target: Object, 
   prop: PropertyKey, 
-  receiver: IReadonlyStateProxy,
-  handler: IReadonlyStateHandler
+  receiver: IStateProxy,
+  handler: IStateHandler
 ):Function {
     const resolveFn = resolve(target, prop, receiver, handler);
     return (path: string, indexes?: number[]): any[] => {
@@ -65,19 +65,16 @@ export function getAllReadonly(
           return;
         }
         const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-        let listIndexes = handler.engine.getListIndexes(wildcardRef);
+        const tmpValue = getByRef(target, wildcardRef, receiver, handler);
+        const listIndexes = handler.engine.getListIndexes(wildcardRef);
         if (listIndexes === null) {
-          receiver[GetByRefSymbol](wildcardRef);// 依存関係登録のために一度取得
-          listIndexes = handler.engine.getListIndexes(wildcardRef);
-          if (listIndexes === null) {
-            raiseError({
-              code: 'LIST-201',
-              message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
-              context: { pattern: wildcardParentPattern.pattern },
-              docsUrl: '/docs/error-codes.md#list',
-              severity: 'error',
-            });
-          }
+          raiseError({
+            code: 'LIST-201',
+            message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
+            context: { pattern: wildcardParentPattern.pattern },
+            docsUrl: '/docs/error-codes.md#list',
+            severity: 'error',
+          });
         }
         const index = indexes[indexPos] ?? null;
         if (index === null) {

@@ -15,16 +15,15 @@
  * - createWritableStateProxyで一貫した生成・利用が可能
  * - 依存解決やキャッシュ、ループ・プロパティ参照スコープ管理など多機能な設計
  */
-import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IState, IWritableStateHandler, IWritableStateProxy } from "./types";
-import { getWritable as trapGet } from "./traps/getWritable.js";
 import { set as trapSet } from "./traps/set.js";
 import { ILoopContext } from "../LoopContext/types";
 import { setLoopContext } from "./methods/setLoopContext";
 import { IUpdater } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "./symbols";
+import { get as trapGet } from "./traps/get.js";
 
 const STACK_DEPTH = 32;
 
@@ -35,8 +34,8 @@ class StateHandler implements IWritableStateHandler {
   lastRefStack: IStatePropertyRef | null = null;
   loopContext: ILoopContext | null = null;
   updater: IUpdater;
-  #setMethods = new Set<PropertyKey>([ GetByRefSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol ]);
-  #setApis = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
+  symbols: Set<PropertyKey> = new Set<PropertyKey>([ GetByRefSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol ]);
+  apis: Set<PropertyKey> = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
   
   constructor(engine: IComponentEngine, updater: IUpdater) {
     this.engine = engine;
@@ -64,7 +63,7 @@ class StateHandler implements IWritableStateHandler {
     target: Object, 
     prop  : PropertyKey
   ): boolean {
-    return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
+    return Reflect.has(target, prop) || this.symbols.has(prop) || this.apis.has(prop);
   }
 }
 

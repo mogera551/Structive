@@ -1,23 +1,3 @@
-/**
- * getByRef.ts
- *
- * StateClassの内部APIとして、構造化パス情報（IStructuredPathInfo）とリストインデックス（IListIndex）を指定して
- * 状態オブジェクト（target）から値を取得するための関数（getByRef）の実装です。
- *
- * 主な役割:
- * - 指定されたパス・インデックスに対応するState値を取得（多重ループやワイルドカードにも対応）
- * - 依存関係の自動登録（trackedGetters対応時はsetTrackingでラップ）
- * - キャッシュ機構（handler.cacheable時はrefKeyで値をキャッシュ）
- * - getter経由で値取得時はSetStatePropertyRefSymbolでスコープを一時設定
- * - 存在しない場合は親infoやlistIndexを辿って再帰的に値を取得
- *
- * 設計ポイント:
- * - handler.engine.trackedGettersに含まれる場合はsetTrackingで依存追跡を有効化
- * - キャッシュ有効時はrefKeyで値をキャッシュし、取得・再利用を最適化
- * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
- * - finallyでキャッシュへの格納を保証
- */
-import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils";
 import { checkDependency } from "./checkDependency";
 /**
@@ -80,34 +60,22 @@ export function getByRefWritable(target, ref, receiver, handler) {
             handler.refStack[handler.refIndex] = null;
             handler.refIndex--;
             handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
-            handler.engine.cache.set(ref, { value, version: handler.updater.version, revision: handler.updater.revision });
+            // キャッシュへ格納
+            if (cacheable) {
+                handler.engine.cache.set(ref, { value, version: handler.updater.version, revision: handler.updater.revision });
+            }
+            // リストの場合、差分計算する
+            if (handler.engine.pathManager.lists.has(ref.info.pattern)) {
+                handler.updater.calcListDiff(ref, value);
+            }
         }
     }
     else {
-        // 存在しない場合は親infoを辿って再帰的に取得
-        const parentInfo = ref.info.parentInfo ?? raiseError({
-            code: 'STATE-202',
-            message: 'propRef.stateProp.parentInfo is undefined',
-            context: { where: 'getByRefWritable', refPath: ref.info.pattern },
-            docsUrl: '/docs/error-codes.md#state',
+        // 存在しない場合エラー
+        raiseError({
+            code: "STC-001",
+            message: `Property "${ref.info.pattern}" does not exist in state.`,
+            docsUrl: "./docs/error-codes.md#stc",
         });
-        const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
-        const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
-        const parentValue = getByRefWritable(target, parentRef, receiver, handler);
-        const lastSegment = ref.info.lastSegment;
-        if (lastSegment === "*") {
-            // ワイルドカードの場合はlistIndexのindexでアクセス
-            const index = ref.listIndex?.index ?? raiseError({
-                code: 'STATE-202',
-                message: 'propRef.listIndex?.index is undefined',
-                context: { where: 'getByRefWritable', refPath: ref.info.pattern },
-                docsUrl: '/docs/error-codes.md#state',
-            });
-            return Reflect.get(parentValue, index);
-        }
-        else {
-            // 通常のプロパティアクセス
-            return Reflect.get(parentValue, lastSegment);
-        }
     }
 }

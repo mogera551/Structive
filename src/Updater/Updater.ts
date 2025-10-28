@@ -1,24 +1,16 @@
 import { IComponentEngine, ISaveInfoByResolvedPathInfo } from "../ComponentEngine/types";
-import { WILDCARD } from "../constants";
 import { calcListDiff } from "../ListDiff/ListDiff";
 import { IListDiff } from "../ListDiff/types";
-import { createListIndex } from "../ListIndex/ListIndex";
-import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
 import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
-import { getByRefWritable } from "../StateClass/methods/getByRefWritable";
-import { GetByRefSymbol } from "../StateClass/symbols";
 import { IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
-import { IStructuredPathInfo } from "../StateProperty/types";
-import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
 import { render } from "./Renderer";
-import { IUpdateInfo, IUpdater, ReadonlyStateCallback, UpdateCallback } from "./types";
+import { IUpdater, ReadonlyStateCallback, UpdateCallback } from "./types";
 
 
 /**
@@ -32,17 +24,19 @@ class Updater implements IUpdater {
   #rendering: boolean = false;
   #engine: IComponentEngine;
   #state: IStateProxy | undefined = undefined;
-  #updateInfo: IUpdateInfo;
 
   #version: number;
   #revision: number = 0;
-  #cacheValueByRef: WeakMap<IStatePropertyRef, any> = new WeakMap();
   #listDiffByRef: WeakMap<IStatePropertyRef, IListDiff> = new WeakMap();
   #oldValueAndIndexesByRef: WeakMap<IStatePropertyRef, ISaveInfoByResolvedPathInfo> = new WeakMap();
   #revisionByUpdatedPath: Map<string, number> = new Map();
 
   get revisionByUpdatedPath(): Map<string, number> {
     return this.#revisionByUpdatedPath;
+  }
+
+  get listDiffByRef(): WeakMap<IStatePropertyRef, IListDiff> {
+    return this.#listDiffByRef;
   }
 
   get version(): number {
@@ -53,15 +47,41 @@ class Updater implements IUpdater {
     return this.#revision;
   }
 
+  getOldValueAndIndexes(ref: IStatePropertyRef): ISaveInfoByResolvedPathInfo | undefined {
+    let saveInfo = this.#oldValueAndIndexesByRef.get(ref);
+    if (typeof saveInfo === "undefined") {
+      saveInfo = this.#engine.getListAndListIndexes(ref);
+    }
+    return saveInfo;
+  }
+
+  calcListDiff(ref: IStatePropertyRef, newValue:any): boolean {
+    const curDiff = this.#listDiffByRef.get(ref);
+    if (typeof curDiff !== "undefined") {
+      const diff = calcListDiff(ref.listIndex, curDiff.newListValue, newValue, curDiff.newIndexes);
+      if (diff.same) {
+        return false;
+      }
+    } 
+    const saveInfo = this.getOldValueAndIndexes(ref);
+    const diff = calcListDiff(ref.listIndex, saveInfo?.list, newValue, saveInfo?.listIndexes);
+    if (diff.same) {
+      this.#listDiffByRef.set(ref, diff);
+      return false;
+    }
+    this.#listDiffByRef.set(ref, diff);
+    this.#engine.saveListAndListIndexes(ref, diff.newListValue ?? null, diff.newIndexes);
+    this.#oldValueAndIndexesByRef.set(ref, saveInfo ?? { list:null, listIndexes: null, listClone: null });
+    return true;
+  }
+
+  getListDiff(ref: IStatePropertyRef): IListDiff | undefined {
+    return this.#listDiffByRef.get(ref);
+  }
+
   constructor(engine: IComponentEngine) {
     this.#engine = engine;
     this.#version = engine.versionUp();
-    this.#updateInfo = {
-      updatedRefs: new Set<IStatePropertyRef>(),
-      cacheValueByRef: new Map<IStatePropertyRef, any>(),
-      oldValueAndIndexesByRef: new Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo>(),
-      listDiffByRef: new Map<IStatePropertyRef, IListDiff>(),
-    };
   }
 
   get state(): IStateProxy {  
@@ -119,19 +139,6 @@ class Updater implements IUpdater {
     } finally {
       this.#rendering = false;
     }
-  }
-
-  getOldListAndListIndexes(
-    engine: IComponentEngine,
-    updateInfo: IUpdateInfo, 
-    ref: IStatePropertyRef
-  ): ISaveInfoByResolvedPathInfo {
-    let saveInfo = updateInfo.oldValueAndIndexesByRef.get(ref);
-    if (typeof saveInfo === "undefined") {
-      saveInfo = engine.getListAndListIndexes(ref);
-      updateInfo.oldValueAndIndexesByRef.set(ref, saveInfo);
-    }
-    return saveInfo;
   }
 
   recursiveCollectMaybeUpdates(

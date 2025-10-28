@@ -1,3 +1,4 @@
+import { calcListDiff } from "../ListDiff/ListDiff";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
@@ -14,15 +15,16 @@ class Updater {
     #rendering = false;
     #engine;
     #state = undefined;
-    #updateInfo;
     #version;
     #revision = 0;
-    #cacheValueByRef = new WeakMap();
     #listDiffByRef = new WeakMap();
     #oldValueAndIndexesByRef = new WeakMap();
     #revisionByUpdatedPath = new Map();
     get revisionByUpdatedPath() {
         return this.#revisionByUpdatedPath;
+    }
+    get listDiffByRef() {
+        return this.#listDiffByRef;
     }
     get version() {
         return this.#version;
@@ -30,15 +32,38 @@ class Updater {
     get revision() {
         return this.#revision;
     }
+    getOldValueAndIndexes(ref) {
+        let saveInfo = this.#oldValueAndIndexesByRef.get(ref);
+        if (typeof saveInfo === "undefined") {
+            saveInfo = this.#engine.getListAndListIndexes(ref);
+        }
+        return saveInfo;
+    }
+    calcListDiff(ref, newValue) {
+        const curDiff = this.#listDiffByRef.get(ref);
+        if (typeof curDiff !== "undefined") {
+            const diff = calcListDiff(ref.listIndex, curDiff.newListValue, newValue, curDiff.newIndexes);
+            if (diff.same) {
+                return false;
+            }
+        }
+        const saveInfo = this.getOldValueAndIndexes(ref);
+        const diff = calcListDiff(ref.listIndex, saveInfo?.list, newValue, saveInfo?.listIndexes);
+        if (diff.same) {
+            this.#listDiffByRef.set(ref, diff);
+            return false;
+        }
+        this.#listDiffByRef.set(ref, diff);
+        this.#engine.saveListAndListIndexes(ref, diff.newListValue ?? null, diff.newIndexes);
+        this.#oldValueAndIndexesByRef.set(ref, saveInfo ?? { list: null, listIndexes: null, listClone: null });
+        return true;
+    }
+    getListDiff(ref) {
+        return this.#listDiffByRef.get(ref);
+    }
     constructor(engine) {
         this.#engine = engine;
         this.#version = engine.versionUp();
-        this.#updateInfo = {
-            updatedRefs: new Set(),
-            cacheValueByRef: new Map(),
-            oldValueAndIndexesByRef: new Map(),
-            listDiffByRef: new Map(),
-        };
     }
     get state() {
         if (!this.#state)
@@ -96,14 +121,6 @@ class Updater {
         finally {
             this.#rendering = false;
         }
-    }
-    getOldListAndListIndexes(engine, updateInfo, ref) {
-        let saveInfo = updateInfo.oldValueAndIndexesByRef.get(ref);
-        if (typeof saveInfo === "undefined") {
-            saveInfo = engine.getListAndListIndexes(ref);
-            updateInfo.oldValueAndIndexesByRef.set(ref, saveInfo);
-        }
-        return saveInfo;
     }
     recursiveCollectMaybeUpdates(engine, path, node, revisionByUpdatedPath, revision, visitedInfo) {
         if (visitedInfo.has(path))

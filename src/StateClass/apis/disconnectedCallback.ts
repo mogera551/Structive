@@ -13,15 +13,15 @@
  * - 存在しない場合は何もしない
  * - ライフサイクル管理やクリーンアップ処理に利用
  */
-import { IWritableStateProxy, IWritableStateHandler } from "../types";
+import { IStateHandler, IStateProxy } from "../types";
 
 const DISCONNECTED_CALLBACK = "$disconnectedCallback";
 
 export async function disconnectedCallback(
   target: Object, 
   prop: PropertyKey, 
-  receiver: IWritableStateProxy,
-  handler: IWritableStateHandler
+  receiver: IStateProxy,
+  handler: IStateHandler
 ):Promise<void> {
   const callback = Reflect.get(target, DISCONNECTED_CALLBACK);
   if (typeof callback === "function") {

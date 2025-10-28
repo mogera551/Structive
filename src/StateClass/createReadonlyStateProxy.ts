@@ -7,33 +7,31 @@
  * - State オブジェクトに対する読み取り専用の Proxy を作成
  * - get トラップでバインディング/API呼び出し/依存解決/レンダラー連携に対応
  * - set トラップは常に例外を投げて書き込みを禁止
- * - has トラップで内部APIシンボル（GetByRefSymbol, SetCacheableSymbol 等）を公開
+ * - has トラップで内部APIシンボル（GetByRefSymbol 等）を公開
  *
  * Throws:
  * - STATE-202 Cannot set property ... of readonly state（set トラップ）
  */
-import { IStructuredPathInfo } from "../StateProperty/types";
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IReadonlyStateHandler, IState, IReadonlyStateProxy } from "./types";
-import { getReadonly as trapGet } from "./traps/getReadonly.js";
 import { raiseError } from "../utils";
 import { ILoopContext } from "../LoopContext/types";
-import { IRenderer, IUpdater } from "../Updater/types";
+import { IUpdater } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
-import { GetByRefSymbol, SetCacheableSymbol } from "./symbols";
+import { GetByRefSymbol } from "./symbols";
+import { get as trapGet } from "./traps/get.js";
 
 const STACK_DEPTH = 32;
 
 class StateHandler implements IReadonlyStateHandler {
   engine: IComponentEngine;
   updater: IUpdater;
-  cache: Map<IStatePropertyRef, any> | null = null;
   refStack: (IStatePropertyRef | null)[] = Array(STACK_DEPTH).fill(null);
   refIndex: number = -1;
   lastRefStack: IStatePropertyRef | null = null;
   loopContext: ILoopContext | null = null;
-  #setMethods = new Set<PropertyKey>([ GetByRefSymbol, SetCacheableSymbol ]);
-  #setApis = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
+  symbols: Set<PropertyKey> = new Set<PropertyKey>([ GetByRefSymbol ]);
+  apis: Set<PropertyKey> = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
 
   constructor(engine: IComponentEngine, updater: IUpdater) {
     this.engine = engine;
@@ -66,7 +64,7 @@ class StateHandler implements IReadonlyStateHandler {
     target: Object, 
     prop  : PropertyKey
   ): boolean {
-    return Reflect.has(target, prop) || this.#setMethods.has(prop) || this.#setApis.has(prop);
+    return Reflect.has(target, prop) || this.symbols.has(prop) || this.apis.has(prop);
   }
 }
 

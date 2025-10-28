@@ -7,9 +7,9 @@
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { getContextListIndex } from "../methods/getContextListIndex";
-import { GetByRefSymbol } from "../symbols.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { resolve } from "./resolve.js";
+import { getByRefReadonly } from "../methods/getByRefReadonly.js";
 export function getAllReadonly(target, prop, receiver, handler) {
     const resolveFn = resolve(target, prop, receiver, handler);
     return (path, indexes) => {
@@ -47,19 +47,16 @@ export function getAllReadonly(target, prop, receiver, handler) {
                 return;
             }
             const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-            let listIndexes = handler.engine.getListIndexes(wildcardRef);
+            const tmpValue = getByRefReadonly(target, wildcardRef, receiver, handler);
+            const listIndexes = handler.engine.getListIndexes(wildcardRef);
             if (listIndexes === null) {
-                receiver[GetByRefSymbol](wildcardRef); // 依存関係登録のために一度取得
-                listIndexes = handler.engine.getListIndexes(wildcardRef);
-                if (listIndexes === null) {
-                    raiseError({
-                        code: 'LIST-201',
-                        message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
-                        context: { pattern: wildcardParentPattern.pattern },
-                        docsUrl: '/docs/error-codes.md#list',
-                        severity: 'error',
-                    });
-                }
+                raiseError({
+                    code: 'LIST-201',
+                    message: `ListIndex not found: ${wildcardParentPattern.pattern}`,
+                    context: { pattern: wildcardParentPattern.pattern },
+                    docsUrl: '/docs/error-codes.md#list',
+                    severity: 'error',
+                });
             }
             const index = indexes[indexPos] ?? null;
             if (index === null) {

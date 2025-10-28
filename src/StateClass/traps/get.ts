@@ -20,23 +20,25 @@ import { getRouter } from "../../Router/Router.js";
 import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { getListIndex } from "../methods/getListIndex.js";
-import { IReadonlyStateHandler, IReadonlyStateProxy } from "../types.js";
-import { GetByRefSymbol, SetCacheableSymbol } from "../symbols.js";
-import { getByRefReadonly } from "../methods/getByRefReadonly.js";
-import { setCacheable } from "../methods/setCacheable.js";
-import { getAllReadonly } from "../apis/getAllReadonly.js";
+import { IStateHandler, IStateProxy } from "../types.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
 import { trackDependency } from "../apis/trackDependency.js";
 import { indexByIndexName } from "./indexByIndexName.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { resolve } from "../apis/resolve.js";
+import { getByRef } from "../methods/getByRef.js";
+import { setByRef } from "../methods/setByRef.js";
+import { connectedCallback } from "../apis/connectedCallback.js";
+import { disconnectedCallback } from "../apis/disconnectedCallback.js";
+import { getAll } from "../apis/getAll.js";
 
 
-export function getReadonly(
+export function get(
   target  : Object, 
   prop    : PropertyKey, 
-  receiver: IReadonlyStateProxy,
-  handler : IReadonlyStateHandler
+  receiver: IStateProxy,
+  handler : IStateHandler
 ): any {
   const index = indexByIndexName[prop];
   if (typeof index !== "undefined") {
@@ -55,7 +57,7 @@ export function getReadonly(
         case "$resolve":
           return resolve(target, prop, receiver, handler);
         case "$getAll":
-          return getAllReadonly(target, prop, receiver, handler);
+          return getAll(target, prop, receiver, handler);
         case "$trackDependency":
           return trackDependency(target, prop, receiver, handler);
         case "$navigate":
@@ -67,7 +69,7 @@ export function getReadonly(
     const resolvedInfo = getResolvedPathInfo(prop);
     const listIndex = getListIndex(resolvedInfo, receiver, handler);
     const ref = getStatePropertyRef(resolvedInfo.info, listIndex);
-    return getByRefReadonly(
+    return getByRef(
       target, 
       ref,
       receiver,
@@ -75,18 +77,25 @@ export function getReadonly(
     );
 
   } else if (typeof prop === "symbol") {
-    switch (prop) {
-      case GetByRefSymbol: 
-        return (ref: IStatePropertyRef) => 
-          getByRefReadonly(target, ref, receiver, handler);
-      case SetCacheableSymbol:
-        return (callback: () => void) => setCacheable(handler, callback)
-      default:
-        return Reflect.get(
-          target, 
-          prop, 
-          receiver
-        );
+    if (handler.symbols.has(prop)) {
+      switch (prop) {
+        case GetByRefSymbol: 
+          return (ref: IStatePropertyRef) => 
+            getByRef(target, ref, receiver, handler);
+        case SetByRefSymbol: 
+          return (ref: IStatePropertyRef, value: any) => 
+            setByRef(target, ref, value, receiver, handler);
+        case ConnectedCallbackSymbol:
+          return () => connectedCallback(target, prop, receiver, handler);
+        case DisconnectedCallbackSymbol: 
+          return () => disconnectedCallback(target, prop, receiver, handler);
+      }
+    } else {
+      return Reflect.get(
+        target, 
+        prop, 
+        receiver
+      );
     }
   }
 }

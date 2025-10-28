@@ -15,7 +15,7 @@ import { checkDependency } from "./checkDependency";
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-export function getByRefReadonly(target, ref, receiver, handler) {
+export function getByRef(target, ref, receiver, handler) {
     let value;
     const cacheable = handler.engine.pathManager.getters.has(ref.info.pattern);
     if (cacheable) {

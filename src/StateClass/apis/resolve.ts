@@ -18,12 +18,11 @@
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { IStateHandler, IStateProxy } from "../types";
-import { getByRefReadonly } from "../methods/getByRefReadonly";
 import { IListIndex } from "../../ListIndex/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
-import { getByRefWritable } from "../methods/getByRefWritable.js";
-import { SetCacheableSymbol } from "../symbols.js";
+import { SetByRefSymbol } from "../symbols.js";
 import { setByRef } from "../methods/setByRef.js";
+import { getByRef } from "../methods/getByRef.js";
 
 export function resolve(
   target: Object, 
@@ -55,13 +54,17 @@ export function resolve(
     for(let i = 0; i < info.wildcardParentInfos.length; i++) {
       const wildcardParentPattern = info.wildcardParentInfos[i];
       const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
-      const listIndexes: IListIndex[] = handler.engine.getListIndexes(wildcardRef) ?? raiseError({
-        code: 'LIST-201',
-        message: `ListIndexes not found: ${wildcardParentPattern.pattern}`,
-        context: { pattern: wildcardParentPattern.pattern },
-        docsUrl: '/docs/error-codes.md#list',
-        severity: 'error',
-      });
+      const tmpValue = getByRef(target, wildcardRef, receiver, handler);
+      const listIndexes = handler.engine.getListIndexes(wildcardRef);
+      if (listIndexes === null) {
+        raiseError({
+          code: 'LIST-201',
+          message: `ListIndexes not found: ${wildcardParentPattern.pattern}`,
+          context: { pattern: wildcardParentPattern.pattern },
+          docsUrl: '/docs/error-codes.md#list',
+          severity: 'error',
+        });
+      }
       const index = indexes[i];
       listIndex = listIndexes[index] ?? raiseError({
         code: 'LIST-201',
@@ -75,9 +78,15 @@ export function resolve(
     // WritableかReadonlyかを判定して適切なメソッドを呼び出す
     const ref = getStatePropertyRef(info, listIndex);
     const hasSetValue = typeof value !== "undefined";
-    if (SetCacheableSymbol in receiver && "cache" in handler) {
+    if (SetByRefSymbol in receiver) {
       if (!hasSetValue) {
-        return getByRefReadonly(target, ref, receiver, handler);
+        return getByRef(target, ref, receiver, handler);
+      } else {
+        setByRef(target, ref, value, receiver, handler);
+      }
+    } else {
+      if (!hasSetValue) {
+        return getByRef(target, ref, receiver, handler);
       } else {
         // readonlyなので、setはできない
         raiseError({
@@ -88,23 +97,6 @@ export function resolve(
           severity: 'error',
         });
       }
-    } else if (!(SetCacheableSymbol in receiver) && !("cache" in handler)) {
-      if (!hasSetValue) {
-        return getByRefWritable(target, ref, receiver, handler);
-      } else {
-        setByRef(target, ref, value, receiver, handler);
-      }
-    } else {
-      raiseError({
-        code: 'STATE-202',
-          message: 'Inconsistent proxy and handler types',
-        context: {
-          receiverHasSetCacheable: (SetCacheableSymbol in receiver),
-          handlerHasCache: ("cache" in handler),
-        },
-        docsUrl: '/docs/error-codes.md#state',
-        severity: 'error',
-      });
     }
   };
 } 

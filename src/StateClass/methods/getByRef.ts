@@ -20,7 +20,7 @@
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils";
-import { IWritableStateHandler, IWritableStateProxy } from "../types";
+import { IReadonlyStateProxy, IReadonlyStateHandler, IStateProxy, IStateHandler } from "../types";
 import { checkDependency } from "./checkDependency";
 import { setStatePropertyRef } from "./setStatePropertyRef";
 
@@ -39,11 +39,11 @@ import { setStatePropertyRef } from "./setStatePropertyRef";
  * @param handler   状態ハンドラ
  * @returns         対象プロパティの値
  */
-export function getByRefWritable(
+export function getByRef(
   target   : Object, 
   ref      : IStatePropertyRef,
-  receiver : IWritableStateProxy,
-  handler  : IWritableStateHandler
+  receiver : IStateProxy,
+  handler  : IStateHandler
 ): any {
   let value: any;
   const cacheable = handler.engine.pathManager.getters.has(ref.info.pattern);
@@ -88,32 +88,21 @@ export function getByRefWritable(
       handler.refStack[handler.refIndex] = null;
       handler.refIndex--;
       handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
-      handler.engine.cache.set(ref, { value, version: handler.updater.version, revision: handler.updater.revision });
+      // キャッシュへ格納
+      if (cacheable) {
+        handler.engine.cache.set(ref, { value, version: handler.updater.version, revision: handler.updater.revision });
+      }
+      // リストの場合、差分計算する
+      if (handler.engine.pathManager.lists.has(ref.info.pattern)) {
+        handler.updater.calcListDiff(ref, value);
+      }
     }
   } else {
-    // 存在しない場合は親infoを辿って再帰的に取得
-    const parentInfo = ref.info.parentInfo ?? raiseError({
-      code: 'STATE-202',
-      message: 'propRef.stateProp.parentInfo is undefined',
-      context: { where: 'getByRefWritable', refPath: ref.info.pattern },
-      docsUrl: '/docs/error-codes.md#state',
-    });
-    const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
-    const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
-    const parentValue = getByRefWritable(target, parentRef, receiver, handler);
-    const lastSegment = ref.info.lastSegment;
-    if (lastSegment === "*") {
-      // ワイルドカードの場合はlistIndexのindexでアクセス
-      const index = ref.listIndex?.index ?? raiseError({
-        code: 'STATE-202',
-        message: 'propRef.listIndex?.index is undefined',
-        context: { where: 'getByRefWritable', refPath: ref.info.pattern },
-        docsUrl: '/docs/error-codes.md#state',
-      });
-      return Reflect.get(parentValue, index);
-    } else {
-      // 通常のプロパティアクセス
-      return Reflect.get(parentValue, lastSegment);
-    }
+    // 存在しない場合エラー
+    raiseError({
+      code: "STC-001",
+      message: `Property "${ref.info.pattern}" does not exist in state.`,
+      docsUrl: "./docs/error-codes.md#stc",
+    })
   }
 }

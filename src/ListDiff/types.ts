@@ -20,4 +20,5 @@ export interface IListDiff {
   removes?: Set<IListIndex>;
   changeIndexes?: Set<IListIndex>; // 位置が変わった要素
   overwrites?: Set<IListIndex>; // 要素の上書き
+  same: boolean;
 }

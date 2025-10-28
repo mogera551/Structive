@@ -18,16 +18,15 @@
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils.js";
-import { IWritableStateProxy, IWritableStateHandler } from "../types";
-import { getByRefWritable } from "./getByRefWritable";
-import { setStatePropertyRef } from "./setStatePropertyRef";
+import { IStateProxy, IStateHandler } from "../types";
+import { getByRef } from "./getByRef";
 
 export function setByRef(
     target   : Object, 
     ref      : IStatePropertyRef,
     value    : any, 
-    receiver : IWritableStateProxy,
-    handler  : IWritableStateHandler
+    receiver : IStateProxy,
+    handler  : IStateHandler
 ): any {
   try {
     // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
@@ -62,7 +61,7 @@ export function setByRef(
       });
       const parentListIndex = parentInfo.wildcardCount < ref.info.wildcardCount ? (ref.listIndex?.parentListIndex ?? null) : ref.listIndex;
       const parentRef = getStatePropertyRef(parentInfo, parentListIndex);
-      const parentValue = getByRefWritable(target, parentRef, receiver, handler);
+      const parentValue = getByRef(target, parentRef, receiver, handler);
       const lastSegment = ref.info.lastSegment;
       if (lastSegment === "*") {
         const index = ref.listIndex?.index ?? raiseError({
