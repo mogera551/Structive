@@ -7,6 +7,7 @@ import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
+import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { getByRefWritable } from "../StateClass/methods/getByRefWritable";
 import { GetByRefSymbol } from "../StateClass/symbols";
 import { IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
@@ -17,7 +18,7 @@ import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
 import { render } from "./Renderer";
-import { IUpdateInfo, IUpdater } from "./types";
+import { IUpdateInfo, IUpdater, ReadonlyStateCallback, UpdateCallback } from "./types";
 
 
 /**
@@ -81,7 +82,7 @@ class Updater implements IUpdater {
   }
 
   // 状態更新開始
-  async beginUpdate(loopContext: ILoopContext | null, callback: (state: IWritableStateProxy, handler: IWritableStateHandler) => Promise<void>): Promise<void> {
+  async update(loopContext: ILoopContext | null, callback: UpdateCallback): Promise<void> {
     try {
       this.#updating = true;
       await useWritableStateProxy(this.#engine, this, this.#engine.state, loopContext, async (state:IWritableStateProxy, handler:IWritableStateHandler) => {
@@ -92,6 +93,12 @@ class Updater implements IUpdater {
     } finally {
       this.#updating = false;
     }
+  }
+
+  createReadonlyState(callback: ReadonlyStateCallback): any {
+    const handler = createReadonlyStateHandler(this.#engine, this);
+    const stateProxy = createReadonlyStateProxy(this.#engine.state, handler);
+    return callback(stateProxy, handler);
   }
 
   // レンダリング
@@ -172,10 +179,13 @@ class Updater implements IUpdater {
   }
 }
 
-
-export async function update(engine: IComponentEngine, loopContext: ILoopContext | null, callback: (updater: IUpdater, state: IWritableStateProxy, handler: IWritableStateHandler) => Promise<void>): Promise<void> {
+/**
+ * Updaterを生成しコールバックに渡す
+ * スコープを明確にするための関数
+ * @param engine 
+ * @param callback 
+ */
+export function createUpdater(engine: IComponentEngine, callback: (updater: IUpdater) => Promise<void> | void): Promise<void> | void{
   const updater = new Updater(engine);
-  await updater.beginUpdate(loopContext, async (state, handler) => {
-    await callback(updater, state, handler);
-  });
+  return callback(updater);
 }

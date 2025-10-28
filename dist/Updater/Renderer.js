@@ -1,8 +1,7 @@
 import { WILDCARD } from "../constants";
 import { calcListDiff } from "../ListDiff/ListDiff";
 import { findPathNodeByPath } from "../PathTree/PathNode";
-import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
-import { GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
+import { GetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../utils";
@@ -44,9 +43,6 @@ class Renderer {
      * レンダリング対象のエンジン。state, pathManager, bindings などのファサード。
      */
     #engine;
-    /**
-     * createReadonlyStateProxy により生成される読み取り専用ビュー。render 実行中のみ非 null。
-     */
     #readonlyState = null;
     #readonlyHandler = null;
     /**
@@ -245,10 +241,10 @@ class Renderer {
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
         // 実際のレンダリングロジックを実装
-        this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this.#updater);
-        const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine.state, this.#readonlyHandler);
-        try {
-            readonlyState[SetCacheableSymbol](() => {
+        this.#updater.createReadonlyState((readonlyState, readonlyHandler) => {
+            this.#readonlyState = readonlyState;
+            this.#readonlyHandler = readonlyHandler;
+            try {
                 // まずはリストの並び替えを処理
                 this.reorderList(items);
                 for (let i = 0; i < items.length; i++) {
@@ -264,11 +260,12 @@ class Renderer {
                     }
                     this.renderItem(ref, node);
                 }
-            });
-        }
-        finally {
-            this.#readonlyState = null;
-        }
+            }
+            finally {
+                this.#readonlyState = null;
+                this.#readonlyHandler = null;
+            }
+        });
     }
     /**
      * 参照 ref の旧値/新値と保存済みインデックスから ListDiff を計算し、

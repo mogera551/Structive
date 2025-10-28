@@ -1,7 +1,7 @@
 import { SetByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
-import { update } from "../Updater/Updater";
+import { createUpdater } from "../Updater/Updater";
 import { raiseError } from "../utils";
 import { AssignStateSymbol, NotifyRedrawSymbol } from "./symbols";
 class ComponentStateInputHandler {
@@ -12,12 +12,14 @@ class ComponentStateInputHandler {
         this.engine = engine;
     }
     assignState(object) {
-        update(this.engine, null, async (updater, stateProxy, handler) => {
-            for (const [key, value] of Object.entries(object)) {
-                const childPathInfo = getStructuredPathInfo(key);
-                const childRef = getStatePropertyRef(childPathInfo, null);
-                stateProxy[SetByRefSymbol](childRef, value);
-            }
+        createUpdater(this.engine, (updater) => {
+            updater.update(null, (stateProxy, handler) => {
+                for (const [key, value] of Object.entries(object)) {
+                    const childPathInfo = getStructuredPathInfo(key);
+                    const childRef = getStatePropertyRef(childPathInfo, null);
+                    stateProxy[SetByRefSymbol](childRef, value);
+                }
+            });
         });
     }
     /**
@@ -25,6 +27,7 @@ class ComponentStateInputHandler {
      * @param refs
      */
     notifyRedraw(refs) {
+        // ToDo: createUpdater内でループさせるべきか検討
         for (const parentPathRef of refs) {
             try {
                 const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathRef.info.pattern);
@@ -33,9 +36,10 @@ class ComponentStateInputHandler {
                 const childRef = getStatePropertyRef(childPathInfo, childListIndex);
                 const value = this.engine.getPropertyValue(childRef);
                 // Ref情報をもとに状態更新キューに追加
-                update(this.engine, null, async (updater, stateProxy, handler) => {
-                    const childRef = getStatePropertyRef(childPathInfo, childListIndex);
-                    updater.enqueueRef(childRef);
+                createUpdater(this.engine, (updater) => {
+                    updater.update(null, (stateProxy, handler) => {
+                        stateProxy[SetByRefSymbol](childRef, value);
+                    });
                 });
             }
             catch (e) {

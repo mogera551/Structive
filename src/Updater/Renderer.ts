@@ -6,7 +6,6 @@ import { IListDiff } from "../ListDiff/types";
 import { IListIndex } from "../ListIndex/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
-import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
 import { IReadonlyStateHandler, IReadonlyStateProxy } from "../StateClass/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
@@ -54,9 +53,6 @@ class Renderer implements IRenderer {
    * レンダリング対象のエンジン。state, pathManager, bindings などのファサード。
    */
   #engine: IComponentEngine;
-  /**
-   * createReadonlyStateProxy により生成される読み取り専用ビュー。render 実行中のみ非 null。
-   */
   #readonlyState: IReadonlyStateProxy | null = null;
 
   #readonlyHandler : IReadonlyStateHandler | null = null;
@@ -265,10 +261,10 @@ class Renderer implements IRenderer {
     this.#updatedBindings.clear();
 
     // 実際のレンダリングロジックを実装
-    this.#readonlyHandler = createReadonlyStateHandler(this.#engine, this.#updater);
-    const readonlyState = this.#readonlyState = createReadonlyStateProxy(this.#engine.state, this.#readonlyHandler);
-    try {
-      readonlyState[SetCacheableSymbol](() => {
+    this.#updater.createReadonlyState( (readonlyState, readonlyHandler) => {
+      this.#readonlyState = readonlyState;
+      this.#readonlyHandler = readonlyHandler;
+      try {
         // まずはリストの並び替えを処理
         this.reorderList(items);
 
@@ -285,11 +281,11 @@ class Renderer implements IRenderer {
           }
           this.renderItem(ref, node);
         }
-      });
-
-    } finally {
-      this.#readonlyState = null;
-    }
+      } finally {
+        this.#readonlyState = null;
+        this.#readonlyHandler = null;
+      }
+    });
   }
 
   /**

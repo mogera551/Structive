@@ -1,13 +1,13 @@
 import { createBindContent } from "../DataBinding/BindContent.js";
 import { attachShadow } from "./attachShadow.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
 import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
 import { createComponentStateInput } from "../ComponentStateInput/createComponentStateInput.js";
 import { createComponentStateOutput } from "../ComponentStateOutput/createComponentStateOutput.js";
 import { AssignStateSymbol } from "../ComponentStateInput/symbols.js";
-import { update } from "../Updater/Updater.js";
+import { createUpdater } from "../Updater/Updater.js";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef.js";
 import { RESERVED_WORD_SET } from "../constants.js";
 import { addPathNode } from "../PathTree/PathNode.js";
@@ -171,18 +171,20 @@ export class ComponentEngine {
             });
             this.bindContent.mountAfter(parentNode, this.#blockPlaceholder);
         }
-        await update(this, null, async (updater, stateProxy, handler) => {
-            // 状態の初期レンダリングを行う
-            for (const path of this.pathManager.alls) {
-                const info = getStructuredPathInfo(path);
-                if (info.pathSegments.length !== 1)
-                    continue; // ルートプロパティのみ
-                if (this.pathManager.funcs.has(path))
-                    continue; // 関数は除外
-                const ref = getStatePropertyRef(info, null);
-                updater.enqueueRef(ref);
-            }
-            await stateProxy[ConnectedCallbackSymbol]();
+        await createUpdater(this, async (updater) => {
+            await updater.update(null, async (stateProxy, handler) => {
+                // 状態の初期レンダリングを行う
+                for (const path of this.pathManager.alls) {
+                    const info = getStructuredPathInfo(path);
+                    if (info.pathSegments.length !== 1)
+                        continue; // ルートプロパティのみ
+                    if (this.pathManager.funcs.has(path))
+                        continue; // 関数は除外
+                    const ref = getStatePropertyRef(info, null);
+                    updater.enqueueRef(ref);
+                }
+                await stateProxy[ConnectedCallbackSymbol]();
+            });
         });
         // レンダリングが終わってから実行する
         queueMicrotask(() => {
@@ -194,8 +196,10 @@ export class ComponentEngine {
         try {
             if (this.#ignoreDissconnectedCallback)
                 return; // disconnectedCallbackを無視するフラグが立っている場合は何もしない
-            await update(this, null, async (updater, stateProxy, handler) => {
-                await stateProxy[DisconnectedCallbackSymbol]();
+            await createUpdater(this, async (updater) => {
+                await updater.update(null, async (stateProxy, handler) => {
+                    await stateProxy[DisconnectedCallbackSymbol]();
+                });
             });
             // 親コンポーネントから登録を解除する
             this.owner.parentStructiveComponent?.unregisterChildComponent(this.owner);
@@ -256,18 +260,20 @@ export class ComponentEngine {
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する
-        //ToDo: Readableを考える
-        /*
-        const handler = createReadonlyStateHandler(this, null);
-        const stateProxy = createReadonlyStateProxy(this.state, handler);
-        return stateProxy[GetByRefSymbol](ref);
-        */
-        return null;
+        let value;
+        createUpdater(this, (updater) => {
+            value = updater.createReadonlyState((stateProxy, handler) => {
+                return stateProxy[GetByRefSymbol](ref);
+            });
+        });
+        return value;
     }
     setPropertyValue(ref, value) {
         // プロパティの値を設定する
-        update(this, null, async (updater, stateProxy, handler) => {
-            stateProxy[SetByRefSymbol](ref, value);
+        createUpdater(this, (updater) => {
+            updater.update(null, (stateProxy, handler) => {
+                stateProxy[SetByRefSymbol](ref, value);
+            });
         });
     }
     // Structive子コンポーネントを登録する

@@ -1,5 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
-import { update } from "../../Updater/Updater.js";
+import { createUpdater } from "../../Updater/Updater.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 /**
@@ -42,19 +42,21 @@ class BindingNodeEvent extends BindingNode {
         if (options.includes("stopPropagation")) {
             e.stopPropagation();
         }
-        await update(engine, loopContext, async (updater, state, handler) => {
-            // stateProxyを生成し、バインディング値を実行
-            const func = this.binding.bindingState.getValue(state, handler);
-            if (typeof func !== "function") {
-                raiseError({
-                    code: 'BIND-201',
-                    message: `${this.name} is not a function`,
-                    context: { where: 'BindingNodeEvent.handler', name: this.name, receivedType: typeof func },
-                    docsUrl: '/docs/error-codes.md#bind',
-                    severity: 'error',
-                });
-            }
-            await Reflect.apply(func, state, [e, ...indexes]);
+        await createUpdater(engine, async (updater) => {
+            await updater.update(loopContext, async (state, handler) => {
+                // stateProxyを生成し、バインディング値を実行
+                const func = this.binding.bindingState.getValue(state, handler);
+                if (typeof func !== "function") {
+                    raiseError({
+                        code: 'BIND-201',
+                        message: `${this.name} is not a function`,
+                        context: { where: 'BindingNodeEvent.handler', name: this.name, receivedType: typeof func },
+                        docsUrl: '/docs/error-codes.md#bind',
+                        severity: 'error',
+                    });
+                }
+                await Reflect.apply(func, state, [e, ...indexes]);
+            });
         });
     }
     applyChange(renderer) {

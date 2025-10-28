@@ -1,4 +1,5 @@
 import { findPathNodeByPath } from "../PathTree/PathNode";
+import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
 import { raiseError } from "../utils";
 import { render } from "./Renderer";
@@ -57,7 +58,7 @@ class Updater {
         });
     }
     // 状態更新開始
-    async beginUpdate(loopContext, callback) {
+    async update(loopContext, callback) {
         try {
             this.#updating = true;
             await useWritableStateProxy(this.#engine, this, this.#engine.state, loopContext, async (state, handler) => {
@@ -69,6 +70,11 @@ class Updater {
         finally {
             this.#updating = false;
         }
+    }
+    createReadonlyState(callback) {
+        const handler = createReadonlyStateHandler(this.#engine, this);
+        const stateProxy = createReadonlyStateProxy(this.#engine.state, handler);
+        return callback(stateProxy, handler);
     }
     // レンダリング
     rendering() {
@@ -133,9 +139,13 @@ class Updater {
         this.recursiveCollectMaybeUpdates(engine, path, node, revisionByUpdatePath, revision, new Set());
     }
 }
-export async function update(engine, loopContext, callback) {
+/**
+ * Updaterを生成しコールバックに渡す
+ * スコープを明確にするための関数
+ * @param engine
+ * @param callback
+ */
+export function createUpdater(engine, callback) {
     const updater = new Updater(engine);
-    await updater.beginUpdate(loopContext, async (state, handler) => {
-        await callback(updater, state, handler);
-    });
+    return callback(updater);
 }

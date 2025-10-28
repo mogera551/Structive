@@ -2,7 +2,7 @@ import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
-import { update } from "../../Updater/Updater.js";
+import { createUpdater } from "../../Updater/Updater.js";
 import { raiseError } from "../../utils.js";
 import { IBinding } from "../types";
 import { BindingNode } from "./BindingNode.js";
@@ -77,8 +77,10 @@ class BindingNodeProperty extends BindingNode {
     this.node.addEventListener(eventName, async () => {
       const loopContext = this.binding.parentBindContent.currentLoopContext;
       const value = this.filteredValue;
-      await update(engine, loopContext, async (updater, state, handler) => {
-        binding.updateStateValue(state, handler, value);
+      await createUpdater(engine, async (updater) => {
+        await updater.update(loopContext, async (state, handler) => {
+          binding.updateStateValue(state, handler, value);
+        });
       });
     });
   }
