@@ -72,26 +72,3 @@ export interface IRenderer {
    */
   calcListDiff(ref: IStatePropertyRef, newListValue?: any[] | undefined | null, isNewValue?: boolean): IListDiff | null;
 }
-
-
-export interface IUpdateInfo {
-  /**
-   * 更新されたRefのセット
-   * この集合からレンダリング対象のバインドを決定する
-   */
-  updatedRefs: Set<IStatePropertyRef>;
-  /**
-   * キャッシュされた値のマップ
-   * getterの値をキャッシュするために使用されます。
-   */
-  cacheValueByRef: Map<IStatePropertyRef, any>;
-  /**
-   * 以前の値とインデックス情報を取得するためのマップ
-   */
-  oldValueAndIndexesByRef: Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo>;
-  /**
-   * リスト差分のマップ
-   * for描画時に使用されます。
-   */
-  listDiffByRef: Map<IStatePropertyRef, IListDiff>;
-}
