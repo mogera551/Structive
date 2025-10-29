@@ -332,7 +332,7 @@ class Renderer implements IRenderer {
     const bindings = this.#engine.getBindings(ref);
     for(let i = 0; i < bindings.length; i++) {
       const binding = bindings[i];
-      if (this.updatedBindings.has(binding)) {
+      if (this.#updatedBindings.has(binding)) {
         continue; // すでに更新済みのバインディングはスキップ
       }
       binding.applyChange(this);

@@ -302,6 +302,8 @@ class BindingNodeFor extends BindingNodeBlock {
     // プールの長さは、プールの最後の要素のインデックス+1であるため、
     this.poolLength = this.bindContentLastIndex + 1;
     this.#bindContents = newBindContents;
+
+    renderer.updatedBindings.add(this.binding);
   }
 }
 

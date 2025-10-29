@@ -2476,7 +2476,7 @@ class Renderer {
         const bindings = this.#engine.getBindings(ref);
         for (let i = 0; i < bindings.length; i++) {
             const binding = bindings[i];
-            if (this.updatedBindings.has(binding)) {
+            if (this.#updatedBindings.has(binding)) {
                 continue; // すでに更新済みのバインディングはスキップ
             }
             binding.applyChange(this);
@@ -3225,6 +3225,7 @@ class BindingNodeFor extends BindingNodeBlock {
         // プールの長さは、プールの最後の要素のインデックス+1であるため、
         this.poolLength = this.bindContentLastIndex + 1;
         this.#bindContents = newBindContents;
+        renderer.updatedBindings.add(this.binding);
     }
 }
 const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, filters) => {
