@@ -15,8 +15,8 @@ class Updater {
     #engine;
     #version;
     #revision = 0;
-    #listDiffByRef = new WeakMap();
-    #oldValueAndIndexesByRef = new WeakMap();
+    #listDiffByRef = new Map();
+    #oldValueAndIndexesByRef = new Map();
     #revisionByUpdatedPath = new Map();
     constructor(engine) {
         this.#engine = engine;
@@ -25,8 +25,8 @@ class Updater {
     get revisionByUpdatedPath() {
         return this.#revisionByUpdatedPath;
     }
-    get listDiffByRef() {
-        return this.#listDiffByRef;
+    get oldValueAndIndexesByRef() {
+        return this.#oldValueAndIndexesByRef;
     }
     get version() {
         return this.#version;
@@ -82,6 +82,14 @@ class Updater {
      */
     getListDiff(ref) {
         return this.#listDiffByRef.get(ref);
+    }
+    /**
+     * リスト差分結果を設定
+     * @param ref
+     * @param diff
+     */
+    setListDiff(ref, diff) {
+        this.#listDiffByRef.set(ref, diff);
     }
     /**
      * 更新したRefをキューに追加し、レンダリングをスケジュールする

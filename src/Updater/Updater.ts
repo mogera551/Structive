@@ -25,8 +25,8 @@ class Updater implements IUpdater {
 
   #version: number;
   #revision: number = 0;
-  #listDiffByRef: WeakMap<IStatePropertyRef, IListDiff> = new WeakMap();
-  #oldValueAndIndexesByRef: WeakMap<IStatePropertyRef, ISaveInfoByResolvedPathInfo> = new WeakMap();
+  #listDiffByRef: Map<IStatePropertyRef, IListDiff> = new Map();
+  #oldValueAndIndexesByRef: Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo> = new Map();
   #revisionByUpdatedPath: Map<string, number> = new Map();
 
   constructor(engine: IComponentEngine) {
@@ -38,8 +38,8 @@ class Updater implements IUpdater {
     return this.#revisionByUpdatedPath;
   }
 
-  get listDiffByRef(): WeakMap<IStatePropertyRef, IListDiff> {
-    return this.#listDiffByRef;
+  get oldValueAndIndexesByRef(): Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo> {
+    return this.#oldValueAndIndexesByRef;
   }
 
   get version(): number {
@@ -102,6 +102,14 @@ class Updater implements IUpdater {
     return this.#listDiffByRef.get(ref);
   }
 
+  /**
+   * リスト差分結果を設定
+   * @param ref 
+   * @param diff 
+   */
+  setListDiff(ref: IStatePropertyRef, diff: IListDiff): void {
+    this.#listDiffByRef.set(ref, diff);
+  }
   /**
    * 更新したRefをキューに追加し、レンダリングをスケジュールする
    * @param ref 

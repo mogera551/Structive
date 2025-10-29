@@ -20,7 +20,7 @@ import { raiseError } from "../utils";
  * - readonlyState[GetByRefSymbol](ref): ref の新しい値（読み取り専用ビュー）を返すこと
  *
  * スレッド/再入
- * - 同期実行前提。calcListDiff 呼び出し中の再帰などに備えて、#listDiffByRef には一時的に null を格納
+ * - 同期実行前提。
  *
  * 代表的な例外
  * - UPD-001/002: Engine/ReadonlyState の未初期化
@@ -44,14 +44,6 @@ class Renderer {
     #engine;
     #readonlyState = null;
     #readonlyHandler = null;
-    /**
-     * リスト参照ごとの差分キャッシュ。
-     * 値の意味:
-     * - undefined: まだ未計算
-     * - null: 計算中（再入保護）
-     * - IListDiff: 計算済み
-     */
-    #listDiffByRef = new Map();
     /**
      * 親リスト参照ごとに「要素の新しい並び位置」を記録するためのインデックス配列。
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
@@ -131,11 +123,11 @@ class Renderer {
         const listRefs = new Set();
         for (let i = 0; i < items.length; i++) {
             const ref = items[i];
-            if (this.engine.pathManager.lists.has(ref.info.pattern)) {
+            if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
                 listRefs.add(ref);
                 continue;
             }
-            if (!this.engine.pathManager.elements.has(ref.info.pattern)) {
+            if (!this.#engine.pathManager.elements.has(ref.info.pattern)) {
                 continue; // elements に登録されていないパスはスキップ
             }
             // リスト要素を処理済みに追加
@@ -167,11 +159,10 @@ class Renderer {
             indexes.push(listIndex.index);
         }
         for (const [listRef, indexes] of this.#reorderIndexesByRef) {
-            this.#listDiffByRef.set(listRef, null); // calcListDiff中に再帰的に呼ばれた場合に備えてnullをセットしておく
             // listRefのリスト要素をindexesの順に並び替える
             try {
                 const newListValue = this.readonlyState[GetByRefSymbol](listRef);
-                const { listClone: oldListValue, listIndexes: oldListIndexes } = this.engine.getListAndListIndexes(listRef);
+                const { listClone: oldListValue, listIndexes: oldListIndexes } = this.#engine.getListAndListIndexes(listRef);
                 if (oldListValue == null || oldListIndexes == null) {
                     raiseError({
                         code: "UPD-005",
@@ -209,9 +200,11 @@ class Renderer {
                     }
                     listDiff.same = false;
                 }
-                this.#listDiffByRef.set(listRef, listDiff);
+                this.#updater.setListDiff(listRef, listDiff);
                 // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
-                this.engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
+                const saveInfo = this.#engine.getListAndListIndexes(listRef);
+                this.#updater.oldValueAndIndexesByRef.set(listRef, saveInfo);
+                this.#engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
                 const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
                 if (node === null) {
                     raiseError({
@@ -237,7 +230,6 @@ class Renderer {
      * - SetCacheableSymbol により参照解決のキャッシュをまとめて有効化できる。
      */
     render(items) {
-        this.#listDiffByRef.clear();
         this.#reorderIndexesByRef.clear();
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
@@ -278,7 +270,6 @@ class Renderer {
     * - isNewValue: true の場合、_newListValue を新値とみなす。false の場合は readonlyState から取得
     *
     * メモ
-    * - #listDiffByRef[ref] が undefined の場合にのみ計算を行い、差分をキャッシュする
     * - old/new 値の参照比較で異なる場合に限り saveListAndListIndexes を呼び出す
      */
     calcListDiff(ref) {

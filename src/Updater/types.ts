@@ -16,7 +16,8 @@ export interface IUpdater {
   readonly version: number;
   readonly revision: number;
   readonly revisionByUpdatedPath: Map<string, number>;
-  readonly listDiffByRef: WeakMap<IStatePropertyRef, IListDiff>;
+  readonly oldValueAndIndexesByRef: Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo>;
+  
   /**
    * 更新したRef情報をキューに追加します。
    * @param ref 更新するStateプロパティの参照情報 (IStatePropertyRef)
@@ -36,6 +37,7 @@ export interface IUpdater {
 
   calcListDiff(ref: IStatePropertyRef, newListValue?: any): boolean;
   getListDiff(ref: IStatePropertyRef): IListDiff | undefined;
+  setListDiff(ref: IStatePropertyRef, diff: IListDiff): void;
 }
 
 /**
