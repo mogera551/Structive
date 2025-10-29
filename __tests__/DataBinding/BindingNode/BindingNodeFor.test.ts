@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createBindingNodeFor } from "../../src/DataBinding/BindingNode/BindingNodeFor";
-import { createBindingStub, createEngineStub, createRendererStub } from "./helpers/bindingNodeHarness";
-import * as registerTemplateMod from "../../src/Template/registerTemplate";
-import * as registerAttrMod from "../../src/BindingBuilder/registerDataBindAttributes";
-import * as BindContentMod from "../../src/DataBinding/BindContent";
-import * as GetStructuredPathInfoMod from "../../src/StateProperty/getStructuredPathInfo";
+import { createBindingNodeFor } from "../../../src/DataBinding/BindingNode/BindingNodeFor";
+import { createBindingStub, createEngineStub, createRendererStub } from "../helpers/bindingNodeHarness";
+import * as registerTemplateMod from "../../../src/Template/registerTemplate";
+import * as registerAttrMod from "../../../src/BindingBuilder/registerDataBindAttributes";
+import * as BindContentMod from "../../../src/DataBinding/BindContent";
+import * as GetStructuredPathInfoMod from "../../../src/StateProperty/getStructuredPathInfo";
 
 describe("BindingNodeFor coverage", () => {
   beforeEach(() => {
@@ -28,6 +28,39 @@ describe("BindingNodeFor coverage", () => {
     const binding = createBindingStub(engine, comment);
     const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
     expect(() => node.assignValue([1,2,3])).toThrow(/Not implemented/i);
+  });
+
+  it("newIndexes に応じた BindContent のマウント（最小限）", () => {
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|200");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+
+    setupTemplate();
+
+    const indexes = [{ index: 0 } as any, { index: 1 } as any];
+    const listDiff = {
+      oldListValue: [],
+      newListValue: [{}, {}],
+      newIndexes: indexes,
+      adds: new Set(indexes),
+      removes: new Set(),
+      changeIndexes: new Set(),
+    } as any;
+
+    const renderer = createRendererStub({
+      readonlyState: {},
+      calcListDiff: () => listDiff,
+      unmountBindContent: vi.fn(),
+    });
+
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
+    node.applyChange(renderer);
+
+    expect(node.bindContents).toHaveLength(2);
+    expect(renderer.unmountBindContent).not.toHaveBeenCalled();
+    expect(container.childNodes.length).toBeGreaterThan(1);
   });
 
   it("早期 return: updatedBindings に含まれると何もしない", () => {

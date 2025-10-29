@@ -14,6 +14,7 @@ describe("Binding", () => {
     init: vi.fn(),
     notifyRedraw: vi.fn(),
     applyChange: vi.fn(),
+    isBlock: false,
   };
 
   const mockBindingState = {
@@ -36,8 +37,9 @@ describe("Binding", () => {
   it("updateStateValue は bindingState.assignValue を呼ぶ", () => {
     const binding = createBinding(parentBindContent, node, engine, createBindingNode as any, createBindingState as any);
     const writeState: any = {};
-    binding.updateStateValue(writeState, 123);
-    expect(mockBindingState.assignValue).toHaveBeenCalledWith(writeState, 123);
+    const handler: any = {};
+    binding.updateStateValue(writeState, handler, 123);
+    expect(mockBindingState.assignValue).toHaveBeenCalledWith(writeState, handler, 123);
   });
 
   it("notifyRedraw は bindingNode.notifyRedraw を委譲", () => {

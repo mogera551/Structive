@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createBindingStateIndex } from "../../src/DataBinding/BindingState/BindingStateIndex";
+import { createBindingStateIndex } from "../../../src/DataBinding/BindingState/BindingStateIndex";
 
 function createEngine() {
   return {
@@ -40,18 +40,18 @@ describe("BindingStateIndex", () => {
     const bs = factory(binding, engine.outputFilters);
 
     // init 前アクセスはエラー
-    expect(() => bs.getValue({} as any)).toThrowError(/listIndex is null/);
+  expect(() => (bs as any).getValue({} as any)).toThrowError(/listIndex is null/);
 
     bs.init();
 
     // Map 登録（listIndex オブジェクトがキー）
     const set = engine.bindingsByListIndex.get(ctx2.listIndex);
     expect(set).toBeInstanceOf(Set);
-    expect(set.has(binding)).toBe(true);
+    expect(set!.has(binding)).toBe(true);
 
     // 値参照とフィルタ
-    expect(bs.getValue({} as any)).toBe(1);
-    expect(bs.getFilteredValue({} as any)).toBe(11);
+  expect((bs as any).getValue({} as any, {} as any)).toBe(1);
+  expect((bs as any).getFilteredValue({} as any, {} as any)).toBe(11);
 
     // ref も参照できる
     expect(bs.ref).toBe(ctx2.ref);
@@ -60,10 +60,9 @@ describe("BindingStateIndex", () => {
   it("binding と filters のゲッターが期待通り返る", () => {
     const engine = createEngine();
     const binding = createBinding(engine, { serialize: () => [] } as any);
-    const factory = createBindingStateIndex("$1", [ { name: "add", options: ["1"] } ]);
+    const factory = createBindingStateIndex("$1", [{ name: "add", options: ["1"] }]);
     const bs = factory(binding, engine.outputFilters);
     expect((bs as any).binding).toBe(binding);
-    // createFilters により 1 つのフィルタ関数が生成されている想定
     expect(Array.isArray((bs as any).filters)).toBe(true);
     expect((bs as any).filters.length).toBe(1);
   });
@@ -72,7 +71,7 @@ describe("BindingStateIndex", () => {
     const engine = createEngine();
     const binding = createBinding(engine, { serialize: () => [] });
     const factory = createBindingStateIndex("abc", []);
-  expect(() => factory(binding, engine.outputFilters)).toThrowError(/pattern is not a number/i);
+    expect(() => factory(binding, engine.outputFilters)).toThrowError(/pattern is not a number/i);
   });
 
   it("currentLoopContext が null だと init でエラー", () => {
@@ -80,7 +79,7 @@ describe("BindingStateIndex", () => {
     const binding = createBinding(engine, null);
     const factory = createBindingStateIndex("$1", []);
     const bs = factory(binding, engine.outputFilters);
-  expect(() => bs.init()).toThrowError(/loopContext is null/i);
+    expect(() => bs.init()).toThrowError(/loopContext is null/i);
   });
 
   it("シリアライズ結果の範囲外インデックスは init でエラー", () => {
@@ -89,7 +88,7 @@ describe("BindingStateIndex", () => {
     const binding = createBinding(engine, root);
     const factory = createBindingStateIndex("$2", []);
     const bs = factory(binding, engine.outputFilters);
-  expect(() => bs.init()).toThrowError('Current loopContext is null');
+    expect(() => bs.init()).toThrowError("Current loopContext is null");
   });
 
   it("assignValue は未実装エラー", () => {
@@ -100,7 +99,7 @@ describe("BindingStateIndex", () => {
     const factory = createBindingStateIndex("$1", []);
     const bs = factory(binding, engine.outputFilters);
     bs.init();
-  expect(() => bs.assignValue({} as any, 123)).toThrowError(/not implemented/i);
+  expect(() => (bs as any).assignValue({} as any, {} as any, 123)).toThrowError(/not implemented/i);
   });
 
   it("init を複数回呼んでも Set は重複しない", () => {

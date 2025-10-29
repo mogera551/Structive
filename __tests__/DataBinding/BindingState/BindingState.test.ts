@@ -1,23 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createBindingState } from "../../src/DataBinding/BindingState/BindingState";
-import { GetByRefSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
-
-// 簡易なメモリストアで State の [GetByRef]/[SetByRef] を模倣
-class MemoryState {
-  private store = new Map<string, any>();
-  [GetByRefSymbol](ref: any) {
-    return this.store.get(ref.key);
-  }
-  [SetByRefSymbol](ref: any, value: any) {
-    this.store.set(ref.key, value);
-  }
-  set(key: string, value: any) { this.store.set(key, value); }
-}
+import { createBindingState } from "../../../src/DataBinding/BindingState/BindingState";
+import * as getByRefMod from "../../../src/StateClass/methods/getByRef";
+import * as setByRefMod from "../../../src/StateClass/methods/setByRef";
 
 describe("BindingState", () => {
   let engine: any;
+  let getByRefSpy: ReturnType<typeof vi.spyOn>;
+  let setByRefSpy: ReturnType<typeof vi.spyOn>;
+  let valueByRef: Map<any, any>;
 
   beforeEach(() => {
+    valueByRef = new Map();
     engine = {
       inputFilters: {},
       outputFilters: {
@@ -25,7 +18,12 @@ describe("BindingState", () => {
         add: (opts: string[]) => (v: any) => Number(v) + Number(opts[0] ?? 0),
       },
       saveBinding: vi.fn(),
+      state: {},
     };
+    getByRefSpy = vi.spyOn(getByRefMod, "getByRef").mockImplementation((_state: any, ref: any) => valueByRef.get(ref));
+    setByRefSpy = vi.spyOn(setByRefMod, "setByRef").mockImplementation((_state: any, ref: any, value: any) => {
+      valueByRef.set(ref, value);
+    });
   });
 
   it("非ワイルドカード: init/saveBinding/get/assignValue", () => {
@@ -42,12 +40,13 @@ describe("BindingState", () => {
     const savedRef = engine.saveBinding.mock.calls[0][0];
 
     // 値の get / set を確認
-    const state = new MemoryState();
-    state.set(savedRef.key, "alice");
-    expect(bindingState.getValue(state as any)).toBe("alice");
+    const stateProxy = {} as any;
+    const handler = {} as any;
+    valueByRef.set(savedRef, "alice");
+    expect(bindingState.getValue(stateProxy, handler)).toBe("alice");
 
-    bindingState.assignValue(state as any, "bob");
-    expect(bindingState.getValue(state as any)).toBe("bob");
+    bindingState.assignValue(stateProxy as any, handler, "bob");
+    expect(valueByRef.get(savedRef)).toBe("bob");
   });
 
   it("フィルタ適用: upper と add", () => {
@@ -61,11 +60,12 @@ describe("BindingState", () => {
     bindingState.init();
 
     const savedRef = engine.saveBinding.mock.calls.at(-1)[0];
-    const state = new MemoryState();
-    state.set(savedRef.key, 5);
+    const stateProxy = {} as any;
+    const handler = {} as any;
+    valueByRef.set(savedRef, 5);
 
-    expect(bindingState.getValue(state as any)).toBe(5);
-    expect(bindingState.getFilteredValue(state as any)).toBe(15);
+    expect(bindingState.getValue(stateProxy, handler)).toBe(5);
+    expect(bindingState.getFilteredValue(stateProxy, handler)).toBe(15);
   });
 
   it("ワイルドカード: currentLoopContext から listIndex を取得して参照を解決", () => {
@@ -87,9 +87,10 @@ describe("BindingState", () => {
     expect(engine.saveBinding).toHaveBeenCalled();
     const ref = engine.saveBinding.mock.calls.at(-1)[0];
 
-    const state = new MemoryState();
-    state.set(ref.key, "carol");
-    expect(bindingState.getValue(state as any)).toBe("carol");
+    const stateProxy = {} as any;
+    const handler = {} as any;
+    valueByRef.set(ref, "carol");
+    expect(bindingState.getValue(stateProxy, handler)).toBe("carol");
   });
 
   it("フィルタチェーン: upper -> add", () => {
@@ -103,9 +104,10 @@ describe("BindingState", () => {
     bindingState.init();
 
     const ref = engine.saveBinding.mock.calls.at(-1)[0];
-    const state = new MemoryState();
-    state.set(ref.key, "dev");
-    expect(bindingState.getFilteredValue(state as any)).toBe("DEV");
+    const stateProxy = {} as any;
+    const handler = {} as any;
+    valueByRef.set(ref, "dev");
+    expect(bindingState.getFilteredValue(stateProxy, handler)).toBe("DEV");
   });
 
   it("エラー: ワイルドカードで lastWildcardPath が null", () => {
@@ -124,6 +126,6 @@ describe("BindingState", () => {
     const binding = { parentBindContent: { currentLoopContext: null }, engine } as any;
     const factory = createBindingState("items.*.name", []);
     const bindingState = factory(binding, engine.outputFilters);
-    expect(() => bindingState.getValue({ [GetByRefSymbol]: vi.fn() } as any)).toThrow(/ref is null/i);
+    expect(() => bindingState.getValue({} as any, {} as any)).toThrow(/ref is null/i);
   });
 });

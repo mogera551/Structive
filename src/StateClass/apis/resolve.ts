@@ -56,7 +56,7 @@ export function resolve(
       const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
       const tmpValue = getByRef(target, wildcardRef, receiver, handler);
       const listIndexes = handler.engine.getListIndexes(wildcardRef);
-      if (listIndexes === null) {
+      if (listIndexes == null) {
         raiseError({
           code: 'LIST-201',
           message: `ListIndexes not found: ${wildcardParentPattern.pattern}`,

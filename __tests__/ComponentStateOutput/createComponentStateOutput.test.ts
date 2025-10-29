@@ -35,7 +35,7 @@ function makeBindingMock(opts?: {
   return { binding, engine, childInfo, childPath, fakeBinding };
 }
 
-describe("ComponentStateOutput", () => {
+describe("createComponentStateOutput", () => {
   let binding: IComponentStateBinding & any;
   let engine: any;
   let childInfo: any;
@@ -77,23 +77,29 @@ describe("ComponentStateOutput", () => {
     expect(calledParentRef2.listIndex).not.toBe(fakeBinding.bindingState.listIndex);
   });
 
-  it("set: 親ref に変換して update 経由で SetByRefSymbol を叩く", () => {
+  it("set: 親ref に変換して createUpdater 経由で SetByRefSymbol を叩く", async () => {
     const out = createComponentStateOutput(binding);
-    // update をスパイして、渡される関数が SetByRefSymbol を叩くことを確認
-    const updateSpy = vi.spyOn(Updater, "update");
-    updateSpy.mockImplementation(async (_engine: any, _node: any, fn: any) => {
-      const setByRef = vi.fn();
-      const stateProxy = { [SetByRefSymbol]: setByRef } as any;
-      await fn({}, stateProxy);
-      expect(setByRef).toHaveBeenCalledTimes(1);
+    // createUpdater をスパイして、中で SetByRefSymbol が叩かれることを確認
+    const createUpdaterSpy = vi.spyOn(Updater, "createUpdater");
+    const setByRefMock = vi.fn();
+    createUpdaterSpy.mockImplementation(async (_engine: any, cb: any) => {
+      const updater = {
+        update: vi.fn(async (_loop: any, fn: any) => {
+          const stateProxy = { [SetByRefSymbol]: setByRefMock } as any;
+          await fn(stateProxy, {} as any);
+        }),
+      };
+      await cb(updater);
     });
 
     const childRef = getStatePropertyRef(childInfo, null);
     const ok = out.set(childRef, 123);
     expect(ok).toBe(true);
-    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(createUpdaterSpy).toHaveBeenCalledTimes(1);
+    expect(setByRefMock).toHaveBeenCalledTimes(1);
+    expect(setByRefMock.mock.calls[0][1]).toBe(123);
 
-    updateSpy.mockRestore();
+    createUpdaterSpy.mockRestore();
   });
 
   it("getListIndexes: 親ref に変換して engine.getListIndexes を呼ぶ（listIndex は childRef をそのまま使用）", () => {
@@ -119,7 +125,7 @@ describe("ComponentStateOutput", () => {
   });
 
   it("エラー: bindingByChildPath に存在しない場合は raiseError", () => {
-    // startsWithByChildPath は子側にマッチするが、bindingByChildPath に対応するエントリが無い状況を作る
+    // startsWithByChildPath は子側にマッチさせるが、bindingByChildPath に対応するエントリが無い状況を作る
     const m = makeBindingMock();
     const b2 = {
       ...m.binding,

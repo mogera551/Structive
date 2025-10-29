@@ -2,93 +2,164 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { get } from "../../src/StateClass/traps/get.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
 
-import { getReadonly } from "../../src/StateClass/traps/getReadonly";
-import { getWritable } from "../../src/StateClass/traps/getWritable";
-import { GetByRefSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol } from "../../src/StateClass/symbols";
-
-// Mocks for dependencies used inside traps
-vi.mock("../../src/StateProperty/getResolvedPathInfo", () => ({
-  getResolvedPathInfo: (prop: string) => ({ info: prop, pattern: prop })
-}));
-vi.mock("../../src/StatePropertyRef/StatepropertyRef", () => ({
-  getStatePropertyRef: (info: any, _listIndex: any) => ({ info })
-}));
-vi.mock("../../src/StateClass/methods/getByRefReadonly", () => ({
-  getByRefReadonly: (_t:any, ref:any) => ({ readonly: true, ref })
-}));
-vi.mock("../../src/StateClass/methods/getByRefWritable", () => ({
-  getByRefWritable: (_t:any, ref:any) => ({ writable: true, ref })
-}));
-vi.mock("../../src/StateClass/methods/setByRef", () => ({
-  setByRef: (_t:any, _ref:any, value:any) => ({ set: value })
+const raiseErrorMock = vi.fn((detail: any) => {
+  const message = typeof detail === "string" ? detail : detail?.message ?? "error";
+  throw new Error(message);
+});
+vi.mock("../../src/utils.js", () => ({
+  raiseError: (detail: any) => raiseErrorMock(detail),
 }));
 
-vi.mock("../../src/Router/Router", () => ({ getRouter: () => ({ navigate: vi.fn() }) }));
-vi.mock("../../src/StateClass/apis/resolveReadonly", () => ({ resolveReadonly: () => vi.fn() }));
-vi.mock("../../src/StateClass/apis/resolveWritable", () => ({ resolveWritable: () => vi.fn() }));
-vi.mock("../../src/StateClass/apis/getAllReadonly", () => ({ getAllReadonly: () => vi.fn() }));
-vi.mock("../../src/StateClass/apis/getAllWritable", () => ({ getAllWritable: () => vi.fn() }));
-vi.mock("../../src/StateClass/apis/trackDependency", () => ({ trackDependency: () => vi.fn() }));
-vi.mock("../../src/StateClass/traps/indexByIndexName", () => ({ indexByIndexName: { $1: 0, $2: 1 } }));
+const getRouterMock = vi.fn();
+vi.mock("../../src/Router/Router.js", () => ({
+  getRouter: () => getRouterMock(),
+}));
 
-function makeHandler() {
+const getResolvedPathInfoMock = vi.fn();
+vi.mock("../../src/StateProperty/getResolvedPathInfo.js", () => ({
+  getResolvedPathInfo: (prop: string) => getResolvedPathInfoMock(prop),
+}));
+
+const getListIndexMock = vi.fn();
+vi.mock("../../src/StateClass/methods/getListIndex.js", () => ({
+  getListIndex: (...args: any[]) => getListIndexMock(...args),
+}));
+
+const getStatePropertyRefMock = vi.fn();
+vi.mock("../../src/StatePropertyRef/StatepropertyRef.js", () => ({
+  getStatePropertyRef: (info: any, listIndex: any) => getStatePropertyRefMock(info, listIndex),
+}));
+
+const getByRefMock = vi.fn();
+vi.mock("../../src/StateClass/methods/getByRef.js", () => ({
+  getByRef: (...args: any[]) => getByRefMock(...args),
+}));
+
+const setByRefMock = vi.fn();
+vi.mock("../../src/StateClass/methods/setByRef.js", () => ({
+  setByRef: (...args: any[]) => setByRefMock(...args),
+}));
+
+const resolveMock = vi.fn();
+vi.mock("../../src/StateClass/apis/resolve.js", () => ({
+  resolve: (...args: any[]) => resolveMock(...args),
+}));
+
+const getAllMock = vi.fn();
+vi.mock("../../src/StateClass/apis/getAll.js", () => ({
+  getAll: (...args: any[]) => getAllMock(...args),
+}));
+
+const trackDependencyMock = vi.fn();
+vi.mock("../../src/StateClass/apis/trackDependency.js", () => ({
+  trackDependency: (...args: any[]) => trackDependencyMock(...args),
+}));
+
+const connectedCallbackMock = vi.fn();
+vi.mock("../../src/StateClass/apis/connectedCallback.js", () => ({
+  connectedCallback: (...args: any[]) => connectedCallbackMock(...args),
+}));
+
+const disconnectedCallbackMock = vi.fn();
+vi.mock("../../src/StateClass/apis/disconnectedCallback.js", () => ({
+  disconnectedCallback: (...args: any[]) => disconnectedCallbackMock(...args),
+}));
+
+vi.mock("../../src/StateClass/traps/indexByIndexName.js", () => ({
+  indexByIndexName: { $1: 0, $2: 1 },
+}));
+
+function makeHandler(symbols: PropertyKey[] = []) {
   return {
     lastRefStack: { listIndex: { indexes: [10, 20] }, info: { pattern: "a.b" } },
-    refStack: [ { listIndex: { indexes: [10, 20] }, info: { pattern: "a.b" } } ],
-    refIndex: 0,
-    engine: {
-      owner: { tagName: "X-OWNER" },
-      pathManager: { getters: new Set(), setters: new Set(), addDynamicDependency: vi.fn() }
-    }
+    engine: { owner: { tagName: "X-OWNER" } },
+    symbols: new Set(symbols),
   } as any;
 }
 
-describe("StateClass/traps getReadonly/getWritable", () => {
-  beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  raiseErrorMock.mockReset();
+  getRouterMock.mockReset();
+  getResolvedPathInfoMock.mockReset();
+  getListIndexMock.mockReset();
+  getStatePropertyRefMock.mockReset();
+  getByRefMock.mockReset();
+  setByRefMock.mockReset();
+  resolveMock.mockReset();
+  getAllMock.mockReset();
+  trackDependencyMock.mockReset();
+  connectedCallbackMock.mockReset();
+  disconnectedCallbackMock.mockReset();
+});
 
-  it("$1/$2 などのインデックス特殊プロパティを返す", () => {
+describe("StateClass/traps get", () => {
+  it("$1/$2 などのインデックスアクセスを返す", () => {
     const handler = makeHandler();
-    const v1 = getReadonly({}, "$1", {} as any, handler);
-    const v2 = getWritable({}, "$2", {} as any, handler);
-    expect(v1).toBe(10);
-    expect(v2).toBe(20);
+    expect(get({}, "$1", {} as any, handler)).toBe(10);
+    expect(get({}, "$2", {} as any, handler)).toBe(20);
   });
 
-  it("$navigate/$component/$resolve/$getAll/$trackDependency は所定の関数や値を返す", () => {
+  it("$resolve/$getAll/$trackDependency/$navigate/$component を解決", () => {
     const handler = makeHandler();
-    const nav = getReadonly({}, "$navigate", {} as any, handler);
-    expect(typeof nav).toBe("function");
+    resolveMock.mockReturnValue(() => "resolve");
+    getAllMock.mockReturnValue(() => "all");
+    trackDependencyMock.mockReturnValue(() => "track");
+    const navigateMock = vi.fn();
+    getRouterMock.mockReturnValue({ navigate: navigateMock });
 
-    const comp = getWritable({}, "$component", {} as any, handler);
-    expect(comp.tagName).toBe("X-OWNER");
+    const resolveFn = get({}, "$resolve", {} as any, handler);
+    const getAllFn = get({}, "$getAll", {} as any, handler);
+    const trackFn = get({}, "$trackDependency", {} as any, handler);
+    const navigateFn = get({}, "$navigate", {} as any, handler);
+    const component = get({}, "$component", {} as any, handler);
 
-    expect(typeof getReadonly({}, "$resolve", {} as any, handler)).toBe("function");
-    expect(typeof getWritable({}, "$getAll", {} as any, handler)).toBe("function");
-    expect(typeof getWritable({}, "$trackDependency", {} as any, handler)).toBe("function");
+    expect(resolveFn()).toBe("resolve");
+    expect(getAllFn()).toBe("all");
+    expect(trackFn()).toBe("track");
+    navigateFn("/path");
+    expect(navigateMock).toHaveBeenCalledWith("/path");
+    expect(component).toEqual(handler.engine.owner);
   });
 
-  it("通常プロパティは getResolvedPathInfo→getStatePropertyRef→getByRef* の流れ", () => {
+  it("通常プロパティは解決後に getByRef を呼ぶ", () => {
     const handler = makeHandler();
-    const r = getReadonly({}, "foo.bar", {} as any, handler);
-    expect(r).toMatchObject({ readonly: true, ref: { info: "foo.bar" } });
+    getResolvedPathInfoMock.mockReturnValue({ info: { pattern: "foo.bar" } });
+    getListIndexMock.mockReturnValue({ index: 1 });
+    getStatePropertyRefMock.mockReturnValue({ info: { pattern: "foo.bar" }, listIndex: { index: 1 } });
+    getByRefMock.mockReturnValue("VALUE");
 
-    const w = getWritable({}, "foo.bar", {} as any, handler);
-    expect(w).toMatchObject({ writable: true, ref: { info: "foo.bar" } });
+    const value = get({} as any, "foo.bar", {} as any, handler);
+
+    expect(value).toBe("VALUE");
+    expect(getResolvedPathInfoMock).toHaveBeenCalledWith("foo.bar");
+    expect(getListIndexMock).toHaveBeenCalled();
+    expect(getStatePropertyRefMock).toHaveBeenCalled();
+    expect(getByRefMock).toHaveBeenCalled();
   });
 
-  it("Symbol 経由の API(GetByRef/SetByRef/connected/disconnected)", () => {
-    const handler = makeHandler();
-    const getByRef = getWritable({}, GetByRefSymbol, {} as any, handler);
-    expect(typeof getByRef).toBe("function");
+  it("シンボル API を返す (GetByRef/SetByRef/connected/disconnected)", () => {
+    const handler = makeHandler([GetByRefSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol]);
+    const ref = { info: { pattern: "x" } } as any;
+    const target = {};
+    const receiver = {};
 
-    const setByRef = getWritable({}, SetByRefSymbol, {} as any, handler);
-    expect(typeof setByRef).toBe("function");
+    const getByRefFn = get(target, GetByRefSymbol, receiver as any, handler);
+    getByRefFn(ref);
+    expect(getByRefMock).toHaveBeenCalledWith(target, ref, receiver, handler);
 
-    const onConn = getWritable({}, ConnectedCallbackSymbol, {} as any, handler);
-    expect(typeof onConn).toBe("function");
+    const setByRefFn = get(target, SetByRefSymbol, receiver as any, handler);
+    setByRefFn(ref, "value");
+    expect(setByRefMock).toHaveBeenCalledWith(target, ref, "value", receiver, handler);
 
-    const onDisc = getWritable({}, DisconnectedCallbackSymbol, {} as any, handler);
-    expect(typeof onDisc).toBe("function");
+    const connectedFn = get(target, ConnectedCallbackSymbol, receiver as any, handler);
+    connectedFn();
+    expect(connectedCallbackMock).toHaveBeenCalled();
+
+    const disconnectedFn = get(target, DisconnectedCallbackSymbol, receiver as any, handler);
+    disconnectedFn();
+    expect(disconnectedCallbackMock).toHaveBeenCalled();
   });
 });

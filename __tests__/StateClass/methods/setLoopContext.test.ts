@@ -2,20 +2,20 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { setLoopContext } from "../../src/StateClass/methods/setLoopContext";
+import { setLoopContext } from "../../../src/StateClass/methods/setLoopContext";
 
 const raiseErrorMock = vi.fn((detail: any) => {
   const message = typeof detail === "string" ? detail : detail?.message ?? "error";
   throw new Error(message);
 });
-vi.mock("../../src/utils", () => ({
+vi.mock("../../../src/utils", () => ({
   raiseError: (detail: any) => raiseErrorMock(detail),
 }));
 
 const asyncSetStatePropertyRefMock = vi.fn(async (_handler: any, _ref: any, cb: () => Promise<void>) => {
   await cb();
 });
-vi.mock("../../src/StateClass/methods/asyncSetStatePropertyRef", () => ({
+vi.mock("../../../src/StateClass/methods/asyncSetStatePropertyRef", () => ({
   asyncSetStatePropertyRef: (handler: any, ref: any, cb: () => Promise<void>) => asyncSetStatePropertyRefMock(handler, ref, cb),
 }));
 

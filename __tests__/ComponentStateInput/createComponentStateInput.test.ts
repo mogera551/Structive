@@ -4,7 +4,7 @@ import { AssignStateSymbol, NotifyRedrawSymbol } from "../../src/ComponentStateI
 import { getStructuredPathInfo } from "../../src/StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../../src/StatePropertyRef/StatepropertyRef";
 
-describe("ComponentStateInput", () => {
+describe("createComponentStateInput", () => {
   it("get/set 経由で engine.getPropertyValue / setPropertyValue が呼ばれる", () => {
     const engine = {
       getPropertyValue: vi.fn(() => 42),
@@ -31,21 +31,31 @@ describe("ComponentStateInput", () => {
     } as any;
     const binding = {} as any;
 
-    // update をスパイし、渡される関数内で SetByRefSymbol が呼ばれるのを検証
-    const { update } = await import("../../src/Updater/Updater");
+    // createUpdater をスパイし、渡される関数内で SetByRefSymbol が呼ばれるのを検証
     const { SetByRefSymbol } = await import("../../src/StateClass/symbols");
     const updateMod = await import("../../src/Updater/Updater");
-    const spy = vi.spyOn(updateMod, "update");
-    spy.mockImplementation(async (_engine: any, _node: any, fn: any) => {
-      const setByRef = vi.fn();
-      const stateProxy = { [SetByRefSymbol]: setByRef } as any;
-      await fn({}, stateProxy);
-      // 2キー渡して2回呼ばれる
-      expect(setByRef).toHaveBeenCalledTimes(2);
+    const calls: any[] = [];
+    const spy = vi.spyOn(updateMod, "createUpdater");
+    spy.mockImplementation(async (_engine: any, cb: any) => {
+      const updater = {
+        update: vi.fn(async (_loop: any, fn: any) => {
+          const stateProxy = {
+            [SetByRefSymbol]: vi.fn((ref: any, value: any) => {
+              calls.push({ ref, value });
+            }),
+          } as any;
+          await fn(stateProxy, {} as any);
+        }),
+      };
+      await cb(updater);
     });
 
     const input = createComponentStateInput(engine, binding);
     input[AssignStateSymbol]({ "a.b": 1, "x.y": 2 });
+
+    expect(calls).toHaveLength(2);
+    expect(calls[0].value).toBe(1);
+    expect(calls[1].value).toBe(2);
 
     spy.mockRestore();
   });
@@ -62,14 +72,21 @@ describe("ComponentStateInput", () => {
     } as any;
 
     const updateMod = await import("../../src/Updater/Updater");
-    const spy = vi.spyOn(updateMod, "update");
-    spy.mockImplementation(async (_engine: any, _node: any, fn: any) => {
-      const enq = vi.fn();
-      const updater = { enqueueRef: enq } as any;
-      await fn(updater, {} as any);
-      expect(enq).toHaveBeenCalledTimes(1);
-      const calledRef = enq.mock.calls[0][0];
-      expect(calledRef.info.pattern.startsWith("child.")).toBe(true);
+    const { SetByRefSymbol } = await import("../../src/StateClass/symbols");
+    const calls: any[] = [];
+    const spy = vi.spyOn(updateMod, "createUpdater");
+    spy.mockImplementation(async (_engine: any, cb: any) => {
+      const updater = {
+        update: vi.fn(async (_loop: any, fn: any) => {
+          const stateProxy = {
+            [SetByRefSymbol]: vi.fn((ref: any, value: any) => {
+              calls.push({ ref, value });
+            }),
+          } as any;
+          await fn(stateProxy, {} as any);
+        }),
+      };
+      await cb(updater);
     });
 
     const input = createComponentStateInput(engine, binding);
@@ -79,6 +96,9 @@ describe("ComponentStateInput", () => {
     const ref2 = getStatePropertyRef(childInfo, null); // 対象外（try-catch の catch 側）
 
     input[NotifyRedrawSymbol]([ref1, ref2]);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].ref.info.pattern.startsWith("child.")).toBe(true);
 
     spy.mockRestore();
   });

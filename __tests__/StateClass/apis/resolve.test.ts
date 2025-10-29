@@ -2,8 +2,8 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { resolve } from "../../src/StateClass/apis/resolve";
-import { SetCacheableSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
+import { resolve } from "../../../src/StateClass/apis/resolve";
+import { SetCacheableSymbol, SetByRefSymbol } from "../../../src/StateClass/symbols";
 
 // Mock for utils: payload/legacy string 両対応
 const raiseErrorMock = vi.fn((arg: any) => {
@@ -15,30 +15,30 @@ const raiseErrorMock = vi.fn((arg: any) => {
   }
   throw new Error(String(arg));
 });
-vi.mock("../../src/utils", () => ({
+vi.mock("../../../src/utils", () => ({
   raiseError: (arg: any) => raiseErrorMock(arg)
 }));
 
 // Mocks for dependencies
 const getStructuredPathInfoMock = vi.fn();
-vi.mock("../../src/StateProperty/getStructuredPathInfo", () => ({
+vi.mock("../../../src/StateProperty/getStructuredPathInfo", () => ({
   getStructuredPathInfo: (path: any) => getStructuredPathInfoMock(path)
 }));
 
 const getStatePropertyRefMock = vi.fn((info: any, li: any) => ({ info, li }));
-vi.mock("../../src/StatePropertyRef/StatepropertyRef", () => ({
+vi.mock("../../../src/StatePropertyRef/StatepropertyRef", () => ({
   getStatePropertyRef: (info: any, li: any) => getStatePropertyRefMock(info, li)
 }));
 
 const getByRefMock = vi.fn();
-vi.mock("../../src/StateClass/methods/getByRef", () => ({
+vi.mock("../../../src/StateClass/methods/getByRef", () => ({
   getByRef: (target: any, ref: any, receiver: any, handler: any) => getByRefMock(target, ref, receiver, handler)
 }));
 
 const setByRefMock = vi.fn();
 // We'll use the actual SetCacheableSymbol from the import
 
-vi.mock("../../src/StateClass/methods/setByRef", () => ({
+vi.mock("../../../src/StateClass/methods/setByRef", () => ({
   setByRef: (target: any, ref: any, value: any, receiver: any, handler: any) => setByRefMock(target, ref, value, receiver, handler)
 }));
 

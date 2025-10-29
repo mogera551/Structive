@@ -18,11 +18,25 @@ vi.mock("../../src/WebComponents/loadSingleFileComponent", () => ({ loadSingleFi
 const registerComponentClassMock = vi.fn();
 vi.mock("../../src/WebComponents/registerComponentClass", () => ({ registerComponentClass: (t:string, c:any) => registerComponentClassMock(t, c) }));
 
-import { loadFromImportMap, hasLazyLoadComponents, isLazyLoadComponent, loadLazyLoadComponent } from "../../src/WebComponents/loadFromImportMap";
+let loadFromImportMap: typeof import("../../src/WebComponents/loadFromImportMap")["loadFromImportMap"];
+let hasLazyLoadComponents: typeof import("../../src/WebComponents/loadFromImportMap")["hasLazyLoadComponents"];
+let isLazyLoadComponent: typeof import("../../src/WebComponents/loadFromImportMap")["isLazyLoadComponent"];
+let loadLazyLoadComponent: typeof import("../../src/WebComponents/loadFromImportMap")["loadLazyLoadComponent"];
 
 describe("WebComponents/loadFromImportMap", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
+    ({ loadFromImportMap, hasLazyLoadComponents, isLazyLoadComponent, loadLazyLoadComponent } = await import("../../src/WebComponents/loadFromImportMap"));
+  });
+
+  it("未対応の alias は無視される", async () => {
+    loadImportmapMock.mockReturnValue({ imports: { "misc": "/unused.js" } });
+    await loadFromImportMap();
+
+    expect(entryRouteMock).not.toHaveBeenCalled();
+    expect(registerComponentClassMock).not.toHaveBeenCalled();
+    expect(hasLazyLoadComponents()).toBe(false);
   });
 
   it("routes と components を登録し、lazy は遅延保持する", async () => {
@@ -64,5 +78,21 @@ describe("WebComponents/loadFromImportMap", () => {
     expect(loadSingleFileComponentMock).toHaveBeenCalledWith("@components/x-baz#lazy");
     expect(registerComponentClassMock).toHaveBeenCalledWith("x-baz", expect.anything());
     expect(isLazyLoadComponent("x-baz")).toBe(false);
+  });
+
+  it("loadLazyLoadComponent: 未登録タグは warn して終了", async () => {
+    loadImportmapMock.mockReturnValue({ imports: {} });
+    await loadFromImportMap();
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    loadLazyLoadComponent("missing-tag");
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Alias not found"),
+      expect.objectContaining({ code: "IMP-201", severity: "warn" })
+    );
+    expect(loadSingleFileComponentMock).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

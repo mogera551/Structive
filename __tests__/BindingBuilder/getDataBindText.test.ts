@@ -125,9 +125,9 @@ describe('BindingBuilder', () => {
       expect(result).toBe('');
     });
 
-    it('should return empty string for invalid node type', () => {
+    it('should return empty string for unsupported node type', () => {
       const node = createMockNode('UnknownNode');
-      const result = getDataBindText('HTMLElement' as any, node);
+      const result = getDataBindText('Unsupported' as any, node);
       expect(result).toBe('');
     });
 

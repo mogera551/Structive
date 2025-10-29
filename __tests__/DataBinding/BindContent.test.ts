@@ -53,6 +53,7 @@ describe("BindContent", () => {
       node: span,
       bindContents: [],
       applyChange: vi.fn(),
+      bindingNode: { isBlock: false },
     } as any;
     vi.spyOn(bindingMod, "createBinding").mockReturnValue(mockBinding);
 
@@ -74,6 +75,9 @@ describe("BindContent", () => {
 
   bindContent.unmount();
   expect(host.childNodes.length).toBe(0);
+
+  // 2度目の unmount は parentNode が null でも例外なし
+  expect(() => bindContent.unmount()).not.toThrow();
 
   // applyChange は各 binding に委譲
   const renderer: any = { updatedBindings: new Set() };
@@ -102,7 +106,14 @@ describe("BindContent", () => {
     const top = template.content.firstElementChild!;
     vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValue(top);
 
-    const mockBinding = { init: vi.fn(), parentBindContent: null, node: top, bindContents: [], applyChange: vi.fn() } as any;
+    const mockBinding = {
+      init: vi.fn(),
+      parentBindContent: null,
+      node: top,
+      bindContents: [],
+      applyChange: vi.fn(),
+      bindingNode: { isBlock: false },
+    } as any;
     vi.spyOn(bindingMod, "createBinding").mockReturnValue(mockBinding);
 
     const loopRef: any = { listIndex: null };
@@ -127,11 +138,40 @@ describe("BindContent", () => {
     expect(anchor.nextSibling).toBe(bc.firstChildNode);
   });
 
+  it("blockBindings が存在する場合は hasBlockBinding が true", () => {
+    const mockCreator = {
+      createBindingNode: vi.fn(),
+      createBindingState: vi.fn(),
+    } as any;
+    const attrs = [{
+      nodeType: "HTMLElement",
+      nodePath: [0],
+      bindTexts: ["t"],
+      creatorByText: new Map([["t", mockCreator]]),
+    }];
+    vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValueOnce(attrs as any);
+    const top = template.content.firstElementChild!;
+    vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValueOnce(top);
+
+    const blockBinding = {
+      init: vi.fn(),
+      node: top,
+      bindContents: [],
+      applyChange: vi.fn(),
+      bindingNode: { isBlock: true },
+    } as any;
+    vi.spyOn(bindingMod, "createBinding").mockReturnValueOnce(blockBinding);
+
+    const bc = createBindContent(null, templateId, engine, { listIndex: null } as any);
+    expect(bc.hasBlockBinding).toBe(true);
+    expect(bc.blockBindings).toContain(blockBinding);
+  });
+
   it("currentLoopContext は親チェーンを遡り一度だけ計算（キャッシュ）", () => {
     const attrs = [{ nodeType: "HTMLElement", nodePath: [0], bindTexts: ["t"], creatorByText: new Map([["t", {}]]) }];
     vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValue(attrs as any);
     vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValue(template.content.firstElementChild!);
-    vi.spyOn(bindingMod, "createBinding").mockReturnValue({ init: vi.fn(), node: template.content.firstElementChild!, bindContents: [] } as any);
+  vi.spyOn(bindingMod, "createBinding").mockReturnValue({ init: vi.fn(), node: template.content.firstElementChild!, bindContents: [], bindingNode: { isBlock: false } } as any);
 
     const parentLoopCtx = { any: 1 } as any;
     const parentBinding = { parentBindContent: { loopContext: parentLoopCtx } } as any;
@@ -147,7 +187,7 @@ describe("BindContent", () => {
     const attrs = [{ nodeType: "HTMLElement", nodePath: [0], bindTexts: ["t"], creatorByText: new Map([["t", {}]]) }];
     vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValue(attrs as any);
     vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValue(template.content.firstElementChild!);
-    vi.spyOn(bindingMod, "createBinding").mockReturnValue({ init: vi.fn(), node: template.content.firstElementChild!, bindContents: [] } as any);
+  vi.spyOn(bindingMod, "createBinding").mockReturnValue({ init: vi.fn(), node: template.content.firstElementChild!, bindContents: [], bindingNode: { isBlock: false } } as any);
 
     const bc = createBindContent(null, templateId, engine, { listIndex: null } as any);
   expect(() => bc.assignListIndex({} as any)).toThrow("LoopContext is null");
@@ -157,7 +197,7 @@ describe("BindContent", () => {
     const attrs = [{ nodeType: "HTMLElement", nodePath: [0], bindTexts: ["t"], creatorByText: new Map([["t", {}]]) }];
     vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValue(attrs as any);
     vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValue(template.content.firstElementChild!);
-    const mockBinding = { init: vi.fn(), node: template.content.firstElementChild!, bindContents: [] } as any;
+  const mockBinding = { init: vi.fn(), node: template.content.firstElementChild!, bindContents: [], bindingNode: { isBlock: false } } as any;
     vi.spyOn(bindingMod, "createBinding").mockReturnValue(mockBinding);
 
     const bc = createBindContent(null, templateId, engine, { listIndex: null } as any);
@@ -171,11 +211,11 @@ describe("BindContent", () => {
   });
 
   it("applyChange: updatedBindings に含まれるものは skip", () => {
-    const attrs = [{ nodeType: "HTMLElement", nodePath: [0], bindTexts: ["t1", "t2"], creatorByText: new Map([["t1", {}], ["t2", {}]]) }];
+  const attrs = [{ nodeType: "HTMLElement", nodePath: [0], bindTexts: ["t1", "t2"], creatorByText: new Map([["t1", {}], ["t2", {}]]) }];
     vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValue(attrs as any);
     vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValue(template.content.firstElementChild!);
-  const b1 = { init: vi.fn(), applyChange: vi.fn(), node: template.content.firstElementChild!, bindContents: [] } as any;
-  const b2 = { init: vi.fn(), applyChange: vi.fn(), node: template.content.firstElementChild!, bindContents: [] } as any;
+  const b1 = { init: vi.fn(), applyChange: vi.fn(), node: template.content.firstElementChild!, bindContents: [], bindingNode: { isBlock: false } } as any;
+  const b2 = { init: vi.fn(), applyChange: vi.fn(), node: template.content.firstElementChild!, bindContents: [], bindingNode: { isBlock: false } } as any;
     vi.spyOn(bindingMod, "createBinding").mockReturnValueOnce(b1).mockReturnValueOnce(b2);
 
     const bc = createBindContent(null, templateId, engine, { listIndex: null } as any);
@@ -197,7 +237,7 @@ describe("BindContent", () => {
     const attrs = [{ nodeType: "HTMLElement", nodePath: [0], bindTexts: ["t"], creatorByText: new Map([["t", {}]]) }];
     vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValue(attrs as any);
     vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValue(template.content.firstElementChild!);
-    vi.spyOn(bindingMod, "createBinding").mockReturnValue({ init: vi.fn(), node: template.content.firstElementChild!, bindContents: [] } as any);
+  vi.spyOn(bindingMod, "createBinding").mockReturnValue({ init: vi.fn(), node: template.content.firstElementChild!, bindContents: [], bindingNode: { isBlock: false } } as any);
 
     const bc = createBindContent(null, templateId, engine, { listIndex: null } as any);
     expect(bc.childNodes.length).toBeGreaterThan(0);
@@ -239,6 +279,7 @@ describe("BindContent", () => {
       node: rootEl, 
       bindContents: [childBindContent],
       applyChange: vi.fn(),
+      bindingNode: { isBlock: false },
     };
     vi.spyOn(bindingMod, "createBinding").mockReturnValueOnce(mockBinding);
 
@@ -250,5 +291,34 @@ describe("BindContent", () => {
     // 子の getLastNode が null を返す場合は親の lastChildNode を返す
     const last = bc.getLastNode(host);
     expect(last).toBe(bc.lastChildNode);
+  });
+
+  it("getLastNode: 子 BindContent がノードを返す場合はそのノードを返す", () => {
+    const attrs = [{ nodeType: "HTMLElement", nodePath: [0], bindTexts: ["t"], creatorByText: new Map([["t", {}]]) }];
+    vi.spyOn(registerAttrMod, "getDataBindAttributesById").mockReturnValueOnce(attrs as any);
+    const rootEl = template.content.firstElementChild!;
+    vi.spyOn(resolveNodeFromPathMod, "resolveNodeFromPath").mockReturnValueOnce(rootEl);
+    vi.spyOn(bindingMod, "createBinding").mockReturnValueOnce({
+      init: vi.fn(),
+      node: rootEl,
+      bindContents: [],
+      applyChange: vi.fn(),
+      bindingNode: { isBlock: false },
+    } as any);
+
+    const bc = createBindContent(null, templateId, engine, { listIndex: null } as any);
+    const host = document.createElement("div");
+    const sentinel = document.createElement("section");
+    host.appendChild(sentinel);
+    const childTail = document.createElement("span");
+    host.appendChild(childTail);
+    const childBindContent = { getLastNode: vi.fn(() => childTail) } as any;
+
+    (bc as any).childNodes = [sentinel];
+    (bc as any).bindings = [{ node: sentinel, bindContents: [childBindContent] }];
+
+    const last = bc.getLastNode(host);
+    expect(childBindContent.getLastNode).toHaveBeenCalledWith(host);
+    expect(last).toBe(childTail);
   });
 });

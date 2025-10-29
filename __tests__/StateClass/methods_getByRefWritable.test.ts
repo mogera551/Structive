@@ -1,123 +1,142 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getByRefWritable } from "../../src/StateClass/methods/getByRefWritable";
+import { getByRef } from "../../src/StateClass/methods/getByRef";
 
-vi.mock("../../src/StateClass/methods/checkDependency", () => ({ checkDependency: () => {} }));
+const raiseErrorMock = vi.fn((detail: any) => {
+  const message = typeof detail === "string" ? detail : detail?.message ?? "error";
+  throw new Error(message);
+});
+vi.mock("../../src/utils", () => ({
+  raiseError: (detail: any) => raiseErrorMock(detail),
+}));
 
-function makeInfo(pattern: string, opts?: Partial<any>): any {
-  const segments = pattern.split(".");
-  const parentPath = segments.length > 1 ? segments.slice(0, -1).join(".") : null;
-  const lastSegment = segments[segments.length - 1];
-  const parentInfo: any = parentPath ? makeInfo(parentPath) : null;
+const checkDependencyMock = vi.fn();
+vi.mock("../../src/StateClass/methods/checkDependency", () => ({
+  checkDependency: (...args: any[]) => checkDependencyMock(...args),
+}));
+
+vi.mock("../../src/StateClass/methods/setStatePropertyRef", () => ({
+  setStatePropertyRef: vi.fn(),
+}));
+
+function createGetterSet(values: string[] = []) {
+  const base = new Set(values);
   return {
-    id: 1,
-    sid: pattern,
-    pathSegments: segments,
-    lastSegment,
-    cumulativePaths: [],
-    cumulativePathSet: new Set<string>(),
-    cumulativeInfos: [],
-    cumulativeInfoSet: new Set<any>(),
-    parentPath,
-    parentInfo,
-    wildcardPaths: [],
-    wildcardPathSet: new Set<string>(),
-    indexByWildcardPath: {},
-    wildcardInfos: [],
-    wildcardInfoSet: new Set<any>(),
-    wildcardParentPaths: [],
-    wildcardParentPathSet: new Set<string>(),
-    wildcardParentInfos: [],
-    wildcardParentInfoSet: new Set<any>(),
-    lastWildcardPath: null,
-    lastWildcardInfo: null,
-    pattern,
-    wildcardCount: segments.filter(s => s === "*").length,
-    children: {},
-    ...opts,
+    has: (value: string) => base.has(value),
+    add: (value: string) => { base.add(value); },
+    intersection: (other: Set<string>) => {
+      const result = new Set<string>();
+      for (const value of base) {
+        if (other.has(value)) {
+          result.add(value);
+        }
+      }
+      return result;
+    },
   };
 }
 
-function makeHandler(overrides: Partial<any> = {}) {
-  const engine = {
-    pathManager: {
-      getters: new Set<string>(),
-      setters: new Set<string>(),
-    },
-    stateOutput: {
-      startsWith: (info: any) => false,
-      get: vi.fn(),
-    },
+function makeInfo(pattern: string, wildcardCount = 0, cumulativePaths: string[] = []): any {
+  return {
+    pattern,
+    wildcardCount,
+    cumulativePathSet: new Set<string>(cumulativePaths),
+  };
+}
+
+function makeRef(pattern: string, wildcardCount = 0, cumulativePaths: string[] = []) {
+  return { info: makeInfo(pattern, wildcardCount, cumulativePaths) } as any;
+}
+
+function makeHandler() {
+  const getters = createGetterSet();
+  const lists = new Set<string>();
+  const cache = new Map<any, any>();
+  const stateOutput = {
+    startsWith: vi.fn().mockReturnValue(false),
+    get: vi.fn(),
   };
   const handler = {
-    engine,
-    refStack: [],
+    engine: {
+      pathManager: {
+        getters,
+        lists,
+      },
+      cache,
+      stateOutput,
+    },
+    updater: {
+      version: 2,
+      revision: 1,
+      revisionByUpdatedPath: new Map<string, number>(),
+      calcListDiff: vi.fn(),
+    },
+    refStack: [] as any[],
     refIndex: -1,
+    lastRefStack: null,
   };
-  return Object.assign(handler, overrides);
+  return { handler: handler as any, cache, getters, lists, stateOutput };
 }
 
-function makeRef(info: any, listIndex: any = null) {
-  return { info, listIndex } as any;
-}
+beforeEach(() => {
+  vi.clearAllMocks();
+  raiseErrorMock.mockReset();
+  checkDependencyMock.mockReset();
+});
 
-describe("StateClass/methods: getByRefWritable", () => {
-  beforeEach(() => vi.restoreAllMocks());
+describe("StateClass/methods getByRef (revision scenarios)", () => {
+  it("revision が進んだ場合は新しい値でキャッシュを更新", () => {
+    const { handler, cache, getters, lists } = makeHandler();
+    const ref = makeRef("items", 0, []);
+    getters.add("items");
+    lists.add("items");
+    cache.set(ref, { value: "OLD", version: 1, revision: 0 });
+    handler.updater.revisionByUpdatedPath.set("items", 1);
+    const target = { items: 99 };
 
-  it("stateOutput 経由で取得 (startsWith=true, setters 交差なし)", () => {
-    const info = makeInfo("a.b");
-    const ref = makeRef(info);
-    const handler = makeHandler();
-    handler.engine.stateOutput.startsWith = () => true;
-    handler.engine.pathManager.setters = new Set();
-    handler.engine.stateOutput.get = vi.fn().mockReturnValue("WRITE-OUT");
-    const value = getByRefWritable({} as any, ref, {} as any, handler as any);
-    expect(value).toBe("WRITE-OUT");
+    const value = getByRef(target, ref, target as any, handler);
+
+    expect(value).toBe(99);
+  expect(cache.get(ref)).toEqual({ value: 99, version: 2, revision: 1 });
+  expect(handler.updater.calcListDiff).toHaveBeenCalledTimes(1);
+  const diffCall = handler.updater.calcListDiff.mock.calls[0];
+  expect(diffCall[0]).toBe(ref);
+  expect(diffCall[1]).toBe(99);
   });
 
-  it("target のプロパティから取得 (setStatePropertyRef 経由)", () => {
-    const info = makeInfo("a");
-    const target: any = { a: 7 };
-    const ref = makeRef(info);
-    const handler = makeHandler();
-    const value = getByRefWritable(target, ref, {} as any, handler as any);
-    expect(value).toBe(7);
+  it("cacheEntry.version が現在より大きい場合はキャッシュを返す", () => {
+    const { handler, cache } = makeHandler();
+    handler.updater.version = 1;
+    const ref = makeRef("items.*", 1);
+    cache.set(ref, { value: "FUTURE", version: 3, revision: 0 });
+
+    const value = getByRef({}, ref, {} as any, handler);
+
+    expect(value).toBe("FUTURE");
   });
 
-  it("親を再帰的に辿って取得（通常セグメント）", () => {
-    const parent = { a: { b: 42 } };
-    const info = makeInfo("a.b");
-    const ref = makeRef(info);
-    const handler = makeHandler();
-    const value = getByRefWritable(parent as any, ref, {} as any, handler as any);
-    expect(value).toBe(42);
+  it("stateOutput.startsWith が true でも交差がある場合は通常取得", () => {
+    const { handler, getters } = makeHandler();
+    const ref = makeRef("foo.bar", 0, ["foo"]);
+    getters.add("foo");
+    handler.engine.stateOutput.startsWith.mockReturnValue(true);
+    const target = { "foo.bar": "VALUE" } as any;
+
+    const result = getByRef(target, ref, target, handler);
+
+    expect(result).toBe("VALUE");
+    expect(handler.engine.stateOutput.get).not.toHaveBeenCalled();
   });
 
-  it("ワイルドカード最終セグメント: listIndex.index でアクセス", () => {
-    const parent = { a: [0, 1, 2, 3] };
-    const info = makeInfo("a.*");
-    const ref = makeRef(info, { index: 2, parentListIndex: null });
-    const handler = makeHandler();
-    const value = getByRefWritable(parent as any, ref, {} as any, handler as any);
-    expect(value).toBe(2);
-  });
+  it("lists に含まれない場合は calcListDiff を呼ばない", () => {
+    const { handler, getters, lists } = makeHandler();
+    const ref = makeRef("items", 0);
+    getters.add("items");
+    lists.clear();
+    const target = { items: [5] };
 
-  it("エラー: parentInfo が undefined の場合は例外を投げる", () => {
-    const info = makeInfo("a.b", { parentInfo: null });
-    const ref = makeRef(info);
-    const target = {}; // target に "a.b" は存在しない
-    const handler = makeHandler();
-    expect(() => {
-      getByRefWritable(target as any, ref, {} as any, handler as any);
-    }).toThrowError(/propRef.stateProp.parentInfo is undefined/);
-  });
+    const result = getByRef(target, ref, target as any, handler);
 
-  it("エラー: ワイルドカードで listIndex.index が undefined の場合は例外を投げる", () => {
-    const info = makeInfo("a.b.*");
-    const ref = makeRef(info, { index: undefined, parentListIndex: null }); // index が undefined
-    const target = { a: { b: [10, 20, 30] } }; // target に "a.b" は存在するが "a.b.*" は存在しない
-    const handler = makeHandler();
-    expect(() => {
-      getByRefWritable(target as any, ref, {} as any, handler as any);
-    }).toThrowError(/propRef.listIndex\?\.index is undefined/);
+    expect(result).toEqual([5]);
+    expect(handler.updater.calcListDiff).not.toHaveBeenCalled();
   });
 });

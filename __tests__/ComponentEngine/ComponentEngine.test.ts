@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getStructuredPathInfo } from "../../src/StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../../src/StatePropertyRef/StatepropertyRef";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
 import { AssignStateSymbol } from "../../src/ComponentStateInput/symbols";
 import { createRootNode } from "../../src/PathTree/PathNode";
 
@@ -19,7 +19,9 @@ function makeTestPathManager() {
     funcs: new Set<string>(),
     rootNode: createRootNode(),
     dynamicDependencies: new Map<string, Set<string>>(),
-    staticDependencies: new Map<string, Set<string>>()
+    staticDependencies: new Map<string, Set<string>>(),
+    lists: new Set<string>(),
+    elements: new Set<string>(),
   } as any;
 }
 
@@ -71,25 +73,40 @@ vi.mock("../../src/DataBinding/BindContent", () => {
 
 vi.mock("../../src/Updater/Updater", () => {
   return {
-    update: vi.fn(async (_engine: any, _node: any, fn: any) => {
-      updateCallCount++;
+    createUpdater: vi.fn(async (_engine: any, cb: any) => {
       const enqueueRef = vi.fn();
-      lastUpdater = { enqueueRef };
-      lastStateProxy = {
-        [ConnectedCallbackSymbol]: vi.fn(async () => {}),
-        [DisconnectedCallbackSymbol]: vi.fn(async () => {}),
-        [SetByRefSymbol]: vi.fn()
+      const updater = {
+        enqueueRef,
+        update: vi.fn(async (_loop: any, fn: any) => {
+          updateCallCount++;
+          lastUpdater = updater;
+          lastStateProxy = {
+            [ConnectedCallbackSymbol]: vi.fn(async () => {}),
+            [DisconnectedCallbackSymbol]: vi.fn(async () => {}),
+            [SetByRefSymbol]: vi.fn(),
+            [GetByRefSymbol]: vi.fn(),
+          };
+          const handler = {} as any;
+          await fn(lastStateProxy, handler);
+          if (blockNextUpdate) {
+            blockNextUpdate = false;
+            // 次の update 呼び出しのみをブロックし、外部から解除できるようにする
+            updateBlockerPromise = new Promise<void>((resolve) => {
+              resolveUpdateBlocker = resolve;
+            });
+            await updateBlockerPromise;
+          }
+        }),
+        createReadonlyState: vi.fn((fn: any) => {
+          const readonlyProxy = {
+            [GetByRefSymbol]: vi.fn(() => 123),
+          };
+          const handler = {} as any;
+          return fn(readonlyProxy, handler);
+        }),
       };
-      await fn(lastUpdater, lastStateProxy);
-      if (blockNextUpdate) {
-        blockNextUpdate = false;
-        // 次の update 呼び出しのみをブロックし、外部から解除できるようにする
-        updateBlockerPromise = new Promise<void>((resolve) => {
-          resolveUpdateBlocker = resolve;
-        });
-        await updateBlockerPromise;
-      }
-    })
+      return cb(updater);
+    }),
   };
 });
 
@@ -171,10 +188,27 @@ describe("ComponentEngine", () => {
   expect(loopRef.info.pattern).toBe("");
   });
 
+  it("setup: RESERVED_WORD_SET や既存エントリは登録をスキップする", () => {
+    (engine.pathManager as any).alls.add("foo");
+    (engine.state as any).let = 3;
+    engine.setup();
+    expect((engine.pathManager as any).alls.has("let")).toBe(false);
+    expect(Array.from((engine.pathManager as any).alls)).toContain("bar");
+  });
+
+  it("versionUp: currentVersion をインクリメントして返す", () => {
+    expect(engine.currentVersion).toBe(0);
+    expect(engine.versionUp()).toBe(1);
+    expect(engine.currentVersion).toBe(1);
+  });
+
   it("connectedCallback: data-state を AssignState し、mount と初期 enqueue を行う", async () => {
     // data-state をセット
     el.dataset.state = JSON.stringify({ foo: 10 });
     engine.setup();
+    (engine.pathManager as any).alls.add("nested.value");
+    (engine.pathManager as any).alls.add("functionProp");
+    (engine.pathManager as any).funcs.add("functionProp");
     await engine.connectedCallback();
     // mount が呼ばれる
     expect(currentBindContent.mount).toHaveBeenCalled();
@@ -229,13 +263,25 @@ describe("ComponentEngine", () => {
     expect(capturedPlaceholder).toBeInstanceOf(Comment);
   });
 
+  it("connectedCallback: block モードで親が無い場合はエラーを投げる", async () => {
+    ComponentEngineCls = await importEngine();
+    engine = new ComponentEngineCls(makeConfig({ enableWebComponents: false }), el as any);
+    let ignorePromise: Promise<void> | null = null;
+    (el as any).replaceWith = vi.fn(() => {
+      ignorePromise = engine.disconnectedCallback();
+    });
+    engine.setup();
+    await expect(engine.connectedCallback()).rejects.toThrowError(/Block parent node is not set/);
+    await (ignorePromise ?? Promise.resolve());
+  });
+
   it("getPropertyValue/setPropertyValue: ref 経由の取得/設定を行う", async () => {
     const info = getStructuredPathInfo("foo");
     const ref = getStatePropertyRef(info, null);
 
     // get は ReadonlyProxy 経由
     const v = engine.getPropertyValue(ref);
-    expect(typeof v === "number" || v === undefined).toBe(true);
+    expect(v).toBe(123);
 
     // set は update 経由で SetByRefSymbol を叩く
     engine.setPropertyValue(ref, 999);
@@ -246,16 +292,32 @@ describe("ComponentEngine", () => {
     const info = getStructuredPathInfo("foo");
     const ref = getStatePropertyRef(info, null);
 
-    // save/get bindings
+    expect(engine.getBindings(ref)).toEqual([]);
     const fakeBinding = { id: "B" } as any;
+    const anotherBinding = { id: "C" } as any;
     engine.saveBinding(ref, fakeBinding);
-    expect(engine.getBindings(ref)[0]).toBe(fakeBinding);
+    engine.saveBinding(ref, anotherBinding);
+    expect(engine.getBindings(ref)).toEqual([fakeBinding, anotherBinding]);
 
     // save/get list & listIndexes
-    engine.saveListAndListIndexes(ref, [1,2], [{ sid: "LI", at: () => null } as any]);
-    const [list, listIndexes] = engine.getListAndListIndexes(ref);
-    expect(list?.length).toBe(2);
-    expect(listIndexes?.length).toBe(1);
+    engine.pathManager.lists.add(ref.info.pattern);
+  engine.saveListAndListIndexes(ref, [1,2], [{ sid: "LI", at: () => null } as any]);
+  const saveInfo = engine.getListAndListIndexes(ref);
+  expect(saveInfo.list?.length).toBe(2);
+  expect(saveInfo.listIndexes?.length).toBe(1);
+  expect(engine.getListIndexes(ref)?.[0]?.sid).toBe("LI");
+  engine.saveListAndListIndexes(ref, null, null);
+  const clearedInfo = engine.getListAndListIndexes(ref);
+  expect(clearedInfo).toEqual({ list: null, listIndexes: null, listClone: null });
+  expect(engine.getListIndexes(ref)).toBeNull();
+
+    const otherInfo = getStructuredPathInfo("baz");
+    const otherRef = getStatePropertyRef(otherInfo, null);
+    const initialSaveInfo = engine.getListAndListIndexes(otherRef);
+    expect(initialSaveInfo).toEqual({ list: null, listIndexes: null, listClone: null });
+    engine.saveListAndListIndexes(otherRef, [7], null);
+    expect(engine.getListAndListIndexes(otherRef)).toEqual({ list: null, listIndexes: null, listClone: null });
+    expect(engine.getListIndexes(otherRef)).toBeNull();
   });
 
   it("getListIndexes: stateOutput.startsWith が true のときは stateOutput.getListIndexes を使う", () => {
@@ -276,6 +338,12 @@ describe("ComponentEngine", () => {
     ComponentEngineCls = await importEngine();
     engine = new ComponentEngineCls(makeConfig({ enableWebComponents: false }), el as any);
     document.body.appendChild(el);
+    const parent = {
+      registerChildComponent: vi.fn(),
+      unregisterChildComponent: vi.fn(),
+      waitForInitialize: { promise: Promise.resolve() },
+    } as any;
+    el.parentStructiveComponent = parent;
     // replaceWith をスタブして placeholder を捕捉し、remove をスパイ
     let capturedPlaceholder: Comment | null = null;
     const origReplaceWith = (el as any).replaceWith?.bind(el);
@@ -303,6 +371,7 @@ describe("ComponentEngine", () => {
     expect(updateCallCount).toBeGreaterThan(before);
     // placeholder の remove が呼ばれている
     expect(removeSpy).toHaveBeenCalled();
+    expect(parent.unregisterChildComponent).toHaveBeenCalledWith(el);
   });
 
   it("connectedCallback は pending な disconnectedCallback の完了を待つ", async () => {
@@ -373,18 +442,20 @@ describe("ComponentEngine", () => {
     const info = getStructuredPathInfo("items.*");
     // listIndex なし
     const refNoIdx = getStatePropertyRef(info, null);
+  engine.pathManager.lists.add(refNoIdx.info.pattern);
     engine.saveListAndListIndexes(refNoIdx, [1,2,3], [{ sid: "A" } as any]);
 
     // listIndex あり（別保存）
     const listIndex = { sid: "IDX", at: () => null } as any;
     const refWithIdx = getStatePropertyRef(info, listIndex);
+  engine.pathManager.lists.add(refWithIdx.info.pattern);
     engine.saveListAndListIndexes(refWithIdx, [9,9], [{ sid: "B" } as any]);
 
-    const [list0, idx0] = engine.getListAndListIndexes(refNoIdx);
-    const [list1, idx1] = engine.getListAndListIndexes(refWithIdx);
-    expect(list0).toEqual([1,2,3]);
-    expect(idx0?.[0]?.sid).toBe("A");
-    expect(list1).toEqual([9,9]);
-    expect(idx1?.[0]?.sid).toBe("B");
+  const info0 = engine.getListAndListIndexes(refNoIdx);
+  const info1 = engine.getListAndListIndexes(refWithIdx);
+  expect(info0.list).toEqual([1,2,3]);
+  expect(info0.listIndexes?.[0]?.sid).toBe("A");
+  expect(info1.list).toEqual([9,9]);
+  expect(info1.listIndexes?.[0]?.sid).toBe("B");
   });
 });

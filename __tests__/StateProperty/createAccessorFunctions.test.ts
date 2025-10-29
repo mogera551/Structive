@@ -112,6 +112,22 @@ describe('createAccessorFunctions', () => {
       // 最長のマッチ（'nested.deeper'）が使用されることを確認
       expect(() => accessor.get.call(testObj)).not.toThrow();
     });
+
+    it('ワイルドカードを含むgetterでも末尾のワイルドカードセグメントを組み立てられる', () => {
+      const info = getStructuredPathInfo('items.*.values.*');
+      const getters = new Set(['items.*', 'items.*.values']);
+      // getter ベースで参照されるプロパティを用意
+      (testObj as any)['items.*'] = testObj.items;
+      (testObj as any)['items.*.values'] = testObj.items[0].values;
+
+      const accessor = createAccessorFunctions(info, getters);
+      testObj.$1 = 0;
+      testObj.$2 = 1;
+
+      expect(accessor.get.call(testObj)).toBe('b');
+      accessor.set.call(testObj, 'wildcardSet');
+      expect(testObj.items[0].values[1]).toBe('wildcardSet');
+    });
   });
 
   describe('ワイルドカードアクセサ', () => {
@@ -178,6 +194,13 @@ describe('createAccessorFunctions', () => {
       const getters = new Set(['validPath']);
       
       expect(() => createAccessorFunctions(validInfo, getters)).not.toThrow();
+    });
+
+    it('getters に不正なパスが含まれる場合は STATE-202 を投げる', () => {
+      const info = getStructuredPathInfo('invalid-path.children.leaf');
+      const getters = new Set(['invalid-path.children']);
+
+      expect(() => createAccessorFunctions(info, getters)).toThrowError(/Invalid path: invalid-path.children/);
     });
   });
 

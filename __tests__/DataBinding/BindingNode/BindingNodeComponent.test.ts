@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createBinding } from "../../src/DataBinding/Binding";
-import { createBindingNodeComponent } from "../../src/DataBinding/BindingNode/BindingNodeComponent";
-import { NotifyRedrawSymbol } from "../../src/ComponentStateInput/symbols";
-import { getStatePropertyRef } from "../../src/StatePropertyRef/StatepropertyRef";
+import { createBinding } from "../../../src/DataBinding/Binding";
+import { createBindingNodeComponent } from "../../../src/DataBinding/BindingNode/BindingNodeComponent";
+import { NotifyRedrawSymbol } from "../../../src/ComponentStateInput/symbols";
+import { getStatePropertyRef } from "../../../src/StatePropertyRef/StatepropertyRef";
 
 // ヘルパー: 簡易な info/listIndex を生成
 function makeInfo(pattern: string, pathSegments: string[], wildcardCount: number, cumulative: string[]): any {
@@ -108,7 +108,6 @@ describe("BindingNodeComponent", () => {
     const childInfo = makeInfo("values.*.foo.bar", ["values","*","foo","bar"], 1, ["values","values.*","values.*.foo","values.*.foo.bar"]);
     const childRef = getStatePropertyRef(childInfo as any, otherListIndex);
     binding.notifyRedraw([childRef]);
-    // 呼び出しが増えていないこと
     expect((component.state[NotifyRedrawSymbol] as any).mock.calls.length).toBe(0);
   });
 });

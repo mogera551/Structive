@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { checkDependency } from "../../src/StateClass/methods/checkDependency";
+import { checkDependency } from "../../../src/StateClass/methods/checkDependency";
 
 function createHandler(overrides: Partial<any> = {}) {
   const engine = {

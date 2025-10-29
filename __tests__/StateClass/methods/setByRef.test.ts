@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { setByRef } from "../../src/StateClass/methods/setByRef";
+import { setByRef } from "../../../src/StateClass/methods/setByRef";
 
-vi.mock("../../src/StateClass/methods/getByRef", () => ({
+vi.mock("../../../src/StateClass/methods/getByRef", () => ({
   getByRef: (target: any, ref: any) => Reflect.get(target, ref.info.pattern),
 }));
 

@@ -1,61 +1,89 @@
 /**
  * @vitest-environment node
  */
-import { describe, it, expect, vi } from "vitest";
-import { createReadonlyStateProxy } from "../../src/StateClass/createReadonlyStateProxy";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createReadonlyStateHandler, createReadonlyStateProxy } from "../../src/StateClass/createReadonlyStateProxy";
 import { useWritableStateProxy } from "../../src/StateClass/useWritableStateProxy";
-import { GetByRefSymbol, SetCacheableSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol } from "../../src/StateClass/symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../../src/StateClass/symbols";
 
-// trap get のモック（実装に依存しない）
-const trapGetReadonlyMock = vi.fn();
-vi.mock("../../src/StateClass/traps/getReadonly", () => ({
-  getReadonly: (...args: any[]) => trapGetReadonlyMock(...args),
-  get: (...args: any[]) => trapGetReadonlyMock(...args),
-}));
-
-const trapGetWritableMock = vi.fn();
-vi.mock("../../src/StateClass/traps/getWritable", () => ({
-  getWritable: (...args: any[]) => trapGetWritableMock(...args),
-  get: (...args: any[]) => trapGetWritableMock(...args),
+const trapGetMock = vi.fn();
+vi.mock("../../src/StateClass/traps/get.js", () => ({
+  get: (...args: any[]) => trapGetMock(...args),
 }));
 
 const trapSetMock = vi.fn().mockReturnValue(true);
-vi.mock("../../src/StateClass/traps/set", () => ({
-  set: (...args: any[]) => trapSetMock(...args)
+vi.mock("../../src/StateClass/traps/set.js", () => ({
+  set: (...args: any[]) => trapSetMock(...args),
 }));
 
+beforeEach(() => {
+  trapGetMock.mockReset();
+  trapSetMock.mockReset();
+  trapSetMock.mockReturnValue(true);
+});
+
+function makeEngine() {
+  return {
+    pathManager: {
+      onlyGetters: new Set<string>(),
+      getters: new Set<string>(),
+      setters: new Set<string>(),
+      lists: new Set<string>(),
+      elements: new Set<string>(),
+      addDynamicDependency: vi.fn(),
+    },
+    getListIndexes: vi.fn(),
+    owner: {},
+    cache: new Map(),
+    stateOutput: {
+      startsWith: vi.fn().mockReturnValue(false),
+      get: vi.fn(),
+    },
+  } as any;
+}
+
+function makeUpdater() {
+  return {
+    version: 1,
+    revision: 0,
+    revisionByUpdatedPath: new Map<string, number>(),
+    calcListDiff: vi.fn(),
+  } as any;
+}
+
 describe("StateClass proxies", () => {
-  it("createReadonlyStateProxy: get は trap を経由し、set はエラー", () => {
-    const engine = {} as any;
+  it("createReadonlyStateProxy: get は trap を経由し set は例外", () => {
+    const engine = makeEngine();
+    const updater = makeUpdater();
+    const handler = createReadonlyStateHandler(engine, updater);
     const state = { foo: 1 };
-    const proxy = createReadonlyStateProxy(engine, state, null);
+    const proxy = createReadonlyStateProxy(state, handler);
 
-    trapGetReadonlyMock.mockReturnValue("GOT");
+  trapGetMock.mockImplementation((target, prop, receiver) => {
+      if (prop === "foo") {
+        return "READ";
+      }
+      return Reflect.get(target as any, prop, receiver);
+    });
 
-    // get 経由
-    // インデックスアクセスで任意プロパティを取得（モックが返した値）
-    expect((proxy as any)["any"]).toBe("GOT");
-
-    // set はエラー
+    expect((proxy as any)["foo"]).toBe("READ");
+    expect(trapGetMock).toHaveBeenCalledWith(state, "foo", proxy, handler);
     expect(() => {
-      (proxy as any)["x"] = 1;
-    }).toThrowError(/Cannot set property x of readonly state/);
+      (proxy as any).bar = 1;
+    }).toThrowError(/Cannot set property bar of readonly state/);
   });
 
-  it("createReadonlyStateProxy: has トラップがシンボルとAPIを適切に検出する", () => {
-    const engine = {} as any;
+  it("createReadonlyStateProxy: has トラップはシンボルと API を判定", () => {
+    const engine = makeEngine();
+    const updater = makeUpdater();
+    const handler = createReadonlyStateHandler(engine, updater);
     const state = { foo: 1 };
-    const proxy = createReadonlyStateProxy(engine, state, null);
+    const proxy = createReadonlyStateProxy(state, handler);
 
-    // 通常のプロパティ
     expect("foo" in proxy).toBe(true);
-    expect("nonexistent" in proxy).toBe(false);
-
-    // シンボル
+    expect("missing" in proxy).toBe(false);
     expect(GetByRefSymbol in proxy).toBe(true);
-    expect(SetCacheableSymbol in proxy).toBe(true);
-
-    // API メソッド
+    expect(SetCacheableSymbol in proxy).toBe(false);
     expect("$resolve" in proxy).toBe(true);
     expect("$getAll" in proxy).toBe(true);
     expect("$trackDependency" in proxy).toBe(true);
@@ -63,37 +91,37 @@ describe("StateClass proxies", () => {
     expect("$component" in proxy).toBe(true);
   });
 
-  it("useWritableStateProxy: get/set が trap 経由で呼ばれる", async () => {
-    const engine = {} as any; const updater = {} as any;
+  it("useWritableStateProxy: get/set がトラップ経由で呼ばれる", async () => {
+    const engine = makeEngine();
+    const updater = makeUpdater();
     const state = { foo: 1 };
 
+  trapGetMock.mockImplementation((target, prop, receiver) => {
+      if (prop === "foo") {
+        return "WRITE";
+      }
+      return Reflect.get(target as any, prop, receiver);
+    });
+
     await useWritableStateProxy(engine, updater, state, null, async (proxy) => {
-      trapGetWritableMock.mockReturnValue("WGOT");
-      // get
-      expect((proxy as any)["k"]).toBe("WGOT");
-      // set
-      (proxy as any)["k"] = 2;
+      expect((proxy as any).foo).toBe("WRITE");
+      expect(trapGetMock).toHaveBeenCalled();
+      (proxy as any).foo = 2;
       expect(trapSetMock).toHaveBeenCalled();
     });
   });
 
-  it("useWritableStateProxy: has トラップがシンボルとAPIを適切に検出する", async () => {
-    const engine = {} as any;
-    const updater = {} as any;
+  it("useWritableStateProxy: has トラップはシンボルと API を判定", async () => {
+    const engine = makeEngine();
+    const updater = makeUpdater();
     const state = { foo: 1 };
 
     await useWritableStateProxy(engine, updater, state, null, async (proxy) => {
-      // 通常のプロパティ
       expect("foo" in proxy).toBe(true);
-      expect("nonexistent" in proxy).toBe(false);
-
-      // シンボル
       expect(GetByRefSymbol in proxy).toBe(true);
       expect(SetByRefSymbol in proxy).toBe(true);
       expect(ConnectedCallbackSymbol in proxy).toBe(true);
       expect(DisconnectedCallbackSymbol in proxy).toBe(true);
-
-      // API メソッド
       expect("$resolve" in proxy).toBe(true);
       expect("$getAll" in proxy).toBe(true);
       expect("$trackDependency" in proxy).toBe(true);

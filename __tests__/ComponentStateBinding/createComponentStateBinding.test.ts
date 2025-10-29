@@ -11,7 +11,7 @@ function makeBinding(parentPattern: string, childSubName: string): IBinding & an
   } as any;
 }
 
-describe("ComponentStateBinding", () => {
+describe("createComponentStateBinding", () => {
   it("addBinding: マッピングを構築し重複登録は例外", () => {
     const csb = createComponentStateBinding() as any;
     const b1 = makeBinding("parent.users.*", "child.users.*");

@@ -1,19 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { BindingNode } from "../../src/DataBinding/BindingNode/BindingNode";
+import { BindingNode } from "../../../src/DataBinding/BindingNode/BindingNode";
 
-describe("BindingNode base coverage", () => {
+describe("BindingNode", () => {
   it("assignValue/updateElements は未実装エラー、notifyRedraw は何もしない", () => {
-    const binding = { } as any;
+    const binding = {} as any;
     const div = document.createElement("div");
     const node = new BindingNode(binding as any, div, "value", [], []);
-  expect(() => node.assignValue(1)).toThrowError(/not implemented/i);
-  expect(() => node.updateElements([], [])).toThrowError(/not implemented/i);
-    // 実行してもエラーにならないことのみ確認
+    expect(() => node.assignValue(1)).toThrowError(/not implemented/i);
+    expect(() => node.updateElements([], [])).toThrowError(/not implemented/i);
     node.notifyRedraw([] as any);
   });
 
   it("isSelectElement の判定、各種ゲッター", () => {
-    const binding = { } as any;
+    const binding = {} as any;
     const select = document.createElement("select");
     const node1 = new BindingNode(binding as any, select, "value", [], ["d1"]);
     expect(node1.isSelectElement).toBe(true);
