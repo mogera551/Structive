@@ -46,7 +46,7 @@ export function getByRef(
   handler  : IStateHandler
 ): any {
   let value: any;
-  const cacheable = handler.engine.pathManager.getters.has(ref.info.pattern);
+  const cacheable = ref.info.wildcardCount > 0 || handler.engine.pathManager.getters.has(ref.info.pattern);
   if (cacheable) {
     const cacheEntry = handler.engine.cache.get(ref);
     const revision = handler.updater.revisionByUpdatedPath.get(ref.info.pattern);

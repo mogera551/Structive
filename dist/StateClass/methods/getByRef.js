@@ -17,7 +17,7 @@ import { checkDependency } from "./checkDependency";
  */
 export function getByRef(target, ref, receiver, handler) {
     let value;
-    const cacheable = handler.engine.pathManager.getters.has(ref.info.pattern);
+    const cacheable = ref.info.wildcardCount > 0 || handler.engine.pathManager.getters.has(ref.info.pattern);
     if (cacheable) {
         const cacheEntry = handler.engine.cache.get(ref);
         const revision = handler.updater.revisionByUpdatedPath.get(ref.info.pattern);
