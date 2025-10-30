@@ -82,12 +82,28 @@ describe("StateClass/methods: setByRef", () => {
   it("stateOutput 経由で設定 (startsWith=true, setters 交差なし)", () => {
     const info = makeInfo("a.b");
     const ref = makeRef(info);
-    const handler = makeHandler();
+  const handler = makeHandler({ refStack: [null] });
     handler.engine.stateOutput.startsWith = () => true;
-  handler.engine.pathManager.setters = createPathManagerSet();
+    handler.engine.pathManager.setters = createPathManagerSet();
     handler.engine.stateOutput.set = vi.fn().mockReturnValue("SET-OUT");
     const result = setByRef({} as any, ref, 99, {} as any, handler as any);
     expect(result).toBe("SET-OUT");
+    expect(handler.updater.enqueueRef).toHaveBeenCalledWith(ref);
+  });
+
+  it("stateOutput.startsWith が true でも setters に交差がある場合は通常設定", () => {
+    const info = makeInfo("a.b", { cumulativePathSet: new Set(["a"]) });
+    const ref = makeRef(info);
+    const target: any = { a: { b: 1 } };
+    const handler = makeHandler();
+    handler.engine.stateOutput.startsWith = () => true;
+    handler.engine.pathManager.setters = createPathManagerSet(["a"]);
+
+    const ok = setByRef(target, ref, 42, target as any, handler as any);
+
+    expect(ok).toBe(true);
+    expect(target.a.b).toBe(42);
+    expect(handler.engine.stateOutput.set).not.toHaveBeenCalled();
     expect(handler.updater.enqueueRef).toHaveBeenCalledWith(ref);
   });
 
@@ -121,6 +137,26 @@ describe("StateClass/methods: setByRef", () => {
     expect(ok).toBe(true);
     expect(target.a[1]).toBe(999);
     expect(handler.updater.enqueueRef).toHaveBeenCalledWith(ref);
+  });
+
+  it("ネストした呼び出しでも refStack を復元", () => {
+    const parentRef = { info: { pattern: "parent" } };
+    const info = makeInfo("child");
+    const ref = makeRef(info);
+    const target: any = { child: 1 };
+    const handler = makeHandler({
+      refStack: [parentRef, null],
+      refIndex: 0,
+      lastRefStack: parentRef,
+    });
+
+    const ok = setByRef(target, ref, 314, target as any, handler as any);
+
+    expect(ok).toBe(true);
+    expect(target.child).toBe(314);
+    expect(handler.refIndex).toBe(0);
+    expect(handler.lastRefStack).toBe(parentRef);
+    expect(handler.refStack[1]).toBeNull();
   });
 
   it("エラー: parentInfo が undefined の場合は例外を投げる", () => {

@@ -73,7 +73,7 @@ function makeHandler(options: { version?: number; revision?: number } = {}) {
       revisionByUpdatedPath: new Map<string, number>(),
       calcListDiff: vi.fn(),
     },
-    refStack: [] as any[],
+  refStack: [null] as any[],
     refIndex: -1,
     lastRefStack: null,
   };
@@ -98,17 +98,31 @@ describe("StateClass/methods getByRef (cache & readonly)", () => {
     expect(checkDependencyMock).not.toHaveBeenCalled();
   });
 
+  it("revision 情報がありつつ変更が無い場合はキャッシュを返す", () => {
+    const { handler, cache } = makeHandler({ version: 2, revision: 3 });
+    const ref = makeRef("users.*", 1);
+    cache.set(ref, { value: "UNCHANGED", version: 2, revision: 3 });
+    handler.updater.revisionByUpdatedPath.set("users.*", 3);
+
+    const value = getByRef({}, ref, {} as any, handler);
+
+    expect(value).toBe("UNCHANGED");
+    expect(checkDependencyMock).not.toHaveBeenCalled();
+  });
+
   it("stateOutput.startsWith が true で交差が無い場合は stateOutput.get を返す", () => {
-    const { handler, stateOutput } = makeHandler();
+    const { handler, stateOutput, cache, getters } = makeHandler();
     const ref = makeRef("foo.bar", 0, ["foo"]);
     stateOutput.startsWith.mockReturnValue(true);
     stateOutput.get.mockReturnValue("FROM_OUTPUT");
+    getters.add("foo.bar");
 
     const value = getByRef({}, ref, {} as any, handler);
 
     expect(value).toBe("FROM_OUTPUT");
     expect(stateOutput.get).toHaveBeenCalledWith(ref);
     expect(checkDependencyMock).toHaveBeenCalledTimes(1);
+  expect(cache.get(ref)).toBeUndefined();
   });
 
   it("target にプロパティが存在する場合は Reflect.get の結果を返しキャッシュへ保存", () => {
@@ -160,6 +174,7 @@ describe("StateClass/methods getByRef (revision scenarios)", () => {
     handler.updater.version = 1;
     const ref = makeRef("items.*", 1);
     cache.set(ref, { value: "FUTURE", version: 3, revision: 0 });
+    handler.updater.revisionByUpdatedPath.set("items.*", 0);
 
     const value = getByRef({}, ref, {} as any, handler);
 
@@ -177,6 +192,7 @@ describe("StateClass/methods getByRef (revision scenarios)", () => {
 
     expect(result).toBe("VALUE");
     expect(handler.engine.stateOutput.get).not.toHaveBeenCalled();
+    expect(handler.engine.cache.get(ref)).toBeUndefined();
   });
 
   it("lists に含まれない場合は calcListDiff を呼ばない", () => {
@@ -190,5 +206,34 @@ describe("StateClass/methods getByRef (revision scenarios)", () => {
 
     expect(result).toEqual([5]);
     expect(handler.updater.calcListDiff).not.toHaveBeenCalled();
+  });
+
+  it("refIndex がスタックサイズに達した場合は null を push する", () => {
+    const { handler, getters } = makeHandler();
+    const ref = makeRef("items", 0, []);
+    const prevRef = { id: "prev" } as any;
+    getters.add("items");
+    handler.refStack = [prevRef] as any[];
+    handler.refIndex = 0;
+    handler.lastRefStack = prevRef;
+    const target = { items: 1 };
+
+    const value = getByRef(target, ref, target as any, handler);
+
+    expect(value).toBe(1);
+    expect(handler.refStack.length).toBe(2);
+    expect(handler.refStack[1]).toBeNull();
+    expect(handler.lastRefStack).toBe(prevRef);
+  });
+
+  it("refStack が空の場合は STC-002 エラーを投げる", () => {
+    const { handler, getters } = makeHandler();
+    const ref = makeRef("items", 0, []);
+    getters.add("items");
+    handler.refStack = [];
+    handler.refIndex = -1;
+
+    expect(() => getByRef({ items: 1 }, ref, {} as any, handler)).toThrowError(/refStack is empty/);
+    expect(raiseErrorMock).toHaveBeenCalledWith(expect.objectContaining({ code: "STC-002" }));
   });
 });

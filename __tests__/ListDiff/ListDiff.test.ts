@@ -111,6 +111,24 @@ describe('ListDiff', () => {
       expect(result.changeIndexes!.size).toBe(3); // 全てのインデックスが変更
     });
 
+    it('should recognise same-content arrays as unchanged even if references differ', () => {
+      const oldListValue = ['x', 'y', 'z'];
+      const newListValue = ['x', 'y', 'z'];
+      const oldIndexes = [
+        createListIndex(null, 0),
+        createListIndex(null, 1),
+        createListIndex(null, 2)
+      ];
+
+      const result = calcListDiff(null, oldListValue, newListValue, oldIndexes);
+
+      expect(result.same).toBe(true);
+      expect(result.newIndexes).toBe(oldIndexes);
+      expect(result.adds).toBeUndefined();
+      expect(result.removes).toBeUndefined();
+      expect(result.changeIndexes).toBeUndefined();
+    });
+
     it('should handle null/undefined values', () => {
       const result1 = calcListDiff(null, null, null, null);
       expect(result1.newIndexes).toHaveLength(0);

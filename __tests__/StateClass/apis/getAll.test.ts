@@ -176,6 +176,32 @@ describe("StateClass/apis getAll (readonly)", () => {
     expect(getByRefMock).toHaveBeenCalled();
   });
 
+  it("indexes 指定時でも多段ワイルドカードを再帰走査する", () => {
+    const info = {
+      pattern: "groups.*.items.*.value",
+      wildcardInfos: [
+        { pattern: "groups.*", index: 0 },
+        { pattern: "groups.*.items.*", index: 1 },
+      ],
+      wildcardParentInfos: [
+        { pattern: "groups.*", index: 0 },
+        { pattern: "groups.*.items.*", index: 1 },
+      ],
+    };
+    getStructuredPathInfoMock.mockReturnValue(info);
+    const { handler, getListIndexes } = makeReadonlyHandler(info.pattern);
+    getListIndexes
+      .mockReturnValueOnce([{ index: 0 }, { index: 9 }])
+      .mockReturnValueOnce([{ index: 4 }, { index: 8 }]);
+    resolveMock.mockImplementation((_pattern: string, indexes: number[]) => `resolved:${indexes.join("-")}`);
+
+    const fn = getAll({}, "$getAll", {} as any, handler);
+    const result = fn("groups.*.items.*.value", [1, 0]);
+
+    expect(result).toEqual(["resolved:9-4"]);
+    expect(getListIndexes).toHaveBeenCalledTimes(2);
+  });
+
   it("wildcardInfos に null が含まれていれば例外", () => {
     const { handler } = makeReadonlyHandler("pattern");
     getStructuredPathInfoMock.mockReturnValue({

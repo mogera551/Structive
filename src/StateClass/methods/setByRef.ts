@@ -47,11 +47,6 @@ export function setByRef(
         handler.refIndex--;
         handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
       }
-/*
-      return setStatePropertyRef(handler, ref, () => {
-        return Reflect.set(target, ref.info.pattern, value, receiver);
-      });
-*/
     } else {
       const parentInfo = ref.info.parentInfo ?? raiseError({
         code: 'STATE-202',

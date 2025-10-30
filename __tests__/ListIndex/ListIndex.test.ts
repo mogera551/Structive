@@ -12,9 +12,15 @@ describe('ListIndex', () => {
       expect(listIndex.position).toBe(0);
       expect(listIndex.length).toBe(1);
       expect(listIndex.indexes).toEqual([5]);
+      expect(listIndex.indexes).toBe(listIndex.indexes); // キャッシュ済み分岐
       expect(listIndex.varName).toBe('1');
       expect(typeof listIndex.id).toBe('number');
       expect(typeof listIndex.sid).toBe('string');
+      expect(listIndex.dirty).toBe(false);
+      const rootListRefs = listIndex.listIndexes;
+      expect(rootListRefs).toHaveLength(1);
+      expect(rootListRefs[0]?.deref()).toBe(listIndex);
+      expect(listIndex.listIndexes).toBe(rootListRefs);
     });
 
     it('should create a nested ListIndex when parentListIndex is provided', () => {
@@ -26,7 +32,11 @@ describe('ListIndex', () => {
       expect(child.position).toBe(1);
       expect(child.length).toBe(2);
       expect(child.indexes).toEqual([2, 7]);
+      const cachedIndexes = child.indexes;
+      expect(child.indexes).toBe(cachedIndexes); // dirty false 分岐
       expect(child.varName).toBe('2');
+      const firstRefs = child.listIndexes;
+      expect(child.listIndexes).toBe(firstRefs); // listIndexes キャッシュ確認
     });
 
     it('should create deeply nested ListIndex', () => {
@@ -65,6 +75,10 @@ describe('ListIndex', () => {
       // 子のindexesにアクセスすると、再計算される
       expect(child.indexes).toEqual([5, 2]);
       expect(child.dirty).toBe(false);
+      const recalculated = child.indexes;
+      expect(child.indexes).toBe(recalculated);
+      const listRefs = child.listIndexes;
+      expect(listRefs[listRefs.length - 1]?.deref()).toBe(child);
     });
 
     it('should provide correct at() access', () => {
@@ -78,6 +92,7 @@ describe('ListIndex', () => {
       expect(level2.at(-1)).toBe(level2);
       expect(level2.at(-2)).toBe(level1);
       expect(level2.at(-3)).toBe(root);
+      expect(level2.at(-4)).toBeNull();
       expect(level2.at(3)).toBeNull();
     });
 

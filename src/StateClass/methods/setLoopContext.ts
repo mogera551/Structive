@@ -19,7 +19,6 @@
 import { ILoopContext } from "../../LoopContext/types";
 import { raiseError } from "../../utils";
 import { IWritableStateHandler } from "../types";
-import { asyncSetStatePropertyRef } from "./asyncSetStatePropertyRef";
 
 export async function setLoopContext(
   handler: IWritableStateHandler,
@@ -37,7 +36,24 @@ export async function setLoopContext(
   handler.loopContext = loopContext;
   try {
     if (loopContext) {
-      await asyncSetStatePropertyRef(handler, loopContext.ref, callback);
+      if (handler.refStack.length === 0) {
+        raiseError({
+          code: 'STC-002',
+          message: 'handler.refStack is empty in getByRef',
+        });
+      }
+      handler.refIndex++;
+      if (handler.refIndex >= handler.refStack.length) {
+        handler.refStack.push(null);
+      }
+      handler.refStack[handler.refIndex] = handler.lastRefStack = loopContext.ref;
+      try {
+        await callback();
+      } finally {
+        handler.refStack[handler.refIndex] = null;
+        handler.refIndex--;
+        handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+      }
     } else {
       await callback();
     }

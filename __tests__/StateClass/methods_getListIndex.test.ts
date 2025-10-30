@@ -118,4 +118,24 @@ describe("StateClass/methods getListIndex", () => {
     } as any;
     expect(() => getListIndex(resolved, {} as any, handler)).toThrow(/ListIndex not found: p/);
   });
+
+  it("all: wildcardCount が 0 の場合は null を返す", () => {
+    const handler = makeHandler({});
+    const resolved = {
+      wildcardType: "all",
+      info: { pattern: "items", wildcardCount: 0, wildcardParentInfos: [] },
+      wildcardIndexes: [],
+    } as any;
+
+    const result = getListIndex(resolved, {} as any, handler);
+    expect(result).toBeNull();
+  });
+
+  it("未知の wildcardType は undefined を返す", () => {
+    const handler = makeHandler({});
+    const resolved = { wildcardType: "unknown", info: { pattern: "x" } } as any;
+
+    const result = getListIndex(resolved, {} as any, handler);
+    expect(result).toBeUndefined();
+  });
 });

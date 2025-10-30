@@ -8,6 +8,8 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  document.head.querySelectorAll("base").forEach(el => el.remove());
+  history.pushState({}, "", "/");
 });
 
 function define(tag: string) {
@@ -27,6 +29,16 @@ function createRouterElement(): InstanceType<typeof Router> {
 }
 
 describe("Router", () => {
+  it("base タグから basePath を取り出す", () => {
+    const base = document.createElement("base");
+    base.href = `${window.location.origin}/app/`;
+    document.head.appendChild(base);
+    const el = createRouterElement();
+    document.body.appendChild(el);
+    expect(el.basePath).toBe("/app/");
+    document.body.removeChild(el);
+  });
+
   it("getRouter は connectedCallback 後に自身を返し、disconnectedCallback 後は null", () => {
     const el = createRouterElement();
     document.body.appendChild(el);
@@ -41,6 +53,17 @@ describe("Router", () => {
     document.body.appendChild(el);
     // connectedCallback 内で popstate dispatch 済みだが、明示的にも発火
     window.dispatchEvent(new Event("popstate"));
+    expect(renderSpy).toHaveBeenCalled();
+    document.body.removeChild(el);
+  });
+
+  it("popstateHandler は preventDefault 後に render を呼ぶ", () => {
+    const el = createRouterElement();
+    const renderSpy = vi.spyOn(el, "render");
+    document.body.appendChild(el);
+    const prevent = vi.fn();
+    el.popstateHandler({ preventDefault: prevent } as unknown as PopStateEvent);
+    expect(prevent).toHaveBeenCalled();
     expect(renderSpy).toHaveBeenCalled();
     document.body.removeChild(el);
   });
@@ -100,6 +123,15 @@ describe("Router", () => {
     document.body.removeChild(el);
   });
 
+  it("navigate は / で始まらないパスの場合そのまま pushState する", () => {
+    const el = createRouterElement();
+    document.body.appendChild(el);
+    const pushSpy = vi.spyOn(history, "pushState");
+    el.navigate("relative-path");
+    expect(pushSpy).toHaveBeenCalledWith({}, "", "relative-path");
+    document.body.removeChild(el);
+  });
+
   it("lazy-load ルートは isLazyLoadComponent=true なら loadLazyLoadComponent を呼ぶ", async () => {
     const tag = "x-lazy";
     define(tag);
@@ -125,6 +157,18 @@ describe("Router", () => {
     el.render();
     expect(isLazy).toHaveBeenCalledWith(tag);
     expect(loadLazy).toHaveBeenCalledWith(tag);
+    document.body.removeChild(el);
+  });
+
+  it("location の末尾が originalFileName と一致する場合に末尾空文字へ置換する", () => {
+    const el = createRouterElement();
+    document.body.appendChild(el);
+    el.originalFileName = "index.html";
+    history.pushState({}, "", "/index.html");
+    el.render();
+    const slotContent = el.querySelector('[slot="content"]');
+    // 404 表示を確認（ルート未登録かつ originalFileName 分岐経由）
+    expect(slotContent?.textContent).toBe("404 Not Found");
     document.body.removeChild(el);
   });
 });

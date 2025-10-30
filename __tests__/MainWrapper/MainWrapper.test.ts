@@ -83,6 +83,122 @@ describe("MainWrapper", () => {
     expect(inserted.tagName.toLowerCase()).toBe(config.routerTagName);
   });
 
+  it("layoutPath 指定時: style を adoptedStyleSheets に追加する", async () => {
+    config.enableShadowDom = true;
+    config.enableRouter = false;
+    config.layoutPath = "/layout-with-style.html";
+
+    const html = `<template><div class="layout"></div></template><style id="layout-style"></style>`;
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() =>
+        Promise.resolve({ ok: true, text: () => Promise.resolve(html) }) as any
+      );
+
+    const el = createMainWrapperElement();
+    const root = el.shadowRoot!;
+    let adoptedSheets: any[] = [];
+    Object.defineProperty(root, "adoptedStyleSheets", {
+      configurable: true,
+      get: () => adoptedSheets,
+      set: (value) => {
+        adoptedSheets = value as any[];
+      }
+    });
+
+    await el.loadLayout();
+
+    expect(fetchMock).toHaveBeenCalledWith(config.layoutPath);
+    expect(root.querySelector(".layout")).toBeTruthy();
+    expect(adoptedSheets).toHaveLength(1);
+    const sheetElement = adoptedSheets[0] as HTMLElement;
+    expect(sheetElement).toBeInstanceOf(HTMLElement);
+    expect(sheetElement.tagName.toLowerCase()).toBe("style");
+  });
+
+  it("layoutPath 指定時: 既存 style が含まれていれば adoptedStyleSheets を更新しない", async () => {
+    config.enableShadowDom = true;
+    config.enableRouter = false;
+    config.layoutPath = "/layout-with-style.html";
+
+  const html = `<style></style>`;
+    vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({ ok: true, text: () => Promise.resolve(html) }) as any
+    );
+
+    const el = createMainWrapperElement();
+    const root = el.shadowRoot!;
+    const fakeSheets = { includes: vi.fn().mockReturnValue(true) };
+    const setter = vi.fn();
+    Object.defineProperty(root, "adoptedStyleSheets", {
+      configurable: true,
+      get: () => fakeSheets as any,
+      set: setter
+    });
+
+    await el.loadLayout();
+
+    expect(fakeSheets.includes).toHaveBeenCalledTimes(1);
+    expect(setter).not.toHaveBeenCalled();
+  });
+
+  it("layoutPath 指定時: template が存在しない場合は DocumentFragment を追加する", async () => {
+    config.enableShadowDom = true;
+    config.enableRouter = false;
+    config.layoutPath = "/layout-without-template.html";
+
+    const html = `<div class="no-template"></div>`;
+    vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({ ok: true, text: () => Promise.resolve(html) }) as any
+    );
+
+    const el = createMainWrapperElement();
+    const root = el.shadowRoot!;
+    const appendSpy = vi.spyOn(root, "appendChild");
+
+    await el.loadLayout();
+
+    expect(appendSpy).toHaveBeenCalled();
+    const appended = appendSpy.mock.calls[0][0];
+    expect(appended).toBeInstanceOf(DocumentFragment);
+    expect((appended as DocumentFragment).childNodes.length).toBe(0);
+  });
+
+  it("layoutPath 指定時: Shadow DOM 無効でも layout と style を適用する", async () => {
+    config.enableShadowDom = false;
+    config.enableRouter = false;
+    config.layoutPath = "/layout-light.html";
+
+    const html = `<template><section class="light"></section></template><style id="light-style"></style>`;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({ ok: true, text: () => Promise.resolve(html) }) as any
+    );
+
+    let adopted: any[] = [];
+    const descriptor = {
+      configurable: true,
+      get: () => adopted,
+      set: (value: any) => {
+        adopted = value as any[];
+      }
+    };
+    Object.defineProperty(document, "adoptedStyleSheets", descriptor);
+
+    try {
+      const el = createMainWrapperElement();
+      await el.loadLayout();
+
+      expect(fetchMock).toHaveBeenCalledWith(config.layoutPath);
+      expect(el.querySelector(".light")).toBeTruthy();
+      expect(adopted).toHaveLength(1);
+      const sheetElement = adopted[0] as HTMLElement;
+      expect(sheetElement).toBeInstanceOf(HTMLElement);
+      expect(sheetElement.tagName.toLowerCase()).toBe("style");
+    } finally {
+      delete (document as any).adoptedStyleSheets;
+    }
+  });
+
   it("layoutPath 指定時: fetch 失敗でエラーを投げる", async () => {
     config.enableShadowDom = true;
     config.layoutPath = "/bad.html";

@@ -609,4 +609,252 @@ describe("BindingNodeFor coverage", () => {
     expect(container.childNodes.length).toBeGreaterThan(1);
     expect(container.contains(normalNode)).toBe(true);
   });
+
+  it("isFor getter と init のカバレッジ", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|319");
+    const binding = createBindingStub(engine, comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
+    expect(node.isFor).toBe(true);
+    expect(() => node.init()).not.toThrow();
+  });
+
+  it("全削除最適化でブランクテキストを掃除", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const container = document.createElement("div");
+    const leadingBlank = document.createTextNode("   ");
+    container.appendChild(leadingBlank);
+    const comment = document.createComment("@@|320");
+    container.appendChild(comment);
+    const binding = createBindingStub(engine, comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
+
+    const idxAdd = createIndexes(2);
+    const diffAdd = {
+      oldListValue: [],
+      newListValue: [{}, {}],
+      newIndexes: idxAdd,
+      adds: new Set(idxAdd),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+
+    const trailingBlank = document.createTextNode("   ");
+    container.appendChild(trailingBlank);
+
+    const diffRemove = {
+      oldListValue: [{}, {}],
+      newListValue: [],
+      newIndexes: [],
+      adds: new Set(),
+      removes: new Set(idxAdd),
+    } as any;
+    const rendererRemove = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffRemove) });
+    node.applyChange(rendererRemove);
+
+    expect(container.childNodes).toHaveLength(1);
+    expect(container.firstChild).toBe(comment);
+  });
+
+  it("reuse 分岐で mountAfter が呼ばれる", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const container = document.createElement("div");
+    const comment = document.createComment("@@|321");
+    container.appendChild(comment);
+    const binding = createBindingStub(engine, comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
+
+    const idx = createIndexes(2);
+    const diffAdd = {
+      oldListValue: [],
+      newListValue: [{}, {}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+
+    const [contentA, contentB] = node.bindContents;
+    const domA = contentA.firstChildNode;
+    const domB = contentB.firstChildNode;
+    container.insertBefore(domB, domA);
+
+    const diffReuse = {
+      oldListValue: [{}, {}],
+      newListValue: [{}, {}],
+      newIndexes: idx,
+      adds: new Set(),
+      removes: new Set(),
+    } as any;
+    const spy = vi.spyOn(contentA, "mountAfter");
+    const rendererReuse = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffReuse) });
+    node.applyChange(rendererReuse);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("changeIndexes で index 0 のフォールバックを通る", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const container = document.createElement("div");
+    const comment = document.createComment("@@|322");
+    container.appendChild(comment);
+    const binding = createBindingStub(engine, comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
+
+    const idx = createIndexes(3);
+    const diffAdd = {
+      oldListValue: [],
+      newListValue: [{}, {}, {}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+
+    idx[0].index = 1;
+    idx[1].index = 2;
+    idx[2].index = 0;
+    const changeIndexes = new Set([idx[2], idx[0], idx[1]]);
+    const diffReorder = {
+      oldListValue: [{}, {}, {}],
+      newListValue: [{}, {}, {}],
+      newIndexes: [idx[2], idx[0], idx[1]],
+      adds: new Set(),
+      removes: new Set(),
+      changeIndexes,
+    } as any;
+    const targetContent = node.bindContents[2];
+    const spy = vi.spyOn(targetContent, "mountAfter");
+    const rendererReorder = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffReorder) });
+    node.applyChange(rendererReorder);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("oldListValue が undefined の場合でもエラーにならない", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const container = document.createElement("div");
+    const comment = document.createComment("@@|323");
+    container.appendChild(comment);
+    const binding = createBindingStub(engine, comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
+
+    const diff = {
+      oldListValue: undefined,
+      newListValue: [],
+      newIndexes: [],
+      adds: new Set(),
+      removes: new Set(),
+    } as any;
+    const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
+    expect(() => node.applyChange(renderer)).not.toThrow();
+  });
+
+  it("newListValue が undefined でも追加処理できる", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const container = document.createElement("div");
+    const comment = document.createComment("@@|324");
+    container.appendChild(comment);
+    const binding = createBindingStub(engine, comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
+
+    const indexes = createIndexes(1);
+    const diff = {
+      oldListValue: [],
+      newListValue: undefined,
+      newIndexes: indexes,
+      adds: new Set(indexes),
+      removes: new Set(),
+    } as any;
+    const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
+    expect(() => node.applyChange(renderer)).not.toThrow();
+  });
+
+  it("parentNode.childNodes が空配列として扱われても lastNode を null にできる", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const container = document.createElement("div");
+    const comment = document.createComment("@@|325");
+    container.appendChild(comment);
+    const binding = createBindingStub(engine, comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters) as any;
+
+    const idx = createIndexes(1);
+    const diffAdd = {
+      oldListValue: [],
+      newListValue: [{}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+
+    const originalArrayFrom = Array.from;
+    const arrayFromSpy = vi.spyOn(Array, "from").mockImplementation((iterable: any, mapFn?: any, thisArg?: any) => {
+      if (iterable === container.childNodes) {
+        return [];
+      }
+      return originalArrayFrom.call(Array, iterable as any, mapFn, thisArg);
+    });
+
+    const diffRemove = {
+      oldListValue: [{}],
+      newListValue: [],
+      newIndexes: [],
+      adds: new Set(),
+      removes: new Set(idx),
+    } as any;
+    const rendererRemove = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffRemove) });
+    expect(() => node.applyChange(rendererRemove)).not.toThrow();
+    arrayFromSpy.mockRestore();
+  });
+
+  it("isAllAppend ブランチを通過する", async () => {
+    (globalThis as any).__STRUCTIVE_USE_ALL_APPEND__ = true;
+    vi.resetModules();
+    try {
+      const registerTemplate = await import("../../../src/Template/registerTemplate");
+      const registerAttributes = await import("../../../src/BindingBuilder/registerDataBindAttributes");
+      const tpl = document.createElement("template");
+      tpl.innerHTML = `<div>for-item</div>`;
+      vi.spyOn(registerTemplate, "getTemplateById").mockReturnValue(tpl);
+      vi.spyOn(registerAttributes, "getDataBindAttributesById").mockReturnValue([] as any);
+
+  const { createBindingNodeFor: createBindingNodeForWithAppend } = await import("../../../src/DataBinding/BindingNode/BindingNodeFor");
+  const engine = createEngineStub();
+  const container = document.createElement("div");
+  const comment = document.createComment("@@|330");
+      container.appendChild(comment);
+      const binding = createBindingStub(engine, comment);
+      const node = createBindingNodeForWithAppend("for", [], [])(binding, comment, engine.inputFilters) as any;
+
+      const idx = createIndexes(2);
+      const diff = {
+        oldListValue: [],
+        newListValue: [{}, {}],
+        newIndexes: idx,
+        adds: new Set(idx),
+        removes: new Set(),
+      } as any;
+      const spy = vi.spyOn(container, "insertBefore");
+      const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
+      node.applyChange(renderer);
+      expect(spy).toHaveBeenCalled();
+      expect(spy.mock.calls[0][0]).toBeInstanceOf(DocumentFragment);
+      spy.mockRestore();
+    } finally {
+      delete (globalThis as any).__STRUCTIVE_USE_ALL_APPEND__;
+      vi.resetModules();
+    }
+  });
 });

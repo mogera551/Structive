@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createBinding } from "../../src/DataBinding/Binding";
 
 describe("Binding", () => {
@@ -26,6 +26,24 @@ describe("Binding", () => {
   const createBindingState = vi.fn(() => mockBindingState as any);
 
   const parentBindContent = {} as any;
+
+  beforeEach(() => {
+    mockBindingNode.bindContents = [];
+    mockBindingNode.init.mockClear();
+    mockBindingNode.notifyRedraw.mockClear();
+    mockBindingNode.applyChange.mockClear();
+    mockBindingState.init.mockClear();
+    mockBindingState.assignValue.mockClear();
+    createBindingNode.mockClear();
+    createBindingState.mockClear();
+  });
+
+  it("bindContents getter は bindingNode の bindContents を返す", () => {
+    const childBindContents = [{ id: 1 }];
+    mockBindingNode.bindContents = childBindContents as any;
+    const binding = createBinding(parentBindContent, node, engine, createBindingNode as any, createBindingState as any);
+    expect(binding.bindContents).toBe(childBindContents);
+  });
 
   it("init は bindingNode と bindingState の init を呼ぶ", () => {
     const binding = createBinding(parentBindContent, node, engine, createBindingNode as any, createBindingState as any);

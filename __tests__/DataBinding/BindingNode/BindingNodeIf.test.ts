@@ -80,4 +80,24 @@ describe("BindingNodeIf", () => {
     binding.bindingState.getFilteredValue.mockReturnValue(false);
     node.applyChange(createRendererStub({ readonlyState: {} }));
   });
+
+  it("bindContents getter と updatedBindings スキップ", () => {
+    ensureTemplate(700, `<div>if-content</div>`);
+    const engine = createEngineStub();
+    const parent = document.createElement("div");
+    const comment = document.createComment(`${COMMENT_TEMPLATE_MARK}700`);
+    parent.appendChild(comment);
+    const binding = createBindingStub(engine, comment);
+    const node = createBindingNodeIf("if", [], [])(binding, comment, engine.inputFilters);
+
+    binding.bindingState.getFilteredValue.mockReturnValue(true);
+    const renderer = createRendererStub({ readonlyState: {} });
+    node.applyChange(renderer);
+    expect(node.bindContents).toHaveLength(1);
+
+    binding.bindingState.getFilteredValue.mockClear();
+    const skipped = createRendererStub({ readonlyState: {}, updatedBindings: new Set([binding]) });
+    node.applyChange(skipped);
+    expect(binding.bindingState.getFilteredValue).not.toHaveBeenCalled();
+  });
 });

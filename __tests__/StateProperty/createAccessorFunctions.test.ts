@@ -202,6 +202,15 @@ describe('createAccessorFunctions', () => {
 
       expect(() => createAccessorFunctions(info, getters)).toThrowError(/Invalid path: invalid-path.children/);
     });
+
+    it('getter でマッチした後続セグメントが不正名の場合も STATE-202', () => {
+      const info = getStructuredPathInfo('valid.base.invalid-seg');
+      const getters = new Set(['valid.base']);
+
+      expect(() => createAccessorFunctions(info, getters)).toThrowError(
+        /Invalid segment name: invalid-seg/
+      );
+    });
   });
 
   describe('動的関数生成', () => {

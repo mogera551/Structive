@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { createBindingNodeProperty } from "../../../src/DataBinding/BindingNode/BindingNodeProperty";
 import { createBindingStub, createEngineStub, createRendererStub } from "../helpers/bindingNodeHarness";
 import * as UpdaterMod from "../../../src/Updater/Updater";
+import * as GetDefaultNameMod from "../../../src/BindingBuilder/getDefaultName";
 
 describe("BindingNodeProperty", () => {
   it("デフォルトプロパティと一致しない場合はイベント登録しない", () => {
@@ -11,6 +12,17 @@ describe("BindingNodeProperty", () => {
     const binding = createBindingStub(engine, div);
 
     createBindingNodeProperty("value", [], [])(binding, div, engine.inputFilters);
+
+    expect(addSpy).not.toHaveBeenCalled();
+  });
+
+  it("二方向要素でも defaultName が異なればイベント登録しない", () => {
+    const engine = createEngineStub();
+    const input = document.createElement("input");
+    const addSpy = vi.spyOn(input, "addEventListener");
+    const binding = createBindingStub(engine, input);
+
+    createBindingNodeProperty("textContent", [], [])(binding, input, engine.inputFilters);
 
     expect(addSpy).not.toHaveBeenCalled();
   });
@@ -108,6 +120,60 @@ describe("BindingNodeProperty", () => {
     const binding = createBindingStub(engine, span);
 
     createBindingNodeProperty("textContent", [], [])(binding, span, engine.inputFilters);
+
+    expect(addSpy).not.toHaveBeenCalled();
+  });
+
+  it("defaultEvent の定義が無い場合は readonly にフォールバックする", () => {
+    const engine = createEngineStub();
+    const input = document.createElement("input");
+    const addSpy = vi.spyOn(input, "addEventListener");
+    const binding = createBindingStub(engine, input);
+    const spyDefaultName = vi.spyOn(GetDefaultNameMod, "getDefaultName").mockReturnValue("customProp" as any);
+
+    createBindingNodeProperty("customProp", [], [])(binding, input, engine.inputFilters);
+
+    expect(addSpy).not.toHaveBeenCalled();
+    spyDefaultName.mockRestore();
+  });
+
+  it("filters を通して値を変換し init を呼び出せる", () => {
+    const engine = createEngineStub();
+    engine.inputFilters = {
+      upper: () => (value: unknown) => typeof value === "string" ? value.toUpperCase() : value,
+    } as any;
+    const input = document.createElement("input");
+    const binding = createBindingStub(engine, input);
+    const filterTexts = [{ name: "upper", options: undefined as any }];
+
+    binding.bindingState.getFilteredValue.mockReturnValue("abc");
+
+  const node = createBindingNodeProperty("value", filterTexts, [])(binding, input, engine.inputFilters);
+  node.init();
+  const renderer = createRendererStub({ readonlyState: {} });
+  node.applyChange(renderer);
+  expect(input.value).toBe("abc");
+
+  input.value = "hello";
+  expect(node.filteredValue).toBe("HELLO");
+  });
+
+  it("HTMLElement 以外は双方向登録せずに終了", () => {
+    const engine = createEngineStub();
+    const comment = document.createComment("prop");
+    const binding = createBindingStub(engine, comment);
+    expect(() => {
+      createBindingNodeProperty("value", [], [])(binding, comment, engine.inputFilters);
+    }).not.toThrow();
+  });
+
+  it("decorator 'ro' はリスナーを設定しない", () => {
+    const engine = createEngineStub();
+    const input = document.createElement("input");
+    const addSpy = vi.spyOn(input, "addEventListener");
+    const binding = createBindingStub(engine, input);
+
+    createBindingNodeProperty("value", [], ["ro"])(binding, input, engine.inputFilters);
 
     expect(addSpy).not.toHaveBeenCalled();
   });

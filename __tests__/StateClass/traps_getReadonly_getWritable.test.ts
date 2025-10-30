@@ -124,6 +124,30 @@ describe("StateClass/traps get", () => {
     expect(component).toEqual(handler.engine.owner);
   });
 
+  it("$インデックスで値が存在しない場合はエラーを投げる", () => {
+    const handler = makeHandler();
+    handler.lastRefStack = { listIndex: { indexes: [123] } } as any;
+
+    expect(() => get({}, "$2", {} as any, handler)).toThrowError(
+      "ListIndex not found: $2"
+    );
+    expect(raiseErrorMock).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "LIST-201", context: expect.any(Object) })
+    );
+  });
+
+  it("listIndex が存在しない場合もエラーを投げる", () => {
+    const handler = makeHandler();
+    handler.lastRefStack = undefined as any;
+
+    expect(() => get({}, "$1", {} as any, handler)).toThrowError(
+      "ListIndex not found: $1"
+    );
+    expect(raiseErrorMock).toHaveBeenCalledWith(
+      expect.objectContaining({ context: { prop: "$1", indexes: null, index: 0 } })
+    );
+  });
+
   it("通常プロパティは解決後に getByRef を呼ぶ", () => {
     const handler = makeHandler();
     getResolvedPathInfoMock.mockReturnValue({ info: { pattern: "foo.bar" } });
@@ -161,5 +185,16 @@ describe("StateClass/traps get", () => {
     const disconnectedFn = get(target, DisconnectedCallbackSymbol, receiver as any, handler);
     disconnectedFn();
     expect(disconnectedCallbackMock).toHaveBeenCalled();
+  });
+
+  it("登録されていないシンボルは Reflect.get の結果を返す", () => {
+    const custom = Symbol("custom");
+    const value = { foo: "bar" };
+    const target = { [custom]: value };
+    const handler = makeHandler();
+
+    const result = get(target, custom, {} as any, handler);
+
+    expect(result).toBe(value);
   });
 });

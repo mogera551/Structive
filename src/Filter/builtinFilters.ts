@@ -44,7 +44,7 @@ const ne = (options?:string[]) => {
     // 型を揃えて比較
     if (typeof value === 'number') {
       const optValue = Number(opt);
-      if (isNaN(optValue)) optionMustBeNumber('eq');
+      if (isNaN(optValue)) optionMustBeNumber('ne');
       return value !== optValue;
     }
     if (typeof value === 'string') {

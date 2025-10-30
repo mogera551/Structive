@@ -229,6 +229,74 @@ describe("Updater.calcListDiff", () => {
       expect(updater.oldValueAndIndexesByRef.has(ref)).toBe(false);
     });
   });
+
+  it("既存差分があり再計算で差分が発生した場合は保存し直す", async () => {
+    const engine = createEngineStub();
+    const ref = createListRef("list:ref");
+    const saveInfo = {
+      list: ["legacy"],
+      listIndexes: [{ index: 0 }],
+      listClone: ["legacy"],
+    };
+    engine.getListAndListIndexes.mockReturnValue(saveInfo);
+
+    await createUpdater(engine, (updater) => {
+      const existingDiff = {
+        same: false,
+        newListValue: ["existing"],
+        newIndexes: [{ index: 0 }],
+      } as any;
+      updater.setListDiff(ref, existingDiff);
+
+      const intermediateDiff = {
+        same: false,
+        newListValue: ["candidate"],
+        newIndexes: [{ index: 0 }],
+      } as any;
+      const finalDiff = {
+        same: false,
+        newListValue: ["final"],
+        newIndexes: [{ index: 0 }],
+        overwrites: new Set(),
+        changeIndexes: new Set(),
+      } as any;
+
+      calcListDiffMock
+        .mockReturnValueOnce(intermediateDiff)
+        .mockReturnValueOnce(finalDiff);
+
+      const result = updater.calcListDiff(ref, ["final"]);
+
+      expect(result).toBe(true);
+      expect(calcListDiffMock).toHaveBeenNthCalledWith(1, ref.listIndex, existingDiff.newListValue, ["final"], existingDiff.newIndexes);
+      expect(calcListDiffMock).toHaveBeenNthCalledWith(2, ref.listIndex, saveInfo.list, ["final"], saveInfo.listIndexes);
+      expect(engine.saveListAndListIndexes).toHaveBeenCalledWith(ref, finalDiff.newListValue, finalDiff.newIndexes);
+      expect(updater.getListDiff(ref)).toBe(finalDiff);
+      expect(updater.oldValueAndIndexesByRef.get(ref)).toBe(saveInfo);
+    });
+  });
+
+  it("差分の新リストが未定義でも null 保存と初期キャッシュを行う", async () => {
+    const engine = createEngineStub();
+    const ref = createListRef("list:ref");
+    engine.getListAndListIndexes.mockReturnValue(undefined);
+
+    await createUpdater(engine, (updater) => {
+      const diff = {
+        same: false,
+        newListValue: undefined,
+        newIndexes: undefined,
+        changeIndexes: new Set(),
+        overwrites: new Set(),
+      } as any;
+      calcListDiffMock.mockReturnValueOnce(diff);
+
+      const result = updater.calcListDiff(ref, ["missing"]);
+      expect(result).toBe(true);
+      expect(engine.saveListAndListIndexes).toHaveBeenCalledWith(ref, null, diff.newIndexes);
+      expect(updater.oldValueAndIndexesByRef.get(ref)).toEqual({ list: null, listIndexes: null, listClone: null });
+    });
+  });
 });
 
 describe("Updater.collectMaybeUpdates", () => {
@@ -334,6 +402,24 @@ describe("Updater.collectMaybeUpdates", () => {
     } catch (err) {
       expect(err).toMatchObject({ code: "UPD-003" });
     }
+  });
+
+  it("recursiveCollectMaybeUpdates は既訪問パスをスキップする", async () => {
+    const engine = {
+      ...createEngineStub(),
+      pathManager: {
+        rootNode: createPathNode("root"),
+        dynamicDependencies: new Map(),
+        lists: new Set<string>(),
+        elements: new Set<string>(),
+      },
+    };
+
+    await createUpdater(engine, (updater) => {
+      const visited = new Set<string>(["root"]);
+      (updater as any).recursiveCollectMaybeUpdates(engine, "root", createPathNode("root"), visited, true);
+      expect(visited.size).toBe(1);
+    });
   });
 });
 

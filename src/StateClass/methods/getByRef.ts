@@ -17,12 +17,10 @@
  * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
  * - finallyでキャッシュへの格納を保証
  */
-import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils";
-import { IReadonlyStateProxy, IReadonlyStateHandler, IStateProxy, IStateHandler } from "../types";
+import { IStateProxy, IStateHandler } from "../types";
 import { checkDependency } from "./checkDependency";
-import { setStatePropertyRef } from "./setStatePropertyRef";
 
 /**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
@@ -77,6 +75,12 @@ export function getByRef(
 
   // パターンがtargetに存在する場合はgetter経由で取得
   if (ref.info.pattern in target) {
+    if (handler.refStack.length === 0) {
+      raiseError({
+        code: 'STC-002',
+        message: 'handler.refStack is empty in getByRef',
+      });
+    }
     handler.refIndex++;
     if (handler.refIndex >= handler.refStack.length) {
       handler.refStack.push(null);

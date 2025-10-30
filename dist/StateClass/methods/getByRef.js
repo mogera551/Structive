@@ -48,6 +48,12 @@ export function getByRef(target, ref, receiver, handler) {
     }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (ref.info.pattern in target) {
+        if (handler.refStack.length === 0) {
+            raiseError({
+                code: 'STC-002',
+                message: 'handler.refStack is empty in getByRef',
+            });
+        }
         handler.refIndex++;
         if (handler.refIndex >= handler.refStack.length) {
             handler.refStack.push(null);

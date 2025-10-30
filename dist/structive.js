@@ -138,7 +138,7 @@ const ne = (options) => {
         if (typeof value === 'number') {
             const optValue = Number(opt);
             if (isNaN(optValue))
-                optionMustBeNumber('eq');
+                optionMustBeNumber('ne');
             return value !== optValue;
         }
         if (typeof value === 'string') {
@@ -1662,6 +1662,12 @@ function getByRef(target, ref, receiver, handler) {
     }
     // パターンがtargetに存在する場合はgetter経由で取得
     if (ref.info.pattern in target) {
+        if (handler.refStack.length === 0) {
+            raiseError({
+                code: 'STC-002',
+                message: 'handler.refStack is empty in getByRef',
+            });
+        }
         handler.refIndex++;
         if (handler.refIndex >= handler.refStack.length) {
             handler.refStack.push(null);
@@ -1732,11 +1738,6 @@ function setByRef(target, ref, value, receiver, handler) {
                 handler.refIndex--;
                 handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
             }
-            /*
-                  return setStatePropertyRef(handler, ref, () => {
-                    return Reflect.set(target, ref.info.pattern, value, receiver);
-                  });
-            */
         }
         else {
             const parentInfo = ref.info.parentInfo ?? raiseError({
@@ -1811,7 +1812,7 @@ function resolve(target, prop, receiver, handler) {
             const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
             getByRef(target, wildcardRef, receiver, handler);
             const listIndexes = handler.engine.getListIndexes(wildcardRef);
-            if (listIndexes === null) {
+            if (listIndexes == null) {
                 raiseError({
                     code: 'LIST-201',
                     message: `ListIndexes not found: ${wildcardParentPattern.pattern}`,
@@ -2094,33 +2095,6 @@ function set(target, prop, value, receiver, handler) {
     }
 }
 
-/**
- * 状態プロパティ参照のスコープを一時的に設定し、非同期コールバックを実行します。
- *
- * @param handler   スコープ管理用のハンドラ
- * @param info      現在の構造化パス情報
- * @param listIndex 現在のリストインデックス（ネスト対応用）
- * @param callback  スコープ内で実行する非同期処理
- *
- * スタックに info と listIndex をpushし、callback実行後に必ずpopします。
- * これにより、非同期処理中も正しいスコープ情報が維持されます。
- */
-async function asyncSetStatePropertyRef(handler, ref, callback) {
-    handler.refIndex++;
-    if (handler.refIndex >= handler.refStack.length) {
-        handler.refStack.push(null);
-    }
-    handler.refStack[handler.refIndex] = handler.lastRefStack = ref;
-    try {
-        await callback();
-    }
-    finally {
-        handler.refStack[handler.refIndex] = null;
-        handler.refIndex--;
-        handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
-    }
-}
-
 async function setLoopContext(handler, loopContext, callback) {
     if (handler.loopContext) {
         raiseError({
@@ -2133,7 +2107,25 @@ async function setLoopContext(handler, loopContext, callback) {
     handler.loopContext = loopContext;
     try {
         if (loopContext) {
-            await asyncSetStatePropertyRef(handler, loopContext.ref, callback);
+            if (handler.refStack.length === 0) {
+                raiseError({
+                    code: 'STC-002',
+                    message: 'handler.refStack is empty in getByRef',
+                });
+            }
+            handler.refIndex++;
+            if (handler.refIndex >= handler.refStack.length) {
+                handler.refStack.push(null);
+            }
+            handler.refStack[handler.refIndex] = handler.lastRefStack = loopContext.ref;
+            try {
+                await callback();
+            }
+            finally {
+                handler.refStack[handler.refIndex] = null;
+                handler.refIndex--;
+                handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
+            }
         }
         else {
             await callback();
@@ -2963,6 +2955,11 @@ const createBindingNodeIf = (name, filterTexts, decorates) => (binding, node, fi
 
 const EMPTY_SET = new Set();
 /**
+ * フラグメントに追加し、一括でノードで追加するかのフラグ
+ * ベンチマークの結果で判断する
+ */
+const USE_ALL_APPEND = globalThis.__STRUCTIVE_USE_ALL_APPEND__ === true;
+/**
  * BindingNodeForクラスは、forバインディング（配列やリストの繰り返し描画）を担当するバインディングノードの実装です。
  *
  * 主な役割:
@@ -3087,8 +3084,14 @@ class BindingNodeFor extends BindingNodeBlock {
             context: { where: 'BindingNodeFor.applyChange' },
             docsUrl: './docs/error-codes.md#bind',
         });
+        const oldListLength = listDiff.oldListValue?.length ?? 0;
+        const removesSet = listDiff.removes ?? EMPTY_SET;
+        const addsSet = listDiff.adds ?? EMPTY_SET;
+        const newListLength = listDiff.newListValue?.length ?? 0;
+        const changeIndexesSet = listDiff.changeIndexes ?? EMPTY_SET;
+        const overwritesSet = listDiff.overwrites ?? EMPTY_SET;
         // 全削除最適化のフラグ
-        const isAllRemove = (listDiff.oldListValue?.length === listDiff.removes?.size && (listDiff.oldListValue?.length ?? 0) > 0);
+        const isAllRemove = (oldListLength === removesSet.size && oldListLength > 0);
         // 親ノードこのノードだけ持つかのチェック
         let isParentNodeHasOnlyThisNode = false;
         if (isAllRemove) {
@@ -3123,8 +3126,8 @@ class BindingNodeFor extends BindingNodeBlock {
             this.#bindContentPool.push(...this.#bindContents);
         }
         else {
-            if (listDiff.removes) {
-                for (const listIndex of listDiff.removes) {
+            if (removesSet.size > 0) {
+                for (const listIndex of removesSet) {
                     const bindContent = this.#bindContentByListIndex.get(listIndex);
                     if (typeof bindContent === "undefined") {
                         raiseError({
@@ -3143,14 +3146,15 @@ class BindingNodeFor extends BindingNodeBlock {
         let lastBindContent = null;
         const firstNode = this.node;
         this.bindContentLastIndex = this.poolLength - 1;
+        const isAllAppend = USE_ALL_APPEND && (newListLength === addsSet.size && newListLength > 0);
         // リオーダー判定: 追加・削除がなく、並び替え（changeIndexes）または上書き（overwrites）のみの場合
-        const isReorder = (listDiff.adds?.size ?? 0) === 0 && (listDiff.removes?.size ?? 0) === 0 &&
-            ((listDiff.changeIndexes?.size ?? 0) > 0 || (listDiff.overwrites?.size ?? 0) > 0);
+        const isReorder = addsSet.size === 0 && removesSet.size === 0 &&
+            (changeIndexesSet.size > 0 || overwritesSet.size > 0);
         if (!isReorder) {
             // 全追加の場合、バッファリングしてから一括追加する
-            const fragmentParentNode = parentNode;
-            const fragmentFirstNode = firstNode;
-            const adds = listDiff.adds ?? EMPTY_SET;
+            const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
+            const fragmentFirstNode = isAllAppend ? null : firstNode;
+            const adds = addsSet;
             for (const listIndex of listDiff.newIndexes) {
                 const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
                 let bindContent;
@@ -3180,14 +3184,19 @@ class BindingNodeFor extends BindingNodeBlock {
                 newBindContents.push(bindContent);
                 lastBindContent = bindContent;
             }
+            // 全追加最適化
+            if (isAllAppend) {
+                const beforeNode = firstNode.nextSibling;
+                parentNode.insertBefore(fragmentParentNode, beforeNode);
+            }
         }
         else {
             // リオーダー処理: 要素の追加・削除がない場合の最適化処理
             // 並び替え処理: インデックスの変更のみなので、要素の再描画は不要
             // DOM位置の調整のみ行い、BindContentの内容は再利用する
-            if ((listDiff.changeIndexes?.size ?? 0) > 0) {
+            if (changeIndexesSet.size > 0) {
                 const bindContents = Array.from(this.#bindContents);
-                const changeIndexes = Array.from(listDiff.changeIndexes ?? []);
+                const changeIndexes = Array.from(changeIndexesSet);
                 changeIndexes.sort((a, b) => a.index - b.index);
                 for (const listIndex of changeIndexes) {
                     const bindContent = this.#bindContentByListIndex.get(listIndex);
@@ -3206,8 +3215,8 @@ class BindingNodeFor extends BindingNodeBlock {
                 newBindContents = bindContents;
             }
             // 上書き処理: 同じ位置の要素が異なる値に変更された場合の再描画
-            if ((listDiff.overwrites?.size ?? 0) > 0) {
-                for (const listIndex of listDiff.overwrites ?? []) {
+            if (overwritesSet.size > 0) {
+                for (const listIndex of overwritesSet) {
                     const bindContent = this.#bindContentByListIndex.get(listIndex);
                     if (typeof bindContent === "undefined") {
                         raiseError({

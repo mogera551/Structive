@@ -12,22 +12,26 @@ vi.mock("../../src/utils", () => ({
   raiseError: (detail: any) => raiseErrorMock(detail),
 }));
 
-const asyncSetStatePropertyRefMock = vi.fn(async (_handler: any, _ref: any, cb: () => Promise<void>) => {
-  await cb();
-});
-vi.mock("../../src/StateClass/methods/asyncSetStatePropertyRef", () => ({
-  asyncSetStatePropertyRef: (handler: any, ref: any, cb: () => Promise<void>) => asyncSetStatePropertyRefMock(handler, ref, cb),
-}));
+type HandlerOptions = {
+  refStack?: any[];
+  refIndex?: number;
+  lastRefStack?: any;
+};
 
-function makeHandler() {
+function makeHandler(options: HandlerOptions = {}) {
+  const refStack = options.refStack ?? [null];
+  const refIndex = options.refIndex ?? -1;
+  const lastRefStack = options.lastRefStack ?? (refIndex >= 0 ? refStack[refIndex] : null);
   return {
     loopContext: null,
+    refStack,
+    refIndex,
+    lastRefStack,
   } as any;
 }
 
 beforeEach(() => {
   raiseErrorMock.mockReset();
-  asyncSetStatePropertyRefMock.mockClear();
 });
 
 describe("StateClass/methods setLoopContext", () => {
@@ -38,20 +42,28 @@ describe("StateClass/methods setLoopContext", () => {
     await setLoopContext(handler, null, callback);
 
     expect(callback).toHaveBeenCalledTimes(1);
-    expect(asyncSetStatePropertyRefMock).not.toHaveBeenCalled();
     expect(handler.loopContext).toBeNull();
+    expect(handler.refIndex).toBe(-1);
   });
 
-  it("loopContext が指定された場合は asyncSetStatePropertyRef 経由で実行", async () => {
-    const handler = makeHandler();
+  it("loopContext が指定された場合はスタックを構築して実行", async () => {
+    const existingRef = { info: { pattern: "prev" } };
+    const handler = makeHandler({ refStack: [existingRef], refIndex: 0 });
+    const initialRefIndex = handler.refIndex;
     const ref = { pattern: "items.*" };
     const loopContext = { ref } as any;
-    const callback = vi.fn(async () => {});
+    const callback = vi.fn(async () => {
+      expect(handler.loopContext).toBe(loopContext);
+      expect(handler.refStack[handler.refIndex]).toBe(ref);
+    });
 
     await setLoopContext(handler, loopContext, callback);
 
-    expect(asyncSetStatePropertyRefMock).toHaveBeenCalledWith(handler, ref, callback);
     expect(handler.loopContext).toBeNull();
+    expect(handler.refIndex).toBe(initialRefIndex);
+    expect(handler.lastRefStack).toBe(existingRef);
+    expect(handler.refStack[0]).toBe(existingRef);
+    expect(handler.refStack[1]).toBeNull();
   });
 
   it("既に loopContext が設定されている場合はエラー", async () => {
@@ -72,5 +84,6 @@ describe("StateClass/methods setLoopContext", () => {
 
     await expect(setLoopContext(handler, loopContext, callback)).rejects.toThrow(error);
     expect(handler.loopContext).toBeNull();
+    expect(handler.refIndex).toBe(-1);
   });
 });

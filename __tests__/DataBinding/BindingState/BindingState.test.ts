@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createBindingState } from "../../../src/DataBinding/BindingState/BindingState";
 import * as getByRefMod from "../../../src/StateClass/methods/getByRef";
 import * as setByRefMod from "../../../src/StateClass/methods/setByRef";
+import * as getStructuredPathInfoMod from "../../../src/StateProperty/getStructuredPathInfo";
 
 describe("BindingState", () => {
   let engine: any;
@@ -24,6 +25,11 @@ describe("BindingState", () => {
     setByRefSpy = vi.spyOn(setByRefMod, "setByRef").mockImplementation((_state: any, ref: any, value: any) => {
       valueByRef.set(ref, value);
     });
+  });
+
+  afterEach(() => {
+    getByRefSpy.mockRestore();
+    setByRefSpy.mockRestore();
   });
 
   it("非ワイルドカード: init/saveBinding/get/assignValue", () => {
@@ -110,12 +116,26 @@ describe("BindingState", () => {
     expect(bindingState.getFilteredValue(stateProxy, handler)).toBe("DEV");
   });
 
+  it("ゲッター: pattern/info/listIndex/filters/binding", () => {
+    const mockBindContent = { currentLoopContext: null } as any;
+    const binding = { parentBindContent: mockBindContent, engine } as any;
+
+    const factory = createBindingState("user.name", []);
+    const bindingState = factory(binding, engine.outputFilters);
+    bindingState.init();
+
+    expect(bindingState.pattern).toBe("user.name");
+    expect(bindingState.info.pattern).toBe("user.name");
+    expect(bindingState.filters.length).toBe(0);
+  expect((bindingState as any).binding).toBe(binding);
+    expect(bindingState.listIndex).toBeNull();
+  });
+
   it("エラー: ワイルドカードで lastWildcardPath が null", () => {
     const binding = { parentBindContent: { currentLoopContext: { find: vi.fn() } }, engine } as any;
     const factory = createBindingState("items.*.name", []);
     const bindingState = factory(binding, engine.outputFilters);
-    // info.lastWildcardPath を null にするため、getStructuredPathInfo をモックするのが簡単だが、ここでは実際の実装依存を避ける
-    // 代替として、currentLoopContext.find が null を返すケースで 'LoopContext is null' をカバー
+    // info.lastWildcardPath を null にするため、currentLoopContext.find が null を返すケースを利用
     (binding.parentBindContent.currentLoopContext.find as any).mockReturnValue(null);
     expect(() => bindingState.init()).toThrow(/LoopContext is null/i);
   });
@@ -127,5 +147,23 @@ describe("BindingState", () => {
     const factory = createBindingState("items.*.name", []);
     const bindingState = factory(binding, engine.outputFilters);
     expect(() => bindingState.getValue({} as any, {} as any)).toThrow(/ref is null/i);
+  });
+
+  it("エラー: lastWildcardPath が null の場合", () => {
+    const mockBindContent = { currentLoopContext: null } as any;
+    const binding = { parentBindContent: mockBindContent, engine } as any;
+    const infoStub = {
+      pattern: "items.*.name",
+      wildcardCount: 1,
+      lastWildcardPath: null,
+    } as any;
+    const spy = vi.spyOn(getStructuredPathInfoMod, "getStructuredPathInfo").mockReturnValue(infoStub);
+
+    const factory = createBindingState("items.*.name", []);
+    const bindingState = factory(binding, engine.outputFilters);
+
+    expect(() => bindingState.init()).toThrow(/Wildcard last parentPath is null/);
+
+    spy.mockRestore();
   });
 });

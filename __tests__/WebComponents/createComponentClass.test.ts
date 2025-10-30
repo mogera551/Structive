@@ -79,6 +79,8 @@ function makeData(overrides?: Partial<{ html:string; css:string; stateClass: any
 describe("WebComponents/createComponentClass", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    engineObj.stateClass = { $isStructive: true };
+    engineObj.bindingsByComponent = new Map<any, any>();
     // ensure customElements.define doesn't actually register
     vi.spyOn(customElements, "define").mockImplementation(() => undefined as any);
   });
@@ -89,6 +91,8 @@ describe("WebComponents/createComponentClass", () => {
 
     // id は generateId の戻り
     expect(Cls.id).toBe(123);
+    expect(Cls.html).toBe(data.html);
+    expect(Cls.css).toBe(data.css);
 
     // 初期 html/css 登録
     expect(registerHtmlMock).toHaveBeenCalledWith(123, data.html);
@@ -156,9 +160,13 @@ describe("WebComponents/createComponentClass", () => {
     // state / isStructive / waitForInitialize
     expect(inst.state).toBe(engineObj.stateInput);
     expect(inst.isStructive).toBe(true);
+    engineObj.stateClass = {} as any;
+    expect(inst.isStructive).toBe(false);
+    engineObj.stateClass = { $isStructive: true } as any;
     expect(inst.waitForInitialize).toBe(engineObj.waitForInitialize);
 
     // bindings の委譲
+    expect(inst.getBindingsFromChild({ tagName: "X-NONE" } as any)).toBeNull();
     const child: any = { tagName: "X-CHILD" };
     const bindingsSet = new Set<any>([{ id: 1 }]);
     engineObj.bindingsByComponent.set(child, bindingsSet);

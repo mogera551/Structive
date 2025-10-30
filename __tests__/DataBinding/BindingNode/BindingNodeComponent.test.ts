@@ -70,6 +70,27 @@ describe("BindingNodeComponent", () => {
     document.body.innerHTML = "";
   });
 
+  it("subName ゲッターと assignValue の no-op を通過", () => {
+    const componentNode = binding.bindingNode as any;
+    expect(componentNode.subName).toBe("foo");
+    componentNode.assignValue("value");
+  });
+
+  it("listIndex が null の親パス更新は通知しない", () => {
+    binding.init();
+    (binding.bindingState as any).listIndex = undefined;
+    const parentInfo = makeInfo("values", ["values"], 0, ["values"]);
+    const parentRef = {
+      info: parentInfo,
+      listIndex: {
+        length: 1,
+        at: () => ({ sid: "LI#parent" }),
+      },
+    } as any;
+    binding.notifyRedraw([parentRef]);
+    expect((component.state[NotifyRedrawSymbol] as any).mock.calls.length).toBe(0);
+  });
+
   it("init: bindingsByComponent に登録され、親 StructiveComponent が紐づく", () => {
     binding.init();
     const set = engine.bindingsByComponent.get(component)!;
@@ -104,10 +125,58 @@ describe("BindingNodeComponent", () => {
   it("notifyRedraw: listIndex 不一致はスキップ（子パス側）", () => {
     binding.init();
     // listIndex が異なる子パス → 通知しない
-    const otherListIndex = makeListIndex("LI#B", false);
-    const childInfo = makeInfo("values.*.foo.bar", ["values","*","foo","bar"], 1, ["values","values.*","values.*.foo","values.*.foo.bar"]);
+    const otherListIndex = makeListIndex("LI#B", true);
+    const childInfo = makeInfo("values.*.bar", ["values","*","bar"], 1, ["values","values.*","values.*.bar"]);
     const childRef = getStatePropertyRef(childInfo as any, otherListIndex);
     binding.notifyRedraw([childRef]);
+    expect((component.state[NotifyRedrawSymbol] as any).mock.calls.length).toBe(0);
+  });
+
+  it("notifyRedraw: cumulativePathSet に含まれない親パターンはスキップ", () => {
+    binding.init();
+    const unrelatedInfo = makeInfo("others", ["others"], 0, ["others"]);
+    const unrelatedRef = getStatePropertyRef(unrelatedInfo as any, null);
+    binding.notifyRedraw([unrelatedRef]);
+    expect((component.state[NotifyRedrawSymbol] as any).mock.calls.length).toBe(0);
+  });
+
+  it("notifyRedraw: 親パスで listIndex null はスキップ", () => {
+    binding.init();
+    (binding.bindingState as any).listIndex = [];
+    const parentInfo = makeInfo("values.*", ["values","*"], 1, ["values","values.*"]);
+    const parentListIndex = makeListIndex("LI#Parent", true);
+    const parentRef = getStatePropertyRef(parentInfo as any, parentListIndex);
+    binding.notifyRedraw([parentRef]);
+    expect((component.state[NotifyRedrawSymbol] as any).mock.calls.length).toBe(0);
+  });
+
+  it("notifyRedraw: 親パスで listIndex が一致する場合は通知", () => {
+    binding.init();
+    const info = binding.bindingState.info;
+    const listIndex = binding.bindingState.listIndex[0];
+    const parentInfo = makeInfo("values.*", ["values","*"], 1, ["values","values.*"]);
+    const parentRef = getStatePropertyRef(parentInfo as any, listIndex);
+    binding.notifyRedraw([parentRef]);
+    const expectedRef = getStatePropertyRef(info, listIndex);
+    const called = (component.state[NotifyRedrawSymbol] as any).mock.calls.at(-1)[0][0];
+    expect(called.key).toBe(expectedRef.key);
+  });
+
+  it("notifyRedraw: 親パスで listIndex が異なる場合は通知しない", () => {
+    binding.init();
+    const mismatchListIndex = makeListIndex("LI#Mismatch", true);
+    const parentInfo = makeInfo("values.*", ["values","*"], 1, ["values","values.*"]);
+    const parentRef = getStatePropertyRef(parentInfo as any, mismatchListIndex);
+    binding.notifyRedraw([parentRef]);
+    expect((component.state[NotifyRedrawSymbol] as any).mock.calls.length).toBe(0);
+  });
+
+  it("notifyRedraw: 自身のパターン更新は通知しない", () => {
+    binding.init();
+    const info = binding.bindingState.info;
+    const listIndex = binding.bindingState.listIndex[0];
+    const sameRef = getStatePropertyRef(info as any, listIndex);
+    binding.notifyRedraw([sameRef]);
     expect((component.state[NotifyRedrawSymbol] as any).mock.calls.length).toBe(0);
   });
 });

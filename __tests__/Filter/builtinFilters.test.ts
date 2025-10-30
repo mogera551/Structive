@@ -58,6 +58,17 @@ describe("Filter/builtinFilters", () => {
         expect(filter("world")).toBe(true);
       });
 
+      test("should use strict inequality for other types", () => {
+        const filter = outputBuiltinFilters.ne(["true"]);
+        expect(filter(true)).toBe(true);
+        expect(filter("true")).toBe(false);
+      });
+
+      test("should throw error when option is not a number", () => {
+        const filter = outputBuiltinFilters.ne(["abc"]);
+        expect(() => filter(1)).toThrow("ne requires a number as option");
+      });
+
       test("should throw error when no options provided", () => {
         expect(() => outputBuiltinFilters.ne()).toThrow("ne requires at least one option");
       });
@@ -555,6 +566,12 @@ describe("Filter/builtinFilters", () => {
         expect(result).toContain("30");
       });
 
+      test("should use custom locale", () => {
+        const filter = outputBuiltinFilters.time(["en-US"]);
+        const result = filter(testDate);
+        expect(typeof result).toBe("string");
+      });
+
       test("should throw error for non-Date values", () => {
         const filter = outputBuiltinFilters.time();
         expect(() => filter("10:30:45")).toThrow("time requires a date value");
@@ -568,6 +585,12 @@ describe("Filter/builtinFilters", () => {
         expect(typeof result).toBe("string");
         expect(result).toContain("2023");
         expect(result).toContain("10");
+      });
+
+      test("should use custom locale", () => {
+        const filter = outputBuiltinFilters.datetime(["en-US"]);
+        const result = filter(testDate);
+        expect(typeof result).toBe("string");
       });
 
       test("should throw error for non-Date values", () => {

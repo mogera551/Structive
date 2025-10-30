@@ -169,6 +169,27 @@ describe('StatePropertyRef', () => {
       expect(ref.listIndex).toBe(listIndex1);
       expect(ref.listIndex).toBe(listIndex1);
     });
+
+    it('WeakRef.deref が undefined を返す場合は LIST-201 エラーを投げる', () => {
+      const originalWeakRef = globalThis.WeakRef;
+      class DeadWeakRef<T extends object> {
+        constructor(_: T) {}
+        deref(): T | undefined {
+          return undefined;
+        }
+      }
+
+      (globalThis as any).WeakRef = DeadWeakRef;
+      const errorPathInfo = getStructuredPathInfo('gc.case.path');
+      const errorListIndex = createListIndex(null, 99);
+
+      try {
+        const ref = getStatePropertyRef(errorPathInfo, errorListIndex);
+        expect(() => ref.listIndex).toThrowError(/listIndex is null/);
+      } finally {
+        (globalThis as any).WeakRef = originalWeakRef;
+      }
+    });
   });
 
   describe('WeakMap によるメモリ管理', () => {

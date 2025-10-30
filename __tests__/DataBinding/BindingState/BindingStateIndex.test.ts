@@ -57,6 +57,15 @@ describe("BindingStateIndex", () => {
     expect(bs.ref).toBe(ctx2.ref);
   });
 
+  it("init 前に ref を参照するとエラー", () => {
+    const engine = createEngine();
+    const binding = createBinding(engine, { serialize: () => [] } as any);
+    const factory = createBindingStateIndex("$1", []);
+    const bs = factory(binding, engine.outputFilters);
+
+    expect(() => bs.ref).toThrow(/ref is null/i);
+  });
+
   it("binding と filters のゲッターが期待通り返る", () => {
     const engine = createEngine();
     const binding = createBinding(engine, { serialize: () => [] } as any);
@@ -100,6 +109,20 @@ describe("BindingStateIndex", () => {
     const bs = factory(binding, engine.outputFilters);
     bs.init();
   expect(() => (bs as any).assignValue({} as any, {} as any, 123)).toThrowError(/not implemented/i);
+  });
+
+  it("listIndex.index が無い場合は getValue/getFilteredValue がエラー", () => {
+    const ctx = { listIndex: { sid: "LI#NO_IDX" }, ref: { key: "K" } };
+    const root = { serialize: () => [ctx] } as any;
+    const engine = createEngine();
+    const binding = createBinding(engine, root);
+    const factory = createBindingStateIndex("$1", []);
+    const bs = factory(binding, engine.outputFilters);
+
+    bs.init();
+
+    expect(() => bs.getValue({} as any, {} as any)).toThrow(/listIndex is null/i);
+    expect(() => bs.getFilteredValue({} as any, {} as any)).toThrow(/listIndex is null/i);
   });
 
   it("init を複数回呼んでも Set は重複しない", () => {

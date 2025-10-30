@@ -42,8 +42,9 @@ describe("WebComponents/loadFromImportMap", () => {
   it("routes と components を登録し、lazy は遅延保持する", async () => {
     loadImportmapMock.mockReturnValue({
       imports: {
-        "@routes//root": "/root",
-        "@routes//users/:id": "/users/:id",
+        "@routes/root": "/root",
+        "@routes/users/:id": "/users/:id",
+        "@routes/admin#lazy": "/admin",
         "@components/x-foo": "/x/foo.js",
         "@components/x-bar#lazy": "/x/bar.js",
       },
@@ -51,9 +52,9 @@ describe("WebComponents/loadFromImportMap", () => {
 
     await loadFromImportMap();
 
-  // routes 登録（実装仕様に合わせ、先頭スラッシュ重複やハイフンも許容）
-  expect(entryRouteMock).toHaveBeenCalledWith("routes--root", "//root");
-  expect(entryRouteMock).toHaveBeenCalledWith("routes--users-", "//users/:id");
+    // routes 登録（ /root は / に正規化、パラメータは除去 ）
+    expect(entryRouteMock).toHaveBeenCalledWith("routes-root", "/");
+    expect(entryRouteMock).toHaveBeenCalledWith("routes-users-", "/users/:id");
 
     // 非 lazy は即登録
     expect(loadSingleFileComponentMock).toHaveBeenCalledWith("@components/x-foo");
@@ -63,6 +64,7 @@ describe("WebComponents/loadFromImportMap", () => {
     // lazy は保持され、isLazyLoadComponent が true
     expect(hasLazyLoadComponents()).toBe(true);
     expect(isLazyLoadComponent("x-bar")).toBe(true);
+    expect(isLazyLoadComponent("routes-admin")).toBe(true);
   });
 
   it("loadLazyLoadComponent で遅延分を登録し、その後は isLazyLoadComponent が false", async () => {

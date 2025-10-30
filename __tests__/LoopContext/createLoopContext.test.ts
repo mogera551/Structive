@@ -14,12 +14,6 @@ vi.mock("../../src/StatePropertyRef/StatepropertyRef", () => ({
   getStatePropertyRef: vi.fn()
 }));
 
-vi.mock("../../src/utils", () => ({
-  raiseError: vi.fn().mockImplementation((message: string) => {
-    throw new Error(message);
-  })
-}));
-
 // モック関数のインポート
 import { getStatePropertyRef } from "../../src/StatePropertyRef/StatepropertyRef";
 
@@ -164,6 +158,25 @@ describe("LoopContext/createLoopContext", () => {
     describe("clearListIndex", () => {
       test("should clear reference successfully", () => {
         expect(() => loopContext.clearListIndex()).not.toThrow();
+      });
+    });
+
+    describe("error handling", () => {
+      test("should throw when ref is accessed after clearing list index", () => {
+        loopContext.clearListIndex();
+        const accessRef = () => loopContext.ref;
+        expect(accessRef).toThrowError("ref is null");
+      });
+
+      test("should throw when listIndex is missing on ref", () => {
+        const refWithoutListIndex = {
+          ...mockStatePropertyRef,
+          listIndex: null
+        } as unknown as IStatePropertyRef;
+
+        const contextWithoutIndex = createLoopContext(refWithoutListIndex, mockBindContent);
+        const accessListIndex = () => contextWithoutIndex.listIndex;
+        expect(accessListIndex).toThrowError("listIndex is required");
       });
     });
 

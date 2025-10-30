@@ -46,4 +46,16 @@ describe("WebComponents/createSingleFileComponent", () => {
     // static プロパティが参照できること
     expect((res.stateClass as any).$config).toEqual({ enabled: true });
   });
+
+  it("<template> が存在しない場合は空 HTML を返す", async () => {
+    const sfc = `
+      <style>.no-template{display:none}</style>
+      <script type="module">export const value = 1;</script>
+    `;
+    const res = await createSingleFileComponent(sfc);
+    expect(res.html).toBe("");
+    expect(res.css.replace(/\s+/g, "")).toBe('.no-template{display:none}');
+    // default export が無い場合は空クラスが返る
+    expect(Object.getPrototypeOf(res.stateClass)).toBe(Function.prototype);
+  });
 });

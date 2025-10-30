@@ -55,6 +55,7 @@ function makeHandler() {
     startsWith: vi.fn().mockReturnValue(false),
     get: vi.fn(),
   };
+  const refStack: any[] = [null];
   const handler = {
     engine: {
       pathManager: {
@@ -70,7 +71,7 @@ function makeHandler() {
       revisionByUpdatedPath: new Map<string, number>(),
       calcListDiff: vi.fn(),
     },
-    refStack: [] as any[],
+  refStack,
     refIndex: -1,
     lastRefStack: null,
   };

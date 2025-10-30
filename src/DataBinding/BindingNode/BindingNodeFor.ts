@@ -18,7 +18,7 @@ const EMPTY_SET = new Set<any>();
  * フラグメントに追加し、一括でノードで追加するかのフラグ
  * ベンチマークの結果で判断する
  */
-const USE_ALL_APPEND = false;
+const USE_ALL_APPEND = (globalThis as any).__STRUCTIVE_USE_ALL_APPEND__ === true;
 
 /**
  * BindingNodeForクラスは、forバインディング（配列やリストの繰り返し描画）を担当するバインディングノードの実装です。
@@ -158,8 +158,15 @@ class BindingNodeFor extends BindingNodeBlock {
       context: { where: 'BindingNodeFor.applyChange' },
       docsUrl: './docs/error-codes.md#bind',
     });
-    // 全削除最適化のフラグ
-    const isAllRemove = (listDiff.oldListValue?.length === listDiff.removes?.size && (listDiff.oldListValue?.length ?? 0) > 0);
+  const oldListLength = listDiff.oldListValue?.length ?? 0;
+  const removesSet = listDiff.removes ?? EMPTY_SET;
+  const addsSet = listDiff.adds ?? EMPTY_SET;
+  const newListLength = listDiff.newListValue?.length ?? 0;
+  const changeIndexesSet = listDiff.changeIndexes ?? EMPTY_SET;
+  const overwritesSet = listDiff.overwrites ?? EMPTY_SET;
+
+  // 全削除最適化のフラグ
+  const isAllRemove = (oldListLength === removesSet.size && oldListLength > 0);
     // 親ノードこのノードだけ持つかのチェック
     let isParentNodeHasOnlyThisNode = false;
     if (isAllRemove) {
@@ -193,8 +200,8 @@ class BindingNodeFor extends BindingNodeBlock {
       }
       this.#bindContentPool.push(...this.#bindContents);
     } else {
-      if (listDiff.removes) {
-        for(const listIndex of listDiff.removes) {
+      if (removesSet.size > 0) {
+        for(const listIndex of removesSet) {
           const bindContent = this.#bindContentByListIndex.get(listIndex);
           if (typeof bindContent === "undefined") {
             raiseError({
@@ -214,15 +221,15 @@ class BindingNodeFor extends BindingNodeBlock {
     let lastBindContent = null;
     const firstNode = this.node;
     this.bindContentLastIndex = this.poolLength - 1;
-    const isAllAppend = USE_ALL_APPEND && (listDiff.newListValue?.length === listDiff.adds?.size && (listDiff.newListValue?.length ?? 0) > 0);
+    const isAllAppend = USE_ALL_APPEND && (newListLength === addsSet.size && newListLength > 0);
     // リオーダー判定: 追加・削除がなく、並び替え（changeIndexes）または上書き（overwrites）のみの場合
-    const isReorder = (listDiff.adds?.size ?? 0) === 0 && (listDiff.removes?.size ?? 0) === 0 &&
-      ((listDiff.changeIndexes?.size ?? 0) > 0 || (listDiff.overwrites?.size ?? 0) > 0 );
+    const isReorder = addsSet.size === 0 && removesSet.size === 0 &&
+      (changeIndexesSet.size > 0 || overwritesSet.size > 0 );
     if (!isReorder) {
       // 全追加の場合、バッファリングしてから一括追加する
       const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
       const fragmentFirstNode = isAllAppend ? null : firstNode;
-      const adds = listDiff.adds ?? EMPTY_SET;
+      const adds = addsSet;
       for(const listIndex of listDiff.newIndexes) {
         const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
         let bindContent;
@@ -260,9 +267,9 @@ class BindingNodeFor extends BindingNodeBlock {
       // リオーダー処理: 要素の追加・削除がない場合の最適化処理
       // 並び替え処理: インデックスの変更のみなので、要素の再描画は不要
       // DOM位置の調整のみ行い、BindContentの内容は再利用する
-      if ((listDiff.changeIndexes?.size ?? 0) > 0) {
+      if (changeIndexesSet.size > 0) {
         const bindContents = Array.from(this.#bindContents);
-        const changeIndexes = Array.from(listDiff.changeIndexes ?? []);
+        const changeIndexes = Array.from(changeIndexesSet);
         changeIndexes.sort((a, b) => a.index - b.index);
         for(const listIndex of changeIndexes) {
           const bindContent = this.#bindContentByListIndex.get(listIndex);
@@ -281,8 +288,8 @@ class BindingNodeFor extends BindingNodeBlock {
         newBindContents = bindContents;
       }
       // 上書き処理: 同じ位置の要素が異なる値に変更された場合の再描画
-      if ((listDiff.overwrites?.size ?? 0) > 0) {
-        for (const listIndex of listDiff.overwrites ?? []) {
+      if (overwritesSet.size > 0) {
+        for (const listIndex of overwritesSet) {
           const bindContent = this.#bindContentByListIndex.get(listIndex);
           if (typeof bindContent === "undefined") {
             raiseError({

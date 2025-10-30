@@ -42,7 +42,7 @@ const ne = (options) => {
         if (typeof value === 'number') {
             const optValue = Number(opt);
             if (isNaN(optValue))
-                optionMustBeNumber('eq');
+                optionMustBeNumber('ne');
             return value !== optValue;
         }
         if (typeof value === 'string') {

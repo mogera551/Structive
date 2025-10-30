@@ -193,6 +193,32 @@ describe("Template/replaceMustacheWithTemplateTag", () => {
         replaceMustacheWithTemplateTag(html);
       }).toThrow("Else without if");
     });
+
+    test("should throw error for unknown control directive", () => {
+      const html = "{{custom:expr}}";
+      const originalHas = Set.prototype.has;
+
+      // Mustache判定用Setのhasだけをフックして、未知のディレクティブを強制的にtrueにする
+      Set.prototype.has = function patchedHas(value: unknown): boolean {
+        try {
+          const maybeTargetSet = originalHas.call(this, "if") && originalHas.call(this, "for") && originalHas.call(this, "endif") && originalHas.call(this, "endfor") && originalHas.call(this, "elseif") && originalHas.call(this, "else");
+          if (maybeTargetSet && value === "custom") {
+            return true;
+          }
+          return originalHas.call(this, value);
+        } catch {
+          return originalHas.call(this, value);
+        }
+      } as typeof Set.prototype.has;
+
+      try {
+        expect(() => {
+          replaceMustacheWithTemplateTag(html);
+        }).toThrow("Unknown type");
+      } finally {
+        Set.prototype.has = originalHas;
+      }
+    });
   });
 
   describe("edge cases", () => {
