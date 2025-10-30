@@ -16,6 +16,7 @@ import { checkDependency } from "./checkDependency";
  * @returns         対象プロパティの値
  */
 export function getByRef(target, ref, receiver, handler) {
+    checkDependency(handler, ref);
     let value;
     const cacheable = ref.info.wildcardCount > 0 || handler.engine.pathManager.getters.has(ref.info.pattern);
     if (cacheable) {
@@ -40,7 +41,6 @@ export function getByRef(target, ref, receiver, handler) {
             }
         }
     }
-    checkDependency(handler, ref);
     // 親子関係のあるgetterが存在する場合は、外部依存から取得
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
     if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {

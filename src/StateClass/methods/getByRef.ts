@@ -43,6 +43,8 @@ export function getByRef(
   receiver : IStateProxy,
   handler  : IStateHandler
 ): any {
+  checkDependency(handler, ref);
+
   let value: any;
   const cacheable = ref.info.wildcardCount > 0 || handler.engine.pathManager.getters.has(ref.info.pattern);
   if (cacheable) {
@@ -65,7 +67,6 @@ export function getByRef(
       }
     }
   }
-  checkDependency(handler, ref);
 
   // 親子関係のあるgetterが存在する場合は、外部依存から取得
   // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得

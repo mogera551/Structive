@@ -87,7 +87,7 @@ beforeEach(() => {
 });
 
 describe("StateClass/methods getByRef (cache & readonly)", () => {
-  it("キャッシュがヒットした場合は checkDependency を呼ばず即返す", () => {
+  it("キャッシュがヒットした場合でも依存関係を登録して値を返す", () => {
     const { handler, cache } = makeHandler();
     const ref = makeRef("items.*", 1);
     cache.set(ref, { value: "CACHED", version: 1, revision: 0 });
@@ -95,10 +95,11 @@ describe("StateClass/methods getByRef (cache & readonly)", () => {
     const value = getByRef({}, ref, {} as any, handler);
 
     expect(value).toBe("CACHED");
-    expect(checkDependencyMock).not.toHaveBeenCalled();
+    expect(checkDependencyMock).toHaveBeenCalledTimes(1);
+    expect(checkDependencyMock).toHaveBeenCalledWith(handler, ref);
   });
 
-  it("revision 情報がありつつ変更が無い場合はキャッシュを返す", () => {
+  it("revision 情報がありつつ変更が無い場合でも依存関係を登録する", () => {
     const { handler, cache } = makeHandler({ version: 2, revision: 3 });
     const ref = makeRef("users.*", 1);
     cache.set(ref, { value: "UNCHANGED", version: 2, revision: 3 });
@@ -107,7 +108,8 @@ describe("StateClass/methods getByRef (cache & readonly)", () => {
     const value = getByRef({}, ref, {} as any, handler);
 
     expect(value).toBe("UNCHANGED");
-    expect(checkDependencyMock).not.toHaveBeenCalled();
+    expect(checkDependencyMock).toHaveBeenCalledTimes(1);
+    expect(checkDependencyMock).toHaveBeenCalledWith(handler, ref);
   });
 
   it("stateOutput.startsWith が true で交差が無い場合は stateOutput.get を返す", () => {
