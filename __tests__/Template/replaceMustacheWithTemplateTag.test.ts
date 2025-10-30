@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi } from "vitest";
 import { replaceMustacheWithTemplateTag } from "../../src/Template/replaceMustacheWithTemplateTag";
 
 describe("Template/replaceMustacheWithTemplateTag", () => {
@@ -149,7 +149,7 @@ describe("Template/replaceMustacheWithTemplateTag", () => {
       const html = "<div>content</div>{{endfor}}";
       expect(() => {
         replaceMustacheWithTemplateTag(html);
-      }).toThrow("Endif without if");
+      }).toThrow("Endfor without for");
     });
 
     test("should throw error for endfor after if (mismatched)", () => {
@@ -197,26 +197,32 @@ describe("Template/replaceMustacheWithTemplateTag", () => {
     test("should throw error for unknown control directive", () => {
       const html = "{{custom:expr}}";
       const originalHas = Set.prototype.has;
-
-      // Mustache判定用Setのhasだけをフックして、未知のディレクティブを強制的にtrueにする
-      Set.prototype.has = function patchedHas(value: unknown): boolean {
-        try {
-          const maybeTargetSet = originalHas.call(this, "if") && originalHas.call(this, "for") && originalHas.call(this, "endif") && originalHas.call(this, "endfor") && originalHas.call(this, "elseif") && originalHas.call(this, "else");
-          if (maybeTargetSet && value === "custom") {
-            return true;
+      const hasSpy = vi
+        .spyOn(Set.prototype, "has")
+        .mockImplementation(function patchedHas(this: Set<unknown>, value: unknown): boolean {
+          try {
+            const maybeTargetSet =
+              originalHas.call(this, "if") &&
+              originalHas.call(this, "for") &&
+              originalHas.call(this, "endif") &&
+              originalHas.call(this, "endfor") &&
+              originalHas.call(this, "elseif") &&
+              originalHas.call(this, "else");
+            if (maybeTargetSet && value === "custom") {
+              return true;
+            }
+            return originalHas.call(this, value);
+          } catch {
+            return originalHas.call(this, value);
           }
-          return originalHas.call(this, value);
-        } catch {
-          return originalHas.call(this, value);
-        }
-      } as typeof Set.prototype.has;
+        });
 
       try {
         expect(() => {
           replaceMustacheWithTemplateTag(html);
         }).toThrow("Unknown type");
       } finally {
-        Set.prototype.has = originalHas;
+        hasSpy.mockRestore();
       }
     });
   });

@@ -85,7 +85,7 @@ beforeEach(() => {
 });
 
 describe("StateClass/methods getByRef", () => {
-  it("キャッシュがヒットした場合は checkDependency を呼ばず即返す", () => {
+  it("キャッシュがヒットした場合でも依存関係を登録して値を返す", () => {
     const { handler, cache } = makeHandler();
     const ref = makeRef("items.*", 1);
     cache.set(ref, { value: "CACHED", version: 1, revision: 0 });
@@ -93,7 +93,7 @@ describe("StateClass/methods getByRef", () => {
     const value = getByRef({}, ref, {} as any, handler);
 
     expect(value).toBe("CACHED");
-    expect(checkDependencyMock).not.toHaveBeenCalled();
+    expect(checkDependencyMock).toHaveBeenCalledTimes(1);
   });
 
   it("stateOutput.startsWith が true で交差が無い場合は stateOutput.get を返す", () => {

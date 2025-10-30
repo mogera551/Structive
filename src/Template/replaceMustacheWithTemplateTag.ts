@@ -69,7 +69,7 @@ export function replaceMustacheWithTemplateTag(html: string): string {
     } else if (type === 'endfor') {
       const info = stack.pop() ?? raiseError({
         code: 'TMP-102',
-        message: 'Endif without if',
+        message: 'Endfor without for',
         context: { where: 'replaceMustacheWithTemplateTag', expr, stackDepth: stack.length },
         docsUrl: './docs/error-codes.md#tmp',
       });
