@@ -3,32 +3,31 @@ import { createUpdater } from "../../Updater/Updater.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
 function isTwoWayBindable(element) {
-    return element instanceof HTMLInputElement ||
-        element instanceof HTMLTextAreaElement ||
-        element instanceof HTMLSelectElement;
+    return element instanceof HTMLInputElement
+        || element instanceof HTMLTextAreaElement
+        || element instanceof HTMLSelectElement;
 }
 const defaultEventByName = {
-    "value": "input",
-    "valueAsNumber": "input",
-    "valueAsDate": "input",
-    "checked": "change",
-    "selected": "change",
+    value: "input",
+    valueAsNumber: "input",
+    valueAsDate: "input",
+    checked: "change",
+    selected: "change",
 };
 const twoWayPropertyByElementType = {
-    "radio": new Set(["checked"]),
-    "checkbox": new Set(["checked"]),
+    radio: new Set(["checked"]),
+    checkbox: new Set(["checked"]),
 };
 const VALUES_SET = new Set(["value", "valueAsNumber", "valueAsDate"]);
 const BLANK_SET = new Set();
 /**
- * 指定されたノードプロパティ名が双方向バインディング可能なプロパティかどうかを判定します。
-
-/**
  * HTML要素のデフォルトプロパティを取得
  */
-const getTwoWayPropertiesHTMLElement = (node) => node instanceof HTMLSelectElement || node instanceof HTMLTextAreaElement || node instanceof HTMLOptionElement ? VALUES_SET :
-    node instanceof HTMLInputElement ? (twoWayPropertyByElementType[node.type] ?? BLANK_SET) :
-        BLANK_SET;
+const getTwoWayPropertiesHTMLElement = (node) => node instanceof HTMLSelectElement || node instanceof HTMLTextAreaElement || node instanceof HTMLOptionElement
+    ? VALUES_SET
+    : node instanceof HTMLInputElement
+        ? (twoWayPropertyByElementType[node.type] ?? VALUES_SET)
+        : BLANK_SET;
 /**
  * BindingNodePropertyクラスは、ノードのプロパティ（value, checked, selected など）への
  * バインディング処理を担当するバインディングノードの実装です。
@@ -66,14 +65,15 @@ class BindingNodeProperty extends BindingNode {
         const defaultNames = getTwoWayPropertiesHTMLElement(this.node);
         if (!defaultNames.has(this.name))
             return;
-        if (decorates.length > 1)
+        if (decorates.length > 1) {
             raiseError({
-                code: 'BIND-201',
-                message: 'Has multiple decorators',
-                context: { where: 'BindingNodeProperty.constructor', name: this.name, decoratesCount: decorates.length },
-                docsUrl: '/docs/error-codes.md#bind',
-                severity: 'error',
+                code: "BIND-201",
+                message: "Has multiple decorators",
+                context: { where: "BindingNodeProperty.constructor", name: this.name, decoratesCount: decorates.length },
+                docsUrl: "/docs/error-codes.md#bind",
+                severity: "error",
             });
+        }
         const event = (decorates[0]?.startsWith("on") ? decorates[0]?.slice(2) : decorates[0]) ?? null;
         const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
         if (eventName === "readonly" || eventName === "ro")
