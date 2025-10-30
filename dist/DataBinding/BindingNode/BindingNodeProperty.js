@@ -1,5 +1,4 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
-import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
 import { createUpdater } from "../../Updater/Updater.js";
 import { raiseError } from "../../utils.js";
 import { BindingNode } from "./BindingNode.js";
@@ -10,9 +9,26 @@ function isTwoWayBindable(element) {
 }
 const defaultEventByName = {
     "value": "input",
+    "valueAsNumber": "input",
+    "valueAsDate": "input",
     "checked": "change",
     "selected": "change",
 };
+const twoWayPropertyByElementType = {
+    "radio": new Set(["checked"]),
+    "checkbox": new Set(["checked"]),
+};
+const VALUES_SET = new Set(["value", "valueAsNumber", "valueAsDate"]);
+const BLANK_SET = new Set();
+/**
+ * 指定されたノードプロパティ名が双方向バインディング可能なプロパティかどうかを判定します。
+
+/**
+ * HTML要素のデフォルトプロパティを取得
+ */
+const getTwoWayPropertiesHTMLElement = (node) => node instanceof HTMLSelectElement || node instanceof HTMLTextAreaElement || node instanceof HTMLOptionElement ? VALUES_SET :
+    node instanceof HTMLInputElement ? (twoWayPropertyByElementType[node.type] ?? BLANK_SET) :
+        BLANK_SET;
 /**
  * BindingNodePropertyクラスは、ノードのプロパティ（value, checked, selected など）への
  * バインディング処理を担当するバインディングノードの実装です。
@@ -47,8 +63,8 @@ class BindingNodeProperty extends BindingNode {
             return;
         if (!isTwoWayBindable(this.node))
             return;
-        const defaultName = getDefaultName(this.node, "HTMLElement");
-        if (defaultName !== this.name)
+        const defaultNames = getTwoWayPropertiesHTMLElement(this.node);
+        if (!defaultNames.has(this.name))
             return;
         if (decorates.length > 1)
             raiseError({

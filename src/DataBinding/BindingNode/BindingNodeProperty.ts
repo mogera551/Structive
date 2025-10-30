@@ -1,5 +1,4 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
-import { getDefaultName } from "../../BindingBuilder/getDefaultName.js";
 import { IFilterText } from "../../BindingBuilder/types";
 import { Filters, FilterWithOptions } from "../../Filter/types";
 import { createUpdater } from "../../Updater/Updater.js";
@@ -9,16 +8,41 @@ import { BindingNode } from "./BindingNode.js";
 import { CreateBindingNodeFn } from "./types";
 
 function isTwoWayBindable(element: HTMLElement): boolean {
-  return element instanceof HTMLInputElement || 
-    element instanceof HTMLTextAreaElement || 
-    element instanceof HTMLSelectElement;
+  return element instanceof HTMLInputElement
+    || element instanceof HTMLTextAreaElement
+    || element instanceof HTMLSelectElement;
 }
 
-const defaultEventByName: {[key:string]: string} = {
-  "value"   : "input",
-  "checked" : "change",
-  "selected": "change",
+const defaultEventByName: Record<string, string> = {
+  value: "input",
+  valueAsNumber: "input",
+  valueAsDate: "input",
+  checked: "change",
+  selected: "change",
 };
+
+type DefaultPropertyByElementType = {
+  [key: string]: Set<string>;
+};
+
+const twoWayPropertyByElementType: DefaultPropertyByElementType = {
+  radio: new Set(["checked"]),
+  checkbox: new Set(["checked"]),
+};
+
+const VALUES_SET = new Set(["value", "valueAsNumber", "valueAsDate"]);
+const BLANK_SET = new Set<string>();
+
+/**
+ * HTML要素のデフォルトプロパティを取得
+ */
+const getTwoWayPropertiesHTMLElement = (node: Node): Set<string> =>
+  node instanceof HTMLSelectElement || node instanceof HTMLTextAreaElement || node instanceof HTMLOptionElement
+    ? VALUES_SET
+    : node instanceof HTMLInputElement
+      ? (twoWayPropertyByElementType[node.type] ?? VALUES_SET)
+      : BLANK_SET;
+
 
 /**
  * BindingNodePropertyクラスは、ノードのプロパティ（value, checked, selected など）への
@@ -42,32 +66,34 @@ class BindingNodeProperty extends BindingNode {
   }
   get filteredValue(): any {
     let value = this.value;
-    for(let i = 0; i < this.filters.length; i++) {
+    for (let i = 0; i < this.filters.length; i++) {
       value = this.filters[i](value);
     }
     return value;
   }
   constructor(
-    binding   : IBinding, 
-    node      : Node, 
-    name      : string,
-    filters   : Filters,
-    decorates : string[]
+    binding: IBinding,
+    node: Node,
+    name: string,
+    filters: Filters,
+    decorates: string[],
   ) {
     super(binding, node, name, filters, decorates);
 
     const isElement = this.node instanceof HTMLElement;
     if (!isElement) return;
     if (!isTwoWayBindable(this.node)) return;
-    const defaultName = getDefaultName(this.node, "HTMLElement");
-    if (defaultName !== this.name) return;
-    if (decorates.length > 1) raiseError({
-      code: 'BIND-201',
-      message: 'Has multiple decorators',
-      context: { where: 'BindingNodeProperty.constructor', name: this.name, decoratesCount: decorates.length },
-      docsUrl: '/docs/error-codes.md#bind',
-      severity: 'error',
-    });
+    const defaultNames = getTwoWayPropertiesHTMLElement(this.node);
+    if (!defaultNames.has(this.name)) return;
+    if (decorates.length > 1) {
+      raiseError({
+        code: "BIND-201",
+        message: "Has multiple decorators",
+        context: { where: "BindingNodeProperty.constructor", name: this.name, decoratesCount: decorates.length },
+        docsUrl: "/docs/error-codes.md#bind",
+        severity: "error",
+      });
+    }
     const event = (decorates[0]?.startsWith("on") ? decorates[0]?.slice(2) : decorates[0]) ?? null;
     const eventName = event ?? defaultEventByName[this.name] ?? "readonly";
     if (eventName === "readonly" || eventName === "ro") return;
@@ -89,7 +115,7 @@ class BindingNodeProperty extends BindingNode {
     // サブクラスで初期化処理を実装可能
   }
 
-  assignValue(value:any) {
+  assignValue(value: any) {
     if (value === null || value === undefined || Number.isNaN(value)) {
       value = "";
     }
@@ -102,9 +128,9 @@ class BindingNodeProperty extends BindingNode {
  * プロパティバインディングノード生成用ファクトリ関数
  * - name, フィルタ、デコレータ情報からBindingNodePropertyインスタンスを生成
  */
-export const createBindingNodeProperty: CreateBindingNodeFn = 
-(name: string, filterTexts: IFilterText[], decorates: string[]) => 
-  (binding:IBinding, node: Node, filters: FilterWithOptions) => {
-    const filterFns = createFilters(filters, filterTexts);
-    return new BindingNodeProperty(binding, node, name, filterFns, decorates);
-  }
+export const createBindingNodeProperty: CreateBindingNodeFn =
+  (name: string, filterTexts: IFilterText[], decorates: string[]) =>
+    (binding: IBinding, node: Node, filters: FilterWithOptions) => {
+      const filterFns = createFilters(filters, filterTexts);
+      return new BindingNodeProperty(binding, node, name, filterFns, decorates);
+    };

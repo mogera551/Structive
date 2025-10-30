@@ -1159,7 +1159,7 @@ const RESERVED_WORD_SET = new Set([
  * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
  * 指定することはないと考え、Mapを使わないことにした。
  */
-const _cache$3 = {};
+const _cache$2 = {};
 /**
  * パターン情報を取得します
  * @param pattern パターン
@@ -1257,11 +1257,11 @@ function getStructuredPathInfo(structuredPath) {
             docsUrl: './docs/error-codes.md#state',
         });
     }
-    const info = _cache$3[structuredPath];
+    const info = _cache$2[structuredPath];
     if (typeof info !== "undefined") {
         return info;
     }
-    return (_cache$3[structuredPath] = new StructuredPathInfo(structuredPath));
+    return (_cache$2[structuredPath] = new StructuredPathInfo(structuredPath));
 }
 
 class NodePath {
@@ -1345,7 +1345,7 @@ const DisconnectedCallbackSymbol = Symbol.for(`${symbolName$1}.DisconnectedCallb
  * 上書きするような名前も指定できるように、Mapを検討したが、そもそもそのような名前を
  * 指定することはないと考え、Mapを使わないことにした。
  */
-const _cache$2 = new Map();
+const _cache$1 = new Map();
 class ResolvedPathInfo {
     static id = 0;
     id = ++ResolvedPathInfo.id;
@@ -1411,7 +1411,7 @@ class ResolvedPathInfo {
 }
 function getResolvedPathInfo(name) {
     let nameInfo;
-    return _cache$2.get(name) ?? (_cache$2.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
+    return _cache$1.get(name) ?? (_cache$1.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
 }
 
 function createRefKey(info, listIndex) {
@@ -3242,46 +3242,6 @@ const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, f
     return new BindingNodeFor(binding, node, name, filterFns, decorates);
 };
 
-const DEFAULT_PROPERTY = "textContent";
-const defaultPropertyByElementType = {
-    "radio": "checked",
-    "checkbox": "checked",
-    "button": "onclick",
-};
-/**
- * HTML要素のデフォルトプロパティを取得
- */
-const getDefaultPropertyHTMLElement = (node) => node instanceof HTMLSelectElement || node instanceof HTMLTextAreaElement || node instanceof HTMLOptionElement ? "value" :
-    node instanceof HTMLButtonElement ? "onclick" :
-        node instanceof HTMLAnchorElement ? "onclick" :
-            node instanceof HTMLFormElement ? "onsubmit" :
-                node instanceof HTMLInputElement ? (defaultPropertyByElementType[node.type] ?? "value") :
-                    DEFAULT_PROPERTY;
-const _cache$1 = {};
-const textContentProperty = (node) => DEFAULT_PROPERTY;
-const getDefaultPropertyByNodeType = {
-    HTMLElement: getDefaultPropertyHTMLElement,
-    SVGElement: undefined,
-    Text: textContentProperty,
-    Template: undefined,
-};
-/**
- * バインド情報でノードプロパティが省略された場合に、ノード種別・要素タイプごとに
- * 適切なデフォルトプロパティ名（例: textContent, value, checked, onclick など）を返すユーティリティ関数。
- *
- * - HTMLInputElementやHTMLSelectElementなど、要素ごとに最適なプロパティを判定
- * - input要素はtype属性（radio, checkboxなど）も考慮
- * - 一度判定した組み合わせはキャッシュし、パフォーマンス向上
- *
- * @param node     対象ノード
- * @param nodeType ノードタイプ（"HTMLElement" | "SVGElement" | "Text" | "Template"）
- * @returns        デフォルトのプロパティ名（例: "value", "checked", "textContent" など）
- */
-function getDefaultName(node, nodeType) {
-    const key = node.constructor.name + "\t" + (node.type ?? ""); // type attribute
-    return _cache$1[key] ?? (_cache$1[key] = getDefaultPropertyByNodeType[nodeType]?.(node));
-}
-
 function isTwoWayBindable(element) {
     return element instanceof HTMLInputElement ||
         element instanceof HTMLTextAreaElement ||
@@ -3289,9 +3249,26 @@ function isTwoWayBindable(element) {
 }
 const defaultEventByName = {
     "value": "input",
+    "valueAsNumber": "input",
+    "valueAsDate": "input",
     "checked": "change",
     "selected": "change",
 };
+const twoWayPropertyByElementType = {
+    "radio": new Set(["checked"]),
+    "checkbox": new Set(["checked"]),
+};
+const VALUES_SET = new Set(["value", "valueAsNumber", "valueAsDate"]);
+const BLANK_SET = new Set();
+/**
+ * 指定されたノードプロパティ名が双方向バインディング可能なプロパティかどうかを判定します。
+
+/**
+ * HTML要素のデフォルトプロパティを取得
+ */
+const getTwoWayPropertiesHTMLElement = (node) => node instanceof HTMLSelectElement || node instanceof HTMLTextAreaElement || node instanceof HTMLOptionElement ? VALUES_SET :
+    node instanceof HTMLInputElement ? (twoWayPropertyByElementType[node.type] ?? BLANK_SET) :
+        BLANK_SET;
 /**
  * BindingNodePropertyクラスは、ノードのプロパティ（value, checked, selected など）への
  * バインディング処理を担当するバインディングノードの実装です。
@@ -3326,8 +3303,8 @@ class BindingNodeProperty extends BindingNode {
             return;
         if (!isTwoWayBindable(this.node))
             return;
-        const defaultName = getDefaultName(this.node, "HTMLElement");
-        if (defaultName !== this.name)
+        const defaultNames = getTwoWayPropertiesHTMLElement(this.node);
+        if (!defaultNames.has(this.name))
             return;
         if (decorates.length > 1)
             raiseError({
