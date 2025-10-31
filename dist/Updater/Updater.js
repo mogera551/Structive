@@ -46,6 +46,20 @@ class Updater {
         }
         return saveInfo;
     }
+    isSameList(oldValue, newValue) {
+        if (oldValue === newValue) {
+            return true;
+        }
+        if (oldValue.length !== newValue.length) {
+            return false;
+        }
+        for (let i = 0; i < oldValue.length; i++) {
+            if (oldValue[i] !== newValue[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
     /**
      * リスト差分を計算し、必要に応じて保存する
      * @param ref
@@ -56,8 +70,7 @@ class Updater {
         const curDiff = this.#listDiffByRef.get(ref);
         if (typeof curDiff !== "undefined") {
             // すでに計算結果がある場合は、変更があるか計算する
-            const diff = calcListDiff(ref.listIndex, curDiff.newListValue, newValue, curDiff.newIndexes);
-            if (diff.same) {
+            if (this.isSameList(curDiff.newListValue ?? [], newValue ?? [])) {
                 return false;
             }
             // 変更がある場合、以降の処理で元のリストと差分情報を計算し直す

@@ -309,11 +309,25 @@ class Renderer {
             }
             binding.applyChange(this);
         }
+        let diff = null;
+        if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
+            diff = this.#updater.getListDiff(ref) ?? null;
+            if (diff !== null) {
+                for (const index of diff.changeIndexes ?? []) {
+                    const bindings = this.#engine.bindingsByListIndex.get(index);
+                    for (const binding of bindings ?? []) {
+                        if (this.#updatedBindings.has(binding)) {
+                            continue; // すでに更新済みのバインディングはスキップ
+                        }
+                        binding.applyChange(this);
+                    }
+                }
+            }
+        }
         // 静的な依存関係を辿る
         for (const [name, childNode] of node.childNodeByName) {
             const childInfo = getStructuredPathInfo(childNode.currentPath);
             if (name === WILDCARD) {
-                const diff = this.#updater.getListDiff(ref) ?? null;
                 if (diff === null) {
                     raiseError({
                         code: "UPD-006",

@@ -52,6 +52,7 @@ const makeEngine = () => {
       lists: new Set<string>(),
       elements: new Set<string>(),
     },
+    bindingsByListIndex: new WeakMap<any, Set<any>>(),
     getBindings: vi.fn(() => [] as any[]),
     getListAndListIndexes: vi.fn(() => [[], []] as any),
     saveListAndListIndexes: vi.fn(),
@@ -214,6 +215,7 @@ describe("Updater/Renderer.render", () => {
   it("ワイルドカード子: calcListDiff と getStatePropertyRef を使用して子を辿る", () => {
     const engine = makeEngine();
     engine.getBindings.mockReturnValue([]);
+    engine.pathManager.lists.add("root");
 
     const childNode = { childNodeByName: new Map(), currentPath: "root.*" } as any;
     const topNode = { childNodeByName: new Map([[WILDCARD, childNode]]), currentPath: "root" } as any;
@@ -270,9 +272,100 @@ describe("Updater/Renderer.render", () => {
     expect(binding.applyChange).toHaveBeenCalledTimes(1);
   });
 
+  it("changeIndexes 経由で listIndex バインディングが更新される", () => {
+    const engine = makeEngine();
+    engine.pathManager.lists.add("root");
+
+    const binding: any = { applyChange: vi.fn() };
+    binding.applyChange.mockImplementation((renderer: any) => {
+      renderer.updatedBindings.add(binding);
+    });
+
+    const listIndex = { id: 101 } as any;
+    engine.bindingsByListIndex.set(listIndex, new Set([binding]));
+
+    const ref = { info: { pattern: "root" }, listIndex: null, key: "root-null" } as any;
+    const diff = {
+      oldListValue: [],
+      newListValue: [],
+      oldIndexes: [],
+      newIndexes: [],
+      changeIndexes: new Set([listIndex]),
+      same: false,
+    } as any;
+
+    const { updater } = makeTestUpdater(engine, {
+      getListDiff: (target) => (target === ref ? diff : null),
+    });
+
+    render([ref], engine, updater);
+
+    expect(binding.applyChange).toHaveBeenCalledTimes(1);
+    expect(engine.bindingsByListIndex.get(listIndex)).toBeInstanceOf(Set);
+  });
+
+  it("changeIndexes の再適用は updatedBindings によりスキップされる", () => {
+    const engine = makeEngine();
+    engine.pathManager.lists.add("root");
+
+    const binding: any = { applyChange: vi.fn() };
+    binding.applyChange.mockImplementation((renderer: any) => {
+      renderer.updatedBindings.add(binding);
+    });
+
+    engine.getBindings.mockReturnValueOnce([binding]).mockReturnValue([]);
+
+    const listIndex = { id: 202 } as any;
+    engine.bindingsByListIndex.set(listIndex, new Set([binding]));
+
+    const ref = { info: { pattern: "root" }, listIndex: null, key: "root-null" } as any;
+    const diff = {
+      oldListValue: [],
+      newListValue: [],
+      oldIndexes: [],
+      newIndexes: [],
+      changeIndexes: new Set([listIndex]),
+      same: false,
+    } as any;
+
+    const { updater } = makeTestUpdater(engine, {
+      getListDiff: (target) => (target === ref ? diff : null),
+    });
+
+    render([ref], engine, updater);
+
+    expect(binding.applyChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("changeIndexes と一致するバインディングが未登録の場合でもエラーなく進む", () => {
+    const engine = makeEngine();
+    engine.pathManager.lists.add("root");
+
+    const listIndex = { id: 303 } as any;
+    const ref = { info: { pattern: "root" }, listIndex: null, key: "root-null" } as any;
+
+    const diff = {
+      oldListValue: [],
+      newListValue: [],
+      oldIndexes: [],
+      newIndexes: [],
+      changeIndexes: new Set([listIndex]),
+      same: false,
+    } as any;
+
+    const { updater } = makeTestUpdater(engine, {
+      getListDiff: (target) => (target === ref ? diff : null),
+    });
+
+    render([ref], engine, updater);
+
+    expect(engine.bindingsByListIndex.get(listIndex)).toBeUndefined();
+  });
+
   it("ワイルドカード子: old と new が同一参照なら saveListAndListIndexes は呼ばれない", () => {
     const engine = makeEngine();
     engine.getBindings.mockReturnValue([]);
+    engine.pathManager.lists.add("root");
 
     const childNode = { childNodeByName: new Map(), currentPath: "root.*" } as any;
     const topNode = { childNodeByName: new Map([[WILDCARD, childNode]]), currentPath: "root" } as any;
@@ -484,6 +577,7 @@ describe("Updater/Renderer.render", () => {
   it("SwapDiff: リストの要素に変更がある場合にSwapDiffが作成される", () => {
     const engine = makeEngine();
     engine.getBindings.mockReturnValue([]);
+    engine.pathManager.lists.add("root");
 
     const childNode = { childNodeByName: new Map(), currentPath: "root.*" } as any;
     const topNode = { childNodeByName: new Map([[WILDCARD, childNode]]), currentPath: "root" } as any;
@@ -755,6 +849,41 @@ describe("Updater/Renderer.render", () => {
     expect(diff.overwrites?.size).toBeGreaterThan(0);
   });
 
+  it("reorderList: 差分生成時に旧リスト情報を oldValueAndIndexesByRef に保持する", () => {
+    const engine = makeEngine();
+    engine.getBindings.mockReturnValue([]);
+    engine.pathManager.elements.add("root.item");
+
+    const parentInfo = { pattern: "root", parentInfo: null } as any;
+    const itemInfo = { pattern: "root.item", parentInfo } as any;
+    const listIndex0 = { index: 0, at: vi.fn(() => null) } as any;
+    const itemRef0 = { info: itemInfo, listIndex: listIndex0, key: "root.item-0" } as any;
+
+    const listRef = { info: parentInfo, listIndex: null, key: "root-null" } as any;
+    getStatePropertyRefMock.mockImplementation((info: any, listIndex: any) => {
+      if (info === parentInfo && listIndex === null) {
+        return listRef;
+      }
+      return { info, listIndex, key: `${info?.pattern || "unknown"}-${listIndex?.index ?? "null"}` };
+    });
+
+    const saveInfo = {
+      list: ["old"],
+      listIndexes: [{ index: 0 }],
+      listClone: ["old"],
+    } as any;
+    engine.getListAndListIndexes.mockReturnValue(saveInfo);
+    createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState(["new"]));
+
+    const customMap = new Map<any, any>();
+    const { updater } = makeTestUpdater(engine, { oldValueAndIndexesByRef: customMap });
+
+    render([itemRef0], engine, updater);
+
+    expect(engine.saveListAndListIndexes).toHaveBeenCalled();
+    expect(customMap.get(listRef)).toBe(saveInfo);
+  });
+
   it("pathManager.lists/elements: リストとエレメントが適切に分離される", () => {
     const engine = makeEngine();
     const bindingA = { applyChange: vi.fn() } as any;
@@ -803,6 +932,7 @@ describe("Updater/Renderer.render", () => {
   it("ワイルドカード子: adds が未定義のときは子描画をスキップする", () => {
     const engine = makeEngine();
     engine.getBindings.mockReturnValue([]);
+    engine.pathManager.lists.add("root");
 
     const childNode = { childNodeByName: new Map(), currentPath: "root.*" } as any;
     const topNode = { childNodeByName: new Map([[WILDCARD, childNode]]), currentPath: "root" } as any;
@@ -1079,6 +1209,7 @@ describe("Updater/Renderer エラーハンドリング", () => {
   it("カバレッジ向上: calcListDiff既存のListDiffが存在する場合は再利用", () => {
     const engine = makeEngine();
     engine.getBindings.mockReturnValue([]);
+    engine.pathManager.lists.add("root");
 
     const childNode = { childNodeByName: new Map(), currentPath: "root.*" } as any;
     const topNode = { childNodeByName: new Map([[WILDCARD, childNode]]), currentPath: "root" } as any;

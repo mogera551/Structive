@@ -181,6 +181,43 @@ describe("Updater.calcListDiff", () => {
     });
   });
 
+  it("既存差分の新リストと新値が同じ場合は差分計算を行わない", async () => {
+    const engine = createEngineStub();
+    const ref = createListRef("list:same");
+
+    await createUpdater(engine, (updater) => {
+      const existingDiff = {
+        same: false,
+        newListValue: ["keep"],
+        newIndexes: [{ index: 0 }],
+      } as any;
+      updater.setListDiff(ref, existingDiff);
+
+      const result = updater.calcListDiff(ref, ["keep"]);
+      expect(result).toBe(false);
+      expect(calcListDiffMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("既存差分や新値が未定義の場合でも isSameList 判定にフォールバックする", async () => {
+    const engine = createEngineStub();
+    const ref = createListRef("list:undefined");
+
+    await createUpdater(engine, (updater) => {
+      const existingDiff = {
+        same: false,
+        newListValue: undefined,
+        newIndexes: [{ index: 0 }],
+      } as any;
+      updater.setListDiff(ref, existingDiff);
+
+      const result = updater.calcListDiff(ref, undefined as any);
+      expect(result).toBe(false);
+      expect(calcListDiffMock).not.toHaveBeenCalled();
+      expect(engine.saveListAndListIndexes).not.toHaveBeenCalled();
+    });
+  });
+
   it("差分があれば保存処理を行う", async () => {
     const engine = createEngineStub();
     const ref = createListRef("list:ref");
@@ -261,15 +298,13 @@ describe("Updater.calcListDiff", () => {
         changeIndexes: new Set(),
       } as any;
 
-      calcListDiffMock
-        .mockReturnValueOnce(intermediateDiff)
-        .mockReturnValueOnce(finalDiff);
+      calcListDiffMock.mockReturnValueOnce(finalDiff);
 
       const result = updater.calcListDiff(ref, ["final"]);
 
       expect(result).toBe(true);
-      expect(calcListDiffMock).toHaveBeenNthCalledWith(1, ref.listIndex, existingDiff.newListValue, ["final"], existingDiff.newIndexes);
-      expect(calcListDiffMock).toHaveBeenNthCalledWith(2, ref.listIndex, saveInfo.list, ["final"], saveInfo.listIndexes);
+      expect(calcListDiffMock).toHaveBeenCalledTimes(1);
+      expect(calcListDiffMock).toHaveBeenCalledWith(ref.listIndex, saveInfo.list, ["final"], saveInfo.listIndexes);
       expect(engine.saveListAndListIndexes).toHaveBeenCalledWith(ref, finalDiff.newListValue, finalDiff.newIndexes);
       expect(updater.getListDiff(ref)).toBe(finalDiff);
       expect(updater.oldValueAndIndexesByRef.get(ref)).toBe(saveInfo);
@@ -519,6 +554,41 @@ describe("Updater その他のAPI", () => {
         (updater as any).collectMaybeUpdates(engine, "root", updater.revisionByUpdatedPath, 1);
       });
     }).toThrowError(/Path node not found for pattern: missing/);
+  });
+
+  it("isSameList は長さや要素の一致を厳密に判定する", async () => {
+    const engine = createEngineStub();
+    await createUpdater(engine, (updater) => {
+      const same = (updater as any).isSameList([1, 2], [1, 2]);
+      const empty = (updater as any).isSameList([], []);
+      const shared = [1, 2, 3];
+      const sameReference = (updater as any).isSameList(shared, shared);
+      const differentLength = (updater as any).isSameList([1], [1, 2]);
+      const differentElement = (updater as any).isSameList([1, 3], [1, 4]);
+      expect(same).toBe(true);
+      expect(empty).toBe(true);
+      expect(sameReference).toBe(true);
+      expect(differentLength).toBe(false);
+      expect(differentElement).toBe(false);
+    });
+  });
+
+  it("recursiveCollectMaybeUpdates は子要素も依存も無いノードを訪問済みに追加する", async () => {
+    const engine = {
+      ...createEngineStub(),
+      pathManager: {
+        rootNode: createPathNode("leaf"),
+        dynamicDependencies: new Map(),
+        lists: new Set<string>(),
+        elements: new Set<string>(),
+      },
+    };
+
+    await createUpdater(engine, (updater) => {
+      const visited = new Set<string>();
+      (updater as any).recursiveCollectMaybeUpdates(engine, "leaf", createPathNode("leaf"), visited, false);
+      expect(Array.from(visited)).toEqual(["leaf"]);
+    });
   });
 });
 
