@@ -151,10 +151,10 @@ const fix = (options) => {
     const opt = options?.[0] ?? 0;
     const optValue = Number(opt);
     if (isNaN(optValue))
-        optionMustBeNumber('div');
+        optionMustBeNumber('fix');
     return (value) => {
         if (typeof value !== 'number')
-            valueMustBeNumber('div');
+            valueMustBeNumber('fix');
         return value.toFixed(optValue);
     };
 };
@@ -289,7 +289,7 @@ const percent = (options) => {
     return (value) => {
         if (typeof value !== 'number')
             valueMustBeNumber('percent');
-        return value.toFixed(optValue) + '%';
+        return (value * 100).toFixed(optValue) + '%';
     };
 };
 const date = (options) => {

@@ -253,8 +253,8 @@ describe("Filter/builtinFilters", () => {
 
       test("should throw appropriate errors", () => {
         const filter = outputBuiltinFilters.fix(["2"]);
-        expect(() => filter("3.14")).toThrow("div requires a number value");
-        expect(() => outputBuiltinFilters.fix(["abc"])).toThrow("div requires a number as option");
+        expect(() => filter("3.14")).toThrow("fix requires a number value");
+        expect(() => outputBuiltinFilters.fix(["abc"])).toThrow("fix requires a number as option");
       });
     });
 
@@ -335,13 +335,13 @@ describe("Filter/builtinFilters", () => {
     describe("percent filter", () => {
       test("should format numbers as percentage", () => {
         const filter = outputBuiltinFilters.percent(["1"]);
-        expect(filter(0.5)).toBe("0.5%");
-        expect(filter(1.234)).toBe("1.2%");
+        expect(filter(0.5)).toBe("50.0%");
+        expect(filter(1.234)).toBe("123.4%");
       });
 
       test("should use 0 decimal places by default", () => {
         const filter = outputBuiltinFilters.percent();
-        expect(filter(0.5)).toBe("1%");
+        expect(filter(0.5)).toBe("50%");
       });
 
       test("should throw appropriate errors", () => {

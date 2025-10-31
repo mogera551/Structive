@@ -145,9 +145,9 @@ const div = (options?:string[]) => {
 const fix = (options?:string[]) => {
   const opt = options?.[0] ?? 0;
   const optValue = Number(opt);
-  if (isNaN(optValue)) optionMustBeNumber('div');
+  if (isNaN(optValue)) optionMustBeNumber('fix');
   return (value: any) => {
-    if (typeof value !== 'number') valueMustBeNumber('div');
+    if (typeof value !== 'number') valueMustBeNumber('fix');
     return value.toFixed(optValue);
   }
 }
@@ -282,7 +282,7 @@ const percent = (options?:string[]) => {
   if (isNaN(optValue)) optionMustBeNumber('percent');
   return (value: any) => {
     if (typeof value !== 'number') valueMustBeNumber('percent');
-    return value.toFixed(optValue) + '%';
+    return (value * 100).toFixed(optValue) + '%';
   }
 }
 
