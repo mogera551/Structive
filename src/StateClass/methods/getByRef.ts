@@ -21,6 +21,7 @@ import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils";
 import { IStateProxy, IStateHandler } from "../types";
 import { checkDependency } from "./checkDependency";
+import { createListIndexes } from "./createListIndexes";
 
 /**
  * 構造化パス情報(info, listIndex)をもとに、状態オブジェクト(target)から値を取得する。
@@ -46,23 +47,25 @@ export function getByRef(
   checkDependency(handler, ref);
 
   let value: any;
+  const listable = handler.engine.pathManager.lists.has(ref.info.pattern);
   const cacheable = ref.info.wildcardCount > 0 || handler.engine.pathManager.getters.has(ref.info.pattern);
-  if (cacheable) {
-    const cacheEntry = handler.engine.cache.get(ref);
-    const revision = handler.updater.revisionByUpdatedPath.get(ref.info.pattern);
-    if (typeof cacheEntry !== "undefined") {
-      if (typeof revision === "undefined") {
+  let lastCacheEntry;
+  if (cacheable || listable) {
+    lastCacheEntry = handler.engine.cache.get(ref);
+    const versionRevision = handler.engine.versionRevisionByPath.get(ref.info.pattern);
+    if (typeof lastCacheEntry !== "undefined") {
+      if (typeof versionRevision === "undefined") {
         // 更新なし
-        return cacheEntry.value;
+        return lastCacheEntry.value;
       } else {
-        if (cacheEntry.version > handler.updater.version) {
+        if (lastCacheEntry.version > handler.updater.version) {
           // これは非同期更新が発生した場合にありえる
-          return cacheEntry.value;
+          return lastCacheEntry.value;
         }
-        if (cacheEntry.version < handler.updater.version || cacheEntry.revision < revision) {
+        if (lastCacheEntry.version < versionRevision.version || lastCacheEntry.revision < versionRevision.revision) {
           // 更新あり
         } else {
-          return cacheEntry.value;
+          return lastCacheEntry.value;
         }
       }
     }
@@ -94,12 +97,28 @@ export function getByRef(
       handler.refIndex--;
       handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
       // キャッシュへ格納
-      if (cacheable) {
-        handler.engine.cache.set(ref, { value, version: handler.updater.version, revision: handler.updater.revision });
-      }
-      // リストの場合、差分計算する
-      if (handler.engine.pathManager.lists.has(ref.info.pattern)) {
-        handler.updater.calcListDiff(ref, value);
+      if (cacheable || listable) {
+        let cacheEntry;
+        if (listable) {
+          // リストインデックスを計算する必要がある
+          const newListIndexes = createListIndexes(ref.listIndex, lastCacheEntry?.value, value, lastCacheEntry?.listIndexes ?? []);
+          cacheEntry = {
+            value,
+            listIndexes: newListIndexes,
+            cloneValue: Array.isArray(value) ? [...value] : value,
+            version: handler.updater.version,
+            revision: handler.updater.revision,
+          }
+        } else {
+          cacheEntry = {
+            value,
+            listIndexes: null,
+            cloneValue: null,
+            version: handler.updater.version,
+            revision: handler.updater.revision,
+          }
+        }
+        handler.engine.cache.set(ref, cacheEntry);
       }
     }
   } else {

@@ -119,9 +119,18 @@ class BindingStateIndex implements IBindingState {
         context: { where: 'BindingStateIndex.init', indexNumber: this.#indexNumber },
         docsUrl: '/docs/error-codes.md#bind',
       });
-    const bindings = this.binding.engine.bindingsByListIndex.get(this.listIndex);
-    if (bindings === undefined) {
-      this.binding.engine.bindingsByListIndex.set(this.listIndex, new Set([this.binding]));
+    const bindingForList = this.#loopContext.bindContent.parentBinding;
+    if (bindingForList == null) {
+      raiseError({
+        code: 'BIND-201',
+        message: 'Binding for list is null',
+        context: { where: 'BindingStateIndex.init' },
+        docsUrl: '/docs/error-codes.md#bind',
+      });
+    }
+    const bindings = bindingForList.bindingsByListIndex.get(this.listIndex);
+    if (typeof bindings === "undefined") {
+      bindingForList.bindingsByListIndex.set(this.listIndex, new Set([this.binding]));
     } else {
       bindings.add(this.binding);
     }

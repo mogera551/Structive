@@ -20,7 +20,7 @@ import { raiseError } from "../../utils.js";
 import { IStateHandler, IStateProxy } from "../types";
 import { IListIndex } from "../../ListIndex/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
-import { SetByRefSymbol } from "../symbols.js";
+import { GetListIndexesByRefSymbol, SetByRefSymbol } from "../symbols.js";
 import { setByRef } from "../methods/setByRef.js";
 import { getByRef } from "../methods/getByRef.js";
 
@@ -55,7 +55,7 @@ export function resolve(
       const wildcardParentPattern = info.wildcardParentInfos[i];
       const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
       const tmpValue = getByRef(target, wildcardRef, receiver, handler);
-      const listIndexes = handler.engine.getListIndexes(wildcardRef);
+      const listIndexes = receiver[GetListIndexesByRefSymbol](wildcardRef);
       if (listIndexes == null) {
         raiseError({
           code: 'LIST-201',

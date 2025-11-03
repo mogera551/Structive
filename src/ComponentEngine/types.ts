@@ -39,7 +39,7 @@ export interface IComponentEngine {
   readonly currentVersion: number;
   cache: WeakMap<IStatePropertyRef, ICacheEntry>; // StatePropertyRefごとのキャッシュエントリ
 
-  bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する
+//  bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>>; // Structive子コンポーネントからバインディングを取得する
   structiveChildComponents: Set<StructiveComponent>; // Structive子コンポーネントのセット
@@ -47,15 +47,17 @@ export interface IComponentEngine {
   stateInput: IComponentStateInput;
   stateOutput: IComponentStateOutput;
 
+  versionRevisionByPath: Map<string, IVersionRevision>;
+
   setup(): void;
   connectedCallback(): Promise<void>;
   disconnectedCallback(): Promise<void>;
 
   saveBinding(ref: IStatePropertyRef, binding: IBinding): void;
-  saveListAndListIndexes(ref: IStatePropertyRef, list: any[] | null, listIndexes: IListIndex[] | null): void;
+  saveListAndListIndexes(ref: IStatePropertyRef, list: any[] | null, listIndexes: IListIndex[] | null, version: number, revision: number): void;
   getBindings(ref: IStatePropertyRef): IBinding[];
   getListIndexes(ref: IStatePropertyRef): IListIndex[] | null;
-  getListAndListIndexes(ref: IStatePropertyRef): ISaveInfoByResolvedPathInfo;
+  //getListAndListIndexes(ref: IStatePropertyRef): ISaveInfoByResolvedPathInfo;
 
   getPropertyValue(ref: IStatePropertyRef): any; // プロパティの値を取得する
   setPropertyValue(ref: IStatePropertyRef, value: any): void; // プロパティの値を設定する
@@ -72,10 +74,19 @@ export interface ISaveInfoByResolvedPathInfo {
   list       : any[] | null;
   listIndexes: IListIndex[] | null;
   listClone  : any[] | null;
+  version    : number;
+  revision   : number;
 }
 
 export interface ICacheEntry {
   value: any;
+  listIndexes: IListIndex[] | null;
+  cloneValue: any;
+  version: number;
+  revision: number;
+}
+
+export interface IVersionRevision {
   version: number;
   revision: number;
 }

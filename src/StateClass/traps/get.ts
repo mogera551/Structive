@@ -21,7 +21,7 @@ import { getResolvedPathInfo } from "../../StateProperty/getResolvedPathInfo.js"
 import { raiseError } from "../../utils.js";
 import { getListIndex } from "../methods/getListIndex.js";
 import { IStateHandler, IStateProxy } from "../types.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol } from "../symbols.js";
 import { trackDependency } from "../apis/trackDependency.js";
 import { indexByIndexName } from "./indexByIndexName.js";
 import { IStatePropertyRef } from "../../StatePropertyRef/types.js";
@@ -32,6 +32,7 @@ import { setByRef } from "../methods/setByRef.js";
 import { connectedCallback } from "../apis/connectedCallback.js";
 import { disconnectedCallback } from "../apis/disconnectedCallback.js";
 import { getAll } from "../apis/getAll.js";
+import { getListIndexesByRef } from "../methods/getListIndexesByRef.js";
 
 
 export function get(
@@ -85,6 +86,9 @@ export function get(
         case SetByRefSymbol: 
           return (ref: IStatePropertyRef, value: any) => 
             setByRef(target, ref, value, receiver, handler);
+        case GetListIndexesByRefSymbol:
+          return (ref: IStatePropertyRef) =>
+            getListIndexesByRef(target, ref, receiver, handler);
         case ConnectedCallbackSymbol:
           return () => connectedCallback(target, prop, receiver, handler);
         case DisconnectedCallbackSymbol: 

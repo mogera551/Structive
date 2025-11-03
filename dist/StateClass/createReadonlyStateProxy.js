@@ -1,5 +1,5 @@
 import { raiseError } from "../utils";
-import { GetByRefSymbol } from "./symbols";
+import { GetByRefSymbol, GetListIndexesByRefSymbol } from "./symbols";
 import { get as trapGet } from "./traps/get.js";
 const STACK_DEPTH = 32;
 class StateHandler {
@@ -9,7 +9,7 @@ class StateHandler {
     refIndex = -1;
     lastRefStack = null;
     loopContext = null;
-    symbols = new Set([GetByRefSymbol]);
+    symbols = new Set([GetByRefSymbol, GetListIndexesByRefSymbol]);
     apis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
     constructor(engine, updater) {
         this.engine = engine;

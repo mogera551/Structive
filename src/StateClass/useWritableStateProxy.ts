@@ -22,7 +22,7 @@ import { ILoopContext } from "../LoopContext/types";
 import { setLoopContext } from "./methods/setLoopContext";
 import { IUpdater } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "./symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol } from "./symbols";
 import { get as trapGet } from "./traps/get.js";
 
 const STACK_DEPTH = 32;
@@ -34,7 +34,7 @@ class StateHandler implements IWritableStateHandler {
   lastRefStack: IStatePropertyRef | null = null;
   loopContext: ILoopContext | null = null;
   updater: IUpdater;
-  symbols: Set<PropertyKey> = new Set<PropertyKey>([ GetByRefSymbol, SetByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol ]);
+  symbols: Set<PropertyKey> = new Set<PropertyKey>([ GetByRefSymbol, SetByRefSymbol, GetListIndexesByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol ]);
   apis: Set<PropertyKey> = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
   
   constructor(engine: IComponentEngine, updater: IUpdater) {

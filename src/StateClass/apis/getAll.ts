@@ -13,6 +13,7 @@ import { IListIndex } from "../../ListIndex/types.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { resolve } from "./resolve.js";
 import { getByRef } from "../methods/getByRef.js";
+import { GetListIndexesByRefSymbol } from "../symbols.js";
 
 export function getAll(
   target: Object, 
@@ -66,7 +67,7 @@ export function getAll(
         }
         const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
         const tmpValue = getByRef(target, wildcardRef, receiver, handler);
-        const listIndexes = handler.engine.getListIndexes(wildcardRef);
+        const listIndexes = receiver[GetListIndexesByRefSymbol](wildcardRef);
         if (listIndexes === null) {
           raiseError({
             code: 'LIST-201',

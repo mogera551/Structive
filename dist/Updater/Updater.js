@@ -1,4 +1,3 @@
-import { calcListDiff } from "../ListDiff/ListDiff";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
@@ -17,13 +16,10 @@ class Updater {
     #revision = 0;
     #listDiffByRef = new Map();
     #oldValueAndIndexesByRef = new Map();
-    #revisionByUpdatedPath = new Map();
+    #swapInfoByRef = new WeakMap();
     constructor(engine) {
         this.#engine = engine;
         this.#version = engine.versionUp();
-    }
-    get revisionByUpdatedPath() {
-        return this.#revisionByUpdatedPath;
     }
     get oldValueAndIndexesByRef() {
         return this.#oldValueAndIndexesByRef;
@@ -34,75 +30,8 @@ class Updater {
     get revision() {
         return this.#revision;
     }
-    /**
-     * リストの元の値とインデックス情報を取得
-     * @param ref
-     * @returns
-     */
-    getOldValueAndIndexes(ref) {
-        let saveInfo = this.#oldValueAndIndexesByRef.get(ref);
-        if (typeof saveInfo === "undefined") {
-            saveInfo = this.#engine.getListAndListIndexes(ref);
-        }
-        return saveInfo;
-    }
-    isSameList(oldValue, newValue) {
-        if (oldValue === newValue) {
-            return true;
-        }
-        if (oldValue.length !== newValue.length) {
-            return false;
-        }
-        for (let i = 0; i < oldValue.length; i++) {
-            if (oldValue[i] !== newValue[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
-    /**
-     * リスト差分を計算し、必要に応じて保存する
-     * @param ref
-     * @param newValue
-     * @returns
-     */
-    calcListDiff(ref, newValue) {
-        const curDiff = this.#listDiffByRef.get(ref);
-        if (typeof curDiff !== "undefined") {
-            // すでに計算結果がある場合は、変更があるか計算する
-            if (this.isSameList(curDiff.newListValue ?? [], newValue ?? [])) {
-                return false;
-            }
-            // 変更がある場合、以降の処理で元のリストと差分情報を計算し直す
-        }
-        // 元のリストとインデックス情報を取得して差分計算
-        const saveInfo = this.getOldValueAndIndexes(ref);
-        const diff = calcListDiff(ref.listIndex, saveInfo?.list, newValue, saveInfo?.listIndexes);
-        // 差分を保存、diff.sameに関わらず差分結果を保存(リストが初期化の場合など差分結果なしはまずいので)
-        this.#listDiffByRef.set(ref, diff);
-        if (diff.same) {
-            return false;
-        }
-        // 差分がある場合は保存処理を行う
-        this.#engine.saveListAndListIndexes(ref, diff.newListValue ?? null, diff.newIndexes);
-        this.#oldValueAndIndexesByRef.set(ref, saveInfo ?? { list: null, listIndexes: null, listClone: null });
-        return true;
-    }
-    /**
-     * リスト差分結果を取得
-     * @param ref
-     * @returns
-     */
-    getListDiff(ref) {
-        return this.#listDiffByRef.get(ref);
-    }
-    /**
-     * リスト差分結果を設定
-     * @param ref
-     * @param diff
-     */
-    setListDiff(ref, diff) {
-        this.#listDiffByRef.set(ref, diff);
+    get swapInfoByRef() {
+        return this.#swapInfoByRef;
     }
     /**
      * 更新したRefをキューに追加し、レンダリングをスケジュールする
@@ -112,7 +41,7 @@ class Updater {
     enqueueRef(ref) {
         this.#revision++;
         this.queue.push(ref);
-        this.collectMaybeUpdates(this.#engine, ref.info.pattern, this.#revisionByUpdatedPath, this.#revision);
+        this.collectMaybeUpdates(this.#engine, ref.info.pattern, this.#engine.versionRevisionByPath, this.#revision);
         // レンダリング中はスキップ
         if (this.#rendering)
             return;
@@ -195,7 +124,7 @@ class Updater {
         }
     }
     #cacheUpdatedPathsByPath = new Map();
-    collectMaybeUpdates(engine, path, revisionByUpdatedPath, revision) {
+    collectMaybeUpdates(engine, path, versionRevisionByPath, revision) {
         const node = findPathNodeByPath(engine.pathManager.rootNode, path);
         if (node === null) {
             raiseError({
@@ -210,8 +139,12 @@ class Updater {
             updatedPaths = new Set();
             this.recursiveCollectMaybeUpdates(engine, path, node, updatedPaths, true);
         }
+        const versionRevision = {
+            version: this.version,
+            revision: revision,
+        };
         for (const updatedPath of updatedPaths) {
-            revisionByUpdatedPath.set(updatedPath, revision);
+            versionRevisionByPath.set(updatedPath, versionRevision);
         }
         this.#cacheUpdatedPathsByPath.set(path, updatedPaths);
     }

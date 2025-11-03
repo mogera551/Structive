@@ -44,6 +44,13 @@ class StatePropertyRef implements IStatePropertyRef {
     this.#listIndexRef = listIndex !== null ? new WeakRef(listIndex) : null;
     this.key = createRefKey(info, listIndex);
   }
+
+  get parentRef(): IStatePropertyRef | null {
+    const parentInfo = this.info.parentInfo;
+    if (!parentInfo) return null;
+    const parentListIndex = (this.info.wildcardCount > parentInfo.wildcardCount ? this.listIndex?.at(-2) : this.listIndex) ?? null;
+    return getStatePropertyRef(parentInfo, parentListIndex);
+  }
 }
 
 const refByInfoByListIndex = new WeakMap<IListIndex, Record<string, IStatePropertyRef>>();

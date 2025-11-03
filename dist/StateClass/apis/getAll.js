@@ -10,6 +10,7 @@ import { getContextListIndex } from "../methods/getContextListIndex";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { resolve } from "./resolve.js";
 import { getByRef } from "../methods/getByRef.js";
+import { GetListIndexesByRefSymbol } from "../symbols.js";
 export function getAll(target, prop, receiver, handler) {
     const resolveFn = resolve(target, prop, receiver, handler);
     return (path, indexes) => {
@@ -48,7 +49,7 @@ export function getAll(target, prop, receiver, handler) {
             }
             const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
             const tmpValue = getByRef(target, wildcardRef, receiver, handler);
-            const listIndexes = handler.engine.getListIndexes(wildcardRef);
+            const listIndexes = receiver[GetListIndexesByRefSymbol](wildcardRef);
             if (listIndexes === null) {
                 raiseError({
                     code: 'LIST-201',

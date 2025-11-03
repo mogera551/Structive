@@ -1,4 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
+import { GetByRefSymbol, GetListIndexesByRefSymbol } from "../../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { raiseError } from "../../utils.js";
@@ -39,6 +40,9 @@ class BindingNodeFor extends BindingNodeBlock {
     #bindContentPool = [];
     #bindContentLastIndex = 0;
     #loopInfo = undefined;
+    #oldList = undefined;
+    #oldListIndexes = [];
+    #oldListIndexSet = new Set();
     get bindContents() {
         return this.#bindContents;
     }
@@ -118,16 +122,39 @@ class BindingNodeFor extends BindingNodeBlock {
         if (renderer.updatedBindings.has(this.binding))
             return;
         let newBindContents = [];
-        // 削除を先にする
-        const removeBindContentsSet = new Set();
-        const listDiff = renderer.calcListDiff(this.binding.bindingState.ref);
-        if (listDiff === null) {
-            raiseError({
-                code: 'BIND-201',
-                message: 'ListDiff is null',
-                context: { where: 'BindingNodeFor.applyChange' },
-                docsUrl: './docs/error-codes.md#bind',
-            });
+        const newList = renderer.readonlyState[GetByRefSymbol](this.binding.bindingState.ref);
+        const newListIndexes = renderer.readonlyState[GetListIndexesByRefSymbol](this.binding.bindingState.ref) ?? [];
+        const newListIndexesSet = new Set(newListIndexes);
+        const oldSet = new Set(this.#oldList ?? EMPTY_SET);
+        const oldListLength = this.#oldList?.length ?? 0;
+        const removesSet = newListIndexesSet.size === 0 ? this.#oldListIndexSet : this.#oldListIndexSet.difference(newListIndexesSet);
+        const addsSet = this.#oldListIndexSet.size === 0 ? newListIndexesSet : newListIndexesSet.difference(this.#oldListIndexSet);
+        const newListLength = newList?.length ?? 0;
+        const changeIndexesSet = new Set();
+        const overwritesSet = new Set();
+        const elementsPath = this.binding.bindingState.info.pattern + ".*";
+        for (let i = 0; i < renderer.updatingRefs.length; i++) {
+            const updatingRef = renderer.updatingRefs[i];
+            if (updatingRef.info.pattern !== elementsPath)
+                continue;
+            if (renderer.processedRefs.has(updatingRef))
+                continue;
+            const listIndex = updatingRef.listIndex;
+            if (listIndex === null) {
+                raiseError({
+                    code: 'BIND-201',
+                    message: 'ListIndex is null',
+                    context: { where: 'BindingNodeFor.applyChange', ref: updatingRef },
+                    docsUrl: './docs/error-codes.md#bind',
+                });
+            }
+            if (this.#oldListIndexSet.has(listIndex)) {
+                changeIndexesSet.add(listIndex);
+            }
+            else {
+                overwritesSet.add(listIndex);
+            }
+            renderer.processedRefs.add(updatingRef);
         }
         const parentNode = this.node.parentNode ?? raiseError({
             code: 'BIND-201',
@@ -135,12 +162,8 @@ class BindingNodeFor extends BindingNodeBlock {
             context: { where: 'BindingNodeFor.applyChange' },
             docsUrl: './docs/error-codes.md#bind',
         });
-        const oldListLength = listDiff.oldListValue?.length ?? 0;
-        const removesSet = listDiff.removes ?? EMPTY_SET;
-        const addsSet = listDiff.adds ?? EMPTY_SET;
-        const newListLength = listDiff.newListValue?.length ?? 0;
-        const changeIndexesSet = listDiff.changeIndexes ?? EMPTY_SET;
-        const overwritesSet = listDiff.overwrites ?? EMPTY_SET;
+        // 削除を先にする
+        const removeBindContentsSet = new Set();
         // 全削除最適化のフラグ
         const isAllRemove = (oldListLength === removesSet.size && oldListLength > 0);
         // 親ノードこのノードだけ持つかのチェック
@@ -191,8 +214,8 @@ class BindingNodeFor extends BindingNodeBlock {
                     this.deleteBindContent(bindContent);
                     removeBindContentsSet.add(bindContent);
                 }
+                this.#bindContentPool.push(...removeBindContentsSet);
             }
-            this.#bindContentPool.push(...removeBindContentsSet);
         }
         let lastBindContent = null;
         const firstNode = this.node;
@@ -202,14 +225,19 @@ class BindingNodeFor extends BindingNodeBlock {
         const isReorder = addsSet.size === 0 && removesSet.size === 0 &&
             (changeIndexesSet.size > 0 || overwritesSet.size > 0);
         if (!isReorder) {
+            const oldIndexByListIndex = new Map();
+            for (let i = 0; i < this.#oldListIndexes.length; i++) {
+                oldIndexByListIndex.set(this.#oldListIndexes[i], i);
+            }
             // 全追加の場合、バッファリングしてから一括追加する
             const fragmentParentNode = isAllAppend ? document.createDocumentFragment() : parentNode;
             const fragmentFirstNode = isAllAppend ? null : firstNode;
-            const adds = addsSet;
-            for (const listIndex of listDiff.newIndexes) {
+            const changeListIndexes = [];
+            for (let i = 0; i < newListIndexes.length; i++) {
+                const listIndex = newListIndexes[i];
                 const lastNode = lastBindContent?.getLastNode(fragmentParentNode) ?? fragmentFirstNode;
                 let bindContent;
-                if (adds.has(listIndex)) {
+                if (addsSet.has(listIndex)) {
                     bindContent = this.createBindContent(listIndex);
                     bindContent.mountAfter(fragmentParentNode, lastNode);
                     //for(let i = 0; i < bindContent.blockBindings.length; i++) {
@@ -231,6 +259,10 @@ class BindingNodeFor extends BindingNodeBlock {
                     if (lastNode?.nextSibling !== bindContent.firstChildNode) {
                         bindContent.mountAfter(fragmentParentNode, lastNode);
                     }
+                    const oldIndex = oldIndexByListIndex.get(listIndex);
+                    if (typeof oldIndex !== "undefined" && oldIndex !== i) {
+                        changeListIndexes.push(listIndex);
+                    }
                 }
                 newBindContents.push(bindContent);
                 lastBindContent = bindContent;
@@ -239,6 +271,12 @@ class BindingNodeFor extends BindingNodeBlock {
             if (isAllAppend) {
                 const beforeNode = firstNode.nextSibling;
                 parentNode.insertBefore(fragmentParentNode, beforeNode);
+            }
+            for (const listIndex of changeListIndexes) {
+                const bindings = this.binding.bindingsByListIndex.get(listIndex) ?? [];
+                for (const binding of bindings) {
+                    binding.applyChange(renderer);
+                }
             }
         }
         else {
@@ -285,6 +323,9 @@ class BindingNodeFor extends BindingNodeBlock {
         // プールの長さは、プールの最後の要素のインデックス+1であるため、
         this.poolLength = this.bindContentLastIndex + 1;
         this.#bindContents = newBindContents;
+        this.#oldList = [...newList];
+        this.#oldListIndexes = [...newListIndexes];
+        this.#oldListIndexSet = newListIndexesSet;
         renderer.updatedBindings.add(this.binding);
     }
 }

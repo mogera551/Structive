@@ -1,4 +1,5 @@
 import { IComponentEngine } from "../ComponentEngine/types";
+import { IListIndex } from "../ListIndex/types";
 import { IReadonlyStateProxy, IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { IRenderer } from "../Updater/types";
@@ -27,6 +28,7 @@ class Binding implements IBinding {
   bindingNode      : IBindingNode;
   bindingState     : IBindingState;
   version          : number | undefined;
+  bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
   constructor(
     parentBindContent : IBindContent,
     node              : Node,

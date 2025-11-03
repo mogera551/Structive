@@ -1,5 +1,6 @@
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../../utils.js";
+import { GetListIndexesByRefSymbol } from "../symbols";
 import { getContextListIndex } from "./getContextListIndex";
 export function getListIndex(resolvedPath, receiver, handler) {
     switch (resolvedPath.wildcardType) {
@@ -31,7 +32,7 @@ export function getListIndex(resolvedPath, receiver, handler) {
                         docsUrl: '/docs/error-codes.md#state',
                     });
                 const wildcardRef = getStatePropertyRef(wildcardParentPattern, parentListIndex);
-                const listIndexes = handler.engine.getListIndexes(wildcardRef) ??
+                const listIndexes = receiver[GetListIndexesByRefSymbol](wildcardRef) ??
                     raiseError({
                         code: 'LIST-201',
                         message: `ListIndex not found: ${wildcardParentPattern.pattern}`,

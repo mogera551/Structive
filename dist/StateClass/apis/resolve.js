@@ -18,7 +18,7 @@
 import { getStructuredPathInfo } from "../../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../../utils.js";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
-import { SetByRefSymbol } from "../symbols.js";
+import { GetListIndexesByRefSymbol, SetByRefSymbol } from "../symbols.js";
 import { setByRef } from "../methods/setByRef.js";
 import { getByRef } from "../methods/getByRef.js";
 export function resolve(target, prop, receiver, handler) {
@@ -46,7 +46,7 @@ export function resolve(target, prop, receiver, handler) {
             const wildcardParentPattern = info.wildcardParentInfos[i];
             const wildcardRef = getStatePropertyRef(wildcardParentPattern, listIndex);
             const tmpValue = getByRef(target, wildcardRef, receiver, handler);
-            const listIndexes = handler.engine.getListIndexes(wildcardRef);
+            const listIndexes = receiver[GetListIndexesByRefSymbol](wildcardRef);
             if (listIndexes == null) {
                 raiseError({
                     code: 'LIST-201',

@@ -16,13 +16,14 @@
  * - StateClassの拡張やテスト、型安全な利用を支える基盤
  */
 import { IComponentEngine } from "../ComponentEngine/types";
+import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { Constructor } from "../types";
 import { IRenderer, IUpdater } from "../Updater/types";
 import { IUserConfig } from "../WebComponents/types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
 
 export interface IDependentProps {
   [propName: string]: string[];
@@ -41,11 +42,13 @@ export interface IState {
 
 export interface IReadonlyStateProxy extends IState {
   [GetByRefSymbol](ref: IStatePropertyRef): any;
+  [GetListIndexesByRefSymbol](ref: IStatePropertyRef): IListIndex[] | null;
 }
 
 export interface IWritableStateProxy extends IState {
   [GetByRefSymbol](ref: IStatePropertyRef): any;
   [SetByRefSymbol](ref: IStatePropertyRef, value: any): void;
+  [GetListIndexesByRefSymbol](ref: IStatePropertyRef): IListIndex[] | null;
   [ConnectedCallbackSymbol](): Promise<void>;
   [DisconnectedCallbackSymbol](): Promise<void>;
 }

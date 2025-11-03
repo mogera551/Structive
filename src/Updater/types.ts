@@ -7,7 +7,7 @@ import { IReadonlyStateHandler, IReadonlyStateProxy, IStructiveState, IWritableS
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 
 export type UpdateCallback = (state: IWritableStateProxy, handler: IWritableStateHandler) => Promise<any> | any;
-export type ReadonlyStateCallback = (state: IReadonlyStateProxy, handler: IReadonlyStateHandler) => Promise<any> | any;
+export type ReadonlyStateCallback<T = any> = (state: IReadonlyStateProxy, handler: IReadonlyStateHandler) => Promise<T> | T;
 
 /**
  * 状態管理を更新し、必要に応じてレンダリングを行うインターフェース
@@ -15,7 +15,6 @@ export type ReadonlyStateCallback = (state: IReadonlyStateProxy, handler: IReado
 export interface IUpdater {
   readonly version: number;
   readonly revision: number;
-  readonly revisionByUpdatedPath: Map<string, number>;
   readonly oldValueAndIndexesByRef: Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo>;
   
   /**
@@ -33,17 +32,25 @@ export interface IUpdater {
   /**
    * 
    */
-  createReadonlyState(callback: ReadonlyStateCallback): any;
+  createReadonlyState<T = any>(callback: ReadonlyStateCallback<T>): T;
 
-  calcListDiff(ref: IStatePropertyRef, newListValue?: any): boolean;
-  getListDiff(ref: IStatePropertyRef): IListDiff | undefined;
-  setListDiff(ref: IStatePropertyRef, diff: IListDiff): void;
+  swapInfoByRef: WeakMap<IStatePropertyRef, ISwapInfo>;
+}
+
+export interface ISwapInfo {
+  value: any[];
+  listIndexes: IListIndex[];
 }
 
 /**
  * レンダラー
  */
 export interface IRenderer {
+  /**
+   * 更新中のRefのセット
+   */
+  updatingRefs: IStatePropertyRef[];
+  updatingRefSet: Set<IStatePropertyRef>;
   /**
    * 更新済みのBindingのセット
    */
@@ -66,11 +73,4 @@ export interface IRenderer {
    */
   render(items: IStatePropertyRef[]): void;
 
-  /**
-   * リストの差分結果を取得する
-   * @param ref 参照情報
-   * @param newListValue 新しいリストの値
-   * @param isNewValue 新しい値をセットしたかどうか
-   */
-  calcListDiff(ref: IStatePropertyRef, newListValue?: any[] | undefined | null, isNewValue?: boolean): IListDiff | null;
 }

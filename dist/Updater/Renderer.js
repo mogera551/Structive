@@ -1,6 +1,6 @@
 import { WILDCARD } from "../constants";
 import { findPathNodeByPath } from "../PathTree/PathNode";
-import { GetByRefSymbol } from "../StateClass/symbols";
+import { GetListIndexesByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { raiseError } from "../utils";
@@ -12,7 +12,6 @@ import { raiseError } from "../utils";
  * - reorderList: 要素単位の並べ替え要求を収集し、親リスト単位の差分（IListDiff）へ変換して適用
  * - render: エントリポイント。ReadonlyState を生成し、reorder → 各 ref の描画（renderItem）の順で実行
  * - renderItem: 指定 ref に紐づく Binding を更新し、静的依存（子 PathNode）と動的依存を再帰的に辿る
- * - calcListDiff: リスト参照に対し旧値/新値/旧インデックスから差分を計算し、必要であれば保存
  *
  * コントラクト
  * - Binding#applyChange(renderer): 変更があった場合は renderer.updatedBindings に自分自身を追加すること
@@ -28,6 +27,8 @@ import { raiseError } from "../utils";
  * - PATH-101: PathNode が見つからない
  */
 class Renderer {
+    #updatingRefs = [];
+    #updatingRefSet = new Set();
     /**
      * このレンダリングサイクルで「変更あり」となった Binding の集合。
      * 注意: 実際に追加するのは各 binding.applyChange 実装側の責務。
@@ -53,6 +54,12 @@ class Renderer {
     constructor(engine, updater) {
         this.#engine = engine;
         this.#updater = updater;
+    }
+    get updatingRefs() {
+        return this.#updatingRefs;
+    }
+    get updatingRefSet() {
+        return this.#updatingRefSet;
     }
     /**
      * このサイクル中に更新された Binding の集合を返す（読み取り専用的に使用）。
@@ -105,123 +112,6 @@ class Renderer {
         return this.#engine;
     }
     /**
-     * リスト要素の並び替え要求（要素単位）を収集し、対応するリスト（親Ref）に対して
-     * 位置変更（changeIndexes）や上書き（overwrites）を含む仮の ListDiff を生成して描画します。
-     *
-     * ポリシー
-     * - 受け取った items は「リスト要素の ref」。親リストの ref を導出して集約する。
-     * - 仮の IListDiff を構築し engine.saveListAndListIndexes に保存した後、親リストの PathNode から描画を再入する。
-     * - 既に lists に登録されているパターンは親リストとして扱い、要素→親の導出は行わない。
-     *
-     * Throws:
-     * - UPD-003: listIndex の不足
-     * - UPD-004: parentInfo 不整合 / 値に対応する旧インデックスが見つからない
-     * - UPD-005: oldListValue / oldListIndexes 欠落
-     * - PATH-101: 親リストの PathNode 未検出
-     */
-    reorderList(items) {
-        const listRefs = new Set();
-        for (let i = 0; i < items.length; i++) {
-            const ref = items[i];
-            if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
-                listRefs.add(ref);
-                continue;
-            }
-            if (!this.#engine.pathManager.elements.has(ref.info.pattern)) {
-                continue; // elements に登録されていないパスはスキップ
-            }
-            // リスト要素を処理済みに追加
-            this.#processedRefs.add(ref);
-            if (ref.info.parentInfo === null) {
-                raiseError({
-                    code: "UPD-004",
-                    message: `ParentInfo is null for ref: ${ref.key}`,
-                    context: { refKey: ref.key, pattern: ref.info.pattern },
-                    docsUrl: "./docs/error-codes.md#upd",
-                });
-            }
-            const listRef = getStatePropertyRef(ref.info.parentInfo, ref.listIndex?.at(-2) || null);
-            if (listRefs.has(listRef)) {
-                // リストの差分計算は後続のcalcListDiffで行うので、リオーダーのための計算はスキップ
-                continue;
-            }
-            let indexes = this.#reorderIndexesByRef.get(listRef);
-            if (typeof indexes === "undefined") {
-                indexes = [];
-                this.#reorderIndexesByRef.set(listRef, indexes);
-            }
-            const listIndex = ref.listIndex ?? raiseError({
-                code: "UPD-003",
-                message: `ListIndex is null for ref: ${ref.key}`,
-                context: { refKey: ref.key, pattern: ref.info.pattern },
-                docsUrl: "./docs/error-codes.md#upd",
-            });
-            indexes.push(listIndex.index);
-        }
-        for (const [listRef, indexes] of this.#reorderIndexesByRef) {
-            // listRefのリスト要素をindexesの順に並び替える
-            try {
-                const newListValue = this.readonlyState[GetByRefSymbol](listRef);
-                const { listClone: oldListValue, listIndexes: oldListIndexes } = this.#engine.getListAndListIndexes(listRef);
-                if (oldListValue == null || oldListIndexes == null) {
-                    raiseError({
-                        code: "UPD-005",
-                        message: `OldListValue or OldListIndexes is null for ref: ${listRef.key}`,
-                        context: { refKey: listRef.key, pattern: listRef.info.pattern },
-                        docsUrl: "./docs/error-codes.md#upd",
-                    });
-                }
-                const listDiff = {
-                    oldListValue: oldListValue,
-                    newListValue: newListValue,
-                    oldIndexes: oldListIndexes,
-                    newIndexes: Array.from(oldListIndexes),
-                    changeIndexes: new Set(),
-                    overwrites: new Set(),
-                    same: true,
-                };
-                for (let i = 0; i < indexes.length; i++) {
-                    const index = indexes[i];
-                    const elementValue = listDiff.newListValue?.[index];
-                    const oldIndex = listDiff.oldListValue?.indexOf(elementValue) ?? -1;
-                    if (oldIndex === -1) {
-                        listDiff.overwrites?.add(listDiff.newIndexes[index]);
-                    }
-                    else {
-                        const listIndex = listDiff.oldIndexes?.[oldIndex] ?? raiseError({
-                            code: "UPD-004",
-                            message: `ListIndex not found for value: ${elementValue}`,
-                            context: { refKey: listRef.key, pattern: listRef.info.pattern },
-                            docsUrl: "./docs/error-codes.md#upd",
-                        });
-                        listIndex.index = index;
-                        listDiff.newIndexes[index] = listIndex;
-                        listDiff.changeIndexes?.add(listIndex);
-                    }
-                    listDiff.same = false;
-                }
-                this.#updater.setListDiff(listRef, listDiff);
-                // 並べ替え（および上書き）が発生したので親リストの新状態とインデックスを保存
-                const saveInfo = this.#engine.getListAndListIndexes(listRef);
-                this.#updater.oldValueAndIndexesByRef.set(listRef, saveInfo);
-                this.#engine.saveListAndListIndexes(listRef, newListValue ?? null, listDiff.newIndexes);
-                const node = findPathNodeByPath(this.#engine.pathManager.rootNode, listRef.info.pattern);
-                if (node === null) {
-                    raiseError({
-                        code: "PATH-101",
-                        message: `PathNode not found: ${listRef.info.pattern}`,
-                        context: { pattern: listRef.info.pattern },
-                        docsUrl: "./docs/error-codes.md#path",
-                    });
-                }
-                // 親リスト単位で描画を再開する
-                this.renderItem(listRef, node);
-            }
-            finally {
-            }
-        }
-    }
-    /**
      * レンダリングのエントリポイント。ReadonlyState を生成し、
      * 並べ替え処理→各参照の描画の順に処理します。
      *
@@ -233,15 +123,58 @@ class Renderer {
         this.#reorderIndexesByRef.clear();
         this.#processedRefs.clear();
         this.#updatedBindings.clear();
+        this.#updatingRefs = [...items];
+        this.#updatingRefSet = new Set(items);
         // 実際のレンダリングロジックを実装
         this.#updater.createReadonlyState((readonlyState, readonlyHandler) => {
             this.#readonlyState = readonlyState;
             this.#readonlyHandler = readonlyHandler;
             try {
                 // まずはリストの並び替えを処理
-                this.reorderList(items);
+                const remainItems = [];
+                const itemsByListRef = new Map();
+                const refSet = new Set();
                 for (let i = 0; i < items.length; i++) {
                     const ref = items[i];
+                    refSet.add(ref);
+                    if (!this.#engine.pathManager.elements.has(ref.info.pattern)) {
+                        remainItems.push(ref);
+                        continue;
+                    }
+                    const listRef = ref.parentRef ?? raiseError({
+                        code: "UPD-004",
+                        message: `ParentInfo is null for ref: ${ref.key}`,
+                        context: { refKey: ref.key, pattern: ref.info.pattern },
+                        docsUrl: "./docs/error-codes.md#upd",
+                    });
+                    if (!itemsByListRef.has(listRef)) {
+                        itemsByListRef.set(listRef, new Set());
+                    }
+                    itemsByListRef.get(listRef).add(ref);
+                }
+                for (const [listRef, refs] of itemsByListRef) {
+                    if (refSet.has(listRef)) {
+                        for (const ref of refs) {
+                            this.#processedRefs.add(ref); // 終了済み
+                        }
+                        continue; // 親リストが存在する場合はスキップ
+                    }
+                    const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](listRef) ?? [];
+                    for (let i = 0; i < listIndexes.length; i++) {
+                        const listIndex = listIndexes[i];
+                        listIndex.index = i;
+                    }
+                    const bindings = this.#engine.getBindings(listRef);
+                    for (let i = 0; i < bindings.length; i++) {
+                        const binding = bindings[i];
+                        if (!this.#updatedBindings.has(binding)) {
+                            binding.applyChange(this);
+                        }
+                    }
+                    this.processedRefs.add(listRef);
+                }
+                for (let i = 0; i < remainItems.length; i++) {
+                    const ref = remainItems[i];
                     const node = findPathNodeByPath(this.#engine.pathManager.rootNode, ref.info.pattern);
                     if (node === null) {
                         raiseError({
@@ -251,7 +184,9 @@ class Renderer {
                             docsUrl: "./docs/error-codes.md#path",
                         });
                     }
-                    this.renderItem(ref, node);
+                    if (!this.processedRefs.has(ref)) {
+                        this.renderItem(ref, node);
+                    }
                 }
             }
             finally {
@@ -261,22 +196,6 @@ class Renderer {
         });
     }
     /**
-     * 参照 ref の旧値/新値と保存済みインデックスから ListDiff を計算し、
-     * 変更があれば engine.saveListAndListIndexes に保存します。
-    *
-    * 引数
-    * - ref: 対象のリスト参照
-    * - _newListValue: isNewValue=true のときのみ使用する、呼び出し側で提供された新リスト値
-    * - isNewValue: true の場合、_newListValue を新値とみなす。false の場合は readonlyState から取得
-    *
-    * メモ
-    * - old/new 値の参照比較で異なる場合に限り saveListAndListIndexes を呼び出す
-     */
-    calcListDiff(ref) {
-        const tmpValue = this.readonlyState[GetByRefSymbol](ref);
-        return this.#updater.getListDiff(ref) ?? null;
-    }
-    /**
      * 単一の参照 ref と対応する PathNode を描画します。
      *
      * - まず自身のバインディング適用
@@ -284,7 +203,6 @@ class Renderer {
      * - 最後に動的依存（ワイルドカードは階層的に展開）
      *
      * 静的依存（子ノード）
-     * - 子名が WILDCARD の場合: calcListDiff の adds を利用して各リスト要素に対し再帰描画
      * - それ以外: 親の listIndex を引き継いで子参照を生成して再帰描画
      *
      * 動的依存
@@ -295,55 +213,33 @@ class Renderer {
      * - PATH-101: 動的依存の PathNode 未検出
      */
     renderItem(ref, node) {
-        if (this.processedRefs.has(ref)) {
-            return; // すでに処理済みのRef情報はスキップ
-        }
         this.processedRefs.add(ref);
         // バインディングに変更を適用する
         // 変更があったバインディングは updatedBindings に追加する（applyChange 実装の責務）
         const bindings = this.#engine.getBindings(ref);
         for (let i = 0; i < bindings.length; i++) {
             const binding = bindings[i];
-            if (this.#updatedBindings.has(binding)) {
-                continue; // すでに更新済みのバインディングはスキップ
-            }
-            binding.applyChange(this);
-        }
-        let diff = null;
-        if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
-            diff = this.#updater.getListDiff(ref) ?? null;
-            if (diff !== null) {
-                for (const index of diff.changeIndexes ?? []) {
-                    const bindings = this.#engine.bindingsByListIndex.get(index);
-                    for (const binding of bindings ?? []) {
-                        if (this.#updatedBindings.has(binding)) {
-                            continue; // すでに更新済みのバインディングはスキップ
-                        }
-                        binding.applyChange(this);
-                    }
-                }
+            if (!this.#updatedBindings.has(binding)) {
+                binding.applyChange(this);
             }
         }
         // 静的な依存関係を辿る
         for (const [name, childNode] of node.childNodeByName) {
             const childInfo = getStructuredPathInfo(childNode.currentPath);
             if (name === WILDCARD) {
-                if (diff === null) {
-                    raiseError({
-                        code: "UPD-006",
-                        message: "ListDiff is null during renderItem",
-                        context: { refKey: ref.key, pattern: ref.info.pattern },
-                        docsUrl: "./docs/error-codes.md#upd",
-                    });
-                }
-                for (const listIndex of diff.adds ?? []) {
-                    const childRef = getStatePropertyRef(childInfo, listIndex);
-                    this.renderItem(childRef, childNode);
+                const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](ref) ?? [];
+                for (let i = 0; i < listIndexes.length; i++) {
+                    const childRef = getStatePropertyRef(childInfo, listIndexes[i]);
+                    if (!this.processedRefs.has(childRef)) {
+                        this.renderItem(childRef, childNode);
+                    }
                 }
             }
             else {
                 const childRef = getStatePropertyRef(childInfo, ref.listIndex);
-                this.renderItem(childRef, childNode);
+                if (!this.processedRefs.has(childRef)) {
+                    this.renderItem(childRef, childNode);
+                }
             }
         }
         // 動的な依存関係を辿る
@@ -363,8 +259,7 @@ class Renderer {
                 if (depInfo.wildcardCount > 0) {
                     const infos = depInfo.wildcardParentInfos;
                     const walk = (depRef, index, nextInfo) => {
-                        const tmpValue = this.readonlyState[GetByRefSymbol](depRef);
-                        const listIndexes = this.#engine.getListIndexes(depRef) || [];
+                        const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](depRef) || [];
                         if ((index + 1) < infos.length) {
                             for (let i = 0; i < listIndexes.length; i++) {
                                 const nextRef = getStatePropertyRef(nextInfo, listIndexes[i]);
@@ -374,7 +269,9 @@ class Renderer {
                         else {
                             for (let i = 0; i < listIndexes.length; i++) {
                                 const subDepRef = getStatePropertyRef(depInfo, listIndexes[i]);
-                                this.renderItem(subDepRef, depNode);
+                                if (!this.processedRefs.has(subDepRef)) {
+                                    this.renderItem(subDepRef, depNode);
+                                }
                             }
                         }
                     };
@@ -383,7 +280,9 @@ class Renderer {
                 }
                 else {
                     const depRef = getStatePropertyRef(depInfo, null);
-                    this.renderItem(depRef, depNode);
+                    if (!this.processedRefs.has(depRef)) {
+                        this.renderItem(depRef, depNode);
+                    }
                 }
             }
         }

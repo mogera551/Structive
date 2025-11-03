@@ -1,6 +1,6 @@
 import { createBindContent } from "../DataBinding/BindContent.js";
 import { attachShadow } from "./attachShadow.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
 import { createComponentStateBinding } from "../ComponentStateBinding/createComponentStateBinding.js";
@@ -37,6 +37,8 @@ const EMPTY_SAVE_INFO = {
     list: null,
     listIndexes: null,
     listClone: null,
+    version: 0,
+    revision: 0,
 };
 export class ComponentEngine {
     type = 'autonomous';
@@ -61,7 +63,7 @@ export class ComponentEngine {
     }
     baseClass = HTMLElement;
     owner;
-    bindingsByListIndex = new WeakMap();
+    //bindingsByListIndex : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
     bindingsByComponent = new WeakMap();
     structiveChildComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
@@ -80,6 +82,7 @@ export class ComponentEngine {
         return ++this.#currentVersion;
     }
     cache = new WeakMap(); // StatePropertyRefごとのキャッシュエントリ
+    versionRevisionByPath = new Map();
     constructor(config, owner) {
         this.config = config;
         if (this.config.extends) {
@@ -228,12 +231,14 @@ export class ComponentEngine {
         }
         this.#bindingsByRef.set(ref, [binding]);
     }
-    saveListAndListIndexes(ref, list, listIndexes) {
+    saveListAndListIndexes(ref, list, listIndexes, version, revision) {
         if (this.pathManager.lists.has(ref.info.pattern)) {
             const saveInfo = {
                 list: list,
                 listIndexes: listIndexes,
                 listClone: list ? Array.from(list) : null,
+                version: version,
+                revision: revision,
             };
             this.#saveInfoByRef.set(ref, saveInfo);
         }
@@ -249,7 +254,13 @@ export class ComponentEngine {
         if (this.stateOutput.startsWith(ref.info)) {
             return this.stateOutput.getListIndexes(ref);
         }
-        return this.#saveInfoByRef.get(ref)?.listIndexes ?? null;
+        let value = null;
+        createUpdater(this, (updater) => {
+            value = updater.createReadonlyState((stateProxy, handler) => {
+                return stateProxy[GetListIndexesByRefSymbol](ref);
+            });
+        });
+        return value;
     }
     getListAndListIndexes(ref) {
         const saveInfo = this.#saveInfoByRef.get(ref);

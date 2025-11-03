@@ -19,6 +19,7 @@ class Binding {
     bindingNode;
     bindingState;
     version;
+    bindingsByListIndex = new WeakMap();
     constructor(parentBindContent, node, engine, createBindingNode, createBindingState) {
         this.parentBindContent = parentBindContent;
         this.node = node;

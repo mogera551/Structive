@@ -4,8 +4,8 @@ import { FilterWithOptions } from "../Filter/types";
 import { IState, IStructiveState } from "../StateClass/types";
 import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
 import { attachShadow } from "./attachShadow.js";
-import { ISaveInfoByResolvedPathInfo, IComponentEngine, ICacheEntry } from "./types";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
+import { ISaveInfoByResolvedPathInfo, IComponentEngine, ICacheEntry, IVersionRevision } from "./types";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
 import { IComponentStateBinding } from "../ComponentStateBinding/types.js";
@@ -50,6 +50,8 @@ const EMPTY_SAVE_INFO: ISaveInfoByResolvedPathInfo = {
   list: null,
   listIndexes: null,
   listClone: null,
+  version: 0,
+  revision: 0,
 };
 export class ComponentEngine implements IComponentEngine {
   type          : ComponentType = 'autonomous';
@@ -76,7 +78,7 @@ export class ComponentEngine implements IComponentEngine {
   baseClass     : typeof HTMLElement = HTMLElement;
   owner         : StructiveComponent;
 
-  bindingsByListIndex : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
+  //bindingsByListIndex : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
 
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
   structiveChildComponents: Set<StructiveComponent> = new Set();
@@ -101,6 +103,7 @@ export class ComponentEngine implements IComponentEngine {
   }
 
   cache: WeakMap<IStatePropertyRef, ICacheEntry> = new WeakMap(); // StatePropertyRefごとのキャッシュエントリ
+  versionRevisionByPath: Map<string, IVersionRevision> = new Map();
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
     if (this.config.extends) {
@@ -257,13 +260,17 @@ export class ComponentEngine implements IComponentEngine {
   saveListAndListIndexes(
     ref               : IStatePropertyRef,
     list              : any[] | null,
-    listIndexes       : IListIndex[] | null
+    listIndexes       : IListIndex[] | null,
+    version           : number,
+    revision          : number
   ): void {
     if (this.pathManager.lists.has(ref.info.pattern)) {
       const saveInfo = {
         list          : list,
         listIndexes   : listIndexes,
         listClone     : list ? Array.from(list) : null,
+        version       : version,
+        revision      : revision,
       }
       this.#saveInfoByRef.set(ref, saveInfo);
     }
@@ -281,7 +288,13 @@ export class ComponentEngine implements IComponentEngine {
     if (this.stateOutput.startsWith(ref.info)) {
       return this.stateOutput.getListIndexes(ref);
     }
-    return this.#saveInfoByRef.get(ref)?.listIndexes ?? null;
+    let value: IListIndex[] | null = null;
+    createUpdater(this, (updater) => {
+      value = updater.createReadonlyState<IListIndex[] | null>((stateProxy, handler) => {
+        return stateProxy[GetListIndexesByRefSymbol](ref);
+      });
+    });
+    return value;
   }
 
   getListAndListIndexes(ref: IStatePropertyRef): ISaveInfoByResolvedPathInfo {

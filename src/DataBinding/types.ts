@@ -62,6 +62,7 @@ export interface IBinding {
   bindingNode      : IBindingNode;
   bindingState     : IBindingState;
   bindContents     : IBindContent[];
+  bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>;
   init(): void;
   updateStateValue(writeState: IWritableStateProxy, handler: IWritableStateHandler, value: any): void;
   notifyRedraw(refs: IStatePropertyRef[]): void;

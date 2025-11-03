@@ -16,6 +16,7 @@ import { IStructuredPathInfo } from "../StateProperty/types";
 
 export interface IStatePropertyRef {
   info: IStructuredPathInfo;
-  listIndex: IListIndex | null;
+  readonly listIndex: IListIndex | null;
   key: string;
+  readonly parentRef: IStatePropertyRef | null;
 }

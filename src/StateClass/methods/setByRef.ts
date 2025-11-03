@@ -17,7 +17,9 @@
  */
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
+import { ISwapInfo } from "../../Updater/types";
 import { raiseError } from "../../utils.js";
+import { GetByRefSymbol, GetListIndexesByRefSymbol } from "../symbols";
 import { IStateProxy, IStateHandler } from "../types";
 import { getByRef } from "./getByRef";
 
@@ -28,6 +30,26 @@ export function setByRef(
     receiver : IStateProxy,
     handler  : IStateHandler
 ): any {
+  const isElements = handler.engine.pathManager.elements.has(ref.info.pattern);
+  let parentRef: IStatePropertyRef | null = null;
+  let swapInfo: ISwapInfo | null = null;
+  // elementsの場合はswapInfoを準備
+  if (isElements) {
+    parentRef = ref.parentRef ?? raiseError({
+      code: 'STATE-202',
+      message: 'propRef.stateProp.parentInfo is undefined',
+      context: { where: 'setByRef (element)', refPath: ref.info.pattern },
+      docsUrl: '/docs/error-codes.md#state',
+    });
+    swapInfo = handler.updater.swapInfoByRef.get(parentRef) || null;
+    if (swapInfo === null) {
+      swapInfo = {
+        value: [...(receiver[GetByRefSymbol](parentRef) ?? [])],
+        listIndexes: [...(receiver[GetListIndexesByRefSymbol](parentRef) ?? [])]
+      }
+      handler.updater.swapInfoByRef.set(parentRef, swapInfo);
+    }
+  }
   try {
     // 親子関係のあるgetterが存在する場合は、外部依存を通じて値を設定
     // ToDo: stateにgetterが存在する（パスの先頭が一致する）場合はgetter経由で取得
@@ -72,5 +94,15 @@ export function setByRef(
     }
   } finally {
     handler.updater.enqueueRef(ref);
+    if (isElements) {
+      const index = swapInfo!.value.indexOf(value);
+      if (index !== -1) {
+        const curIndex = ref.listIndex!.index; 
+        const listIndex = swapInfo!.listIndexes[index];
+        const currentListIndexes = receiver[GetListIndexesByRefSymbol](parentRef!) ?? [];
+        currentListIndexes[curIndex] = listIndex;
+        // ここでは直接listIndexのindexを書き換えない
+      }
+    }
   }
 }

@@ -95,13 +95,40 @@ class PathManager {
             }
         }
     }
-    #dianamicDependencyKeys = new Set();
+    addPath(path) {
+        const info = getStructuredPathInfo(path);
+        for (const path of info.cumulativePathSet) {
+            if (this.alls.has(path))
+                continue;
+            this.alls.add(path);
+            addPathNode(this.rootNode, path);
+            const pathInfo = getStructuredPathInfo(path);
+            if (pathInfo.pathSegments.length > 1) {
+                const funcs = createAccessorFunctions(pathInfo, this.getters);
+                Object.defineProperty(this.#stateClass.prototype, path, {
+                    get: funcs.get,
+                    set: funcs.set,
+                    enumerable: true,
+                    configurable: true,
+                });
+                this.optimizes.add(path);
+            }
+            if (pathInfo.parentPath) {
+                this.staticDependencies.get(pathInfo.parentPath)?.add(path) ??
+                    this.staticDependencies.set(pathInfo.parentPath, new Set([path]));
+            }
+        }
+    }
+    #dynamicDependencyKeys = new Set();
     addDynamicDependency(target, source) {
         const key = `${source}=>${target}`;
-        if (this.#dianamicDependencyKeys.has(key)) {
+        if (this.#dynamicDependencyKeys.has(key)) {
             return;
         }
-        this.#dianamicDependencyKeys.add(key);
+        if (!this.alls.has(source)) {
+            this.addPath(source);
+        }
+        this.#dynamicDependencyKeys.add(key);
         this.dynamicDependencies.get(source)?.add(target) ??
             this.dynamicDependencies.set(source, new Set([target]));
     }
