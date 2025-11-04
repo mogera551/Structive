@@ -66,6 +66,7 @@ export type IStructiveState = Constructor<IState> & IStructiveStaticState;
 export interface IReadonlyStateHandler {
   engine      : IComponentEngine;
   updater     : IUpdater;
+  renderer    : IRenderer | null;
   refStack    : (IStatePropertyRef | null)[];
   refIndex    : number;
   lastRefStack: IStatePropertyRef | null;
@@ -79,6 +80,7 @@ export interface IReadonlyStateHandler {
 export interface IWritableStateHandler {
   engine      : IComponentEngine;
   updater     : IUpdater;
+  renderer    : IRenderer | null;
   refStack    : (IStatePropertyRef | null)[];
   refIndex    : number;
   lastRefStack: IStatePropertyRef | null;

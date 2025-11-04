@@ -20,7 +20,7 @@ import { IState, IWritableStateHandler, IWritableStateProxy } from "./types";
 import { set as trapSet } from "./traps/set.js";
 import { ILoopContext } from "../LoopContext/types";
 import { setLoopContext } from "./methods/setLoopContext";
-import { IUpdater } from "../Updater/types";
+import { IRenderer, IUpdater } from "../Updater/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol } from "./symbols";
 import { get as trapGet } from "./traps/get.js";
@@ -34,6 +34,7 @@ class StateHandler implements IWritableStateHandler {
   lastRefStack: IStatePropertyRef | null = null;
   loopContext: ILoopContext | null = null;
   updater: IUpdater;
+  renderer: IRenderer | null = null;
   symbols: Set<PropertyKey> = new Set<PropertyKey>([ GetByRefSymbol, SetByRefSymbol, GetListIndexesByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol ]);
   apis: Set<PropertyKey> = new Set<PropertyKey>([ "$resolve", "$getAll", "$trackDependency", "$navigate", "$component" ]);
   

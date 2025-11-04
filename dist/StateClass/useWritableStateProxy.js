@@ -10,6 +10,7 @@ class StateHandler {
     lastRefStack = null;
     loopContext = null;
     updater;
+    renderer = null;
     symbols = new Set([GetByRefSymbol, SetByRefSymbol, GetListIndexesByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol]);
     apis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
     constructor(engine, updater) {

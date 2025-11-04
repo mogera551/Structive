@@ -1,5 +1,6 @@
 import { WILDCARD } from "../constants";
 import { findPathNodeByPath } from "../PathTree/PathNode";
+import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetListIndexesByRefSymbol } from "../StateClass/symbols";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
@@ -15,7 +16,6 @@ import { raiseError } from "../utils";
  *
  * コントラクト
  * - Binding#applyChange(renderer): 変更があった場合は renderer.updatedBindings に自分自身を追加すること
- * - engine.saveListAndListIndexes(ref, newValue, newIndexes): リストの論理的状態を最新に保持すること
  * - readonlyState[GetByRefSymbol](ref): ref の新しい値（読み取り専用ビュー）を返すこと
  *
  * スレッド/再入
@@ -50,6 +50,8 @@ class Renderer {
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
      */
     #reorderIndexesByRef = new Map();
+    #lastValueByRef = new WeakMap();
+    #lastListIndexesByRef = new WeakMap();
     #updater;
     constructor(engine, updater) {
         this.#engine = engine;
@@ -111,6 +113,22 @@ class Renderer {
         }
         return this.#engine;
     }
+    get lastValueByRef() {
+        return this.#lastValueByRef;
+    }
+    get lastListIndexesByRef() {
+        return this.#lastListIndexesByRef;
+    }
+    /**
+     * リードオンリーな状態を生成し、コールバックに渡す
+     * @param callback
+     * @returns
+     */
+    createReadonlyState(callback) {
+        const handler = createReadonlyStateHandler(this.#engine, this.#updater, this);
+        const stateProxy = createReadonlyStateProxy(this.#engine.state, handler);
+        return callback(stateProxy, handler);
+    }
     /**
      * レンダリングのエントリポイント。ReadonlyState を生成し、
      * 並べ替え処理→各参照の描画の順に処理します。
@@ -126,7 +144,7 @@ class Renderer {
         this.#updatingRefs = [...items];
         this.#updatingRefSet = new Set(items);
         // 実際のレンダリングロジックを実装
-        this.#updater.createReadonlyState((readonlyState, readonlyHandler) => {
+        this.createReadonlyState((readonlyState, readonlyHandler) => {
             this.#readonlyState = readonlyState;
             this.#readonlyHandler = readonlyHandler;
             try {
@@ -223,17 +241,31 @@ class Renderer {
                 binding.applyChange(this);
             }
         }
+        let diffListIndexes = new Set();
+        if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
+            const currentListIndexes = new Set(this.readonlyState[GetListIndexesByRefSymbol](ref) ?? []);
+            const lastListIndexes = new Set(this.lastListIndexesByRef.get(ref) ?? []);
+            diffListIndexes = currentListIndexes.difference(lastListIndexes);
+        }
         // 静的な依存関係を辿る
         for (const [name, childNode] of node.childNodeByName) {
             const childInfo = getStructuredPathInfo(childNode.currentPath);
             if (name === WILDCARD) {
-                const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](ref) ?? [];
-                for (let i = 0; i < listIndexes.length; i++) {
-                    const childRef = getStatePropertyRef(childInfo, listIndexes[i]);
+                for (const listIndex of diffListIndexes) {
+                    const childRef = getStatePropertyRef(childInfo, listIndex);
                     if (!this.processedRefs.has(childRef)) {
                         this.renderItem(childRef, childNode);
                     }
                 }
+                /*
+                        const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](ref) ?? [];
+                        for(let i = 0; i < listIndexes.length; i++) {
+                          const childRef = getStatePropertyRef(childInfo, listIndexes[i]);
+                          if (!this.processedRefs.has(childRef)) {
+                            this.renderItem(childRef, childNode);
+                          }
+                        }
+                */
             }
             else {
                 const childRef = getStatePropertyRef(childInfo, ref.listIndex);

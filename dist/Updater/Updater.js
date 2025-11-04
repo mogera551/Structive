@@ -62,16 +62,6 @@ class Updater {
         });
     }
     /**
-     * リードオンリーな状態を生成し、コールバックに渡す
-     * @param callback
-     * @returns
-     */
-    createReadonlyState(callback) {
-        const handler = createReadonlyStateHandler(this.#engine, this);
-        const stateProxy = createReadonlyStateProxy(this.#engine.state, handler);
-        return callback(stateProxy, handler);
-    }
-    /**
      * レンダリング処理
      */
     rendering() {
@@ -147,6 +137,16 @@ class Updater {
             versionRevisionByPath.set(updatedPath, versionRevision);
         }
         this.#cacheUpdatedPathsByPath.set(path, updatedPaths);
+    }
+    /**
+     * リードオンリーな状態を生成し、コールバックに渡す
+     * @param callback
+     * @returns
+     */
+    createReadonlyState(callback) {
+        const handler = createReadonlyStateHandler(this.#engine, this, null);
+        const stateProxy = createReadonlyStateProxy(this.#engine.state, handler);
+        return callback(stateProxy, handler);
     }
 }
 /**

@@ -54,10 +54,8 @@ export interface IComponentEngine {
   disconnectedCallback(): Promise<void>;
 
   saveBinding(ref: IStatePropertyRef, binding: IBinding): void;
-  saveListAndListIndexes(ref: IStatePropertyRef, list: any[] | null, listIndexes: IListIndex[] | null, version: number, revision: number): void;
   getBindings(ref: IStatePropertyRef): IBinding[];
   getListIndexes(ref: IStatePropertyRef): IListIndex[] | null;
-  //getListAndListIndexes(ref: IStatePropertyRef): ISaveInfoByResolvedPathInfo;
 
   getPropertyValue(ref: IStatePropertyRef): any; // プロパティの値を取得する
   setPropertyValue(ref: IStatePropertyRef, value: any): void; // プロパティの値を設定する

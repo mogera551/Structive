@@ -5,6 +5,7 @@ import { IListDiff } from "../ListDiff/types";
 import { IListIndex } from "../ListIndex/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
+import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
 import { GetByRefSymbol, GetListIndexesByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
 import { get } from "../StateClass/traps/get";
 import { IReadonlyStateHandler, IReadonlyStateProxy } from "../StateClass/types";
@@ -13,7 +14,7 @@ import { IStructuredPathInfo } from "../StateProperty/types";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
-import { IRenderer, IUpdater } from "./types";
+import { IRenderer, IUpdater, ReadonlyStateCallback } from "./types";
 
 /**
  * Renderer は、State の変更（参照 IStatePropertyRef の集合）に対応して、
@@ -26,7 +27,6 @@ import { IRenderer, IUpdater } from "./types";
  *
  * コントラクト
  * - Binding#applyChange(renderer): 変更があった場合は renderer.updatedBindings に自分自身を追加すること
- * - engine.saveListAndListIndexes(ref, newValue, newIndexes): リストの論理的状態を最新に保持すること
  * - readonlyState[GetByRefSymbol](ref): ref の新しい値（読み取り専用ビュー）を返すこと
  *
  * スレッド/再入
@@ -64,6 +64,9 @@ class Renderer implements IRenderer {
    */
   #reorderIndexesByRef: Map<IStatePropertyRef, number[]> = new Map();
 
+  #lastValueByRef: WeakMap<IStatePropertyRef, any> = new WeakMap();
+  #lastListIndexesByRef: WeakMap<IStatePropertyRef, IListIndex[]> = new WeakMap();
+  
   #updater: IUpdater;
 
   constructor(engine: IComponentEngine, updater: IUpdater) {
@@ -134,6 +137,25 @@ class Renderer implements IRenderer {
     return this.#engine;
   }
 
+  get lastValueByRef(): WeakMap<IStatePropertyRef, any> {
+    return this.#lastValueByRef;
+  }
+
+  get lastListIndexesByRef(): WeakMap<IStatePropertyRef, IListIndex[]> {
+    return this.#lastListIndexesByRef;
+  }
+
+  /**
+   * リードオンリーな状態を生成し、コールバックに渡す
+   * @param callback 
+   * @returns 
+   */
+  createReadonlyState(callback: ReadonlyStateCallback): any {
+    const handler = createReadonlyStateHandler(this.#engine, this.#updater, this);
+    const stateProxy = createReadonlyStateProxy(this.#engine.state, handler);
+    return callback(stateProxy, handler);
+  }
+
   /**
    * レンダリングのエントリポイント。ReadonlyState を生成し、
    * 並べ替え処理→各参照の描画の順に処理します。
@@ -150,7 +172,7 @@ class Renderer implements IRenderer {
     this.#updatingRefSet = new Set(items);
 
     // 実際のレンダリングロジックを実装
-    this.#updater.createReadonlyState( (readonlyState, readonlyHandler) => {
+    this.createReadonlyState( (readonlyState, readonlyHandler) => {
       this.#readonlyState = readonlyState;
       this.#readonlyHandler = readonlyHandler;
       try {
@@ -253,10 +275,24 @@ class Renderer implements IRenderer {
       }
     }
 
+    let diffListIndexes: Set<IListIndex> = new Set();
+    if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
+      const currentListIndexes = new Set(this.readonlyState[GetListIndexesByRefSymbol](ref) ?? []);
+      const lastListIndexes = new Set(this.lastListIndexesByRef.get(ref) ?? []);
+      diffListIndexes = currentListIndexes.difference(lastListIndexes);
+    }
+
     // 静的な依存関係を辿る
     for(const [ name, childNode ] of node.childNodeByName) {
       const childInfo = getStructuredPathInfo(childNode.currentPath);
       if (name === WILDCARD) {
+        for(const listIndex of diffListIndexes) {
+          const childRef = getStatePropertyRef(childInfo, listIndex);
+          if (!this.processedRefs.has(childRef)) {
+            this.renderItem(childRef, childNode);
+          }
+        }
+/*
         const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](ref) ?? [];
         for(let i = 0; i < listIndexes.length; i++) {
           const childRef = getStatePropertyRef(childInfo, listIndexes[i]);
@@ -264,6 +300,7 @@ class Renderer implements IRenderer {
             this.renderItem(childRef, childNode);
           }
         }
+*/
       } else {
         const childRef = getStatePropertyRef(childInfo, ref.listIndex);
         if (!this.processedRefs.has(childRef)) {

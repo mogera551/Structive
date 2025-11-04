@@ -29,12 +29,10 @@ export interface IUpdater {
    * @param callback Updaterを返すコールバック関数
    */
   update(loopContext: ILoopContext | null, callback: UpdateCallback): Promise<void> | void;
-  /**
-   * 
-   */
-  createReadonlyState<T = any>(callback: ReadonlyStateCallback<T>): T;
 
   swapInfoByRef: WeakMap<IStatePropertyRef, ISwapInfo>;
+
+  createReadonlyState<T = any>(callback: ReadonlyStateCallback<T>): T;
 }
 
 export interface ISwapInfo {
@@ -73,4 +71,11 @@ export interface IRenderer {
    */
   render(items: IStatePropertyRef[]): void;
 
+  lastValueByRef: WeakMap<IStatePropertyRef, any>;
+  lastListIndexesByRef: WeakMap<IStatePropertyRef, IListIndex[]>;
+
+  /**
+   * 
+   */
+  createReadonlyState<T = any>(callback: ReadonlyStateCallback<T>): T;
 }

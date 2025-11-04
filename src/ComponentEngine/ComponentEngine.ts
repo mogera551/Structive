@@ -78,8 +78,6 @@ export class ComponentEngine implements IComponentEngine {
   baseClass     : typeof HTMLElement = HTMLElement;
   owner         : StructiveComponent;
 
-  //bindingsByListIndex : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
-
   bindingsByComponent: WeakMap<StructiveComponent, Set<IBinding>> = new WeakMap();
   structiveChildComponents: Set<StructiveComponent> = new Set();
 
@@ -237,13 +235,7 @@ export class ComponentEngine implements IComponentEngine {
     }
   }
 
-  #saveInfoByStructuredPathId: { [id:number]: ISaveInfoByResolvedPathInfo } = {};
-  #saveInfoByResolvedPathInfoIdByListIndex: WeakMap<IListIndex, { [id:number]: ISaveInfoByResolvedPathInfo }> = new WeakMap();
-  #saveInfoByRef: WeakMap<IStatePropertyRef, ISaveInfoByResolvedPathInfo> = new WeakMap();
-  #listByRef: WeakMap<IStatePropertyRef, any[] | null> = new WeakMap();
-  #listIndexesByRef: WeakMap<IStatePropertyRef, IListIndex[] | null> = new WeakMap();
   #bindingsByRef: WeakMap<IStatePropertyRef, IBinding[]> = new WeakMap();
-  #listCloneByRef: WeakMap<IStatePropertyRef, any[] | null> = new WeakMap();
 
   saveBinding(
     ref      : IStatePropertyRef,
@@ -255,25 +247,6 @@ export class ComponentEngine implements IComponentEngine {
       return;
     }
     this.#bindingsByRef.set(ref, [binding]);
-  }
-
-  saveListAndListIndexes(
-    ref               : IStatePropertyRef,
-    list              : any[] | null,
-    listIndexes       : IListIndex[] | null,
-    version           : number,
-    revision          : number
-  ): void {
-    if (this.pathManager.lists.has(ref.info.pattern)) {
-      const saveInfo = {
-        list          : list,
-        listIndexes   : listIndexes,
-        listClone     : list ? Array.from(list) : null,
-        version       : version,
-        revision      : revision,
-      }
-      this.#saveInfoByRef.set(ref, saveInfo);
-    }
   }
 
   getBindings(ref: IStatePropertyRef): IBinding[] {
@@ -295,14 +268,6 @@ export class ComponentEngine implements IComponentEngine {
       });
     });
     return value;
-  }
-
-  getListAndListIndexes(ref: IStatePropertyRef): ISaveInfoByResolvedPathInfo {
-    const saveInfo = this.#saveInfoByRef.get(ref);
-    if (typeof saveInfo === "undefined") {
-      return EMPTY_SAVE_INFO;
-    }
-    return saveInfo;
   }
 
   getPropertyValue(ref: IStatePropertyRef): any {

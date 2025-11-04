@@ -5,15 +5,17 @@ const STACK_DEPTH = 32;
 class StateHandler {
     engine;
     updater;
+    renderer;
     refStack = Array(STACK_DEPTH).fill(null);
     refIndex = -1;
     lastRefStack = null;
     loopContext = null;
     symbols = new Set([GetByRefSymbol, GetListIndexesByRefSymbol]);
     apis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
-    constructor(engine, updater) {
+    constructor(engine, updater, renderer) {
         this.engine = engine;
         this.updater = updater;
+        this.renderer = renderer;
     }
     get(target, prop, receiver) {
         return trapGet(target, prop, receiver, this);
@@ -30,8 +32,8 @@ class StateHandler {
         return Reflect.has(target, prop) || this.symbols.has(prop) || this.apis.has(prop);
     }
 }
-export function createReadonlyStateHandler(engine, updater) {
-    return new StateHandler(engine, updater);
+export function createReadonlyStateHandler(engine, updater, renderer) {
+    return new StateHandler(engine, updater, renderer);
 }
 export function createReadonlyStateProxy(state, handler) {
     return new Proxy(state, handler);

@@ -74,6 +74,12 @@ export function getByRef(target, ref, receiver, handler) {
                 let cacheEntry;
                 if (listable) {
                     // リストインデックスを計算する必要がある
+                    if (handler.renderer !== null) {
+                        if (!handler.renderer.lastValueByRef.has(ref) && !handler.renderer.lastListIndexesByRef.has(ref)) {
+                            handler.renderer.lastValueByRef.set(ref, lastCacheEntry?.value);
+                            handler.renderer.lastListIndexesByRef.set(ref, lastCacheEntry?.listIndexes ?? []);
+                        }
+                    }
                     const newListIndexes = createListIndexes(ref.listIndex, lastCacheEntry?.value, value, lastCacheEntry?.listIndexes ?? []);
                     cacheEntry = {
                         value,

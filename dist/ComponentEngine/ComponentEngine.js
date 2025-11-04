@@ -63,7 +63,6 @@ export class ComponentEngine {
     }
     baseClass = HTMLElement;
     owner;
-    //bindingsByListIndex : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
     bindingsByComponent = new WeakMap();
     structiveChildComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
@@ -216,13 +215,7 @@ export class ComponentEngine {
             this.#waitForDisconnected.resolve(); // disconnectedCallbackが呼ばれたことを通知   
         }
     }
-    #saveInfoByStructuredPathId = {};
-    #saveInfoByResolvedPathInfoIdByListIndex = new WeakMap();
-    #saveInfoByRef = new WeakMap();
-    #listByRef = new WeakMap();
-    #listIndexesByRef = new WeakMap();
     #bindingsByRef = new WeakMap();
-    #listCloneByRef = new WeakMap();
     saveBinding(ref, binding) {
         const bindings = this.#bindingsByRef.get(ref);
         if (typeof bindings !== "undefined") {
@@ -230,18 +223,6 @@ export class ComponentEngine {
             return;
         }
         this.#bindingsByRef.set(ref, [binding]);
-    }
-    saveListAndListIndexes(ref, list, listIndexes, version, revision) {
-        if (this.pathManager.lists.has(ref.info.pattern)) {
-            const saveInfo = {
-                list: list,
-                listIndexes: listIndexes,
-                listClone: list ? Array.from(list) : null,
-                version: version,
-                revision: revision,
-            };
-            this.#saveInfoByRef.set(ref, saveInfo);
-        }
     }
     getBindings(ref) {
         const bindings = this.#bindingsByRef.get(ref);
@@ -261,13 +242,6 @@ export class ComponentEngine {
             });
         });
         return value;
-    }
-    getListAndListIndexes(ref) {
-        const saveInfo = this.#saveInfoByRef.get(ref);
-        if (typeof saveInfo === "undefined") {
-            return EMPTY_SAVE_INFO;
-        }
-        return saveInfo;
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する

@@ -1626,6 +1626,12 @@ function getByRef(target, ref, receiver, handler) {
                 let cacheEntry;
                 if (listable) {
                     // リストインデックスを計算する必要がある
+                    if (handler.renderer !== null) {
+                        if (!handler.renderer.lastValueByRef.has(ref) && !handler.renderer.lastListIndexesByRef.has(ref)) {
+                            handler.renderer.lastValueByRef.set(ref, lastCacheEntry?.value);
+                            handler.renderer.lastListIndexesByRef.set(ref, lastCacheEntry?.listIndexes ?? []);
+                        }
+                    }
                     const newListIndexes = createListIndexes(ref.listIndex, lastCacheEntry?.value, value, lastCacheEntry?.listIndexes ?? []);
                     cacheEntry = {
                         value,
@@ -2057,15 +2063,17 @@ const STACK_DEPTH$1 = 32;
 let StateHandler$1 = class StateHandler {
     engine;
     updater;
+    renderer;
     refStack = Array(STACK_DEPTH$1).fill(null);
     refIndex = -1;
     lastRefStack = null;
     loopContext = null;
     symbols = new Set([GetByRefSymbol, GetListIndexesByRefSymbol]);
     apis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
-    constructor(engine, updater) {
+    constructor(engine, updater, renderer) {
         this.engine = engine;
         this.updater = updater;
+        this.renderer = renderer;
     }
     get(target, prop, receiver) {
         return get(target, prop, receiver, this);
@@ -2082,8 +2090,8 @@ let StateHandler$1 = class StateHandler {
         return Reflect.has(target, prop) || this.symbols.has(prop) || this.apis.has(prop);
     }
 };
-function createReadonlyStateHandler(engine, updater) {
-    return new StateHandler$1(engine, updater);
+function createReadonlyStateHandler(engine, updater, renderer) {
+    return new StateHandler$1(engine, updater, renderer);
 }
 function createReadonlyStateProxy(state, handler) {
     return new Proxy(state, handler);
@@ -2165,6 +2173,7 @@ class StateHandler {
     lastRefStack = null;
     loopContext = null;
     updater;
+    renderer = null;
     symbols = new Set([GetByRefSymbol, SetByRefSymbol, GetListIndexesByRefSymbol, ConnectedCallbackSymbol, DisconnectedCallbackSymbol]);
     apis = new Set(["$resolve", "$getAll", "$trackDependency", "$navigate", "$component"]);
     constructor(engine, updater) {
@@ -2200,7 +2209,6 @@ async function useWritableStateProxy(engine, updater, state, loopContext, callba
  *
  * コントラクト
  * - Binding#applyChange(renderer): 変更があった場合は renderer.updatedBindings に自分自身を追加すること
- * - engine.saveListAndListIndexes(ref, newValue, newIndexes): リストの論理的状態を最新に保持すること
  * - readonlyState[GetByRefSymbol](ref): ref の新しい値（読み取り専用ビュー）を返すこと
  *
  * スレッド/再入
@@ -2235,6 +2243,8 @@ class Renderer {
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
      */
     #reorderIndexesByRef = new Map();
+    #lastValueByRef = new WeakMap();
+    #lastListIndexesByRef = new WeakMap();
     #updater;
     constructor(engine, updater) {
         this.#engine = engine;
@@ -2296,6 +2306,22 @@ class Renderer {
         }
         return this.#engine;
     }
+    get lastValueByRef() {
+        return this.#lastValueByRef;
+    }
+    get lastListIndexesByRef() {
+        return this.#lastListIndexesByRef;
+    }
+    /**
+     * リードオンリーな状態を生成し、コールバックに渡す
+     * @param callback
+     * @returns
+     */
+    createReadonlyState(callback) {
+        const handler = createReadonlyStateHandler(this.#engine, this.#updater, this);
+        const stateProxy = createReadonlyStateProxy(this.#engine.state, handler);
+        return callback(stateProxy, handler);
+    }
     /**
      * レンダリングのエントリポイント。ReadonlyState を生成し、
      * 並べ替え処理→各参照の描画の順に処理します。
@@ -2311,7 +2337,7 @@ class Renderer {
         this.#updatingRefs = [...items];
         this.#updatingRefSet = new Set(items);
         // 実際のレンダリングロジックを実装
-        this.#updater.createReadonlyState((readonlyState, readonlyHandler) => {
+        this.createReadonlyState((readonlyState, readonlyHandler) => {
             this.#readonlyState = readonlyState;
             this.#readonlyHandler = readonlyHandler;
             try {
@@ -2408,17 +2434,31 @@ class Renderer {
                 binding.applyChange(this);
             }
         }
+        let diffListIndexes = new Set();
+        if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
+            const currentListIndexes = new Set(this.readonlyState[GetListIndexesByRefSymbol](ref) ?? []);
+            const lastListIndexes = new Set(this.lastListIndexesByRef.get(ref) ?? []);
+            diffListIndexes = currentListIndexes.difference(lastListIndexes);
+        }
         // 静的な依存関係を辿る
         for (const [name, childNode] of node.childNodeByName) {
             const childInfo = getStructuredPathInfo(childNode.currentPath);
             if (name === WILDCARD) {
-                const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](ref) ?? [];
-                for (let i = 0; i < listIndexes.length; i++) {
-                    const childRef = getStatePropertyRef(childInfo, listIndexes[i]);
+                for (const listIndex of diffListIndexes) {
+                    const childRef = getStatePropertyRef(childInfo, listIndex);
                     if (!this.processedRefs.has(childRef)) {
                         this.renderItem(childRef, childNode);
                     }
                 }
+                /*
+                        const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](ref) ?? [];
+                        for(let i = 0; i < listIndexes.length; i++) {
+                          const childRef = getStatePropertyRef(childInfo, listIndexes[i]);
+                          if (!this.processedRefs.has(childRef)) {
+                            this.renderItem(childRef, childNode);
+                          }
+                        }
+                */
             }
             else {
                 const childRef = getStatePropertyRef(childInfo, ref.listIndex);
@@ -2540,16 +2580,6 @@ class Updater {
         });
     }
     /**
-     * リードオンリーな状態を生成し、コールバックに渡す
-     * @param callback
-     * @returns
-     */
-    createReadonlyState(callback) {
-        const handler = createReadonlyStateHandler(this.#engine, this);
-        const stateProxy = createReadonlyStateProxy(this.#engine.state, handler);
-        return callback(stateProxy, handler);
-    }
-    /**
      * レンダリング処理
      */
     rendering() {
@@ -2625,6 +2655,16 @@ class Updater {
             versionRevisionByPath.set(updatedPath, versionRevision);
         }
         this.#cacheUpdatedPathsByPath.set(path, updatedPaths);
+    }
+    /**
+     * リードオンリーな状態を生成し、コールバックに渡す
+     * @param callback
+     * @returns
+     */
+    createReadonlyState(callback) {
+        const handler = createReadonlyStateHandler(this.#engine, this, null);
+        const stateProxy = createReadonlyStateProxy(this.#engine.state, handler);
+        return callback(stateProxy, handler);
     }
 }
 /**
@@ -4927,35 +4967,6 @@ function createComponentStateOutput(binding) {
     return new ComponentStateOutput(binding);
 }
 
-/**
- * ComponentEngine は、Structive コンポーネントの状態・依存関係・
- * バインディング・ライフサイクル・レンダリングを統合する中核エンジンです。
- *
- * 主な役割:
- * - 状態インスタンスやプロキシの生成・管理
- * - テンプレート/スタイルシート/フィルター/バインディングの管理
- * - 依存関係グラフ（PathTree）の構築と管理
- * - バインディング情報やリスト情報の保存・取得
- * - ライフサイクル（connected/disconnected）処理
- * - Shadow DOM の適用、またはブロックモードのプレースホルダー運用
- * - 状態プロパティの取得・設定
- * - バインディングの追加・存在判定・リスト管理
- *
- * Throws（代表例）:
- * - BIND-201 bindContent not initialized yet / Block parent node is not set
- * - STATE-202 Failed to parse state from dataset
- *
- * 備考:
- * - 非同期初期化（waitForInitialize）と切断待機（waitForDisconnected）を提供
- * - Updater と連携したバッチ更新で効率的なレンダリングを実現
- */
-const EMPTY_SAVE_INFO = {
-    list: null,
-    listIndexes: null,
-    listClone: null,
-    version: 0,
-    revision: 0,
-};
 class ComponentEngine {
     type = 'autonomous';
     config;
@@ -4979,7 +4990,6 @@ class ComponentEngine {
     }
     baseClass = HTMLElement;
     owner;
-    //bindingsByListIndex : WeakMap<IListIndex, Set<IBinding>> = new WeakMap();
     bindingsByComponent = new WeakMap();
     structiveChildComponents = new Set();
     #waitForInitialize = Promise.withResolvers();
@@ -5132,13 +5142,7 @@ class ComponentEngine {
             this.#waitForDisconnected.resolve(); // disconnectedCallbackが呼ばれたことを通知   
         }
     }
-    #saveInfoByStructuredPathId = {};
-    #saveInfoByResolvedPathInfoIdByListIndex = new WeakMap();
-    #saveInfoByRef = new WeakMap();
-    #listByRef = new WeakMap();
-    #listIndexesByRef = new WeakMap();
     #bindingsByRef = new WeakMap();
-    #listCloneByRef = new WeakMap();
     saveBinding(ref, binding) {
         const bindings = this.#bindingsByRef.get(ref);
         if (typeof bindings !== "undefined") {
@@ -5146,18 +5150,6 @@ class ComponentEngine {
             return;
         }
         this.#bindingsByRef.set(ref, [binding]);
-    }
-    saveListAndListIndexes(ref, list, listIndexes, version, revision) {
-        if (this.pathManager.lists.has(ref.info.pattern)) {
-            const saveInfo = {
-                list: list,
-                listIndexes: listIndexes,
-                listClone: list ? Array.from(list) : null,
-                version: version,
-                revision: revision,
-            };
-            this.#saveInfoByRef.set(ref, saveInfo);
-        }
     }
     getBindings(ref) {
         const bindings = this.#bindingsByRef.get(ref);
@@ -5177,13 +5169,6 @@ class ComponentEngine {
             });
         });
         return value;
-    }
-    getListAndListIndexes(ref) {
-        const saveInfo = this.#saveInfoByRef.get(ref);
-        if (typeof saveInfo === "undefined") {
-            return EMPTY_SAVE_INFO;
-        }
-        return saveInfo;
     }
     getPropertyValue(ref) {
         // プロパティの値を取得する
