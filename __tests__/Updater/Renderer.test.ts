@@ -30,11 +30,6 @@ vi.mock("../../src/StatePropertyRef/StatepropertyRef", () => ({
   getStatePropertyRef: (info: any, listIndex: any) => getStatePropertyRefMock(info, listIndex),
 }));
 
-const calcListDiffMock = vi.fn();
-vi.mock("../../src/ListDiff/ListDiff", () => ({
-  calcListDiff: (listIndex: any, oldList: any, newList: any, oldIndexes: any) => calcListDiffMock(listIndex, oldList, newList, oldIndexes),
-}));
-
 // SUT
 import { render } from "../../src/Updater/Renderer";
 

@@ -354,19 +354,268 @@ describe("PathManager/PathManager", () => {
     });
   });
 
+  describe("addPath", () => {
+    test("should register cumulative paths and optimize multi-segment entries", () => {
+      mockGetPathsSetById.mockReturnValue(new Set());
+      mockGetListPathsSetById.mockReturnValue(new Set());
+
+      mockGetStructuredPathInfo.mockImplementation((path: string) => {
+        if (path === "user.name") {
+          return {
+            cumulativePathSet: new Set(["user", "user.name"]),
+            pathSegments: ["user", "name"],
+            parentPath: "user"
+          } as any;
+        }
+        if (path === "user") {
+          return {
+            cumulativePathSet: new Set(["user"]),
+            pathSegments: ["user"],
+            parentPath: ""
+          } as any;
+        }
+        return {
+          cumulativePathSet: new Set([path]),
+          pathSegments: path.split("."),
+          parentPath: path.includes(".") ? path.substring(0, path.lastIndexOf(".")) : ""
+        } as any;
+      });
+
+      const simpleComponentClass = {
+        id: 11,
+        stateClass: class {}
+      } as unknown as StructiveComponentClass;
+
+      mockCreateAccessorFunctions.mockReturnValue({
+        get: vi.fn(() => "value"),
+        set: vi.fn()
+      });
+
+      pathManager = createPathManager(simpleComponentClass);
+      mockAddPathNode.mockClear();
+      pathManager.addPath("user.name");
+
+      expect(pathManager.alls.has("user")).toBe(true);
+      expect(pathManager.alls.has("user.name")).toBe(true);
+      expect(mockAddPathNode).toHaveBeenCalledWith(mockRootNode, "user");
+      expect(mockAddPathNode).toHaveBeenCalledWith(mockRootNode, "user.name");
+      expect(mockCreateAccessorFunctions).toHaveBeenCalledWith(expect.objectContaining({ parentPath: "user" }), expect.any(Set));
+      expect(pathManager.optimizes.has("user.name")).toBe(true);
+      const dependents = pathManager.staticDependencies.get("user");
+      expect(dependents).toBeInstanceOf(Set);
+      expect(dependents?.has("user.name")).toBe(true);
+      const descriptor = Object.getOwnPropertyDescriptor(simpleComponentClass.stateClass.prototype, "user.name");
+      expect(descriptor?.get).toBeDefined();
+      expect(descriptor?.set).toBeDefined();
+      expect(descriptor?.enumerable).toBe(true);
+      expect(descriptor?.configurable).toBe(true);
+    });
+
+    test("should skip already known paths when added twice", () => {
+      mockGetPathsSetById.mockReturnValue(new Set());
+      mockGetListPathsSetById.mockReturnValue(new Set());
+
+      const infoMap = new Map<string, { cumulativePathSet: Set<string>; pathSegments: string[]; parentPath: string }>();
+      infoMap.set("user.name", {
+        cumulativePathSet: new Set(["user", "user.name"]),
+        pathSegments: ["user", "name"],
+        parentPath: "user"
+      });
+      infoMap.set("user", {
+        cumulativePathSet: new Set(["user"]),
+        pathSegments: ["user"],
+        parentPath: ""
+      });
+
+      mockGetStructuredPathInfo.mockImplementation((path: string) => {
+        const info = infoMap.get(path);
+        if (info) {
+          return {
+            cumulativePathSet: new Set(info.cumulativePathSet),
+            pathSegments: [...info.pathSegments],
+            parentPath: info.parentPath
+          } as any;
+        }
+        return {
+          cumulativePathSet: new Set([path]),
+          pathSegments: path.split("."),
+          parentPath: path.includes(".") ? path.substring(0, path.lastIndexOf(".")) : ""
+        } as any;
+      });
+
+      const componentClass = {
+        id: 12,
+        stateClass: class {}
+      } as unknown as StructiveComponentClass;
+
+      mockCreateAccessorFunctions.mockReturnValue({
+        get: vi.fn(),
+        set: vi.fn()
+      });
+
+      pathManager = createPathManager(componentClass);
+      pathManager.addPath("user.name");
+      mockCreateAccessorFunctions.mockClear();
+      mockAddPathNode.mockClear();
+
+      pathManager.addPath("user.name");
+
+      expect(mockCreateAccessorFunctions).not.toHaveBeenCalled();
+      expect(mockAddPathNode).not.toHaveBeenCalled();
+    });
+
+    test("should append to existing static dependency entries", () => {
+      mockGetPathsSetById.mockReturnValue(new Set());
+      mockGetListPathsSetById.mockReturnValue(new Set());
+
+      mockGetStructuredPathInfo.mockImplementation((path: string) => {
+        if (path === "user.name") {
+          return {
+            cumulativePathSet: new Set(["user", "user.name"]),
+            pathSegments: ["user", "name"],
+            parentPath: "user"
+          } as any;
+        }
+        if (path === "user.age") {
+          return {
+            cumulativePathSet: new Set(["user", "user.age"]),
+            pathSegments: ["user", "age"],
+            parentPath: "user"
+          } as any;
+        }
+        if (path === "user") {
+          return {
+            cumulativePathSet: new Set(["user"]),
+            pathSegments: ["user"],
+            parentPath: ""
+          } as any;
+        }
+        return {
+          cumulativePathSet: new Set([path]),
+          pathSegments: path.split("."),
+          parentPath: path.includes(".") ? path.substring(0, path.lastIndexOf(".")) : ""
+        } as any;
+      });
+
+      const componentClass = {
+        id: 18,
+        stateClass: class {}
+      } as unknown as StructiveComponentClass;
+
+      mockCreateAccessorFunctions.mockReturnValue({
+        get: vi.fn(),
+        set: vi.fn()
+      });
+
+      pathManager = createPathManager(componentClass);
+
+      pathManager.addPath("user.name");
+      const initialDependents = pathManager.staticDependencies.get("user");
+      expect(initialDependents?.has("user.name")).toBe(true);
+
+      mockCreateAccessorFunctions.mockClear();
+      pathManager.addPath("user.age");
+
+      const dependents = pathManager.staticDependencies.get("user");
+      expect(dependents).toBeInstanceOf(Set);
+      expect(dependents?.has("user.name")).toBe(true);
+      expect(dependents?.has("user.age")).toBe(true);
+      expect(mockCreateAccessorFunctions).toHaveBeenCalledTimes(1);
+    });
+
+    test("should avoid optimization for single-segment paths", () => {
+      mockGetPathsSetById.mockReturnValue(new Set());
+      mockGetListPathsSetById.mockReturnValue(new Set());
+
+      mockGetStructuredPathInfo.mockImplementation((path: string) => ({
+        cumulativePathSet: new Set([path]),
+        pathSegments: [path],
+        parentPath: ""
+      }) as any);
+
+      const componentClass = {
+        id: 13,
+        stateClass: class {}
+      } as unknown as StructiveComponentClass;
+
+      mockCreateAccessorFunctions.mockClear();
+
+      pathManager = createPathManager(componentClass);
+      pathManager.addPath("plain");
+
+      expect(pathManager.alls.has("plain")).toBe(true);
+      expect(pathManager.optimizes.has("plain")).toBe(false);
+      expect(mockCreateAccessorFunctions).not.toHaveBeenCalled();
+      expect(pathManager.staticDependencies.size).toBe(0);
+    });
+  });
+
   describe("addDynamicDependency", () => {
     beforeEach(() => {
-      pathManager = createPathManager(mockComponentClass);
+      mockGetPathsSetById.mockReturnValue(new Set());
+      mockGetListPathsSetById.mockReturnValue(new Set());
+      mockGetStructuredPathInfo.mockImplementation((path: string) => {
+        if (path === "source.path") {
+          return {
+            cumulativePathSet: new Set(["source", "source.path"]),
+            pathSegments: ["source", "path"],
+            parentPath: "source"
+          } as any;
+        }
+        if (path === "source") {
+          return {
+            cumulativePathSet: new Set(["source"]),
+            pathSegments: ["source"],
+            parentPath: ""
+          } as any;
+        }
+        if (path === "pre.existing") {
+          return {
+            cumulativePathSet: new Set(["pre.existing"]),
+            pathSegments: ["pre", "existing"],
+            parentPath: "pre"
+          } as any;
+        }
+        if (path === "another.path") {
+          return {
+            cumulativePathSet: new Set(["another", "another.path"]),
+            pathSegments: ["another", "path"],
+            parentPath: "another"
+          } as any;
+        }
+        return {
+          cumulativePathSet: new Set([path]),
+          pathSegments: path ? path.split(".") : [],
+          parentPath: path && path.includes(".") ? path.substring(0, path.lastIndexOf(".")) : ""
+        } as any;
+      });
+
+      const dynamicComponentClass = {
+        id: 14,
+        stateClass: class {}
+      } as unknown as StructiveComponentClass;
+
+      mockCreateAccessorFunctions.mockReturnValue({
+        get: vi.fn(),
+        set: vi.fn()
+      });
+
+      pathManager = createPathManager(dynamicComponentClass);
     });
 
     test("should add new dynamic dependency", () => {
+      const addPathSpy = vi.spyOn(pathManager, "addPath");
+
       pathManager.addDynamicDependency("target.path", "source.path");
       
       expect(pathManager.dynamicDependencies.has("source.path")).toBe(true);
       expect(pathManager.dynamicDependencies.get("source.path")?.has("target.path")).toBe(true);
+      expect(addPathSpy).toHaveBeenCalledWith("source.path");
+      addPathSpy.mockRestore();
     });
 
     test("should add multiple targets to same source", () => {
+      const addPathSpy = vi.spyOn(pathManager, "addPath");
       pathManager.addDynamicDependency("target1.path", "source.path");
       pathManager.addDynamicDependency("target2.path", "source.path");
       
@@ -374,6 +623,8 @@ describe("PathManager/PathManager", () => {
       expect(dependencies?.size).toBe(2);
       expect(dependencies?.has("target1.path")).toBe(true);
       expect(dependencies?.has("target2.path")).toBe(true);
+      expect(addPathSpy).toHaveBeenCalledTimes(1);
+      addPathSpy.mockRestore();
     });
 
     test("should handle multiple sources", () => {
@@ -387,11 +638,25 @@ describe("PathManager/PathManager", () => {
     });
 
     test("should ignore duplicate dynamic dependency entries", () => {
+      const addPathSpy = vi.spyOn(pathManager, "addPath");
       pathManager.addDynamicDependency("target.path", "source.path");
       pathManager.addDynamicDependency("target.path", "source.path");
 
       const dependencies = pathManager.dynamicDependencies.get("source.path");
       expect(dependencies?.size).toBe(1);
+      expect(addPathSpy).toHaveBeenCalledTimes(1);
+      addPathSpy.mockRestore();
+    });
+
+    test("should skip addPath when source already present", () => {
+      pathManager.addPath("pre.existing");
+      const addPathSpy = vi.spyOn(pathManager, "addPath");
+
+      pathManager.addDynamicDependency("another.target", "pre.existing");
+
+      expect(pathManager.dynamicDependencies.get("pre.existing")?.has("another.target")).toBe(true);
+      expect(addPathSpy).not.toHaveBeenCalled();
+      addPathSpy.mockRestore();
     });
   });
 

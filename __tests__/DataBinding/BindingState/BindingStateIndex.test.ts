@@ -157,4 +157,55 @@ describe("BindingStateIndex", () => {
     expect(set.size).toBe(1);
     expect(set.has(binding)).toBe(true);
   });
+
+  it("親バインディングが無い場合は init でエラー", () => {
+    const engine = createEngine();
+    const listIndex = { index: 0 };
+    const loopContext = {
+      serialize: () => [{
+        listIndex,
+        ref: { key: "REF" },
+        bindContent: { parentBinding: null }
+      }]
+    };
+    const binding = {
+      engine,
+      parentBindContent: { currentLoopContext: loopContext }
+    } as any;
+
+    const factory = createBindingStateIndex("$1", []);
+    const bs = factory(binding, engine.outputFilters);
+
+    expect(() => bs.init()).toThrowError(/Binding for list is null/);
+  });
+
+  it("既存エントリがある場合は Set に追記する", () => {
+    const engine = createEngine();
+    const listIndex = { index: 5 };
+    const parentBinding = { bindingsByListIndex: engine.bindingsByListIndex };
+    const existingBinding = { id: "existing" };
+    const existingSet = new Set<any>([existingBinding]);
+    parentBinding.bindingsByListIndex.set(listIndex, existingSet);
+
+    const loopContext = {
+      serialize: () => [{
+        listIndex,
+        ref: { key: "REF" },
+        bindContent: { parentBinding }
+      }]
+    };
+
+    const binding = {
+      engine,
+      parentBindContent: { currentLoopContext: loopContext }
+    } as any;
+
+    const factory = createBindingStateIndex("$1", []);
+    const bs = factory(binding, engine.outputFilters);
+
+    bs.init();
+
+    expect(existingSet.size).toBe(2);
+    expect(existingSet.has(binding)).toBe(true);
+  });
 });

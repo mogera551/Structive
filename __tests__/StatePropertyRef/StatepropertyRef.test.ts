@@ -278,6 +278,54 @@ describe('StatePropertyRef', () => {
     });
   });
 
+  describe('parentRef', () => {
+    it('親情報が無いトップレベルパスでは null を返す', () => {
+      const rootInfo = getStructuredPathInfo('root');
+      const rootRef = getStatePropertyRef(rootInfo, null);
+
+      expect(rootRef.parentRef).toBeNull();
+    });
+
+    it('ワイルドカード数が同じ場合は現在の listIndex を引き継ぐ', () => {
+      const parentInfo = getStructuredPathInfo('root.*');
+      const childInfo = getStructuredPathInfo('root.*.value');
+      const sharedIndex = createListIndex(null, 0);
+
+      const childRef = getStatePropertyRef(childInfo, sharedIndex);
+      const parentRef = childRef.parentRef;
+
+      expect(parentRef).not.toBeNull();
+      expect(parentRef?.info).toBe(parentInfo);
+      expect(parentRef?.listIndex).toBe(sharedIndex);
+    });
+
+    it('listIndex が null の場合は null を親参照に渡す', () => {
+      const parentInfo = getStructuredPathInfo('root');
+      const childInfo = getStructuredPathInfo('root.child');
+
+      const childRef = getStatePropertyRef(childInfo, null);
+      const parentRef = childRef.parentRef;
+
+      expect(parentRef).not.toBeNull();
+      expect(parentRef?.info).toBe(parentInfo);
+      expect(parentRef?.listIndex).toBeNull();
+    });
+
+    it('子のワイルドカードが親より深い場合は一つ上の listIndex を利用する', () => {
+      const deepInfo = getStructuredPathInfo('root.*.items.*');
+      const parentInfo = deepInfo.parentInfo!; // 'root.*.items'
+      const outerIndex = createListIndex(null, 0);
+      const innerIndex = createListIndex(outerIndex, 1);
+
+      const deepRef = getStatePropertyRef(deepInfo, innerIndex);
+      const parentRef = deepRef.parentRef;
+
+      expect(parentRef).not.toBeNull();
+      expect(parentRef?.info).toBe(parentInfo);
+      expect(parentRef?.listIndex).toBe(outerIndex);
+    });
+  });
+
   describe('インターフェース適合性', () => {
     it('IStatePropertyRef インターフェースに適合している', () => {
       const ref = getStatePropertyRef(pathInfo1, listIndex1);

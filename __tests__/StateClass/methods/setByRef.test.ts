@@ -1,8 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { setByRef } from "../../../src/StateClass/methods/setByRef";
+import { GetByRefSymbol, GetListIndexesByRefSymbol } from "../../../src/StateClass/symbols";
 
 vi.mock("../../../src/StateClass/methods/getByRef", () => ({
   getByRef: (target: any, ref: any) => Reflect.get(target, ref.info.pattern),
+}));
+
+const getStatePropertyRefMock = vi.fn();
+vi.mock("../../../src/StatePropertyRef/StatepropertyRef", () => ({
+  getStatePropertyRef: (...args: any[]) => getStatePropertyRefMock(...args),
 }));
 
 function createPathManagerSet(initial: string[] = []) {
@@ -79,7 +85,11 @@ function makeRef(info: any, listIndex: any = null) {
 }
 
 describe("StateClass/methods: setByRef", () => {
-  beforeEach(() => vi.restoreAllMocks());
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    getStatePropertyRefMock.mockReset();
+    getStatePropertyRefMock.mockImplementation((info: any, listIndex: any) => ({ info, listIndex }));
+  });
 
   it("stateOutput 経由で設定 (startsWith=true, setters 交差なし)", () => {
     const info = makeInfo("a.b");
@@ -143,5 +153,145 @@ describe("StateClass/methods: setByRef", () => {
     expect(() => {
       setByRef(target, ref, 456, {} as any, handler as any);
     }).toThrowError(/propRef.listIndex\?\.index is undefined/);
+  });
+
+  it("elements: 既存 swapInfo を再利用して listIndex を更新", () => {
+    const parentInfo = makeInfo("items");
+    const info = makeInfo("items.*", { parentInfo, lastSegment: "*", wildcardCount: 1 });
+    const listIndex = { index: 0, parentListIndex: { index: 9 } };
+    const parentRef = { info: parentInfo, listIndex: listIndex.parentListIndex };
+    const ref = makeRef(info, listIndex);
+    ref.parentRef = parentRef;
+    const handler = makeHandler();
+    handler.engine.pathManager.elements = createPathManagerSet([info.pattern]);
+    const value = { id: "new" };
+    const swapListIndex = { index: 10 };
+    const swapInfo = {
+      value: [value, { id: "other" }],
+      listIndexes: [swapListIndex, { index: 20 }],
+    };
+    handler.updater.swapInfoByRef.set(parentRef, swapInfo);
+    const currentListIndexes = [{ index: 0 }, { index: 1 }];
+    const receiver: any = {
+      [GetByRefSymbol]: vi.fn(),
+      [GetListIndexesByRefSymbol]: vi.fn().mockReturnValue(currentListIndexes),
+    };
+    const target: any = { items: [1, 2, 3] };
+    getStatePropertyRefMock.mockReturnValueOnce(parentRef);
+
+    const ok = setByRef(target, ref, value, receiver, handler as any);
+
+    expect(ok).toBe(true);
+    expect(target.items[0]).toBe(value);
+    expect(currentListIndexes[0]).toBe(swapListIndex);
+    expect(handler.updater.swapInfoByRef.get(parentRef)).toBe(swapInfo);
+    expect(receiver[GetListIndexesByRefSymbol]).toHaveBeenCalledTimes(1);
+    expect(handler.updater.enqueueRef).toHaveBeenCalledWith(ref);
+  });
+
+  it("elements: swapInfo が未登録の場合は生成し index 未一致なら更新しない", () => {
+    const parentInfo = makeInfo("fooParent");
+    const info = makeInfo("foo", { parentInfo, lastSegment: "foo" });
+    const listIndex = { index: 1, parentListIndex: null };
+    const parentRef = { info: parentInfo, listIndex: listIndex.parentListIndex };
+    const ref = makeRef(info, listIndex);
+    ref.parentRef = parentRef;
+    const handler = makeHandler();
+    handler.engine.pathManager.elements = createPathManagerSet([info.pattern]);
+    const existingValues = ["keep"];
+    const existingIndexes = ["idx0"];
+    const target: any = { foo: "old" };
+    const receiver: any = target;
+    receiver[GetByRefSymbol] = vi.fn().mockReturnValue(existingValues);
+    receiver[GetListIndexesByRefSymbol] = vi.fn().mockReturnValue(existingIndexes);
+    const newValue = "new";
+    getStatePropertyRefMock.mockReturnValueOnce(parentRef);
+
+    const ok = setByRef(target, ref, newValue, receiver, handler as any);
+
+    expect(ok).toBe(true);
+    expect(target.foo).toBe(newValue);
+    expect(receiver.foo).toBe(newValue);
+    const stored = handler.updater.swapInfoByRef.get(parentRef);
+    expect(stored?.value).toEqual(existingValues);
+    expect(stored?.value).not.toBe(existingValues);
+    expect(stored?.listIndexes).toEqual(existingIndexes);
+    expect(stored?.listIndexes).not.toBe(existingIndexes);
+    expect(receiver[GetByRefSymbol]).toHaveBeenCalledWith(parentRef);
+  expect(receiver[GetListIndexesByRefSymbol]).toHaveBeenCalledTimes(1);
+    expect(existingIndexes).toEqual(["idx0"]);
+    expect(handler.updater.enqueueRef).toHaveBeenCalledWith(ref);
+  });
+
+  it("elements: swapInfo 未登録でも取得結果が undefined の場合は空配列を利用", () => {
+    const parentInfo = makeInfo("bazParent");
+    const info = makeInfo("baz", { parentInfo, lastSegment: "baz" });
+    const listIndex = { index: 0, parentListIndex: null };
+    const parentRef = { info: parentInfo, listIndex: listIndex.parentListIndex };
+    const ref = makeRef(info, listIndex);
+    ref.parentRef = parentRef;
+    const handler = makeHandler();
+    handler.engine.pathManager.elements = createPathManagerSet([info.pattern]);
+    const target: any = { baz: "old" };
+    const receiver: any = target;
+    receiver[GetByRefSymbol] = vi.fn().mockReturnValue(undefined);
+    receiver[GetListIndexesByRefSymbol] = vi.fn().mockReturnValue(undefined);
+    getStatePropertyRefMock.mockReturnValueOnce(parentRef);
+
+    const ok = setByRef(target, ref, "new", receiver, handler as any);
+
+    expect(ok).toBe(true);
+    expect(target.baz).toBe("new");
+    expect(receiver.baz).toBe("new");
+    const stored = handler.updater.swapInfoByRef.get(parentRef);
+    expect(stored?.value).toEqual([]);
+    expect(stored?.listIndexes).toEqual([]);
+    expect(receiver[GetByRefSymbol]).toHaveBeenCalledWith(parentRef);
+    expect(receiver[GetListIndexesByRefSymbol]).toHaveBeenCalledWith(parentRef);
+    expect(handler.updater.enqueueRef).toHaveBeenCalledWith(ref);
+  });
+
+  it("elements: 既存 swapInfo で listIndexes が未取得なら空配列で更新", () => {
+    const parentInfo = makeInfo("items");
+    const info = makeInfo("items.*", { parentInfo, lastSegment: "*", wildcardCount: 1 });
+    const listIndex = { index: 2, parentListIndex: { index: 99 } };
+    const parentRef = { info: parentInfo, listIndex: listIndex.parentListIndex };
+    const ref = makeRef(info, listIndex);
+    ref.parentRef = parentRef;
+    const handler = makeHandler();
+    handler.engine.pathManager.elements = createPathManagerSet([info.pattern]);
+    const value = { id: "keep" };
+    const swapInfo = {
+      value: [value, { id: "other" }],
+      listIndexes: [{ index: 1 }, { index: 2 }],
+    };
+    handler.updater.swapInfoByRef.set(parentRef, swapInfo);
+    const receiver: any = {
+      [GetByRefSymbol]: vi.fn(),
+      [GetListIndexesByRefSymbol]: vi.fn().mockReturnValue(undefined),
+    };
+    const target: any = { items: [value, { id: "extra" }] };
+
+    const ok = setByRef(target, ref, value, receiver, handler as any);
+
+    expect(ok).toBe(true);
+    expect(receiver[GetListIndexesByRefSymbol]).toHaveBeenCalledWith(parentRef);
+    expect(handler.updater.swapInfoByRef.get(parentRef)).toBe(swapInfo);
+    expect(handler.updater.enqueueRef).toHaveBeenCalledWith(ref);
+  });
+
+  it("エラー: elements で parentRef が存在しない場合は例外を投げる", () => {
+    const info = makeInfo("bar");
+    const ref = makeRef(info, { index: 0, parentListIndex: null });
+    const handler = makeHandler();
+    handler.engine.pathManager.elements = createPathManagerSet([info.pattern]);
+    const receiver: any = {
+      [GetByRefSymbol]: vi.fn(),
+      [GetListIndexesByRefSymbol]: vi.fn(),
+    };
+
+    expect(() => {
+      setByRef({}, ref, 1, receiver, handler as any);
+    }).toThrowError(/propRef.stateProp.parentInfo is undefined/);
   });
 });

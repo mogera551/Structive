@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { get } from "../../src/StateClass/traps/get.js";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
 
 const raiseErrorMock = vi.fn((detail: any) => {
   const message = typeof detail === "string" ? detail : detail?.message ?? "error";
@@ -26,6 +26,11 @@ vi.mock("../../src/StateProperty/getResolvedPathInfo.js", () => ({
 const getListIndexMock = vi.fn();
 vi.mock("../../src/StateClass/methods/getListIndex.js", () => ({
   getListIndex: (...args: any[]) => getListIndexMock(...args),
+}));
+
+const getListIndexesByRefMock = vi.fn();
+vi.mock("../../src/StateClass/methods/getListIndexesByRef.js", () => ({
+  getListIndexesByRef: (...args: any[]) => getListIndexesByRefMock(...args),
 }));
 
 const getStatePropertyRefMock = vi.fn();
@@ -85,6 +90,7 @@ beforeEach(() => {
   getRouterMock.mockReset();
   getResolvedPathInfoMock.mockReset();
   getListIndexMock.mockReset();
+  getListIndexesByRefMock.mockReset();
   getStatePropertyRefMock.mockReset();
   getByRefMock.mockReset();
   setByRefMock.mockReset();
@@ -185,6 +191,18 @@ describe("StateClass/traps get", () => {
     const disconnectedFn = get(target, DisconnectedCallbackSymbol, receiver as any, handler);
     disconnectedFn();
     expect(disconnectedCallbackMock).toHaveBeenCalled();
+  });
+
+  it("GetListIndexesByRefSymbol は getListIndexesByRef を呼ぶ", () => {
+    const handler = makeHandler([GetListIndexesByRefSymbol]);
+    const ref = { info: { pattern: "x" } } as any;
+    const target = {};
+    const receiver = {};
+
+    const getListIndexesFn = get(target, GetListIndexesByRefSymbol, receiver as any, handler);
+    getListIndexesFn(ref);
+
+    expect(getListIndexesByRefMock).toHaveBeenCalledWith(target, ref, receiver, handler);
   });
 
   it("登録されていないシンボルは Reflect.get の結果を返す", () => {

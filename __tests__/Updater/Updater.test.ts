@@ -300,6 +300,28 @@ describe("Updater その他のAPI", () => {
     });
   });
 
+  it("oldValueAndIndexesByRef と swapInfoByRef が同じ Map/WeakMap インスタンスを返す", async () => {
+    const engine = createEngineStub();
+    const ref = createRef("cache");
+
+    await createUpdater(engine, (updater) => {
+      const oldValueMap = updater.oldValueAndIndexesByRef;
+      const swapInfoMap = updater.swapInfoByRef;
+
+      expect(oldValueMap).toBeInstanceOf(Map);
+      expect(swapInfoMap).toBeInstanceOf(WeakMap);
+
+      const saveInfo = { snapshot: true } as any;
+      const swapInfo = { swapped: true } as any;
+
+      oldValueMap.set(ref, saveInfo);
+      swapInfoMap.set(ref, swapInfo);
+
+      expect(updater.oldValueAndIndexesByRef.get(ref)).toBe(saveInfo);
+      expect(updater.swapInfoByRef.get(ref)).toBe(swapInfo);
+    });
+  });
+
   it("createReadonlyState で生成した state と handler をコールバックへ渡す", async () => {
     const engine = createEngineStub();
     const fakeHandler = { token: "handler" };
