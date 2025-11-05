@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getStructuredPathInfo } from "../../src/StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../../src/StatePropertyRef/StatepropertyRef";
-import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
+import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
 import { AssignStateSymbol } from "../../src/ComponentStateInput/symbols";
 import { createRootNode } from "../../src/PathTree/PathNode";
+import "../helpers/componentEngineListStorePatch";
 
 // シンプルなベースとなるカスタムエレメントとコンポーネントクラスを偽装
 class DummyState {
@@ -100,6 +101,7 @@ vi.mock("../../src/Updater/Updater", () => {
         createReadonlyState: vi.fn((fn: any) => {
           const readonlyProxy = {
             [GetByRefSymbol]: vi.fn(() => 123),
+            [GetListIndexesByRefSymbol]: vi.fn(() => null),
           };
           const handler = {} as any;
           return fn(readonlyProxy, handler);

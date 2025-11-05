@@ -5,6 +5,7 @@ import * as registerTemplateMod from "../../../src/Template/registerTemplate";
 import * as registerAttrMod from "../../../src/BindingBuilder/registerDataBindAttributes";
 import * as BindContentMod from "../../../src/DataBinding/BindContent";
 import * as GetStructuredPathInfoMod from "../../../src/StateProperty/getStructuredPathInfo";
+import { GetByRefSymbol, GetListIndexesByRefSymbol } from "../../../src/StateClass/symbols";
 
 describe("BindingNodeFor coverage", () => {
   beforeEach(() => {
@@ -20,6 +21,28 @@ describe("BindingNodeFor coverage", () => {
 
   function createIndexes(n: number) {
     return Array.from({ length: n }, (_, i) => ({ index: i }) as any);
+  }
+
+  function captureBindContentMap() {
+    const originalSet = WeakMap.prototype.set;
+    let targetMap: WeakMap<any, any> | undefined;
+    const setSpy = vi.spyOn(WeakMap.prototype, "set").mockImplementation(function (this: WeakMap<any, any>, key: any, value: any) {
+      if (!targetMap && value && typeof value.mountAfter === "function") {
+        targetMap = this;
+      }
+      return originalSet.call(this, key, value);
+    });
+    return {
+      getMap(): WeakMap<any, any> {
+        if (!targetMap) {
+          throw new Error("BindContent map not captured");
+        }
+        return targetMap;
+      },
+      restore() {
+        setSpy.mockRestore();
+      },
+    };
   }
 
   it("assignValue は未実装エラー", () => {
@@ -226,7 +249,43 @@ describe("BindingNodeFor coverage", () => {
     expect(container.childNodes.length).toBe(1);
   });
 
+  it("readonlyState が undefined/null を返しても空扱い", () => {
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|306a");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const diff = {
+      oldListValue: [],
+      newListValue: undefined,
+      newIndexes: [],
+      adds: new Set(),
+      removes: new Set(),
+    } as any;
+    const renderer = createRendererStub({
+      readonlyState: {
+        [GetByRefSymbol]: () => ({
+          [Symbol.iterator]() {
+            return {
+              next() {
+                return { done: true, value: undefined };
+              },
+            };
+          },
+        }),
+        [GetListIndexesByRefSymbol]: () => null,
+      },
+      calcListDiff: vi.fn(() => diff),
+    });
+
+    expect(() => node.applyChange(renderer)).not.toThrow();
+    expect(container.childNodes.length).toBe(1);
+  });
+
   it("removes: 未登録インデックスで BindContent not found", () => {
+    setupTemplate();
     const engine = createEngineStub();
     const comment = document.createComment("@@|307");
     const binding = createBindingStub(engine, comment);
@@ -234,20 +293,35 @@ describe("BindingNodeFor coverage", () => {
     container.appendChild(comment);
     const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
 
-    const idx = createIndexes(1);
-    const diff = {
-      // oldListValue と removes のサイズをずらして全削除最適化を回避
+    const idx = createIndexes(2);
+    const capture = captureBindContentMap();
+    const addDiff = {
+      oldListValue: [],
+      newListValue: [{}, {}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => addDiff) });
+    node.applyChange(rendererAdd);
+    const bindContentMap = capture.getMap();
+    capture.restore();
+
+    bindContentMap.delete(idx[1]);
+
+    const removeDiff = {
       oldListValue: [{}, {}],
       newListValue: [{}],
-      newIndexes: [{ index: 0 }],
+      newIndexes: [idx[0]],
       adds: new Set(),
-      removes: new Set(idx), // map 未登録のまま removes を要求
+      removes: new Set([idx[1]]),
     } as any;
-    const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
-    expect(() => node.applyChange(renderer)).toThrow(/BindContent not found/);
+    const rendererRemove = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => removeDiff) });
+    expect(() => node.applyChange(rendererRemove)).toThrow(/BindContent not found/);
   });
 
   it("reuse: 未登録だと BindContent not found", () => {
+    setupTemplate();
     const engine = createEngineStub();
     const comment = document.createComment("@@|308");
     const binding = createBindingStub(engine, comment);
@@ -256,15 +330,30 @@ describe("BindingNodeFor coverage", () => {
     const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
 
     const idx = createIndexes(1);
-    const diff = {
+    const capture = captureBindContentMap();
+    const addDiff = {
       oldListValue: [],
       newListValue: [{}],
       newIndexes: idx,
-      adds: new Set(), // 追加ではなく再利用扱いにする
+      adds: new Set(idx),
       removes: new Set(),
     } as any;
-    const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
-    expect(() => node.applyChange(renderer)).toThrow(/BindContent not found/);
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => addDiff) });
+    node.applyChange(rendererAdd);
+    const bindContentMap = capture.getMap();
+    capture.restore();
+
+    bindContentMap.delete(idx[0]);
+
+    const reuseDiff = {
+      oldListValue: [{}],
+      newListValue: [{}],
+      newIndexes: idx,
+      adds: new Set(),
+      removes: new Set(),
+    } as any;
+    const rendererReuse = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => reuseDiff) });
+    expect(() => node.applyChange(rendererReuse)).toThrow(/BindContent not found/);
   });
 
   it("reuse: 並びが正しければ再マウントしない（insertBefore が呼ばれない）", () => {
@@ -458,18 +547,206 @@ describe("BindingNodeFor coverage", () => {
     container.appendChild(comment);
     const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
 
-    // 並び替え: 未登録のインデックスを指定
-    const changeIndexes = new Set([{ index: 0 }]); // 未登録
+    const idx = createIndexes(1);
+    const capture = captureBindContentMap();
+    const addDiff = {
+      oldListValue: [],
+      newListValue: [{}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => addDiff) });
+    node.applyChange(rendererAdd);
+    const bindContentMap = capture.getMap();
+    capture.restore();
+
+    bindContentMap.delete(idx[0]);
+
+    const elementsPath = binding.bindingState.info.pattern + ".*";
+    const reorderRef = { info: { pattern: elementsPath }, listIndex: idx[0] } as any;
+    const changeIndexes = new Set([idx[0]]);
+    const diff = {
+      oldListValue: [{}],
+      newListValue: [{}],
+      newIndexes: idx,
+      adds: new Set(),
+      removes: new Set(),
+      changeIndexes,
+    } as any;
+    const renderer = createRendererStub({
+      readonlyState: {},
+      calcListDiff: vi.fn(() => diff),
+      updatingRefs: [reorderRef],
+      processedRefs: new Set(),
+    });
+    expect(() => node.applyChange(renderer)).toThrow(/BindContent not found/);
+  });
+
+  it("changeIndexesSet がある場合にリオーダー処理を実行する", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|313a");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const idx = createIndexes(3);
+    const diffAdd = {
+      oldListValue: [],
+      newListValue: [{}, {}, {}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+    const beforeOrder = node.bindContents.slice();
+
+    const reorderIndexes = [idx[2], idx[0], idx[1]];
+    reorderIndexes.forEach((listIndex, position) => {
+      listIndex.index = position;
+    });
+    const listPath = binding.bindingState.info.pattern + ".*";
+    const updatingRefs = reorderIndexes.map((listIndex) => ({ info: { pattern: listPath }, listIndex } as any));
+    const diffReorder = {
+      oldListValue: [{}, {}, {}],
+      newListValue: [{}, {}, {}],
+      newIndexes: reorderIndexes,
+      adds: new Set(),
+      removes: new Set(),
+    } as any;
+    const rendererReorder = createRendererStub({
+      readonlyState: {},
+      calcListDiff: vi.fn(() => diffReorder),
+      updatingRefs,
+    });
+    node.applyChange(rendererReorder);
+
+    expect(node.bindContents[0]).toBe(beforeOrder[2]);
+    expect(node.bindContents[1]).toBe(beforeOrder[0]);
+  });
+
+  it("updatingRefs の listIndex が null だとエラー", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|313b");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
     const diff = {
       oldListValue: [],
       newListValue: [],
       newIndexes: [],
       adds: new Set(),
       removes: new Set(),
-      changeIndexes: changeIndexes,
     } as any;
-    const r = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
-    expect(() => node.applyChange(r)).toThrow(/BindContent not found/);
+    const listPath = binding.bindingState.info.pattern + ".*";
+    const renderer = createRendererStub({
+      readonlyState: {},
+      calcListDiff: vi.fn(() => diff),
+      updatingRefs: [{ info: { pattern: listPath }, listIndex: null } as any],
+      processedRefs: new Set(),
+    });
+    expect(() => node.applyChange(renderer)).toThrow(/ListIndex is null/);
+  });
+
+  it("changeListIndexes に紐付いたバインディングが再評価される", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|313c");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const idx = createIndexes(2);
+    const diffAdd = {
+      oldListValue: [],
+      newListValue: [{}, {}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+
+    const dependentBinding = { applyChange: vi.fn() } as any;
+    binding.bindingsByListIndex.set(idx[0], new Set([dependentBinding]));
+
+    const newIndex = { index: 0 } as any;
+    idx[0].index = 1;
+    idx[1].index = 2;
+    const newIndexes = [newIndex, idx[0], idx[1]];
+    const diff = {
+      oldListValue: [{}, {}],
+      newListValue: [{}, {}, {}],
+      newIndexes,
+      adds: new Set([newIndex]),
+      removes: new Set(),
+    } as any;
+    const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
+    node.applyChange(renderer);
+
+    expect(dependentBinding.applyChange).toHaveBeenCalled();
+  });
+
+  it("processedRefs に含まれる updatingRef はスキップされる", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|313d");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const diff = {
+      oldListValue: [],
+      newListValue: [],
+      newIndexes: [],
+      adds: new Set(),
+      removes: new Set(),
+    } as any;
+    const listPath = binding.bindingState.info.pattern + ".*";
+    const updatingRef = { info: { pattern: listPath }, listIndex: null } as any;
+    const renderer = createRendererStub({
+      readonlyState: {},
+      calcListDiff: vi.fn(() => diff),
+      updatingRefs: [updatingRef],
+      processedRefs: new Set([updatingRef]),
+    });
+
+    expect(() => node.applyChange(renderer)).not.toThrow();
+  });
+
+  it("別パターンの updatingRef は無視される", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|313e");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const diff = {
+      oldListValue: [],
+      newListValue: [],
+      newIndexes: [],
+      adds: new Set(),
+      removes: new Set(),
+    } as any;
+    const updatingRef = { info: { pattern: "other.path.*" }, listIndex: null } as any;
+    const renderer = createRendererStub({
+      readonlyState: {},
+      calcListDiff: vi.fn(() => diff),
+      updatingRefs: [updatingRef],
+      processedRefs: new Set(),
+    });
+
+    expect(() => node.applyChange(renderer)).not.toThrow();
   });
 
   it("上書き処理: overwrites による要素の再描画", () => {
@@ -508,6 +785,53 @@ describe("BindingNodeFor coverage", () => {
     expect(container.childNodes.length).toBeGreaterThan(1);
   });
 
+  it("overwritesSet に含まれる BindContent は再描画される", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|314a");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const idx = createIndexes(1);
+    const capture = captureBindContentMap();
+    const diffAdd = {
+      oldListValue: [],
+      newListValue: [{}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+    const bindContentMap = capture.getMap();
+    capture.restore();
+
+    const overwriteIndex = { index: 0 } as any;
+    const targetContent = node.bindContents[0];
+    bindContentMap.set(overwriteIndex, targetContent);
+
+    const diff = {
+      oldListValue: [{}],
+      newListValue: [{}],
+      newIndexes: idx,
+      adds: new Set(),
+      removes: new Set(),
+    } as any;
+    const listPath = binding.bindingState.info.pattern + ".*";
+    const renderer = createRendererStub({
+      readonlyState: {},
+      calcListDiff: vi.fn(() => diff),
+      updatingRefs: [{ info: { pattern: listPath }, listIndex: overwriteIndex } as any],
+    });
+
+    const spy = vi.spyOn(targetContent, "applyChange");
+    node.applyChange(renderer);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
   it("上書き処理: overwrites で未登録インデックスはエラー", () => {
     setupTemplate();
     const engine = createEngineStub();
@@ -517,18 +841,34 @@ describe("BindingNodeFor coverage", () => {
     container.appendChild(comment);
     const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
 
-    // 上書き処理: 未登録のインデックスを指定
-    const overwrites = new Set([{ index: 0 }]); // 未登録
-    const diff = {
+    const idx = createIndexes(1);
+    const diffAdd = {
       oldListValue: [],
-      newListValue: [],
-      newIndexes: [],
+      newListValue: [{}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+
+    // 上書き処理: 未登録のインデックスを指定
+    const overwriteIndex = { index: 0 } as any;
+    const diff = {
+      oldListValue: [{}],
+      newListValue: [{}],
+      newIndexes: idx,
       adds: new Set(),
       removes: new Set(),
-      overwrites: overwrites,
     } as any;
-    const r = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
-    expect(() => node.applyChange(r)).toThrow(/BindContent not found/);
+    const listPath = binding.bindingState.info.pattern + ".*";
+    const renderer = createRendererStub({
+      readonlyState: {},
+      calcListDiff: vi.fn(() => diff),
+      updatingRefs: [{ info: { pattern: listPath }, listIndex: overwriteIndex } as any],
+      processedRefs: new Set(),
+    });
+    expect(() => node.applyChange(renderer)).toThrow(/BindContent not found/);
   });
 
   it("ListDiff が null の場合はエラー", () => {
@@ -553,19 +893,39 @@ describe("BindingNodeFor coverage", () => {
     container.appendChild(comment);
     const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
 
-    // bindContentsを直接空にしてLast content is nullエラーを発生させる
-    (node as any)["#bindContents"] = [];
-
     const idx1 = createIndexes(1);
-    const diff = {
+    const diffAdd = {
+      oldListValue: [],
+      newListValue: [{}],
+      newIndexes: idx1,
+      adds: new Set(idx1),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+
+    const contentsRef = node.bindContents;
+    const originalAt = (Array.prototype as any).at;
+    (Array.prototype as any).at = function (this: unknown[], index: number) {
+      if (this === contentsRef && index === -1) {
+        return undefined;
+      }
+      return originalAt.call(this, index);
+    };
+
+    const diffRemove = {
       oldListValue: [{}],
       newListValue: [],
       newIndexes: [],
       adds: new Set(),
       removes: new Set(idx1),
     } as any;
-    const renderer = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diff) });
-    expect(() => node.applyChange(renderer)).toThrow(/Last content is null/);
+    const rendererRemove = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffRemove) });
+    try {
+      expect(() => node.applyChange(rendererRemove)).toThrow(/Last content is null/);
+    } finally {
+      (Array.prototype as any).at = originalAt;
+    }
   });
 
   it("全削除最適化: ブランクノード処理でfirstNodeがnull以外", () => {

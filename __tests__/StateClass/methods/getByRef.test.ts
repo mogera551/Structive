@@ -1,22 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
 import { getByRef } from "../../../src/StateClass/methods/getByRef";
+import * as CreateListIndexesMod from "../../../src/StateClass/methods/createListIndexes";
+import { IStatePropertyRef } from "../../../src/StatePropertyRef/types";
+import { IStructuredPathInfo } from "../../../src/StateProperty/types";
+import { IStateHandler } from "../../../src/StateClass/types";
 
 const raiseErrorMock = vi.fn((detail: any) => {
-  const message = typeof detail === "string" ? detail : detail?.message ?? "error";
+  const message = typeof detail?.message === "string" ? detail.message : String(detail);
   throw new Error(message);
 });
+
 vi.mock("../../../src/utils", () => ({
   raiseError: (detail: any) => raiseErrorMock(detail),
 }));
 
 const checkDependencyMock = vi.fn();
+
 vi.mock("../../../src/StateClass/methods/checkDependency", () => ({
   checkDependency: (...args: any[]) => checkDependencyMock(...args),
 }));
 
-vi.mock("../../../src/StateClass/methods/setStatePropertyRef", () => ({
-  setStatePropertyRef: vi.fn(),
-}));
+const createListIndexesSpy = vi.spyOn(CreateListIndexesMod, "createListIndexes");
+
+beforeEach(() => {
+  raiseErrorMock.mockClear();
+  checkDependencyMock.mockClear();
+  createListIndexesSpy.mockReset();
+});
 
 function createGetterSet(values: string[] = []) {
   const base = new Set(values);
@@ -24,6 +35,9 @@ function createGetterSet(values: string[] = []) {
     has: (value: string) => base.has(value),
     add: (value: string) => {
       base.add(value);
+    },
+    clear: () => {
+      base.clear();
     },
     intersection: (other: Set<string>) => {
       const result = new Set<string>();
@@ -37,205 +51,219 @@ function createGetterSet(values: string[] = []) {
   };
 }
 
-function makeInfo(pattern: string, wildcardCount = 0, cumulativePaths: string[] = []): any {
+function makeInfo(pattern: string, wildcardCount = 0, cumulativePaths: string[] = []): IStructuredPathInfo {
   return {
+    id: 1,
+    sid: "1",
+    pathSegments: [],
+    lastSegment: pattern,
+    cumulativePaths,
+    cumulativePathSet: new Set(cumulativePaths),
+    cumulativeInfos: [],
+    cumulativeInfoSet: new Set(),
+    parentPath: null,
+    parentInfo: null,
+    wildcardPaths: [],
+    wildcardPathSet: new Set(),
+    indexByWildcardPath: {},
+    wildcardInfos: [],
+    wildcardInfoSet: new Set(),
+    wildcardParentPaths: [],
+    wildcardParentPathSet: new Set(),
+    wildcardParentInfos: [],
+    wildcardParentInfoSet: new Set(),
+    lastWildcardPath: null,
+    lastWildcardInfo: null,
     pattern,
     wildcardCount,
-    cumulativePathSet: new Set<string>(cumulativePaths),
+    children: {},
   };
 }
 
-function makeRef(pattern: string, wildcardCount = 0, cumulativePaths: string[] = []) {
-  return { info: makeInfo(pattern, wildcardCount, cumulativePaths) } as any;
+function makeRef(pattern: string, options?: { wildcardCount?: number; cumulativePaths?: string[]; listIndex?: any }): IStatePropertyRef {
+  const { wildcardCount = 0, cumulativePaths = [], listIndex = null } = options ?? {};
+  return {
+    info: makeInfo(pattern, wildcardCount, cumulativePaths),
+    listIndex,
+    key: pattern,
+    parentRef: null,
+  };
 }
 
-function makeHandler(options: { version?: number; revision?: number } = {}) {
-  const { version = 1, revision = 0 } = options;
-  const getters = createGetterSet();
-  const lists = new Set<string>();
+function makeHandler(options?: { version?: number; revision?: number; getters?: string[]; lists?: string[]; onlyGetters?: string[] }) {
+  const {
+    version = 1,
+    revision = 0,
+    getters: initialGetters = [],
+    lists: initialLists = [],
+    onlyGetters: initialOnlyGetters = [],
+  } = options ?? {};
+
+  const getters = createGetterSet(initialGetters);
+  const onlyGetters = createGetterSet(initialOnlyGetters);
+  const lists = new Set(initialLists);
   const cache = new Map<any, any>();
+  const versionRevisionByPath = new Map<string, { version: number; revision: number }>();
   const stateOutput = {
     startsWith: vi.fn().mockReturnValue(false),
     get: vi.fn(),
   };
-  const handler = {
-    engine: {
-      pathManager: {
-        getters,
-        lists,
-      },
-      cache,
-      stateOutput,
+
+  const engine = {
+    pathManager: {
+      getters,
+      lists,
+      onlyGetters,
+      addDynamicDependency: vi.fn(),
     },
+    stateOutput,
+    cache,
+    versionRevisionByPath,
+  } as any;
+
+  const handler: IStateHandler = {
+    engine,
     updater: {
       version,
       revision,
-      revisionByUpdatedPath: new Map<string, number>(),
       calcListDiff: vi.fn(),
-    },
-  refStack: [null] as any[],
+    } as any,
+    renderer: null,
+    refStack: [null],
     refIndex: -1,
     lastRefStack: null,
+    loopContext: null,
+    symbols: new Set(),
+    apis: new Set(),
+    get: vi.fn(),
+    set: vi.fn(),
   };
-  return { handler: handler as any, cache, getters, lists, stateOutput };
+
+  return {
+    handler,
+    getters,
+    onlyGetters,
+    lists,
+    cache,
+    versionRevisionByPath,
+    stateOutput,
+  };
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  raiseErrorMock.mockReset();
-  checkDependencyMock.mockReset();
-});
+// �L���b�V���n
 
-describe("StateClass/methods getByRef (cache & readonly)", () => {
-  it("キャッシュがヒットした場合でも依存関係を登録して値を返す", () => {
+describe("StateClass/methods getByRef", () => {
+  it("�L���b�V�������݂� versionRevision �����o�^�Ȃ�L���b�V���l��Ԃ�", () => {
+    const ref = makeRef("todos.*", { wildcardCount: 1 });
     const { handler, cache } = makeHandler();
-    const ref = makeRef("items.*", 1);
-    cache.set(ref, { value: "CACHED", version: 1, revision: 0 });
+    const cached = { value: "CACHED", version: 1, revision: 0, listIndexes: [], cloneValue: null };
+    cache.set(ref, cached);
 
-    const value = getByRef({}, ref, {} as any, handler);
+    const result = getByRef({}, ref, {} as any, handler);
 
-    expect(value).toBe("CACHED");
+    expect(result).toBe("CACHED");
+    expect(cache.get(ref)).toBe(cached);
     expect(checkDependencyMock).toHaveBeenCalledTimes(1);
-    expect(checkDependencyMock).toHaveBeenCalledWith(handler, ref);
   });
 
-  it("revision 情報がありつつ変更が無い場合でも依存関係を登録する", () => {
-    const { handler, cache } = makeHandler({ version: 2, revision: 3 });
-    const ref = makeRef("users.*", 1);
-    cache.set(ref, { value: "UNCHANGED", version: 2, revision: 3 });
-    handler.updater.revisionByUpdatedPath.set("users.*", 3);
+  it("versionRevision ���ŐV�Ɠ���̏ꍇ�̓L���b�V�����ė��p����", () => {
+    const ref = makeRef("items.*", { wildcardCount: 1 });
+    const { handler, cache, versionRevisionByPath } = makeHandler();
+    const cached = { value: [1, 2], version: 3, revision: 2, listIndexes: [], cloneValue: null };
+    cache.set(ref, cached);
+    versionRevisionByPath.set(ref.info.pattern, { version: 3, revision: 2 });
 
-    const value = getByRef({}, ref, {} as any, handler);
+    const result = getByRef({}, ref, {} as any, handler);
 
-    expect(value).toBe("UNCHANGED");
+    expect(result).toEqual([1, 2]);
+    expect(cache.get(ref)).toBe(cached);
     expect(checkDependencyMock).toHaveBeenCalledTimes(1);
-    expect(checkDependencyMock).toHaveBeenCalledWith(handler, ref);
   });
 
-  it("stateOutput.startsWith が true で交差が無い場合は stateOutput.get を返す", () => {
-    const { handler, stateOutput, cache, getters } = makeHandler();
-    const ref = makeRef("foo.bar", 0, ["foo"]);
+  it("�L���b�V���� version �����݂�薢���ł��L���b�V����Ԃ�", () => {
+    const ref = makeRef("future.*", { wildcardCount: 1 });
+    const { handler, cache, versionRevisionByPath } = makeHandler({ version: 1, revision: 0 });
+    const cached = { value: "FUTURE", version: 5, revision: 0, listIndexes: [], cloneValue: null };
+    cache.set(ref, cached);
+    versionRevisionByPath.set(ref.info.pattern, { version: 5, revision: 0 });
+
+    const result = getByRef({}, ref, {} as any, handler);
+
+    expect(result).toBe("FUTURE");
+    expect(cache.get(ref)).toBe(cached);
+    expect(checkDependencyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stateOutput.startsWith �� true �Ō������������ stateOutput.get �̌��ʂ�Ԃ�", () => {
+    const ref = makeRef("foo.bar", { cumulativePaths: ["foo"] });
+    const { handler, stateOutput } = makeHandler();
     stateOutput.startsWith.mockReturnValue(true);
     stateOutput.get.mockReturnValue("FROM_OUTPUT");
-    getters.add("foo.bar");
 
-    const value = getByRef({}, ref, {} as any, handler);
+    const result = getByRef({}, ref, {} as any, handler);
 
-    expect(value).toBe("FROM_OUTPUT");
+    expect(result).toBe("FROM_OUTPUT");
     expect(stateOutput.get).toHaveBeenCalledWith(ref);
+    expect(handler.refIndex).toBe(-1);
     expect(checkDependencyMock).toHaveBeenCalledTimes(1);
-  expect(cache.get(ref)).toBeUndefined();
   });
 
-  it("target にプロパティが存在する場合は Reflect.get の結果を返しキャッシュへ保存", () => {
-    const { handler, getters, cache, lists } = makeHandler();
-    const ref = makeRef("items", 0, []);
+  it("target �Ƀv���p�e�B�����݂���ꍇ�� Reflect.get �̌��ʂ��L���b�V���֕ۑ�", () => {
+    const ref = makeRef("items");
+    const { handler, cache, getters } = makeHandler({ getters: ["items"] });
     getters.add("items");
-    lists.add("items");
-    const target = { items: [1, 2, 3] };
+    const target = { items: 42 };
 
     const result = getByRef(target, ref, target as any, handler);
 
-    expect(result).toEqual([1, 2, 3]);
-    expect(cache.get(ref)).toEqual({ value: [1, 2, 3], version: 1, revision: 0 });
-    expect(handler.updater.calcListDiff).toHaveBeenCalledWith(ref, [1, 2, 3]);
+    const cacheEntry = cache.get(ref);
+    expect(result).toBe(42);
+    expect(cacheEntry.value).toBe(42);
+    expect(cacheEntry.listIndexes).toBeNull();
+    expect(cacheEntry.cloneValue).toBeNull();
+    expect(cacheEntry.version).toBe(handler.updater.version);
+    expect(cacheEntry.revision).toBe(handler.updater.revision);
+    expect(handler.refIndex).toBe(-1);
     expect(handler.lastRefStack).toBeNull();
+    expect(checkDependencyMock).toHaveBeenCalledTimes(1);
   });
 
-  it("プロパティが存在しない場合は raiseError を投げる", () => {
-    const { handler } = makeHandler();
-    const ref = makeRef("missing", 0, []);
+  it("list �v���p�e�B�Ȃ� createListIndexes �𗘗p���ăL���b�V�����X�V", () => {
+    const listIndex = { sid: "list" } as any;
+    const ref = makeRef("todos", { listIndex });
+    const { handler, cache, lists, versionRevisionByPath } = makeHandler();
+    lists.add(ref.info.pattern);
+    const previousEntry = { value: ["old"], listIndexes: ["old-index"], cloneValue: null, version: 0, revision: 0 };
+    cache.set(ref, previousEntry);
+    versionRevisionByPath.set(ref.info.pattern, { version: handler.updater.version, revision: handler.updater.revision });
+    createListIndexesSpy.mockImplementation(() => ["new-index"] as any);
+    const target = { todos: ["a", "b"] };
+
+    const result = getByRef(target, ref, target as any, handler);
+
+    const cacheEntry = cache.get(ref);
+    expect(result).toEqual(["a", "b"]);
+    expect(createListIndexesSpy).toHaveBeenCalledWith(listIndex, previousEntry.value, ["a", "b"], previousEntry.listIndexes);
+    expect(cacheEntry.listIndexes).toEqual(["new-index"]);
+    expect(cacheEntry.cloneValue).not.toBe(cacheEntry.value);
+    expect(cacheEntry.cloneValue).toEqual(cacheEntry.value);
+  });
+
+  it("�v���p�e�B�����݂��Ȃ��ꍇ�� STC-001 �G���[�𓊂���", () => {
+    const ref = makeRef("missing");
+    const { handler } = makeHandler({ getters: ["missing"] });
 
     expect(() => getByRef({}, ref, {} as any, handler)).toThrowError(/Property "missing" does not exist/);
-    expect(raiseErrorMock).toHaveBeenCalled();
-  });
-});
-
-describe("StateClass/methods getByRef (revision scenarios)", () => {
-  it("revision が進んだ場合は新しい値でキャッシュを更新", () => {
-    const { handler, cache, getters, lists } = makeHandler({ version: 2, revision: 1 });
-    const ref = makeRef("items", 0, []);
-    getters.add("items");
-    lists.add("items");
-    cache.set(ref, { value: "OLD", version: 1, revision: 0 });
-    handler.updater.revisionByUpdatedPath.set("items", 1);
-    const target = { items: 99 };
-
-    const value = getByRef(target, ref, target as any, handler);
-
-    expect(value).toBe(99);
-    expect(cache.get(ref)).toEqual({ value: 99, version: 2, revision: 1 });
-    expect(handler.updater.calcListDiff).toHaveBeenCalledTimes(1);
-    const diffCall = handler.updater.calcListDiff.mock.calls[0];
-    expect(diffCall[0]).toBe(ref);
-    expect(diffCall[1]).toBe(99);
+    expect(raiseErrorMock).toHaveBeenCalledWith(expect.objectContaining({ code: "STC-001" }));
   });
 
-  it("cacheEntry.version が現在より大きい場合はキャッシュを返す", () => {
-    const { handler, cache } = makeHandler({ version: 1 });
-    handler.updater.version = 1;
-    const ref = makeRef("items.*", 1);
-    cache.set(ref, { value: "FUTURE", version: 3, revision: 0 });
-    handler.updater.revisionByUpdatedPath.set("items.*", 0);
-
-    const value = getByRef({}, ref, {} as any, handler);
-
-    expect(value).toBe("FUTURE");
-  });
-
-  it("stateOutput.startsWith が true でも交差がある場合は通常取得", () => {
-    const { handler, getters } = makeHandler();
-    const ref = makeRef("foo.bar", 0, ["foo"]);
-    getters.add("foo");
-    handler.engine.stateOutput.startsWith.mockReturnValue(true);
-    const target = { "foo.bar": "VALUE" } as any;
-
-    const result = getByRef(target, ref, target, handler);
-
-    expect(result).toBe("VALUE");
-    expect(handler.engine.stateOutput.get).not.toHaveBeenCalled();
-    expect(handler.engine.cache.get(ref)).toBeUndefined();
-  });
-
-  it("lists に含まれない場合は calcListDiff を呼ばない", () => {
-    const { handler, getters, lists } = makeHandler();
-    const ref = makeRef("items", 0);
-    getters.add("items");
-    lists.clear();
-    const target = { items: [5] };
-
-    const result = getByRef(target, ref, target as any, handler);
-
-    expect(result).toEqual([5]);
-    expect(handler.updater.calcListDiff).not.toHaveBeenCalled();
-  });
-
-  it("refIndex がスタックサイズに達した場合は null を push する", () => {
-    const { handler, getters } = makeHandler();
-    const ref = makeRef("items", 0, []);
-    const prevRef = { id: "prev" } as any;
-    getters.add("items");
-    handler.refStack = [prevRef] as any[];
-    handler.refIndex = 0;
-    handler.lastRefStack = prevRef;
-    const target = { items: 1 };
-
-    const value = getByRef(target, ref, target as any, handler);
-
-    expect(value).toBe(1);
-    expect(handler.refStack.length).toBe(2);
-    expect(handler.refStack[1]).toBeNull();
-    expect(handler.lastRefStack).toBe(prevRef);
-  });
-
-  it("refStack が空の場合は STC-002 エラーを投げる", () => {
-    const { handler, getters } = makeHandler();
-    const ref = makeRef("items", 0, []);
-    getters.add("items");
+  it("refStack ����̏ꍇ�� STC-002 �G���[�𓊂���", () => {
+    const ref = makeRef("value");
+    const { handler } = makeHandler({ getters: ["value"] });
     handler.refStack = [];
-    handler.refIndex = -1;
+    const target = { value: 10 };
 
-    expect(() => getByRef({ items: 1 }, ref, {} as any, handler)).toThrowError(/refStack is empty/);
+    expect(() => getByRef(target, ref, target as any, handler)).toThrowError(/handler.refStack is empty/);
     expect(raiseErrorMock).toHaveBeenCalledWith(expect.objectContaining({ code: "STC-002" }));
   });
 });

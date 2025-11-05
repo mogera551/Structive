@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getByRef } from "../../src/StateClass/methods/getByRef";
+import * as CreateListIndexesMod from "../../src/StateClass/methods/createListIndexes";
 
 const raiseErrorMock = vi.fn((detail: any) => {
   const message = typeof detail === "string" ? detail : detail?.message ?? "error";
@@ -14,15 +15,18 @@ vi.mock("../../src/StateClass/methods/checkDependency", () => ({
   checkDependency: (...args: any[]) => checkDependencyMock(...args),
 }));
 
-vi.mock("../../src/StateClass/methods/setStatePropertyRef", () => ({
-  setStatePropertyRef: vi.fn(),
-}));
+const createListIndexesSpy = vi.spyOn(CreateListIndexesMod, "createListIndexes");
 
 function createGetterSet(values: string[] = []) {
   const base = new Set(values);
   return {
     has: (value: string) => base.has(value),
-    add: (value: string) => { base.add(value); },
+    add: (value: string) => {
+      base.add(value);
+    },
+    clear: () => {
+      base.clear();
+    },
     intersection: (other: Set<string>) => {
       const result = new Set<string>();
       for (const value of base) {
@@ -35,22 +39,26 @@ function createGetterSet(values: string[] = []) {
   };
 }
 
-function makeInfo(pattern: string, wildcardCount = 0, cumulativePaths: string[] = []): any {
+function makeInfo(pattern: string, wildcardCount = 0, cumulativePaths: string[] = []) {
+  const segments = pattern.split(".");
   return {
     pattern,
     wildcardCount,
+    lastSegment: segments[segments.length - 1] ?? pattern,
     cumulativePathSet: new Set<string>(cumulativePaths),
-  };
+  } as any;
 }
 
-function makeRef(pattern: string, wildcardCount = 0, cumulativePaths: string[] = []) {
-  return { info: makeInfo(pattern, wildcardCount, cumulativePaths) } as any;
+function makeRef(pattern: string, options?: { wildcardCount?: number; cumulativePaths?: string[]; listIndex?: any }) {
+  const { wildcardCount = 0, cumulativePaths = [], listIndex = null } = options ?? {};
+  return { info: makeInfo(pattern, wildcardCount, cumulativePaths), listIndex } as any;
 }
 
 function makeHandler() {
   const getters = createGetterSet();
   const lists = new Set<string>();
   const cache = new Map<any, any>();
+  const versionRevisionByPath = new Map<string, { version: number; revision: number }>();
   const stateOutput = {
     startsWith: vi.fn().mockReturnValue(false),
     get: vi.fn(),
@@ -64,70 +72,80 @@ function makeHandler() {
       },
       cache,
       stateOutput,
+      versionRevisionByPath,
     },
     updater: {
       version: 1,
       revision: 0,
-      revisionByUpdatedPath: new Map<string, number>(),
-      calcListDiff: vi.fn(),
     },
-  refStack,
+    refStack,
     refIndex: -1,
     lastRefStack: null,
+    renderer: null,
   };
-  return { handler: handler as any, cache, getters, lists, stateOutput };
+  return { handler: handler as any, cache, getters, lists, stateOutput, versionRevisionByPath };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   raiseErrorMock.mockReset();
   checkDependencyMock.mockReset();
+  createListIndexesSpy.mockReset();
 });
 
 describe("StateClass/methods getByRef", () => {
   it("キャッシュがヒットした場合でも依存関係を登録して値を返す", () => {
     const { handler, cache } = makeHandler();
-    const ref = makeRef("items.*", 1);
-    cache.set(ref, { value: "CACHED", version: 1, revision: 0 });
+    const ref = makeRef("items.*", { wildcardCount: 1 });
+    const entry = { value: "CACHED", version: 1, revision: 0, listIndexes: null, cloneValue: null };
+    cache.set(ref, entry);
 
     const value = getByRef({}, ref, {} as any, handler);
 
     expect(value).toBe("CACHED");
+    expect(cache.get(ref)).toBe(entry);
     expect(checkDependencyMock).toHaveBeenCalledTimes(1);
   });
 
   it("stateOutput.startsWith が true で交差が無い場合は stateOutput.get を返す", () => {
-    const { handler, getters, stateOutput } = makeHandler();
-    const ref = makeRef("foo.bar", 0, ["foo"]);
+    const { handler, stateOutput } = makeHandler();
+    const ref = makeRef("foo.bar", { cumulativePaths: ["foo"] });
     stateOutput.startsWith.mockReturnValue(true);
     stateOutput.get.mockReturnValue("FROM_OUTPUT");
-    // intersection が空集合になるように getter セットは空のまま
 
     const value = getByRef({}, ref, {} as any, handler);
 
     expect(value).toBe("FROM_OUTPUT");
     expect(stateOutput.get).toHaveBeenCalledWith(ref);
+    expect(handler.refIndex).toBe(-1);
     expect(checkDependencyMock).toHaveBeenCalledTimes(1);
   });
 
   it("target にプロパティが存在する場合は Reflect.get の結果を返しキャッシュへ保存", () => {
-    const { handler, getters, cache, lists } = makeHandler();
-    const ref = makeRef("items", 0, []);
-    getters.add("items"); // cacheable 条件を満たす
+    const { handler, cache, getters, lists, versionRevisionByPath } = makeHandler();
+    const ref = makeRef("items", { listIndex: { mark: "list" } });
+    getters.add("items");
     lists.add("items");
+    versionRevisionByPath.set("items", { version: handler.updater.version, revision: handler.updater.revision });
     const target = { items: [1, 2, 3] };
+    createListIndexesSpy.mockReturnValue(["IDX"] as any);
 
     const result = getByRef(target, ref, target as any, handler);
 
+    const cacheEntry = cache.get(ref);
     expect(result).toEqual([1, 2, 3]);
-    expect(cache.get(ref)).toEqual({ value: [1, 2, 3], version: 1, revision: 0 });
-    expect(handler.updater.calcListDiff).toHaveBeenCalledWith(ref, [1, 2, 3]);
+    expect(createListIndexesSpy).toHaveBeenCalledWith(ref.listIndex, undefined, [1, 2, 3], []);
+    expect(cacheEntry.value).toEqual([1, 2, 3]);
+    expect(cacheEntry.listIndexes).toEqual(["IDX"]);
+    expect(cacheEntry.cloneValue).toEqual([1, 2, 3]);
+    expect(cacheEntry.version).toBe(handler.updater.version);
+    expect(cacheEntry.revision).toBe(handler.updater.revision);
     expect(handler.lastRefStack).toBeNull();
   });
 
   it("プロパティが存在しない場合は raiseError を投げる", () => {
     const { handler } = makeHandler();
-    const ref = makeRef("missing", 0, []);
+    const ref = makeRef("missing");
 
     expect(() => getByRef({}, ref, {} as any, handler)).toThrowError(/Property "missing" does not exist/);
     expect(raiseErrorMock).toHaveBeenCalled();

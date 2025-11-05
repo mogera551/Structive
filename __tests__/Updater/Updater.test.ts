@@ -60,7 +60,7 @@ describe("Updater.update", () => {
     findPathNodeByPathMock.mockReset();
     createReadonlyStateHandlerMock.mockReset();
     createReadonlyStateProxyMock.mockReset();
-    createReadonlyStateHandlerMock.mockImplementation(() => ({}));
+    createReadonlyStateHandlerMock.mockImplementation((engine: any, updater: any, renderer: any) => ({ engine, updater, renderer }));
     createReadonlyStateProxyMock.mockImplementation(() => ({}));
     findPathNodeByPathMock.mockImplementation((_root: any, pattern: string) => ({
       childNodeByName: new Map<string, any>(),
@@ -148,199 +148,13 @@ describe("Updater.update", () => {
   });
 });
 
-describe("Updater.calcListDiff", () => {
-  beforeEach(() => {
-    calcListDiffMock.mockReset();
-    createReadonlyStateHandlerMock.mockReset();
-    createReadonlyStateProxyMock.mockReset();
-    createReadonlyStateHandlerMock.mockImplementation(() => ({}));
-    createReadonlyStateProxyMock.mockImplementation(() => ({}));
-  });
-
-  it("既存差分があり同一なら再計算のみで終了する", async () => {
-    const engine = createEngineStub();
-    const ref = createListRef("list:ref");
-    await createUpdater(engine, (updater) => {
-      const existingDiff = {
-        same: false,
-        newListValue: ["existing"],
-        newIndexes: [{ index: 0 }],
-      } as any;
-      updater.setListDiff(ref, existingDiff);
-
-      calcListDiffMock.mockReturnValueOnce({
-        same: true,
-        newListValue: ["existing"],
-        newIndexes: [{ index: 0 }],
-      });
-
-      const result = updater.calcListDiff(ref, ["next"]);
-      expect(result).toBe(false);
-      expect(calcListDiffMock).toHaveBeenCalledTimes(1);
-      expect(engine.saveListAndListIndexes).not.toHaveBeenCalled();
-    });
-  });
-
-  it("既存差分の新リストと新値が同じ場合は差分計算を行わない", async () => {
-    const engine = createEngineStub();
-    const ref = createListRef("list:same");
-
-    await createUpdater(engine, (updater) => {
-      const existingDiff = {
-        same: false,
-        newListValue: ["keep"],
-        newIndexes: [{ index: 0 }],
-      } as any;
-      updater.setListDiff(ref, existingDiff);
-
-      const result = updater.calcListDiff(ref, ["keep"]);
-      expect(result).toBe(false);
-      expect(calcListDiffMock).not.toHaveBeenCalled();
-    });
-  });
-
-  it("既存差分や新値が未定義の場合でも isSameList 判定にフォールバックする", async () => {
-    const engine = createEngineStub();
-    const ref = createListRef("list:undefined");
-
-    await createUpdater(engine, (updater) => {
-      const existingDiff = {
-        same: false,
-        newListValue: undefined,
-        newIndexes: [{ index: 0 }],
-      } as any;
-      updater.setListDiff(ref, existingDiff);
-
-      const result = updater.calcListDiff(ref, undefined as any);
-      expect(result).toBe(false);
-      expect(calcListDiffMock).not.toHaveBeenCalled();
-      expect(engine.saveListAndListIndexes).not.toHaveBeenCalled();
-    });
-  });
-
-  it("差分があれば保存処理を行う", async () => {
-    const engine = createEngineStub();
-    const ref = createListRef("list:ref");
-    const saveInfo = {
-      list: ["old"],
-      listIndexes: [{ index: 0 }],
-      listClone: ["old"],
-    };
-    engine.getListAndListIndexes.mockReturnValue(saveInfo);
-
-    await createUpdater(engine, (updater) => {
-      const diff = {
-        same: false,
-        newListValue: ["new"],
-        newIndexes: [{ index: 0 }],
-        changeIndexes: new Set(),
-        overwrites: new Set(),
-      } as any;
-      calcListDiffMock.mockReturnValueOnce(diff);
-
-      const result = updater.calcListDiff(ref, ["new"]);
-      expect(result).toBe(true);
-      expect(calcListDiffMock).toHaveBeenCalledWith(ref.listIndex, saveInfo.list, ["new"], saveInfo.listIndexes);
-      expect(engine.saveListAndListIndexes).toHaveBeenCalledWith(ref, diff.newListValue, diff.newIndexes);
-      expect(updater.getListDiff(ref)).toBe(diff);
-      expect(updater.oldValueAndIndexesByRef.get(ref)).toBe(saveInfo);
-    });
-  });
-
-  it("差分が同一なら保存せず false を返す", async () => {
-    const engine = createEngineStub();
-    const ref = createListRef("list:ref");
-    engine.getListAndListIndexes.mockReturnValue(undefined);
-    await createUpdater(engine, (updater) => {
-      const diff = {
-        same: true,
-        newListValue: ["same"],
-        newIndexes: [{ index: 0 }],
-      } as any;
-      calcListDiffMock.mockReturnValueOnce(diff);
-
-      const result = updater.calcListDiff(ref, ["same"]);
-      expect(result).toBe(false);
-      expect(engine.saveListAndListIndexes).not.toHaveBeenCalled();
-      expect(updater.getListDiff(ref)).toBe(diff);
-      expect(updater.oldValueAndIndexesByRef.has(ref)).toBe(false);
-    });
-  });
-
-  it("既存差分があり再計算で差分が発生した場合は保存し直す", async () => {
-    const engine = createEngineStub();
-    const ref = createListRef("list:ref");
-    const saveInfo = {
-      list: ["legacy"],
-      listIndexes: [{ index: 0 }],
-      listClone: ["legacy"],
-    };
-    engine.getListAndListIndexes.mockReturnValue(saveInfo);
-
-    await createUpdater(engine, (updater) => {
-      const existingDiff = {
-        same: false,
-        newListValue: ["existing"],
-        newIndexes: [{ index: 0 }],
-      } as any;
-      updater.setListDiff(ref, existingDiff);
-
-      const intermediateDiff = {
-        same: false,
-        newListValue: ["candidate"],
-        newIndexes: [{ index: 0 }],
-      } as any;
-      const finalDiff = {
-        same: false,
-        newListValue: ["final"],
-        newIndexes: [{ index: 0 }],
-        overwrites: new Set(),
-        changeIndexes: new Set(),
-      } as any;
-
-      calcListDiffMock.mockReturnValueOnce(finalDiff);
-
-      const result = updater.calcListDiff(ref, ["final"]);
-
-      expect(result).toBe(true);
-      expect(calcListDiffMock).toHaveBeenCalledTimes(1);
-      expect(calcListDiffMock).toHaveBeenCalledWith(ref.listIndex, saveInfo.list, ["final"], saveInfo.listIndexes);
-      expect(engine.saveListAndListIndexes).toHaveBeenCalledWith(ref, finalDiff.newListValue, finalDiff.newIndexes);
-      expect(updater.getListDiff(ref)).toBe(finalDiff);
-      expect(updater.oldValueAndIndexesByRef.get(ref)).toBe(saveInfo);
-    });
-  });
-
-  it("差分の新リストが未定義でも null 保存と初期キャッシュを行う", async () => {
-    const engine = createEngineStub();
-    const ref = createListRef("list:ref");
-    engine.getListAndListIndexes.mockReturnValue(undefined);
-
-    await createUpdater(engine, (updater) => {
-      const diff = {
-        same: false,
-        newListValue: undefined,
-        newIndexes: undefined,
-        changeIndexes: new Set(),
-        overwrites: new Set(),
-      } as any;
-      calcListDiffMock.mockReturnValueOnce(diff);
-
-      const result = updater.calcListDiff(ref, ["missing"]);
-      expect(result).toBe(true);
-      expect(engine.saveListAndListIndexes).toHaveBeenCalledWith(ref, null, diff.newIndexes);
-      expect(updater.oldValueAndIndexesByRef.get(ref)).toEqual({ list: null, listIndexes: null, listClone: null });
-    });
-  });
-});
-
 describe("Updater.collectMaybeUpdates", () => {
   beforeEach(() => {
     calcListDiffMock.mockReset();
     findPathNodeByPathMock.mockReset();
     createReadonlyStateHandlerMock.mockReset();
     createReadonlyStateProxyMock.mockReset();
-    createReadonlyStateHandlerMock.mockImplementation(() => ({}));
+    createReadonlyStateHandlerMock.mockImplementation((engine: any, updater: any, renderer: any) => ({ engine, updater, renderer }));
     createReadonlyStateProxyMock.mockImplementation(() => ({}));
   });
 
@@ -369,13 +183,13 @@ describe("Updater.collectMaybeUpdates", () => {
       return null;
     });
 
-    const revisionMap = new Map<string, number>();
+    const revisionMap = new Map<string, { version: number; revision: number }>();
     await createUpdater(engine, (updater) => {
   (updater as any).collectMaybeUpdates(engine, "root", revisionMap, 1);
       expect(Array.from(revisionMap.entries())).toEqual([
-        ["root", 1],
-        ["child", 1],
-        ["dep", 1],
+        ["root", { version: 1, revision: 1 }],
+        ["child", { version: 1, revision: 1 }],
+        ["dep", { version: 1, revision: 1 }],
       ]);
       expect(findPathNodeByPathMock).toHaveBeenCalledTimes(2);
       // キャッシュ経路の再利用を確認
@@ -383,9 +197,9 @@ describe("Updater.collectMaybeUpdates", () => {
       revisionMap.clear();
   (updater as any).collectMaybeUpdates(engine, "root", revisionMap, 2);
       expect(Array.from(revisionMap.entries())).toEqual([
-        ["root", 2],
-        ["child", 2],
-        ["dep", 2],
+        ["root", { version: 1, revision: 2 }],
+        ["child", { version: 1, revision: 2 }],
+        ["dep", { version: 1, revision: 2 }],
       ]);
       expect(findPathNodeByPathMock).toHaveBeenCalledTimes(1);
     });
@@ -410,7 +224,7 @@ describe("Updater.collectMaybeUpdates", () => {
     });
 
     await createUpdater(engine, (updater) => {
-      const revisionMap = new Map<string, number>();
+      const revisionMap = new Map<string, { version: number; revision: number }>();
   (updater as any).collectMaybeUpdates(engine, "root", revisionMap, 3);
       expect(revisionMap.size).toBe(0);
     });
@@ -431,7 +245,7 @@ describe("Updater.collectMaybeUpdates", () => {
 
     try {
       createUpdater(engine, (updater) => {
-        (updater as any).collectMaybeUpdates(engine, "missing", updater.revisionByUpdatedPath, 4);
+        (updater as any).collectMaybeUpdates(engine, "missing", engine.versionRevisionByPath, 4);
       });
       throw new Error("should have thrown");
     } catch (err) {
@@ -465,7 +279,7 @@ describe("Updater その他のAPI", () => {
     findPathNodeByPathMock.mockReset();
     createReadonlyStateHandlerMock.mockReset();
     createReadonlyStateProxyMock.mockReset();
-    createReadonlyStateHandlerMock.mockImplementation((_engine: any, _updater: any) => ({ handler: true }));
+    createReadonlyStateHandlerMock.mockImplementation((engine: any, updater: any, renderer: any) => ({ engine, updater, renderer, handler: true }));
     createReadonlyStateProxyMock.mockImplementation((_state: any, _handler: any) => ({ state: true }));
     findPathNodeByPathMock.mockImplementation((_root: any, pattern: string) => ({
       childNodeByName: new Map<string, any>(),
@@ -486,32 +300,6 @@ describe("Updater その他のAPI", () => {
     });
   });
 
-  it("getOldValueAndIndexes は既存キャッシュを優先する", async () => {
-    const engine = createEngineStub();
-    const ref = createRef("list");
-    const cached = { list: ["cached"], listIndexes: [], listClone: ["cached"] } as any;
-
-    await createUpdater(engine, (updater) => {
-      updater.oldValueAndIndexesByRef.set(ref, cached);
-      const result = (updater as any).getOldValueAndIndexes(ref);
-      expect(result).toBe(cached);
-      expect(engine.getListAndListIndexes).not.toHaveBeenCalled();
-    });
-  });
-
-  it("getOldValueAndIndexes はキャッシュが無い場合にエンジンへフォールバックする", async () => {
-    const engine = createEngineStub();
-    const ref = createRef("list");
-    const fetched = { list: ["fetched"], listIndexes: [], listClone: ["fetched"] } as any;
-    engine.getListAndListIndexes.mockReturnValue(fetched);
-
-    await createUpdater(engine, (updater) => {
-      const result = (updater as any).getOldValueAndIndexes(ref);
-      expect(result).toBe(fetched);
-    });
-    expect(engine.getListAndListIndexes).toHaveBeenCalledWith(ref);
-  });
-
   it("createReadonlyState で生成した state と handler をコールバックへ渡す", async () => {
     const engine = createEngineStub();
     const fakeHandler = { token: "handler" };
@@ -528,7 +316,7 @@ describe("Updater その他のAPI", () => {
       expect(returned).toBe("done");
     });
 
-    expect(createReadonlyStateHandlerMock).toHaveBeenCalledWith(engine, expect.any(Object));
+    expect(createReadonlyStateHandlerMock).toHaveBeenCalledWith(engine, expect.any(Object), null);
     expect(createReadonlyStateProxyMock).toHaveBeenCalledWith(engine.state, fakeHandler);
   });
 
@@ -551,26 +339,9 @@ describe("Updater その他のAPI", () => {
 
     expect(() => {
       createUpdater(engine, (updater) => {
-        (updater as any).collectMaybeUpdates(engine, "root", updater.revisionByUpdatedPath, 1);
+        (updater as any).collectMaybeUpdates(engine, "root", engine.versionRevisionByPath, 1);
       });
     }).toThrowError(/Path node not found for pattern: missing/);
-  });
-
-  it("isSameList は長さや要素の一致を厳密に判定する", async () => {
-    const engine = createEngineStub();
-    await createUpdater(engine, (updater) => {
-      const same = (updater as any).isSameList([1, 2], [1, 2]);
-      const empty = (updater as any).isSameList([], []);
-      const shared = [1, 2, 3];
-      const sameReference = (updater as any).isSameList(shared, shared);
-      const differentLength = (updater as any).isSameList([1], [1, 2]);
-      const differentElement = (updater as any).isSameList([1, 3], [1, 4]);
-      expect(same).toBe(true);
-      expect(empty).toBe(true);
-      expect(sameReference).toBe(true);
-      expect(differentLength).toBe(false);
-      expect(differentElement).toBe(false);
-    });
   });
 
   it("recursiveCollectMaybeUpdates は子要素も依存も無いノードを訪問済みに追加する", async () => {
@@ -604,6 +375,7 @@ function createEngineStub(): any {
     },
     getListAndListIndexes: vi.fn(() => ({ list: null, listIndexes: null, listClone: null })),
     saveListAndListIndexes: vi.fn(),
+    versionRevisionByPath: new Map<string, { version: number; revision: number }>(),
   } as any;
 }
 

@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getAll } from "../../../src/StateClass/apis/getAll";
+import { GetListIndexesByRefSymbol } from "../../../src/StateClass/symbols";
 
 const raiseErrorMock = vi.fn((detail: any) => {
   const message = typeof detail === "string" ? detail : detail?.message ?? "error";
@@ -37,6 +38,40 @@ vi.mock("../../../src/StateClass/methods/getByRef", () => ({
   getByRef: (...args: any[]) => getByRefMock(...args),
 }));
 
+type ListIndexEntry = { index: number; parentListIndex?: any; hash?: string };
+
+function makeListIndex(index: number, overrides: Partial<ListIndexEntry> = {}): ListIndexEntry {
+  return { index, ...overrides };
+}
+
+function makeReceiver(patternMap: Record<string, ListIndexEntry[] | ListIndexEntry[][] | null>) {
+  const queues = new Map<string, (ListIndexEntry[] | null)[]>();
+  for (const [pattern, value] of Object.entries(patternMap)) {
+    if (value === null) {
+      queues.set(pattern, [null]);
+    } else if (Array.isArray(value) && value.length > 0 && Array.isArray(value[0])) {
+      queues.set(pattern, (value as ListIndexEntry[][]).map((entries) => entries.map((entry) => ({ ...entry }))));
+    } else {
+      queues.set(pattern, [(value as ListIndexEntry[]).map((entry) => ({ ...entry }))]);
+    }
+  }
+  const spy = vi.fn((ref: any) => {
+    const pattern = ref.info.pattern;
+    const values = queues.get(pattern);
+    if (!values || values.length === 0) {
+      return null;
+    }
+    const next = values.length === 1 ? values[0] : values.shift()!;
+    return next === null ? null : next.map((entry) => ({ ...entry }));
+  });
+  const receiver: any = {
+    [GetListIndexesByRefSymbol]: spy,
+    __listIndexQueues: queues,
+    __spy: spy,
+  };
+  return receiver;
+}
+
 function makeReadonlyInfo() {
   return {
     pattern: "items.*.value",
@@ -55,29 +90,26 @@ function makeReadonlyHandler(lastPattern: string | null = "current.pattern") {
     onlyGetters,
     addDynamicDependency,
   };
-  const getListIndexes = vi.fn();
-  const engine = { pathManager, getListIndexes };
+  const engine = { pathManager };
   const handler = {
     lastRefStack: lastPattern ? { info: { pattern: lastPattern } } : null,
     engine,
   };
-  return { handler: handler as any, engine, addDynamicDependency, getListIndexes, onlyGetters };
+  return { handler: handler as any, engine, addDynamicDependency, onlyGetters };
 }
 
 function makeWritableHandler() {
-  const getListIndexes = vi.fn();
   const engine = {
     pathManager: {
       onlyGetters: new Set<string>(),
       addDynamicDependency: vi.fn(),
     },
-    getListIndexes,
   };
   const handler = {
     lastRefStack: null,
     engine,
   };
-  return { handler: handler as any, getListIndexes };
+  return { handler: handler as any };
 }
 
 beforeEach(() => {
@@ -94,58 +126,72 @@ describe("StateClass/apis getAll (readonly)", () => {
   it("onlyGetters に含まれる場合は依存登録して全インデックスを解決", () => {
     const info = makeReadonlyInfo();
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeReadonlyHandler("last.pattern");
-    getListIndexes.mockReturnValue([{ index: 0 }, { index: 1 }]);
+    const { handler } = makeReadonlyHandler("last.pattern");
+    const receiver = makeReceiver({
+      "items.*": [
+        [makeListIndex(0), makeListIndex(1)],
+      ],
+    });
     resolveMock.mockImplementation((pattern: string, indexes: number[]) => `${pattern}[${indexes.join(",")}]`);
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     const result = fn("items.*.value", []);
 
     expect(result).toEqual(["items.*.value[0]", "items.*.value[1]"]);
     expect(handler.engine.pathManager.addDynamicDependency).toHaveBeenCalledWith("last.pattern", "items.*.value");
+    expect(receiver.__spy).toHaveBeenCalledTimes(1);
   });
 
   it("onlyGetters に含まれなければ依存登録しない", () => {
     const info = makeReadonlyInfo();
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes, onlyGetters } = makeReadonlyHandler("last.pattern");
+    const { handler, onlyGetters } = makeReadonlyHandler("last.pattern");
     onlyGetters.clear();
-    getListIndexes.mockReturnValue([{ index: 0 }]);
+    const receiver = makeReceiver({
+      "items.*": [[makeListIndex(0)]],
+    });
     resolveMock.mockReturnValue("value");
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     fn("items.*.value", [0]);
 
     expect(handler.engine.pathManager.addDynamicDependency).not.toHaveBeenCalled();
+    expect(receiver.__spy).toHaveBeenCalledTimes(1);
   });
 
   it("lastRefStack が null の場合は依存登録しない", () => {
     const info = makeReadonlyInfo();
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeReadonlyHandler(null);
+    const { handler } = makeReadonlyHandler(null);
     handler.lastRefStack = null;
-    getListIndexes.mockReturnValue([{ index: 0 }]);
+    const receiver = makeReceiver({
+      "items.*": [[makeListIndex(0)]],
+    });
     resolveMock.mockReturnValue("value");
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     fn("items.*.value", [0]);
 
     expect(handler.engine.pathManager.addDynamicDependency).not.toHaveBeenCalled();
+    expect(receiver.__spy).toHaveBeenCalledTimes(1);
   });
 
   it("indexes 未指定時は getContextListIndex が返した値を利用", () => {
     const info = makeReadonlyInfo();
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeReadonlyHandler("last.pattern");
+    const { handler } = makeReadonlyHandler("last.pattern");
     getContextListIndexMock.mockReturnValue({ indexes: [1] });
-    getListIndexes.mockReturnValue([{ index: 0 }, { index: 1 }, { index: 2 }]);
+    const receiver = makeReceiver({
+      "items.*": [[makeListIndex(0), makeListIndex(1), makeListIndex(2)]],
+    });
     resolveMock.mockImplementation((pattern: string, indexes: number[]) => `${pattern}[${indexes.join(",")}]`);
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     const result = fn("items.*.value");
 
     expect(getContextListIndexMock).toHaveBeenCalledWith(handler, "items.*");
     expect(result).toEqual(["items.*.value[1]"]);
+    expect(receiver.__spy).toHaveBeenCalledTimes(1);
   });
 
   it("多段ワイルドカードを走査して全ての組み合わせを解決", () => {
@@ -161,19 +207,23 @@ describe("StateClass/apis getAll (readonly)", () => {
       ],
     };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeReadonlyHandler("caller.pattern");
-    getListIndexes
-      .mockReturnValueOnce([{ index: 0 }, { index: 1 }])
-      .mockReturnValueOnce([{ index: 0 }])
-      .mockReturnValueOnce([{ index: 0 }, { index: 1 }]);
+    const { handler } = makeReadonlyHandler("caller.pattern");
+    const receiver = makeReceiver({
+      "groups.*": [[makeListIndex(0), makeListIndex(1)]],
+      "groups.*.items.*": [
+        [makeListIndex(0)],
+        [makeListIndex(0), makeListIndex(1)],
+      ],
+    });
     resolveMock.mockImplementation((_pattern: string, indexes: number[]) => `resolved:${indexes.join("-")}`);
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     const result = fn("groups.*.items.*.value", []);
 
     expect(result).toEqual(["resolved:0-0", "resolved:1-0", "resolved:1-1"]);
     expect(getStatePropertyRefMock).toHaveBeenCalled();
     expect(getByRefMock).toHaveBeenCalled();
+    expect(receiver.__spy).toHaveBeenCalledTimes(3);
   });
 
   it("indexes 指定時でも多段ワイルドカードを再帰走査する", () => {
@@ -189,17 +239,18 @@ describe("StateClass/apis getAll (readonly)", () => {
       ],
     };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeReadonlyHandler(info.pattern);
-    getListIndexes
-      .mockReturnValueOnce([{ index: 0 }, { index: 9 }])
-      .mockReturnValueOnce([{ index: 4 }, { index: 8 }]);
+    const { handler } = makeReadonlyHandler(info.pattern);
+    const receiver = makeReceiver({
+      "groups.*": [[makeListIndex(0), makeListIndex(9)]],
+      "groups.*.items.*": [[makeListIndex(4), makeListIndex(8)]],
+    });
     resolveMock.mockImplementation((_pattern: string, indexes: number[]) => `resolved:${indexes.join("-")}`);
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     const result = fn("groups.*.items.*.value", [1, 0]);
 
     expect(result).toEqual(["resolved:9-4"]);
-    expect(getListIndexes).toHaveBeenCalledTimes(2);
+    expect(receiver.__spy).toHaveBeenCalledTimes(2);
   });
 
   it("wildcardInfos に null が含まれていれば例外", () => {
@@ -211,17 +262,20 @@ describe("StateClass/apis getAll (readonly)", () => {
     });
     getContextListIndexMock.mockReturnValue(null);
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const receiver = makeReceiver({});
+    const fn = getAll({}, "$getAll", receiver, handler);
     expect(() => fn("items.*.value")).toThrowError(/wildcardPattern is null/);
   });
 
   it("getListIndexes が null を返した場合は例外", () => {
     const info = makeReadonlyInfo();
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeReadonlyHandler("pattern");
-    getListIndexes.mockReturnValue(null);
+    const { handler } = makeReadonlyHandler("pattern");
+    const receiver = makeReceiver({
+      "items.*": null,
+    });
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     expect(() => fn("items.*.value", [0])).toThrowError(/ListIndex not found: items\.\*/);
     expect(raiseErrorMock).toHaveBeenCalled();
   });
@@ -229,10 +283,12 @@ describe("StateClass/apis getAll (readonly)", () => {
   it("指定した index に対応する ListIndex が無ければ例外", () => {
     const info = makeReadonlyInfo();
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeReadonlyHandler("pattern");
-    getListIndexes.mockReturnValue([{ index: 0 }]);
+    const { handler } = makeReadonlyHandler("pattern");
+    const receiver = makeReceiver({
+      "items.*": [[makeListIndex(0)]],
+    });
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     expect(() => fn("items.*.value", [1])).toThrowError(/ListIndex not found/);
     expect(raiseErrorMock).toHaveBeenCalled();
   });
@@ -242,28 +298,32 @@ describe("StateClass/apis getAll (writable)", () => {
   it("指定された indexes のみを解決する", () => {
     const info = makeReadonlyInfo();
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeWritableHandler();
+    const { handler } = makeWritableHandler();
     handler.lastRefStack = { info: { pattern: "caller.pattern" } };
     handler.engine.pathManager.onlyGetters.add("caller.pattern");
-    getListIndexes.mockReturnValue([{ index: 0 }, { index: 1 }]);
+    const receiver = makeReceiver({
+      "items.*": [[makeListIndex(0), makeListIndex(1)]],
+    });
     resolveMock.mockImplementation((pattern: string, indexes: number[]) => `${pattern}:${indexes.join(",")}`);
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     const result = fn("items.*.value", [1]);
 
     expect(result).toEqual(["items.*.value:1"]);
-    expect(getListIndexes).toHaveBeenCalledTimes(1);
+    expect(receiver.__spy).toHaveBeenCalledTimes(1);
   });
 
   it("getContextListIndex が null の場合は空配列として扱い全件を解決", () => {
     const info = makeReadonlyInfo();
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeWritableHandler();
+    const { handler } = makeWritableHandler();
     getContextListIndexMock.mockReturnValue(null);
-    getListIndexes.mockReturnValue([{ index: 0 }, { index: 1 }]);
+    const receiver = makeReceiver({
+      "items.*": [[makeListIndex(0), makeListIndex(1)]],
+    });
     resolveMock.mockImplementation((pattern: string, indexes: number[]) => `${pattern}:${indexes.join(",")}`);
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     const result = fn("items.*.value");
 
     expect(result).toEqual(["items.*.value:0", "items.*.value:1"]);
@@ -282,26 +342,32 @@ describe("StateClass/apis getAll (writable)", () => {
       ],
     };
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeWritableHandler();
-    getListIndexes
-      .mockReturnValueOnce([{ index: 0 }])
-      .mockReturnValueOnce([{ index: 0 }, { index: 1 }]);
+    const { handler } = makeWritableHandler();
+    const receiver = makeReceiver({
+      "groups.*": [[makeListIndex(0)]],
+      "groups.*.items.*": [
+        [makeListIndex(0), makeListIndex(1)],
+      ],
+    });
     resolveMock.mockImplementation((_pattern: string, indexes: number[]) => indexes.join("/"));
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     fn("groups.*.items.*.value", []);
 
     expect(getStatePropertyRefMock).toHaveBeenCalledTimes(2);
     expect(getByRefMock).toHaveBeenCalledTimes(2);
+    expect(receiver.__spy).toHaveBeenCalledTimes(2);
   });
 
   it("指定 index の ListIndex が存在しない場合は例外", () => {
     const info = makeReadonlyInfo();
     getStructuredPathInfoMock.mockReturnValue(info);
-    const { handler, getListIndexes } = makeWritableHandler();
-    getListIndexes.mockReturnValue([{ index: 0 }]);
+    const { handler } = makeWritableHandler();
+    const receiver = makeReceiver({
+      "items.*": [[makeListIndex(0)]],
+    });
 
-    const fn = getAll({}, "$getAll", {} as any, handler);
+    const fn = getAll({}, "$getAll", receiver, handler);
     expect(() => fn("items.*.value", [2])).toThrowError(/ListIndex not found/);
     expect(raiseErrorMock).toHaveBeenCalled();
   });

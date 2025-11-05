@@ -10,6 +10,7 @@ function createPathManagerSet(initial: string[] = []) {
   return {
     add: (value: string) => internal.add(value),
     has: (value: string) => internal.has(value),
+    clear: () => internal.clear(),
     intersection: (paths: Set<string>) => {
       const result = new Set<string>();
       for (const p of paths) {
@@ -60,15 +61,16 @@ function makeHandler(overrides: Partial<any> = {}) {
   const engine = {
     pathManager: {
       setters: createPathManagerSet(),
-      getters: new Set<string>(),
+      getters: createPathManagerSet(),
+      elements: createPathManagerSet(),
     },
     stateOutput: {
-      startsWith: (info: any) => false,
+      startsWith: vi.fn().mockReturnValue(false),
       set: vi.fn(),
     },
   };
-  const updater = { enqueueRef: vi.fn() };
-  const handler = { engine, updater, refStack: [] as any[], refIndex: -1 } as any;
+  const updater = { enqueueRef: vi.fn(), swapInfoByRef: new Map() };
+  const handler = { engine, updater, refStack: [] as any[], refIndex: -1, lastRefStack: null, renderer: null } as any;
   return Object.assign(handler, overrides);
 }
 
@@ -82,8 +84,8 @@ describe("StateClass/methods: setByRef", () => {
   it("stateOutput 経由で設定 (startsWith=true, setters 交差なし)", () => {
     const info = makeInfo("a.b");
     const ref = makeRef(info);
-  const handler = makeHandler({ refStack: [null] });
-    handler.engine.stateOutput.startsWith = () => true;
+    const handler = makeHandler({ refStack: [null] });
+    handler.engine.stateOutput.startsWith.mockReturnValue(true);
     handler.engine.pathManager.setters = createPathManagerSet();
     handler.engine.stateOutput.set = vi.fn().mockReturnValue("SET-OUT");
     const result = setByRef({} as any, ref, 99, {} as any, handler as any);
@@ -96,7 +98,7 @@ describe("StateClass/methods: setByRef", () => {
     const ref = makeRef(info);
     const target: any = { a: { b: 1 } };
     const handler = makeHandler();
-    handler.engine.stateOutput.startsWith = () => true;
+    handler.engine.stateOutput.startsWith.mockReturnValue(true);
     handler.engine.pathManager.setters = createPathManagerSet(["a"]);
 
     const ok = setByRef(target, ref, 42, target as any, handler as any);

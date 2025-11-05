@@ -11,6 +11,23 @@ function createEngine() {
 }
 
 function createBinding(engine: any, loop: any) {
+  if (loop && typeof loop.serialize === "function") {
+    const parentBinding = { bindingsByListIndex: engine.bindingsByListIndex };
+    const originalSerialize = loop.serialize.bind(loop);
+    loop = {
+      ...loop,
+      serialize: () => {
+        const contexts = originalSerialize();
+        return contexts.map((ctx: any) => {
+          const bindContent = ctx.bindContent ?? { parentBinding };
+          if (bindContent.parentBinding == null) {
+            bindContent.parentBinding = parentBinding;
+          }
+          return { ...ctx, bindContent };
+        });
+      },
+    };
+  }
   return {
     engine,
     parentBindContent: { currentLoopContext: loop },

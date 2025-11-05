@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import "../helpers/rendererPatch";
 import { WILDCARD } from "../../src/constants";
-import { GetByRefSymbol, SetCacheableSymbol } from "../../src/StateClass/symbols";
+import { GetByRefSymbol, GetListIndexesByRefSymbol, SetCacheableSymbol } from "../../src/StateClass/symbols";
 
 // Mocks
 const createReadonlyStateProxyMock = vi.fn();
+const createReadonlyStateHandlerMock = vi.fn();
 vi.mock("../../src/StateClass/createReadonlyStateProxy", () => ({
-  createReadonlyStateProxy: (engine: any, state: any, renderer: any) => createReadonlyStateProxyMock(engine, state, renderer),
+  createReadonlyStateProxy: (state: any, handler: any) => createReadonlyStateProxyMock(state, handler),
+  createReadonlyStateHandler: (engine: any, updater: any, renderer: any) => createReadonlyStateHandlerMock(engine, updater, renderer),
 }));
 
 const findPathNodeByPathMock = vi.fn();
@@ -36,9 +39,10 @@ vi.mock("../../src/ListDiff/ListDiff", () => ({
 import { render } from "../../src/Updater/Renderer";
 
 // Helpers
-const makeReadonlyState = (getByRefValue: any = undefined) => ({
+const makeReadonlyState = (getByRefValue: any = undefined, getListIndexesValue: any = undefined) => ({
   [SetCacheableSymbol]: (cb: Function) => cb(),
   [GetByRefSymbol]: (ref: any) => (typeof getByRefValue === "function" ? getByRefValue(ref) : getByRefValue),
+  [GetListIndexesByRefSymbol]: (ref: any) => (typeof getListIndexesValue === "function" ? getListIndexesValue(ref) : getListIndexesValue),
 } as any);
 
 const makeEngine = () => {
@@ -80,10 +84,10 @@ const makeTestUpdater = (
 ) => {
   const listDiffByRef = options.listDiffByRef ?? new Map<any, any>();
   const oldValueAndIndexesByRef = options.oldValueAndIndexesByRef ?? new Map<any, any>();
-  const handler = options.readonlyHandler ?? {};
   let updaterRef: any = null;
   const createReadonlyStateImpl = options.createReadonlyStateImpl ?? ((cb: Function) => {
-    const readonlyState = options.readonlyState ?? createReadonlyStateProxyMock(engine, engine.state, null);
+    const handler = options.readonlyHandler ?? createReadonlyStateHandlerMock(engine, updaterRef, null);
+    const readonlyState = options.readonlyState ?? createReadonlyStateProxyMock(engine.state, handler);
     if (handler && typeof handler === "object") {
       (handler as any).updater = updaterRef;
     }
@@ -112,6 +116,7 @@ const makeTestUpdater = (
 describe("Updater/Renderer.render", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createReadonlyStateHandlerMock.mockImplementation((engine: any, updater: any, renderer: any) => ({ engine, updater, renderer }));
     createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState());
     findPathNodeByPathMock.mockImplementation((_root: any, pattern: string) => ({
       childNodeByName: new Map<string, any>(),
@@ -1053,6 +1058,7 @@ describe("Updater/Renderer.render", () => {
 describe("Updater/Renderer エラーハンドリング", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createReadonlyStateHandlerMock.mockImplementation((engine: any, updater: any, renderer: any) => ({ engine, updater, renderer }));
     createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState());
     findPathNodeByPathMock.mockImplementation((_root: any, pattern: string) => ({
       childNodeByName: new Map<string, any>(),
