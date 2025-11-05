@@ -4,7 +4,7 @@ import { getStatePropertyRef } from "../../src/StatePropertyRef/StatepropertyRef
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol } from "../../src/StateClass/symbols";
 import { AssignStateSymbol } from "../../src/ComponentStateInput/symbols";
 import { createRootNode } from "../../src/PathTree/PathNode";
-import "../helpers/componentEngineListStorePatch";
+import { applyComponentEngineListStorePatch } from "../helpers/componentEngineListStorePatch";
 
 // シンプルなベースとなるカスタムエレメントとコンポーネントクラスを偽装
 class DummyState {
@@ -147,14 +147,13 @@ vi.mock("../../src/ComponentStateOutput/createComponentStateOutput", () => ({
   createComponentStateOutput: () => fakeStateOutput
 }));
 
-async function importEngine() {
-  const mod = await import("../../src/ComponentEngine/ComponentEngine");
-  return mod.ComponentEngine as any;
+async function importEngineModule() {
+  return import("../../src/ComponentEngine/ComponentEngine");
 }
 
 describe("ComponentEngine", () => {
   let el: DummyComponent;
-  let ComponentEngineCls: any;
+  let createComponentEngineFn: (config: any, owner: any) => any;
   let engine: any;
 
   beforeEach(async () => {
@@ -164,16 +163,18 @@ describe("ComponentEngine", () => {
     lastUpdater = null;
     lastStateProxy = null;
     updateCallCount = 0;
-  blockNextUpdate = false;
-  resolveUpdateBlocker = null;
-  updateBlockerPromise = null;
+    blockNextUpdate = false;
+    resolveUpdateBlocker = null;
+    updateBlockerPromise = null;
 
     // fresh element & engine
     el = document.createElement("x-dummy-engine") as DummyComponent;
-  // create fresh PathManager for each test to avoid cross-test pollution
-  (DummyComponent as any).pathManager = makeTestPathManager();
-    ComponentEngineCls = await importEngine();
-    engine = new ComponentEngineCls(makeConfig(), el as any);
+    // create fresh PathManager for each test to avoid cross-test pollution
+    (DummyComponent as any).pathManager = makeTestPathManager();
+    const engineModule = await importEngineModule();
+    createComponentEngineFn = engineModule.createComponentEngine as any;
+    engine = createComponentEngineFn(makeConfig(), el as any);
+    applyComponentEngineListStorePatch(engine);
     // reset counters for state input/binding
     assignCalls = 0;
     lastAssignPayload = null;
@@ -236,8 +237,8 @@ describe("ComponentEngine", () => {
   });
 
   it("connectedCallback: enableWebComponents=false では placeholder 経由で mountAfter", async () => {
-    ComponentEngineCls = await importEngine();
-    engine = new ComponentEngineCls(makeConfig({ enableWebComponents: false }), el as any);
+    engine = createComponentEngineFn(makeConfig({ enableWebComponents: false }), el as any);
+    applyComponentEngineListStorePatch(engine);
     // 挿入先が必要（parentNode を持たせる）
     document.body.appendChild(el);
     const originalParent = el.parentNode;
@@ -266,8 +267,8 @@ describe("ComponentEngine", () => {
   });
 
   it("connectedCallback: block モードで親が無い場合はエラーを投げる", async () => {
-    ComponentEngineCls = await importEngine();
-    engine = new ComponentEngineCls(makeConfig({ enableWebComponents: false }), el as any);
+    engine = createComponentEngineFn(makeConfig({ enableWebComponents: false }), el as any);
+    applyComponentEngineListStorePatch(engine);
     let ignorePromise: Promise<void> | null = null;
     (el as any).replaceWith = vi.fn(() => {
       ignorePromise = engine.disconnectedCallback();
@@ -303,15 +304,15 @@ describe("ComponentEngine", () => {
 
     // save/get list & listIndexes
     engine.pathManager.lists.add(ref.info.pattern);
-  engine.saveListAndListIndexes(ref, [1,2], [{ sid: "LI", at: () => null } as any]);
-  const saveInfo = engine.getListAndListIndexes(ref);
-  expect(saveInfo.list?.length).toBe(2);
-  expect(saveInfo.listIndexes?.length).toBe(1);
-  expect(engine.getListIndexes(ref)?.[0]?.sid).toBe("LI");
-  engine.saveListAndListIndexes(ref, null, null);
-  const clearedInfo = engine.getListAndListIndexes(ref);
-  expect(clearedInfo).toEqual({ list: null, listIndexes: null, listClone: null });
-  expect(engine.getListIndexes(ref)).toBeNull();
+    engine.saveListAndListIndexes(ref, [1, 2], [{ sid: "LI", at: () => null } as any]);
+    const saveInfo = engine.getListAndListIndexes(ref);
+    expect(saveInfo.list?.length).toBe(2);
+    expect(saveInfo.listIndexes?.length).toBe(1);
+    expect(engine.getListIndexes(ref)?.[0]?.sid).toBe("LI");
+    engine.saveListAndListIndexes(ref, null, null);
+    const clearedInfo = engine.getListAndListIndexes(ref);
+    expect(clearedInfo).toEqual({ list: null, listIndexes: null, listClone: null });
+    expect(engine.getListIndexes(ref)).toBeNull();
 
     const otherInfo = getStructuredPathInfo("baz");
     const otherRef = getStatePropertyRef(otherInfo, null);
@@ -337,8 +338,8 @@ describe("ComponentEngine", () => {
   });
 
   it("disconnectedCallback: Disconnected を呼び出し、非 WebComponents は placeholder を掃除", async () => {
-    ComponentEngineCls = await importEngine();
-    engine = new ComponentEngineCls(makeConfig({ enableWebComponents: false }), el as any);
+    engine = createComponentEngineFn(makeConfig({ enableWebComponents: false }), el as any);
+    applyComponentEngineListStorePatch(engine);
     document.body.appendChild(el);
     const parent = {
       registerChildComponent: vi.fn(),
@@ -427,8 +428,7 @@ describe("ComponentEngine", () => {
   });
 
   it("config.extends が指定されていると type が builtin になる", async () => {
-    ComponentEngineCls = await importEngine();
-    const engine2 = new ComponentEngineCls(makeConfig({ extends: "div" }), el as any);
+    const engine2 = createComponentEngineFn(makeConfig({ extends: "div" }), el as any);
     expect(engine2.type).toBe("builtin");
   });
 
@@ -444,20 +444,20 @@ describe("ComponentEngine", () => {
     const info = getStructuredPathInfo("items.*");
     // listIndex なし
     const refNoIdx = getStatePropertyRef(info, null);
-  engine.pathManager.lists.add(refNoIdx.info.pattern);
-    engine.saveListAndListIndexes(refNoIdx, [1,2,3], [{ sid: "A" } as any]);
+    engine.pathManager.lists.add(refNoIdx.info.pattern);
+    engine.saveListAndListIndexes(refNoIdx, [1, 2, 3], [{ sid: "A" } as any]);
 
     // listIndex あり（別保存）
     const listIndex = { sid: "IDX", at: () => null } as any;
     const refWithIdx = getStatePropertyRef(info, listIndex);
-  engine.pathManager.lists.add(refWithIdx.info.pattern);
-    engine.saveListAndListIndexes(refWithIdx, [9,9], [{ sid: "B" } as any]);
+    engine.pathManager.lists.add(refWithIdx.info.pattern);
+    engine.saveListAndListIndexes(refWithIdx, [9, 9], [{ sid: "B" } as any]);
 
-  const info0 = engine.getListAndListIndexes(refNoIdx);
-  const info1 = engine.getListAndListIndexes(refWithIdx);
-  expect(info0.list).toEqual([1,2,3]);
-  expect(info0.listIndexes?.[0]?.sid).toBe("A");
-  expect(info1.list).toEqual([9,9]);
-  expect(info1.listIndexes?.[0]?.sid).toBe("B");
+    const info0 = engine.getListAndListIndexes(refNoIdx);
+    const info1 = engine.getListAndListIndexes(refWithIdx);
+    expect(info0.list).toEqual([1, 2, 3]);
+    expect(info0.listIndexes?.[0]?.sid).toBe("A");
+    expect(info1.list).toEqual([9, 9]);
+    expect(info1.listIndexes?.[0]?.sid).toBe("B");
   });
 });

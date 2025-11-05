@@ -1,4 +1,3 @@
-import { ComponentEngine } from "../../src/ComponentEngine/ComponentEngine";
 import type { IListIndex } from "../../src/ListIndex/types";
 import type { IStatePropertyRef } from "../../src/StatePropertyRef/types";
 
@@ -32,15 +31,20 @@ function ensureStore(engine: any): WeakMap<IStatePropertyRef, SaveInfo> {
   return engine[STORE_SYMBOL];
 }
 
-(function patchComponentEnginePrototype() {
-  const proto = ComponentEngine.prototype as any;
-  if (proto[PATCHED_SYMBOL]) {
+export function applyComponentEngineListStorePatch(engine: unknown): void {
+  if (!engine) {
+    return;
+  }
+  const proto = Object.getPrototypeOf(engine) as Record<PropertyKey, unknown> | null;
+  if (!proto || proto[PATCHED_SYMBOL]) {
     return;
   }
 
-  const originalGetListIndexes: ((ref: IStatePropertyRef) => IListIndex[] | null) | undefined = proto.getListIndexes;
+  const originalGetListIndexes: ((ref: IStatePropertyRef) => IListIndex[] | null) | undefined =
+    typeof proto.getListIndexes === "function" ? (proto.getListIndexes as any) : undefined;
 
   proto.saveListAndListIndexes = function saveListAndListIndexesPatch(
+    this: any,
     ref: IStatePropertyRef,
     list: any[] | null,
     listIndexes: IListIndex[] | null,
@@ -58,13 +62,13 @@ function ensureStore(engine: any): WeakMap<IStatePropertyRef, SaveInfo> {
     store.set(ref, record);
   };
 
-  proto.getListAndListIndexes = function getListAndListIndexesPatch(ref: IStatePropertyRef): SaveInfo {
+  proto.getListAndListIndexes = function getListAndListIndexesPatch(this: any, ref: IStatePropertyRef): SaveInfo {
     const store = ensureStore(this);
     return cloneSaveInfo(store.get(ref) ?? EMPTY_SAVE_INFO);
   };
 
   if (typeof originalGetListIndexes === "function") {
-    proto.getListIndexes = function getListIndexesPatch(ref: IStatePropertyRef): IListIndex[] | null {
+    proto.getListIndexes = function getListIndexesPatch(this: any, ref: IStatePropertyRef): IListIndex[] | null {
       const store = ensureStore(this);
       const info = store.get(ref);
       if (info?.listIndexes) {
@@ -80,4 +84,4 @@ function ensureStore(engine: any): WeakMap<IStatePropertyRef, SaveInfo> {
     configurable: false,
     writable: false,
   });
-})();
+}
