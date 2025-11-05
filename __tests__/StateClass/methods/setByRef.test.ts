@@ -213,12 +213,9 @@ describe("StateClass/methods: setByRef", () => {
     expect(ok).toBe(true);
     expect(target.foo).toBe(newValue);
     expect(receiver.foo).toBe(newValue);
-    const stored = handler.updater.swapInfoByRef.get(parentRef);
-    expect(stored?.value).toEqual(existingValues);
-    expect(stored?.value).not.toBe(existingValues);
-    expect(stored?.listIndexes).not.toBe(existingIndexes);
-    expect(stored?.listIndexes?.length).toBe(existingIndexesLengthBefore);
-    expect(stored?.listIndexes?.[0]).toBe(existingIndexes[0]);
+  const stored = handler.updater.swapInfoByRef.get(parentRef);
+  expect(stored).toBeUndefined();
+  expect(handler.updater.swapInfoByRef.has(parentRef)).toBe(false);
     expect(receiver[GetByRefSymbol]).toHaveBeenCalledWith(parentRef);
     expect(receiver[GetListIndexesByRefSymbol]).toHaveBeenCalledTimes(2);
     expect(existingIndexes).toHaveLength(existingIndexesLengthBefore + 1);
@@ -249,9 +246,9 @@ describe("StateClass/methods: setByRef", () => {
     expect(ok).toBe(true);
     expect(target.baz).toBe("new");
     expect(receiver.baz).toBe("new");
-    const stored = handler.updater.swapInfoByRef.get(parentRef);
-    expect(stored?.value).toEqual([]);
-    expect(stored?.listIndexes).toEqual([]);
+  const stored = handler.updater.swapInfoByRef.get(parentRef);
+  expect(stored).toBeUndefined();
+  expect(handler.updater.swapInfoByRef.has(parentRef)).toBe(false);
     expect(receiver[GetByRefSymbol]).toHaveBeenCalledWith(parentRef);
     expect(receiver[GetListIndexesByRefSymbol]).toHaveBeenCalledWith(parentRef);
     expect(handler.updater.enqueueRef).toHaveBeenCalledWith(ref);

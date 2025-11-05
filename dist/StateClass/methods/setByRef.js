@@ -102,6 +102,8 @@ export function setByRef(target, ref, value, receiver, handler) {
                 for (let i = 0; i < currentListIndexes.length; i++) {
                     currentListIndexes[i].index = i;
                 }
+                // 完了したのでswapInfoを削除
+                handler.updater.swapInfoByRef.delete(parentRef);
             }
         }
     }
