@@ -8,7 +8,6 @@
  * - IState/IReadonlyStateProxy: StateオブジェクトおよびProxyの型（各種APIシンボルによる拡張含む）
  * - IStateHandler/IReadonlyStateHandler/IWritableStateHandler: 状態管理やAPI呼び出し、スコープ管理を担うハンドラの型
  * - IStructiveStaticState/IStructiveState: 静的プロパティやコンストラクタ型の定義
- * - IDependentProps: 依存プロパティ情報の型
  *
  * 設計ポイント:
  * - ProxyトラップやAPI呼び出しを型安全に扱うための設計
@@ -18,16 +17,11 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
-import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { Constructor } from "../types";
 import { IRenderer, IUpdater } from "../Updater/types";
 import { IUserConfig } from "../WebComponents/types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "./symbols";
-
-export interface IDependentProps {
-  [propName: string]: string[];
-}
 
 export interface IState {
   [propName: string]: any;

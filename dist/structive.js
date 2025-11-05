@@ -2532,7 +2532,6 @@ class Updater {
     #engine;
     #version;
     #revision = 0;
-    #listDiffByRef = new Map();
     #oldValueAndIndexesByRef = new Map();
     #swapInfoByRef = new WeakMap();
     constructor(engine) {

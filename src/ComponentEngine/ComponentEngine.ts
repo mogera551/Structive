@@ -53,7 +53,8 @@ const EMPTY_SAVE_INFO: ISaveInfoByResolvedPathInfo = {
   version: 0,
   revision: 0,
 };
-export class ComponentEngine implements IComponentEngine {
+
+class ComponentEngine implements IComponentEngine {
   type          : ComponentType = 'autonomous';
   config        : IComponentConfig;
   template      : HTMLTemplateElement;

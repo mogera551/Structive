@@ -1,6 +1,5 @@
 import { ISaveInfoByResolvedPathInfo } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
-import { IListDiff } from "../ListDiff/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
 import { IReadonlyStateHandler, IReadonlyStateProxy, IStructiveState, IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";

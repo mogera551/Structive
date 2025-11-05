@@ -40,7 +40,7 @@ const EMPTY_SAVE_INFO = {
     version: 0,
     revision: 0,
 };
-export class ComponentEngine {
+class ComponentEngine {
     type = 'autonomous';
     config;
     template;

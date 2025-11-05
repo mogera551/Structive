@@ -1,13 +1,11 @@
 import { IComponentEngine } from "../ComponentEngine/types";
 import { WILDCARD } from "../constants";
 import { IBinding } from "../DataBinding/types";
-import { IListDiff } from "../ListDiff/types";
 import { IListIndex } from "../ListIndex/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
 import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
-import { GetByRefSymbol, GetListIndexesByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols";
-import { get } from "../StateClass/traps/get";
+import { GetListIndexesByRefSymbol } from "../StateClass/symbols";
 import { IReadonlyStateHandler, IReadonlyStateProxy } from "../StateClass/types";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStructuredPathInfo } from "../StateProperty/types";

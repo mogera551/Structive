@@ -1,12 +1,10 @@
 import { IComponentEngine, ISaveInfoByResolvedPathInfo, IVersionRevision } from "../ComponentEngine/types";
-import { IListDiff } from "../ListDiff/types";
 import { ILoopContext } from "../LoopContext/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
 import { createReadonlyStateHandler, createReadonlyStateProxy } from "../StateClass/createReadonlyStateProxy";
-import { IStateProxy, IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
+import { IWritableStateHandler, IWritableStateProxy } from "../StateClass/types";
 import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
-import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
 import { render } from "./Renderer";
@@ -25,7 +23,6 @@ class Updater implements IUpdater {
 
   #version: number;
   #revision: number = 0;
-  #listDiffByRef: Map<IStatePropertyRef, IListDiff> = new Map();
   #oldValueAndIndexesByRef: Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo> = new Map();
   #swapInfoByRef: WeakMap<IStatePropertyRef, ISwapInfo> = new WeakMap();
 
