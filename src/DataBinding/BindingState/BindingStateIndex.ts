@@ -65,6 +65,9 @@ class BindingStateIndex implements IBindingState {
   get binding() {
     return this.#binding;
   }
+  get isLoopIndex() {
+    return true;
+  }
   constructor(
     binding: IBinding, 
     pattern: string, 

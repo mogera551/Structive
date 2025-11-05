@@ -1,4 +1,4 @@
-import { IComponentEngine, ISaveInfoByResolvedPathInfo, IVersionRevision } from "../ComponentEngine/types";
+import { IComponentEngine, IVersionRevision } from "../ComponentEngine/types";
 import { ILoopContext } from "../LoopContext/types";
 import { findPathNodeByPath } from "../PathTree/PathNode";
 import { IPathNode } from "../PathTree/types";
@@ -23,16 +23,11 @@ class Updater implements IUpdater {
 
   #version: number;
   #revision: number = 0;
-  #oldValueAndIndexesByRef: Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo> = new Map();
-  #swapInfoByRef: WeakMap<IStatePropertyRef, ISwapInfo> = new WeakMap();
+  #swapInfoByRef: Map<IStatePropertyRef, ISwapInfo> = new Map();
 
   constructor(engine: IComponentEngine) {
     this.#engine = engine;
     this.#version = engine.versionUp();
-  }
-
-  get oldValueAndIndexesByRef(): Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo> {
-    return this.#oldValueAndIndexesByRef;
   }
 
   get version(): number {
@@ -43,7 +38,7 @@ class Updater implements IUpdater {
     return this.#revision;
   }
 
-  get swapInfoByRef(): WeakMap<IStatePropertyRef, ISwapInfo> {
+  get swapInfoByRef(): Map<IStatePropertyRef, ISwapInfo> {
     return this.#swapInfoByRef;
   }
 

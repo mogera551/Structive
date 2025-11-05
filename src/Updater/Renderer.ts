@@ -62,9 +62,9 @@ class Renderer implements IRenderer {
    */
   #reorderIndexesByRef: Map<IStatePropertyRef, number[]> = new Map();
 
-  #lastValueByRef: WeakMap<IStatePropertyRef, any> = new WeakMap();
-  #lastListIndexesByRef: WeakMap<IStatePropertyRef, IListIndex[]> = new WeakMap();
-  
+  #lastValueByRef: Map<IStatePropertyRef, any> = new Map();
+  #lastListIndexesByRef: Map<IStatePropertyRef, IListIndex[]> = new Map();
+
   #updater: IUpdater;
 
   constructor(engine: IComponentEngine, updater: IUpdater) {
@@ -135,11 +135,11 @@ class Renderer implements IRenderer {
     return this.#engine;
   }
 
-  get lastValueByRef(): WeakMap<IStatePropertyRef, any> {
+  get lastValueByRef(): Map<IStatePropertyRef, any> {
     return this.#lastValueByRef;
   }
 
-  get lastListIndexesByRef(): WeakMap<IStatePropertyRef, IListIndex[]> {
+  get lastListIndexesByRef(): Map<IStatePropertyRef, IListIndex[]> {
     return this.#lastListIndexesByRef;
   }
 

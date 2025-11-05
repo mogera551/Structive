@@ -1,4 +1,3 @@
-import { ISaveInfoByResolvedPathInfo } from "../ComponentEngine/types";
 import { IBinding } from "../DataBinding/types";
 import { IListIndex } from "../ListIndex/types";
 import { ILoopContext } from "../LoopContext/types";
@@ -14,7 +13,6 @@ export type ReadonlyStateCallback<T = any> = (state: IReadonlyStateProxy, handle
 export interface IUpdater {
   readonly version: number;
   readonly revision: number;
-  readonly oldValueAndIndexesByRef: Map<IStatePropertyRef, ISaveInfoByResolvedPathInfo>;
   
   /**
    * 更新したRef情報をキューに追加します。
@@ -29,7 +27,7 @@ export interface IUpdater {
    */
   update(loopContext: ILoopContext | null, callback: UpdateCallback): Promise<void> | void;
 
-  swapInfoByRef: WeakMap<IStatePropertyRef, ISwapInfo>;
+  swapInfoByRef: Map<IStatePropertyRef, ISwapInfo>;
 
   createReadonlyState<T = any>(callback: ReadonlyStateCallback<T>): T;
 }
@@ -70,8 +68,8 @@ export interface IRenderer {
    */
   render(items: IStatePropertyRef[]): void;
 
-  lastValueByRef: WeakMap<IStatePropertyRef, any>;
-  lastListIndexesByRef: WeakMap<IStatePropertyRef, IListIndex[]>;
+  lastValueByRef: Map<IStatePropertyRef, any>;
+  lastListIndexesByRef: Map<IStatePropertyRef, IListIndex[]>;
 
   /**
    * 

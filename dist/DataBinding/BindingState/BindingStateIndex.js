@@ -58,6 +58,9 @@ class BindingStateIndex {
     get binding() {
         return this.#binding;
     }
+    get isLoopIndex() {
+        return true;
+    }
     constructor(binding, pattern, filters) {
         this.#binding = binding;
         const indexNumber = Number(pattern.slice(1));

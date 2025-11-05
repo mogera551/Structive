@@ -24,6 +24,7 @@ export interface IBindingState {
   readonly listIndex    : IListIndex | null;
   readonly ref          : IStatePropertyRef | never;
   readonly filters      : Filters;
+  readonly isLoopIndex  : boolean;
   init(): void;
   assignValue(writeState:IWritableStateProxy, handler:IWritableStateHandler, value:any): void;
   getValue(state: IStateProxy, handler: IStateHandler): any; // 現在の値を返す

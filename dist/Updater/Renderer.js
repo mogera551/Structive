@@ -50,8 +50,8 @@ class Renderer {
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
      */
     #reorderIndexesByRef = new Map();
-    #lastValueByRef = new WeakMap();
-    #lastListIndexesByRef = new WeakMap();
+    #lastValueByRef = new Map();
+    #lastListIndexesByRef = new Map();
     #updater;
     constructor(engine, updater) {
         this.#engine = engine;

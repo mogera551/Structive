@@ -111,7 +111,6 @@ export function getByRef(
           cacheEntry = {
             value,
             listIndexes: newListIndexes,
-            cloneValue: Array.isArray(value) ? [...value] : value,
             version: handler.updater.version,
             revision: handler.updater.revision,
           }
@@ -119,7 +118,6 @@ export function getByRef(
           cacheEntry = {
             value,
             listIndexes: null,
-            cloneValue: null,
             version: handler.updater.version,
             revision: handler.updater.revision,
           }

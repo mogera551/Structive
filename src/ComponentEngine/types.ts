@@ -65,21 +65,9 @@ export interface IComponentEngine {
   versionUp(): number;
 }
 
-/**
- * パス解決済みのバインディング情報をまとめて管理する型
- */
-export interface ISaveInfoByResolvedPathInfo {
-  list       : any[] | null;
-  listIndexes: IListIndex[] | null;
-  listClone  : any[] | null;
-  version    : number;
-  revision   : number;
-}
-
 export interface ICacheEntry {
   value: any;
   listIndexes: IListIndex[] | null;
-  cloneValue: any;
   version: number;
   revision: number;
 }

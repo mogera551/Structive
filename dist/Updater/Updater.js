@@ -14,14 +14,10 @@ class Updater {
     #engine;
     #version;
     #revision = 0;
-    #oldValueAndIndexesByRef = new Map();
-    #swapInfoByRef = new WeakMap();
+    #swapInfoByRef = new Map();
     constructor(engine) {
         this.#engine = engine;
         this.#version = engine.versionUp();
-    }
-    get oldValueAndIndexesByRef() {
-        return this.#oldValueAndIndexesByRef;
     }
     get version() {
         return this.#version;

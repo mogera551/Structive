@@ -59,6 +59,9 @@ class BindingState {
     get binding() {
         return this.#binding;
     }
+    get isLoopIndex() {
+        return false;
+    }
     constructor(binding, pattern, filters) {
         this.#binding = binding;
         this.#pattern = pattern;

@@ -4,7 +4,7 @@ import { FilterWithOptions } from "../Filter/types";
 import { IState, IStructiveState } from "../StateClass/types";
 import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
 import { attachShadow } from "./attachShadow.js";
-import { ISaveInfoByResolvedPathInfo, IComponentEngine, ICacheEntry, IVersionRevision } from "./types";
+import { IComponentEngine, ICacheEntry, IVersionRevision } from "./types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
@@ -22,6 +22,7 @@ import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef.js";
 import { RESERVED_WORD_SET } from "../constants.js";
 import { addPathNode } from "../PathTree/PathNode.js";
 import { IStatePropertyRef } from "../StatePropertyRef/types.js";
+import { IStructuredPathInfo } from "../StateProperty/types.js";
 
 /**
  * ComponentEngine は、Structive コンポーネントの状態・依存関係・
@@ -45,14 +46,6 @@ import { IStatePropertyRef } from "../StatePropertyRef/types.js";
  * - 非同期初期化（waitForInitialize）と切断待機（waitForDisconnected）を提供
  * - Updater と連携したバッチ更新で効率的なレンダリングを実現
  */
-
-const EMPTY_SAVE_INFO: ISaveInfoByResolvedPathInfo = {
-  list: null,
-  listIndexes: null,
-  listClone: null,
-  version: 0,
-  revision: 0,
-};
 
 class ComponentEngine implements IComponentEngine {
   type          : ComponentType = 'autonomous';
@@ -237,23 +230,48 @@ class ComponentEngine implements IComponentEngine {
   }
 
   #bindingsByRef: WeakMap<IStatePropertyRef, IBinding[]> = new WeakMap();
+  #bindingsByInfoByListIndex: WeakMap<IListIndex, Map<IStructuredPathInfo, IBinding[]>> = new WeakMap();
 
   saveBinding(
     ref      : IStatePropertyRef,
     binding  : IBinding
   ): void {
-    const bindings = this.#bindingsByRef.get(ref);
-    if (typeof bindings !== "undefined") {
-      bindings.push(binding);
-      return;
+    if (ref.listIndex !== null) {
+      const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
+      if (typeof bindingsByInfo !== "undefined") {
+        const bindings = bindingsByInfo.get(ref.info);
+        if (typeof bindings !== "undefined") {
+          bindings.push(binding);
+          return;
+        }
+        bindingsByInfo.set(ref.info, [binding]);
+        return;
+      }
+      this.#bindingsByInfoByListIndex.set(ref.listIndex, new Map([[ref.info, [binding]]])); 
+    } else {
+      const bindings = this.#bindingsByRef.get(ref);
+      if (typeof bindings !== "undefined") {
+        bindings.push(binding);
+        return;
+      }
+      this.#bindingsByRef.set(ref, [binding]);
     }
-    this.#bindingsByRef.set(ref, [binding]);
   }
 
   getBindings(ref: IStatePropertyRef): IBinding[] {
-    const bindings = this.#bindingsByRef.get(ref);
-    if (typeof bindings !== "undefined") {
-      return bindings;
+    if (ref.listIndex !== null) {
+      const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
+      if (typeof bindingsByInfo !== "undefined") {
+        const bindings = bindingsByInfo.get(ref.info);
+        if (typeof bindings !== "undefined") {
+          return bindings;
+        }
+      }
+    } else {
+      const bindings = this.#bindingsByRef.get(ref);
+      if (typeof bindings !== "undefined") {
+        return bindings;
+      }
     }
     return [];
   }

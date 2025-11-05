@@ -42,11 +42,7 @@ class BindingNodeClassName extends BindingNode {
       });
     }
     const element = this.node as Element;
-    if (value) {
-      element.classList.add(this.subName);
-    } else {
-      element.classList.remove(this.subName);
-    }
+    element.classList.toggle(this.subName, value);
   }
 }
 

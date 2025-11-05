@@ -890,12 +890,7 @@ class BindingNodeClassName extends BindingNode {
             });
         }
         const element = this.node;
-        if (value) {
-            element.classList.add(this.subName);
-        }
-        else {
-            element.classList.remove(this.subName);
-        }
+        element.classList.toggle(this.subName, value);
     }
 }
 /**
@@ -1636,7 +1631,6 @@ function getByRef(target, ref, receiver, handler) {
                     cacheEntry = {
                         value,
                         listIndexes: newListIndexes,
-                        cloneValue: Array.isArray(value) ? [...value] : value,
                         version: handler.updater.version,
                         revision: handler.updater.revision,
                     };
@@ -1645,7 +1639,6 @@ function getByRef(target, ref, receiver, handler) {
                     cacheEntry = {
                         value,
                         listIndexes: null,
-                        cloneValue: null,
                         version: handler.updater.version,
                         revision: handler.updater.revision,
                     };
@@ -2250,8 +2243,8 @@ class Renderer {
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
      */
     #reorderIndexesByRef = new Map();
-    #lastValueByRef = new WeakMap();
-    #lastListIndexesByRef = new WeakMap();
+    #lastValueByRef = new Map();
+    #lastListIndexesByRef = new Map();
     #updater;
     constructor(engine, updater) {
         this.#engine = engine;
@@ -2534,14 +2527,10 @@ class Updater {
     #engine;
     #version;
     #revision = 0;
-    #oldValueAndIndexesByRef = new Map();
-    #swapInfoByRef = new WeakMap();
+    #swapInfoByRef = new Map();
     constructor(engine) {
         this.#engine = engine;
         this.#version = engine.versionUp();
-    }
-    get oldValueAndIndexesByRef() {
-        return this.#oldValueAndIndexesByRef;
     }
     get version() {
         return this.#version;
@@ -3619,6 +3608,9 @@ class BindingState {
     get binding() {
         return this.#binding;
     }
+    get isLoopIndex() {
+        return false;
+    }
     constructor(binding, pattern, filters) {
         this.#binding = binding;
         this.#pattern = pattern;
@@ -3725,6 +3717,9 @@ class BindingStateIndex {
     }
     get binding() {
         return this.#binding;
+    }
+    get isLoopIndex() {
+        return true;
     }
     constructor(binding, pattern, filters) {
         this.#binding = binding;
@@ -4233,6 +4228,13 @@ class Binding {
         if (renderer.updatedBindings.has(this))
             return;
         this.bindingNode.applyChange(renderer);
+        const ref = this.bindingState.ref;
+        if (!this.bindingState.isLoopIndex && !this.engine.pathManager.dynamicDependencies.has(ref.info.pattern)) {
+            const bindings = this.engine.getBindings(ref);
+            if (bindings.length === 1) {
+                renderer.processedRefs.add(ref);
+            }
+        }
     }
 }
 /**
@@ -4968,6 +4970,28 @@ function createComponentStateOutput(binding) {
     return new ComponentStateOutput(binding);
 }
 
+/**
+ * ComponentEngine は、Structive コンポーネントの状態・依存関係・
+ * バインディング・ライフサイクル・レンダリングを統合する中核エンジンです。
+ *
+ * 主な役割:
+ * - 状態インスタンスやプロキシの生成・管理
+ * - テンプレート/スタイルシート/フィルター/バインディングの管理
+ * - 依存関係グラフ（PathTree）の構築と管理
+ * - バインディング情報やリスト情報の保存・取得
+ * - ライフサイクル（connected/disconnected）処理
+ * - Shadow DOM の適用、またはブロックモードのプレースホルダー運用
+ * - 状態プロパティの取得・設定
+ * - バインディングの追加・存在判定・リスト管理
+ *
+ * Throws（代表例）:
+ * - BIND-201 bindContent not initialized yet / Block parent node is not set
+ * - STATE-202 Failed to parse state from dataset
+ *
+ * 備考:
+ * - 非同期初期化（waitForInitialize）と切断待機（waitForDisconnected）を提供
+ * - Updater と連携したバッチ更新で効率的なレンダリングを実現
+ */
 class ComponentEngine {
     type = 'autonomous';
     config;
@@ -5144,18 +5168,45 @@ class ComponentEngine {
         }
     }
     #bindingsByRef = new WeakMap();
+    #bindingsByInfoByListIndex = new WeakMap();
     saveBinding(ref, binding) {
-        const bindings = this.#bindingsByRef.get(ref);
-        if (typeof bindings !== "undefined") {
-            bindings.push(binding);
-            return;
+        if (ref.listIndex !== null) {
+            const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
+            if (typeof bindingsByInfo !== "undefined") {
+                const bindings = bindingsByInfo.get(ref.info);
+                if (typeof bindings !== "undefined") {
+                    bindings.push(binding);
+                    return;
+                }
+                bindingsByInfo.set(ref.info, [binding]);
+                return;
+            }
+            this.#bindingsByInfoByListIndex.set(ref.listIndex, new Map([[ref.info, [binding]]]));
         }
-        this.#bindingsByRef.set(ref, [binding]);
+        else {
+            const bindings = this.#bindingsByRef.get(ref);
+            if (typeof bindings !== "undefined") {
+                bindings.push(binding);
+                return;
+            }
+            this.#bindingsByRef.set(ref, [binding]);
+        }
     }
     getBindings(ref) {
-        const bindings = this.#bindingsByRef.get(ref);
-        if (typeof bindings !== "undefined") {
-            return bindings;
+        if (ref.listIndex !== null) {
+            const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
+            if (typeof bindingsByInfo !== "undefined") {
+                const bindings = bindingsByInfo.get(ref.info);
+                if (typeof bindings !== "undefined") {
+                    return bindings;
+                }
+            }
+        }
+        else {
+            const bindings = this.#bindingsByRef.get(ref);
+            if (typeof bindings !== "undefined") {
+                return bindings;
+            }
         }
         return [];
     }

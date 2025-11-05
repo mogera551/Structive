@@ -33,13 +33,6 @@ import { addPathNode } from "../PathTree/PathNode.js";
  * - 非同期初期化（waitForInitialize）と切断待機（waitForDisconnected）を提供
  * - Updater と連携したバッチ更新で効率的なレンダリングを実現
  */
-const EMPTY_SAVE_INFO = {
-    list: null,
-    listIndexes: null,
-    listClone: null,
-    version: 0,
-    revision: 0,
-};
 class ComponentEngine {
     type = 'autonomous';
     config;
@@ -216,18 +209,45 @@ class ComponentEngine {
         }
     }
     #bindingsByRef = new WeakMap();
+    #bindingsByInfoByListIndex = new WeakMap();
     saveBinding(ref, binding) {
-        const bindings = this.#bindingsByRef.get(ref);
-        if (typeof bindings !== "undefined") {
-            bindings.push(binding);
-            return;
+        if (ref.listIndex !== null) {
+            const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
+            if (typeof bindingsByInfo !== "undefined") {
+                const bindings = bindingsByInfo.get(ref.info);
+                if (typeof bindings !== "undefined") {
+                    bindings.push(binding);
+                    return;
+                }
+                bindingsByInfo.set(ref.info, [binding]);
+                return;
+            }
+            this.#bindingsByInfoByListIndex.set(ref.listIndex, new Map([[ref.info, [binding]]]));
         }
-        this.#bindingsByRef.set(ref, [binding]);
+        else {
+            const bindings = this.#bindingsByRef.get(ref);
+            if (typeof bindings !== "undefined") {
+                bindings.push(binding);
+                return;
+            }
+            this.#bindingsByRef.set(ref, [binding]);
+        }
     }
     getBindings(ref) {
-        const bindings = this.#bindingsByRef.get(ref);
-        if (typeof bindings !== "undefined") {
-            return bindings;
+        if (ref.listIndex !== null) {
+            const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
+            if (typeof bindingsByInfo !== "undefined") {
+                const bindings = bindingsByInfo.get(ref.info);
+                if (typeof bindings !== "undefined") {
+                    return bindings;
+                }
+            }
+        }
+        else {
+            const bindings = this.#bindingsByRef.get(ref);
+            if (typeof bindings !== "undefined") {
+                return bindings;
+            }
         }
         return [];
     }
