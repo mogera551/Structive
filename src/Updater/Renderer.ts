@@ -203,11 +203,6 @@ class Renderer implements IRenderer {
             }
             continue; // 親リストが存在する場合はスキップ
           }
-          const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](listRef) ?? [];
-          for(let i = 0; i < listIndexes.length; i++) {
-            const listIndex = listIndexes[i];
-            listIndex.index = i;
-          }
           const bindings = this.#engine.getBindings(listRef);
           for(let i = 0; i < bindings.length; i++) {
             const binding = bindings[i];

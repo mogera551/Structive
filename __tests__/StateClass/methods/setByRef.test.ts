@@ -199,7 +199,8 @@ describe("StateClass/methods: setByRef", () => {
     const handler = makeHandler();
     handler.engine.pathManager.elements = createPathManagerSet([info.pattern]);
     const existingValues = ["keep"];
-    const existingIndexes = ["idx0"];
+    const existingIndexes = [{ index: 0, sid: "idx0" }];
+    const existingIndexesLengthBefore = existingIndexes.length;
     const target: any = { foo: "old" };
     const receiver: any = target;
     receiver[GetByRefSymbol] = vi.fn().mockReturnValue(existingValues);
@@ -215,11 +216,16 @@ describe("StateClass/methods: setByRef", () => {
     const stored = handler.updater.swapInfoByRef.get(parentRef);
     expect(stored?.value).toEqual(existingValues);
     expect(stored?.value).not.toBe(existingValues);
-    expect(stored?.listIndexes).toEqual(existingIndexes);
     expect(stored?.listIndexes).not.toBe(existingIndexes);
+    expect(stored?.listIndexes?.length).toBe(existingIndexesLengthBefore);
+    expect(stored?.listIndexes?.[0]).toBe(existingIndexes[0]);
     expect(receiver[GetByRefSymbol]).toHaveBeenCalledWith(parentRef);
-  expect(receiver[GetListIndexesByRefSymbol]).toHaveBeenCalledTimes(1);
-    expect(existingIndexes).toEqual(["idx0"]);
+    expect(receiver[GetListIndexesByRefSymbol]).toHaveBeenCalledTimes(2);
+    expect(existingIndexes).toHaveLength(existingIndexesLengthBefore + 1);
+    expect(existingIndexes[0]).toEqual({ index: 0, sid: "idx0" });
+    const second = existingIndexes[1] as any;
+    expect(second?.index).toBe(1);
+    expect(second?.parentListIndex).toBeNull();
     expect(handler.updater.enqueueRef).toHaveBeenCalledWith(ref);
   });
 

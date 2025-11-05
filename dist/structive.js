@@ -1394,19 +1394,6 @@ for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
     indexByIndexName[`$${i + 1}`] = i;
 }
 
-function checkDependency(handler, ref) {
-    // 動的依存関係の登録
-    if (handler.refIndex >= 0) {
-        const lastInfo = handler.lastRefStack?.info ?? null;
-        if (lastInfo !== null) {
-            if (handler.engine.pathManager.onlyGetters.has(lastInfo.pattern) &&
-                lastInfo.pattern !== ref.info.pattern) {
-                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, ref.info.pattern);
-            }
-        }
-    }
-}
-
 let version = 0;
 let id = 0;
 class ListIndex {
@@ -1499,6 +1486,19 @@ class ListIndex {
 }
 function createListIndex(parentListIndex, index) {
     return new ListIndex(parentListIndex, index);
+}
+
+function checkDependency(handler, ref) {
+    // 動的依存関係の登録
+    if (handler.refIndex >= 0) {
+        const lastInfo = handler.lastRefStack?.info ?? null;
+        if (lastInfo !== null) {
+            if (handler.engine.pathManager.onlyGetters.has(lastInfo.pattern) &&
+                lastInfo.pattern !== ref.info.pattern) {
+                handler.engine.pathManager.addDynamicDependency(lastInfo.pattern, ref.info.pattern);
+            }
+        }
+    }
 }
 
 function isSameList(oldList, newList) {
@@ -1752,12 +1752,17 @@ function setByRef(target, ref, value, receiver, handler) {
         handler.updater.enqueueRef(ref);
         if (isElements) {
             const index = swapInfo.value.indexOf(value);
-            if (index !== -1) {
-                const curIndex = ref.listIndex.index;
-                const listIndex = swapInfo.listIndexes[index];
-                const currentListIndexes = receiver[GetListIndexesByRefSymbol](parentRef) ?? [];
-                currentListIndexes[curIndex] = listIndex;
-                // ここでは直接listIndexのindexを書き換えない
+            const currentListIndexes = receiver[GetListIndexesByRefSymbol](parentRef) ?? [];
+            const curIndex = ref.listIndex.index;
+            const listIndex = (index !== -1) ? swapInfo.listIndexes[index] : createListIndex(parentRef.listIndex, -1);
+            currentListIndexes[curIndex] = listIndex;
+            // 重複チェック
+            // 重複していない場合、swapが完了したとみなし、インデックスを更新
+            const listValueSet = new Set(receiver[GetByRefSymbol](parentRef) ?? []);
+            if (listValueSet.size === swapInfo.value.length) {
+                for (let i = 0; i < currentListIndexes.length; i++) {
+                    currentListIndexes[i].index = i;
+                }
             }
         }
     }
@@ -2369,11 +2374,6 @@ class Renderer {
                             this.#processedRefs.add(ref); // 終了済み
                         }
                         continue; // 親リストが存在する場合はスキップ
-                    }
-                    const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](listRef) ?? [];
-                    for (let i = 0; i < listIndexes.length; i++) {
-                        const listIndex = listIndexes[i];
-                        listIndex.index = i;
                     }
                     const bindings = this.#engine.getBindings(listRef);
                     for (let i = 0; i < bindings.length; i++) {

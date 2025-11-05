@@ -273,7 +273,7 @@ describe("Updater/Renderer (real implementation)", () => {
     render([itemRef], engine as any, makeUpdater() as any);
 
     expect(listBinding.applyChange).toHaveBeenCalledTimes(1);
-    expect(listIndexFromReadonly.index).toBe(0);
+    expect(listIndexFromReadonly.index).toBe(100);
   });
 
   it("リストインデックスが取得できなくても親リストの並べ替え処理は空配列で進む", () => {

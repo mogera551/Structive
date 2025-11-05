@@ -15,6 +15,7 @@
  * - finallyで必ず更新情報を登録し、再描画や依存解決に利用
  * - getter/setter経由のスコープ切り替えも考慮した設計
  */
+import { createListIndex } from "../../ListIndex/ListIndex";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { ISwapInfo } from "../../Updater/types";
@@ -96,12 +97,17 @@ export function setByRef(
     handler.updater.enqueueRef(ref);
     if (isElements) {
       const index = swapInfo!.value.indexOf(value);
-      if (index !== -1) {
-        const curIndex = ref.listIndex!.index; 
-        const listIndex = swapInfo!.listIndexes[index];
-        const currentListIndexes = receiver[GetListIndexesByRefSymbol](parentRef!) ?? [];
-        currentListIndexes[curIndex] = listIndex;
-        // ここでは直接listIndexのindexを書き換えない
+      const currentListIndexes = receiver[GetListIndexesByRefSymbol](parentRef!) ?? [];
+      const curIndex = ref.listIndex!.index; 
+      const listIndex = (index !== -1) ? swapInfo!.listIndexes[index] : createListIndex(parentRef!.listIndex, -1);
+      currentListIndexes[curIndex] = listIndex;
+      // 重複チェック
+      // 重複していない場合、swapが完了したとみなし、インデックスを更新
+      const listValueSet = new Set(receiver[GetByRefSymbol](parentRef!) ?? []);
+      if (listValueSet.size === swapInfo!.value.length) {
+        for(let i = 0; i < currentListIndexes.length; i++) {
+          currentListIndexes[i].index = i;
+        }
       }
     }
   }
