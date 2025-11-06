@@ -54,8 +54,6 @@ class BindingNodeIf extends BindingNodeBlock {
      * - BIND-201 ParentNode is null
      */
     applyChange(renderer) {
-        if (renderer.updatedBindings.has(this.binding))
-            return;
         const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState, renderer.readonlyHandler);
         if (typeof filteredValue !== "boolean") {
             raiseError({
@@ -85,7 +83,6 @@ class BindingNodeIf extends BindingNodeBlock {
             this.#bindContent.unmount();
             this.#bindContents = this.#falseBindContents;
         }
-        renderer.updatedBindings.add(this.binding);
     }
 }
 /**

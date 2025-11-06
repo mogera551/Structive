@@ -31,24 +31,21 @@ const refByInfoByNull = {};
 export function getStatePropertyRef(info, listIndex) {
     let ref = null;
     if (listIndex !== null) {
-        let refByInfo = refByInfoByListIndex.get(listIndex);
-        if (typeof refByInfo === "undefined") {
-            refByInfo = {};
-            refByInfoByListIndex.set(listIndex, refByInfo);
-        }
-        ref = refByInfo[info.pattern];
-        if (typeof ref === "undefined") {
+        let refByInfo;
+        if (typeof (refByInfo = refByInfoByListIndex.get(listIndex)) === "undefined") {
             ref = new StatePropertyRef(info, listIndex);
-            refByInfo[info.pattern] = ref;
+            refByInfoByListIndex.set(listIndex, { [info.pattern]: ref });
         }
-        return ref;
+        else {
+            if (typeof (ref = refByInfo[info.pattern]) === "undefined") {
+                return refByInfo[info.pattern] = new StatePropertyRef(info, listIndex);
+            }
+        }
     }
     else {
-        ref = refByInfoByNull[info.pattern];
-        if (typeof ref === "undefined") {
-            ref = new StatePropertyRef(info, null);
-            refByInfoByNull[info.pattern] = ref;
+        if (typeof (ref = refByInfoByNull[info.pattern]) === "undefined") {
+            return refByInfoByNull[info.pattern] = new StatePropertyRef(info, null);
         }
-        return ref;
     }
+    return ref;
 }

@@ -21,8 +21,8 @@ export function getListIndexesByRef(
     });
   }
   getByRef(target, ref, receiver, handler); // キャッシュ更新を兼ねる
-  const cacheEntry = handler.engine.cache.get(ref);
-  if (typeof cacheEntry === "undefined") {
+  const cacheEntry = handler.engine.getCacheEntry(ref);
+  if (cacheEntry === null) {
     raiseError({
       code: 'LIST-202',
       message: `List cache entry not found: ${ref.info.pattern}`,

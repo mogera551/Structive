@@ -119,8 +119,6 @@ class BindingNodeFor extends BindingNodeBlock {
      * - 全削除/全追加はフラグメント最適化を適用
      */
     applyChange(renderer) {
-        if (renderer.updatedBindings.has(this.binding))
-            return;
         let newBindContents = [];
         const newList = renderer.readonlyState[GetByRefSymbol](this.binding.bindingState.ref);
         const newListIndexes = renderer.readonlyState[GetListIndexesByRefSymbol](this.binding.bindingState.ref) ?? [];
@@ -240,10 +238,6 @@ class BindingNodeFor extends BindingNodeBlock {
                 if (addsSet.has(listIndex)) {
                     bindContent = this.createBindContent(listIndex);
                     bindContent.mountAfter(fragmentParentNode, lastNode);
-                    //for(let i = 0; i < bindContent.blockBindings.length; i++) {
-                    //  const blockBinding = bindContent.blockBindings[i];
-                    //  blockBinding.applyChange(renderer);
-                    //}
                     bindContent.applyChange(renderer);
                 }
                 else {
@@ -275,6 +269,8 @@ class BindingNodeFor extends BindingNodeBlock {
             for (const listIndex of changeListIndexes) {
                 const bindings = this.binding.bindingsByListIndex.get(listIndex) ?? [];
                 for (const binding of bindings) {
+                    if (renderer.updatedBindings.has(binding))
+                        continue;
                     binding.applyChange(renderer);
                 }
             }
@@ -326,7 +322,6 @@ class BindingNodeFor extends BindingNodeBlock {
         this.#oldList = [...newList];
         this.#oldListIndexes = [...newListIndexes];
         this.#oldListIndexSet = newListIndexesSet;
-        renderer.updatedBindings.add(this.binding);
     }
 }
 export const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, filters) => {

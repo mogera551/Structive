@@ -72,11 +72,8 @@ export class BindingNode {
         // サブクラスで親子関係を考慮してバインディングの更新を通知する実装が可能
     }
     applyChange(renderer) {
-        if (renderer.updatedBindings.has(this.binding))
-            return;
         const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState, renderer.readonlyHandler);
         this.assignValue(filteredValue);
-        renderer.updatedBindings.add(this.binding);
     }
     get isSelectElement() {
         return this.node instanceof HTMLSelectElement;

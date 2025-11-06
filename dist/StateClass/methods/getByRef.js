@@ -20,12 +20,13 @@ export function getByRef(target, ref, receiver, handler) {
     checkDependency(handler, ref);
     let value;
     const listable = handler.engine.pathManager.lists.has(ref.info.pattern);
-    const cacheable = ref.info.wildcardCount > 0 || handler.engine.pathManager.getters.has(ref.info.pattern);
+    const cacheable = ref.info.wildcardCount > 0 ||
+        handler.engine.pathManager.getters.has(ref.info.pattern);
     let lastCacheEntry;
     if (cacheable || listable) {
-        lastCacheEntry = handler.engine.cache.get(ref);
+        lastCacheEntry = handler.engine.getCacheEntry(ref);
         const versionRevision = handler.engine.versionRevisionByPath.get(ref.info.pattern);
-        if (typeof lastCacheEntry !== "undefined") {
+        if (lastCacheEntry !== null) {
             if (typeof versionRevision === "undefined") {
                 // 更新なし
                 return lastCacheEntry.value;
@@ -99,7 +100,7 @@ export function getByRef(target, ref, receiver, handler) {
                         revision: handler.updater.revision,
                     };
                 }
-                handler.engine.cache.set(ref, cacheEntry);
+                handler.engine.setCacheEntry(ref, cacheEntry);
             }
         }
     }

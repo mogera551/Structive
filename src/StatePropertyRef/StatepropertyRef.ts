@@ -46,7 +46,7 @@ class StatePropertyRef implements IStatePropertyRef {
   }
 }
 
-const refByInfoByListIndex = new WeakMap<IListIndex, Record<string, IStatePropertyRef>>();
+const refByInfoByListIndex: WeakMap<IListIndex, Record<string, IStatePropertyRef>> = new WeakMap();
 const refByInfoByNull: Record<string, IStatePropertyRef> = {};
 
 export function getStatePropertyRef(
@@ -55,23 +55,19 @@ export function getStatePropertyRef(
 ): IStatePropertyRef {
   let ref = null;
   if (listIndex !== null) {
-    let refByInfo = refByInfoByListIndex.get(listIndex);
-    if (typeof refByInfo === "undefined") {
-      refByInfo = {};
-      refByInfoByListIndex.set(listIndex, refByInfo);
-    }
-    ref = refByInfo[info.pattern];
-    if (typeof ref === "undefined") {
+    let refByInfo;
+    if (typeof (refByInfo = refByInfoByListIndex.get(listIndex)) === "undefined") {
       ref = new StatePropertyRef(info, listIndex);
-      refByInfo[info.pattern] = ref;
+      refByInfoByListIndex.set(listIndex, { [info.pattern]: ref });
+    } else {
+      if (typeof (ref = refByInfo[info.pattern]) === "undefined") {
+        return refByInfo[info.pattern] = new StatePropertyRef(info, listIndex);
+      }
     }
-    return ref;
   } else {
-    ref = refByInfoByNull[info.pattern];
-    if (typeof ref === "undefined") {
-      ref = new StatePropertyRef(info, null);
-      refByInfoByNull[info.pattern] = ref;
+    if (typeof (ref = refByInfoByNull[info.pattern]) === "undefined") {
+      return refByInfoByNull[info.pattern] = new StatePropertyRef(info, null);
     }
-    return ref;
   }
+  return ref;
 }

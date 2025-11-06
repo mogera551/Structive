@@ -62,6 +62,7 @@ class Binding implements IBinding {
 
   applyChange(renderer: IRenderer): void {
     if (renderer.updatedBindings.has(this)) return;
+    renderer.updatedBindings.add(this);
     this.bindingNode.applyChange(renderer);
     const ref = this.bindingState.ref;
     if (!this.bindingState.isLoopIndex && !this.engine.pathManager.dynamicDependencies.has(ref.info.pattern)) {

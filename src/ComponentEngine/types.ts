@@ -5,6 +5,7 @@ import { FilterWithOptions } from "../Filter/types";
 import { IListIndex } from "../ListIndex/types";
 import { IPathManager } from "../PathManager/types";
 import { IState, IStructiveState } from "../StateClass/types";
+import { IStructuredPathInfo } from "../StateProperty/types";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { ComponentType, IComponentConfig, StructiveComponent } from "../WebComponents/types";
 
@@ -37,7 +38,11 @@ export interface IComponentEngine {
   owner         : StructiveComponent;
   waitForInitialize: PromiseWithResolvers<void>;
   readonly currentVersion: number;
-  cache: WeakMap<IStatePropertyRef, ICacheEntry>; // StatePropertyRefごとのキャッシュエントリ
+
+  getCacheEntry(ref: IStatePropertyRef): ICacheEntry | null;
+  setCacheEntry(ref: IStatePropertyRef, entry: ICacheEntry): void;
+  getBindings(ref: IStatePropertyRef): IBinding[];
+  saveBinding(ref: IStatePropertyRef, binding: IBinding): void;
 
 //  bindingsByListIndex: WeakMap<IListIndex, Set<IBinding>>; // リストインデックスからバインディングを取得する
 
@@ -53,8 +58,6 @@ export interface IComponentEngine {
   connectedCallback(): Promise<void>;
   disconnectedCallback(): Promise<void>;
 
-  saveBinding(ref: IStatePropertyRef, binding: IBinding): void;
-  getBindings(ref: IStatePropertyRef): IBinding[];
   getListIndexes(ref: IStatePropertyRef): IListIndex[] | null;
 
   getPropertyValue(ref: IStatePropertyRef): any; // プロパティの値を取得する
@@ -63,6 +66,11 @@ export interface IComponentEngine {
   unregisterChildComponent(component: StructiveComponent): void; // Structiveコンポーネントを登録解除する
 
   versionUp(): number;
+}
+
+export interface IPropertyRefInfo {
+  bindings: IBinding[];
+  cacheEntry: ICacheEntry | null;
 }
 
 export interface ICacheEntry {

@@ -73,7 +73,6 @@ class ComponentEngine {
     versionUp() {
         return ++this.#currentVersion;
     }
-    cache = new WeakMap(); // StatePropertyRefごとのキャッシュエントリ
     versionRevisionByPath = new Map();
     constructor(config, owner) {
         this.config = config;
@@ -208,49 +207,6 @@ class ComponentEngine {
             this.#waitForDisconnected.resolve(); // disconnectedCallbackが呼ばれたことを通知   
         }
     }
-    #bindingsByRef = new WeakMap();
-    #bindingsByInfoByListIndex = new WeakMap();
-    saveBinding(ref, binding) {
-        if (ref.listIndex !== null) {
-            const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
-            if (typeof bindingsByInfo !== "undefined") {
-                const bindings = bindingsByInfo.get(ref.info);
-                if (typeof bindings !== "undefined") {
-                    bindings.push(binding);
-                    return;
-                }
-                bindingsByInfo.set(ref.info, [binding]);
-                return;
-            }
-            this.#bindingsByInfoByListIndex.set(ref.listIndex, new Map([[ref.info, [binding]]]));
-        }
-        else {
-            const bindings = this.#bindingsByRef.get(ref);
-            if (typeof bindings !== "undefined") {
-                bindings.push(binding);
-                return;
-            }
-            this.#bindingsByRef.set(ref, [binding]);
-        }
-    }
-    getBindings(ref) {
-        if (ref.listIndex !== null) {
-            const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
-            if (typeof bindingsByInfo !== "undefined") {
-                const bindings = bindingsByInfo.get(ref.info);
-                if (typeof bindings !== "undefined") {
-                    return bindings;
-                }
-            }
-        }
-        else {
-            const bindings = this.#bindingsByRef.get(ref);
-            if (typeof bindings !== "undefined") {
-                return bindings;
-            }
-        }
-        return [];
-    }
     getListIndexes(ref) {
         if (this.stateOutput.startsWith(ref.info)) {
             return this.stateOutput.getListIndexes(ref);
@@ -287,6 +243,31 @@ class ComponentEngine {
     }
     unregisterChildComponent(component) {
         this.structiveChildComponents.delete(component);
+    }
+    #IPropertyRefInfoByRef = new WeakMap();
+    getCacheEntry(ref) {
+        return this.#IPropertyRefInfoByRef.get(ref)?.cacheEntry ?? null;
+    }
+    setCacheEntry(ref, entry) {
+        let info = this.#IPropertyRefInfoByRef.get(ref);
+        if (typeof info === "undefined") {
+            this.#IPropertyRefInfoByRef.set(ref, { bindings: [], cacheEntry: entry });
+        }
+        else {
+            info.cacheEntry = entry;
+        }
+    }
+    getBindings(ref) {
+        return this.#IPropertyRefInfoByRef.get(ref)?.bindings ?? [];
+    }
+    saveBinding(ref, binding) {
+        const info = this.#IPropertyRefInfoByRef.get(ref);
+        if (typeof info === "undefined") {
+            this.#IPropertyRefInfoByRef.set(ref, { bindings: [binding], cacheEntry: null });
+        }
+        else {
+            info.bindings.push(binding);
+        }
     }
 }
 export function createComponentEngine(config, component) {

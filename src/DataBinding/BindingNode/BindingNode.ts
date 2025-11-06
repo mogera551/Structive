@@ -86,10 +86,8 @@ export class BindingNode implements IBindingNode {
     // サブクラスで親子関係を考慮してバインディングの更新を通知する実装が可能
   }
   applyChange(renderer: IRenderer): void {
-    if (renderer.updatedBindings.has(this.binding)) return;
     const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState, renderer.readonlyHandler);
     this.assignValue(filteredValue);
-    renderer.updatedBindings.add(this.binding);
   }
 
   get isSelectElement(): boolean {

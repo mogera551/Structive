@@ -175,10 +175,9 @@ class Renderer {
                     }
                     const bindings = this.#engine.getBindings(listRef);
                     for (let i = 0; i < bindings.length; i++) {
-                        const binding = bindings[i];
-                        if (!this.#updatedBindings.has(binding)) {
-                            binding.applyChange(this);
-                        }
+                        if (this.#updatedBindings.has(bindings[i]))
+                            continue;
+                        bindings[i].applyChange(this);
                     }
                     this.processedRefs.add(listRef);
                 }
@@ -227,10 +226,9 @@ class Renderer {
         // 変更があったバインディングは updatedBindings に追加する（applyChange 実装の責務）
         const bindings = this.#engine.getBindings(ref);
         for (let i = 0; i < bindings.length; i++) {
-            const binding = bindings[i];
-            if (!this.#updatedBindings.has(binding)) {
-                binding.applyChange(this);
-            }
+            if (this.#updatedBindings.has(bindings[i]))
+                continue;
+            bindings[i].applyChange(this);
         }
         let diffListIndexes = new Set();
         if (this.#engine.pathManager.lists.has(ref.info.pattern)) {

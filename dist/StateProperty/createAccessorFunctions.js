@@ -63,9 +63,12 @@ export function createAccessorFunctions(info, getters) {
             }
         }
         const path = segments.join('');
+        const getterFuncText = `return this["${matchPath}"]${path};`;
+        const setterFuncText = `this["${matchPath}"]${path} = value;`;
+        //console.log('path/getter/setter:', info.pattern, getterFuncText, setterFuncText);
         return {
-            get: new Function('', `return this["${matchPath}"]${path};`),
-            set: new Function('value', `this["${matchPath}"]${path} = value;`),
+            get: new Function('', getterFuncText),
+            set: new Function('value', setterFuncText),
         };
     }
     else {
@@ -90,9 +93,12 @@ export function createAccessorFunctions(info, getters) {
             }
         }
         const path = segments.join('');
+        const getterFuncText = `return this.${path};`;
+        const setterFuncText = `this.${path} = value;`;
+        //console.log('path/getter/setter:', info.pattern, getterFuncText, setterFuncText);
         return {
-            get: new Function('', `return this.${path};`),
-            set: new Function('value', `this.${path} = value;`),
+            get: new Function('', getterFuncText),
+            set: new Function('value', setterFuncText),
         };
     }
 }

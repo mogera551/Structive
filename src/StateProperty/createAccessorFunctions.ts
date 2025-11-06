@@ -65,9 +65,12 @@ export function createAccessorFunctions(info: IStructuredPathInfo, getters: Set<
       }
     }
     const path = segments.join('');
+    const getterFuncText = `return this["${matchPath}"]${path};`;
+    const setterFuncText = `this["${matchPath}"]${path} = value;`;
+    //console.log('path/getter/setter:', info.pattern, getterFuncText, setterFuncText);
     return {
-      get : new Function('', `return this["${matchPath}"]${path};`) as ()=> any,
-      set : new Function('value', `this["${matchPath}"]${path} = value;`) as (value: any) => void,
+      get : new Function('', getterFuncText) as ()=> any,
+      set : new Function('value', setterFuncText) as (value: any) => void,
     }
   } else {
     const segments = [];
@@ -90,9 +93,12 @@ export function createAccessorFunctions(info: IStructuredPathInfo, getters: Set<
       }
     }
     const path = segments.join('');
+    const getterFuncText = `return this.${path};`;
+    const setterFuncText = `this.${path} = value;`;
+    //console.log('path/getter/setter:', info.pattern, getterFuncText, setterFuncText);
     return {
-      get : new Function('', `return this.${path};`) as ()=> any,
-      set : new Function('value', `this.${path} = value;`) as (value: any) => void,
+      get : new Function('', getterFuncText) as ()=> any,
+      set : new Function('value', setterFuncText) as (value: any) => void,
     }
   }
 

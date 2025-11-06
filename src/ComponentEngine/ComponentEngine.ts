@@ -4,7 +4,7 @@ import { FilterWithOptions } from "../Filter/types";
 import { IState, IStructiveState } from "../StateClass/types";
 import { ComponentType, IComponentConfig, IComponentStatic, StructiveComponent } from "../WebComponents/types";
 import { attachShadow } from "./attachShadow.js";
-import { IComponentEngine, ICacheEntry, IVersionRevision } from "./types";
+import { IComponentEngine, ICacheEntry, IVersionRevision, IPropertyRefInfo } from "./types";
 import { ConnectedCallbackSymbol, DisconnectedCallbackSymbol, GetByRefSymbol, GetListIndexesByRefSymbol, SetByRefSymbol, SetCacheableSymbol } from "../StateClass/symbols.js";
 import { getStructuredPathInfo } from "../StateProperty/getStructuredPathInfo.js";
 import { raiseError } from "../utils.js";
@@ -94,7 +94,6 @@ class ComponentEngine implements IComponentEngine {
     return ++this.#currentVersion;
   }
 
-  cache: WeakMap<IStatePropertyRef, ICacheEntry> = new WeakMap(); // StatePropertyRefごとのキャッシュエントリ
   versionRevisionByPath: Map<string, IVersionRevision> = new Map();
   constructor(config: IComponentConfig, owner: StructiveComponent) {
     this.config = config;
@@ -229,53 +228,6 @@ class ComponentEngine implements IComponentEngine {
     }
   }
 
-  #bindingsByRef: WeakMap<IStatePropertyRef, IBinding[]> = new WeakMap();
-  #bindingsByInfoByListIndex: WeakMap<IListIndex, Map<IStructuredPathInfo, IBinding[]>> = new WeakMap();
-
-  saveBinding(
-    ref      : IStatePropertyRef,
-    binding  : IBinding
-  ): void {
-    if (ref.listIndex !== null) {
-      const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
-      if (typeof bindingsByInfo !== "undefined") {
-        const bindings = bindingsByInfo.get(ref.info);
-        if (typeof bindings !== "undefined") {
-          bindings.push(binding);
-          return;
-        }
-        bindingsByInfo.set(ref.info, [binding]);
-        return;
-      }
-      this.#bindingsByInfoByListIndex.set(ref.listIndex, new Map([[ref.info, [binding]]])); 
-    } else {
-      const bindings = this.#bindingsByRef.get(ref);
-      if (typeof bindings !== "undefined") {
-        bindings.push(binding);
-        return;
-      }
-      this.#bindingsByRef.set(ref, [binding]);
-    }
-  }
-
-  getBindings(ref: IStatePropertyRef): IBinding[] {
-    if (ref.listIndex !== null) {
-      const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
-      if (typeof bindingsByInfo !== "undefined") {
-        const bindings = bindingsByInfo.get(ref.info);
-        if (typeof bindings !== "undefined") {
-          return bindings;
-        }
-      }
-    } else {
-      const bindings = this.#bindingsByRef.get(ref);
-      if (typeof bindings !== "undefined") {
-        return bindings;
-      }
-    }
-    return [];
-  }
-
   getListIndexes(ref: IStatePropertyRef): IListIndex[] | null {
     if (this.stateOutput.startsWith(ref.info)) {
       return this.stateOutput.getListIndexes(ref);
@@ -313,6 +265,30 @@ class ComponentEngine implements IComponentEngine {
   }
   unregisterChildComponent(component: StructiveComponent): void {
     this.structiveChildComponents.delete(component);
+  }
+
+  #IPropertyRefInfoByRef: WeakMap<IStatePropertyRef, IPropertyRefInfo> = new WeakMap();
+  getCacheEntry(ref: IStatePropertyRef): ICacheEntry | null {
+    return this.#IPropertyRefInfoByRef.get(ref)?.cacheEntry ?? null;
+  }
+  setCacheEntry(ref: IStatePropertyRef, entry: ICacheEntry): void {
+    let info = this.#IPropertyRefInfoByRef.get(ref);
+    if (typeof info === "undefined") {
+      this.#IPropertyRefInfoByRef.set(ref, { bindings: [], cacheEntry: entry });
+    } else {
+      info.cacheEntry = entry;
+    }
+  }
+  getBindings(ref: IStatePropertyRef): IBinding[] {
+    return this.#IPropertyRefInfoByRef.get(ref)?.bindings ?? [];
+  }
+  saveBinding(ref: IStatePropertyRef, binding: IBinding): void {
+    const info = this.#IPropertyRefInfoByRef.get(ref);
+    if (typeof info === "undefined") {
+      this.#IPropertyRefInfoByRef.set(ref, { bindings: [binding], cacheEntry: null });
+    } else {
+      info.bindings.push(binding);
+    }
   }
   
 }

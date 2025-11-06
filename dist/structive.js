@@ -734,11 +734,8 @@ class BindingNode {
         // サブクラスで親子関係を考慮してバインディングの更新を通知する実装が可能
     }
     applyChange(renderer) {
-        if (renderer.updatedBindings.has(this.binding))
-            return;
         const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState, renderer.readonlyHandler);
         this.assignValue(filteredValue);
-        renderer.updatedBindings.add(this.binding);
     }
     get isSelectElement() {
         return this.node instanceof HTMLSelectElement;
@@ -1225,26 +1222,23 @@ const refByInfoByNull = {};
 function getStatePropertyRef(info, listIndex) {
     let ref = null;
     if (listIndex !== null) {
-        let refByInfo = refByInfoByListIndex.get(listIndex);
-        if (typeof refByInfo === "undefined") {
-            refByInfo = {};
-            refByInfoByListIndex.set(listIndex, refByInfo);
-        }
-        ref = refByInfo[info.pattern];
-        if (typeof ref === "undefined") {
+        let refByInfo;
+        if (typeof (refByInfo = refByInfoByListIndex.get(listIndex)) === "undefined") {
             ref = new StatePropertyRef(info, listIndex);
-            refByInfo[info.pattern] = ref;
+            refByInfoByListIndex.set(listIndex, { [info.pattern]: ref });
         }
-        return ref;
+        else {
+            if (typeof (ref = refByInfo[info.pattern]) === "undefined") {
+                return refByInfo[info.pattern] = new StatePropertyRef(info, listIndex);
+            }
+        }
     }
     else {
-        ref = refByInfoByNull[info.pattern];
-        if (typeof ref === "undefined") {
-            ref = new StatePropertyRef(info, null);
-            refByInfoByNull[info.pattern] = ref;
+        if (typeof (ref = refByInfoByNull[info.pattern]) === "undefined") {
+            return refByInfoByNull[info.pattern] = new StatePropertyRef(info, null);
         }
-        return ref;
     }
+    return ref;
 }
 
 function getContextListIndex(handler, structuredPath) {
@@ -1566,12 +1560,13 @@ function getByRef(target, ref, receiver, handler) {
     checkDependency(handler, ref);
     let value;
     const listable = handler.engine.pathManager.lists.has(ref.info.pattern);
-    const cacheable = ref.info.wildcardCount > 0 || handler.engine.pathManager.getters.has(ref.info.pattern);
+    const cacheable = ref.info.wildcardCount > 0 ||
+        handler.engine.pathManager.getters.has(ref.info.pattern);
     let lastCacheEntry;
     if (cacheable || listable) {
-        lastCacheEntry = handler.engine.cache.get(ref);
+        lastCacheEntry = handler.engine.getCacheEntry(ref);
         const versionRevision = handler.engine.versionRevisionByPath.get(ref.info.pattern);
-        if (typeof lastCacheEntry !== "undefined") {
+        if (lastCacheEntry !== null) {
             if (typeof versionRevision === "undefined") {
                 // 更新なし
                 return lastCacheEntry.value;
@@ -1643,7 +1638,7 @@ function getByRef(target, ref, receiver, handler) {
                         revision: handler.updater.revision,
                     };
                 }
-                handler.engine.cache.set(ref, cacheEntry);
+                handler.engine.setCacheEntry(ref, cacheEntry);
             }
         }
     }
@@ -1967,8 +1962,8 @@ function getListIndexesByRef(target, ref, receiver, handler) {
         });
     }
     getByRef(target, ref, receiver, handler); // キャッシュ更新を兼ねる
-    const cacheEntry = handler.engine.cache.get(ref);
-    if (typeof cacheEntry === "undefined") {
+    const cacheEntry = handler.engine.getCacheEntry(ref);
+    if (cacheEntry === null) {
         raiseError({
             code: 'LIST-202',
             message: `List cache entry not found: ${ref.info.pattern}`,
@@ -2368,10 +2363,9 @@ class Renderer {
                     }
                     const bindings = this.#engine.getBindings(listRef);
                     for (let i = 0; i < bindings.length; i++) {
-                        const binding = bindings[i];
-                        if (!this.#updatedBindings.has(binding)) {
-                            binding.applyChange(this);
-                        }
+                        if (this.#updatedBindings.has(bindings[i]))
+                            continue;
+                        bindings[i].applyChange(this);
                     }
                     this.processedRefs.add(listRef);
                 }
@@ -2420,10 +2414,9 @@ class Renderer {
         // 変更があったバインディングは updatedBindings に追加する（applyChange 実装の責務）
         const bindings = this.#engine.getBindings(ref);
         for (let i = 0; i < bindings.length; i++) {
-            const binding = bindings[i];
-            if (!this.#updatedBindings.has(binding)) {
-                binding.applyChange(this);
-            }
+            if (this.#updatedBindings.has(bindings[i]))
+                continue;
+            bindings[i].applyChange(this);
         }
         let diffListIndexes = new Set();
         if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
@@ -2809,8 +2802,6 @@ class BindingNodeIf extends BindingNodeBlock {
      * - BIND-201 ParentNode is null
      */
     applyChange(renderer) {
-        if (renderer.updatedBindings.has(this.binding))
-            return;
         const filteredValue = this.binding.bindingState.getFilteredValue(renderer.readonlyState, renderer.readonlyHandler);
         if (typeof filteredValue !== "boolean") {
             raiseError({
@@ -2840,7 +2831,6 @@ class BindingNodeIf extends BindingNodeBlock {
             this.#bindContent.unmount();
             this.#bindContents = this.#falseBindContents;
         }
-        renderer.updatedBindings.add(this.binding);
     }
 }
 /**
@@ -2966,8 +2956,6 @@ class BindingNodeFor extends BindingNodeBlock {
      * - 全削除/全追加はフラグメント最適化を適用
      */
     applyChange(renderer) {
-        if (renderer.updatedBindings.has(this.binding))
-            return;
         let newBindContents = [];
         const newList = renderer.readonlyState[GetByRefSymbol](this.binding.bindingState.ref);
         const newListIndexes = renderer.readonlyState[GetListIndexesByRefSymbol](this.binding.bindingState.ref) ?? [];
@@ -3087,10 +3075,6 @@ class BindingNodeFor extends BindingNodeBlock {
                 if (addsSet.has(listIndex)) {
                     bindContent = this.createBindContent(listIndex);
                     bindContent.mountAfter(fragmentParentNode, lastNode);
-                    //for(let i = 0; i < bindContent.blockBindings.length; i++) {
-                    //  const blockBinding = bindContent.blockBindings[i];
-                    //  blockBinding.applyChange(renderer);
-                    //}
                     bindContent.applyChange(renderer);
                 }
                 else {
@@ -3122,6 +3106,8 @@ class BindingNodeFor extends BindingNodeBlock {
             for (const listIndex of changeListIndexes) {
                 const bindings = this.binding.bindingsByListIndex.get(listIndex) ?? [];
                 for (const binding of bindings) {
+                    if (renderer.updatedBindings.has(binding))
+                        continue;
                     binding.applyChange(renderer);
                 }
             }
@@ -3173,7 +3159,6 @@ class BindingNodeFor extends BindingNodeBlock {
         this.#oldList = [...newList];
         this.#oldListIndexes = [...newListIndexes];
         this.#oldListIndexSet = newListIndexesSet;
-        renderer.updatedBindings.add(this.binding);
     }
 }
 const createBindingNodeFor = (name, filterTexts, decorates) => (binding, node, filters) => {
@@ -4215,6 +4200,7 @@ class Binding {
     applyChange(renderer) {
         if (renderer.updatedBindings.has(this))
             return;
+        renderer.updatedBindings.add(this);
         this.bindingNode.applyChange(renderer);
         const ref = this.bindingState.ref;
         if (!this.bindingState.isLoopIndex && !this.engine.pathManager.dynamicDependencies.has(ref.info.pattern)) {
@@ -5020,7 +5006,6 @@ class ComponentEngine {
     versionUp() {
         return ++this.#currentVersion;
     }
-    cache = new WeakMap(); // StatePropertyRefごとのキャッシュエントリ
     versionRevisionByPath = new Map();
     constructor(config, owner) {
         this.config = config;
@@ -5155,49 +5140,6 @@ class ComponentEngine {
             this.#waitForDisconnected.resolve(); // disconnectedCallbackが呼ばれたことを通知   
         }
     }
-    #bindingsByRef = new WeakMap();
-    #bindingsByInfoByListIndex = new WeakMap();
-    saveBinding(ref, binding) {
-        if (ref.listIndex !== null) {
-            const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
-            if (typeof bindingsByInfo !== "undefined") {
-                const bindings = bindingsByInfo.get(ref.info);
-                if (typeof bindings !== "undefined") {
-                    bindings.push(binding);
-                    return;
-                }
-                bindingsByInfo.set(ref.info, [binding]);
-                return;
-            }
-            this.#bindingsByInfoByListIndex.set(ref.listIndex, new Map([[ref.info, [binding]]]));
-        }
-        else {
-            const bindings = this.#bindingsByRef.get(ref);
-            if (typeof bindings !== "undefined") {
-                bindings.push(binding);
-                return;
-            }
-            this.#bindingsByRef.set(ref, [binding]);
-        }
-    }
-    getBindings(ref) {
-        if (ref.listIndex !== null) {
-            const bindingsByInfo = this.#bindingsByInfoByListIndex.get(ref.listIndex);
-            if (typeof bindingsByInfo !== "undefined") {
-                const bindings = bindingsByInfo.get(ref.info);
-                if (typeof bindings !== "undefined") {
-                    return bindings;
-                }
-            }
-        }
-        else {
-            const bindings = this.#bindingsByRef.get(ref);
-            if (typeof bindings !== "undefined") {
-                return bindings;
-            }
-        }
-        return [];
-    }
     getListIndexes(ref) {
         if (this.stateOutput.startsWith(ref.info)) {
             return this.stateOutput.getListIndexes(ref);
@@ -5234,6 +5176,31 @@ class ComponentEngine {
     }
     unregisterChildComponent(component) {
         this.structiveChildComponents.delete(component);
+    }
+    #IPropertyRefInfoByRef = new WeakMap();
+    getCacheEntry(ref) {
+        return this.#IPropertyRefInfoByRef.get(ref)?.cacheEntry ?? null;
+    }
+    setCacheEntry(ref, entry) {
+        let info = this.#IPropertyRefInfoByRef.get(ref);
+        if (typeof info === "undefined") {
+            this.#IPropertyRefInfoByRef.set(ref, { bindings: [], cacheEntry: entry });
+        }
+        else {
+            info.cacheEntry = entry;
+        }
+    }
+    getBindings(ref) {
+        return this.#IPropertyRefInfoByRef.get(ref)?.bindings ?? [];
+    }
+    saveBinding(ref, binding) {
+        const info = this.#IPropertyRefInfoByRef.get(ref);
+        if (typeof info === "undefined") {
+            this.#IPropertyRefInfoByRef.set(ref, { bindings: [binding], cacheEntry: null });
+        }
+        else {
+            info.bindings.push(binding);
+        }
     }
 }
 function createComponentEngine(config, component) {
@@ -5520,9 +5487,12 @@ function createAccessorFunctions(info, getters) {
             }
         }
         const path = segments.join('');
+        const getterFuncText = `return this["${matchPath}"]${path};`;
+        const setterFuncText = `this["${matchPath}"]${path} = value;`;
+        //console.log('path/getter/setter:', info.pattern, getterFuncText, setterFuncText);
         return {
-            get: new Function('', `return this["${matchPath}"]${path};`),
-            set: new Function('value', `this["${matchPath}"]${path} = value;`),
+            get: new Function('', getterFuncText),
+            set: new Function('value', setterFuncText),
         };
     }
     else {
@@ -5547,9 +5517,12 @@ function createAccessorFunctions(info, getters) {
             }
         }
         const path = segments.join('');
+        const getterFuncText = `return this.${path};`;
+        const setterFuncText = `this.${path} = value;`;
+        //console.log('path/getter/setter:', info.pattern, getterFuncText, setterFuncText);
         return {
-            get: new Function('', `return this.${path};`),
-            set: new Function('value', `this.${path} = value;`),
+            get: new Function('', getterFuncText),
+            set: new Function('value', setterFuncText),
         };
     }
 }
