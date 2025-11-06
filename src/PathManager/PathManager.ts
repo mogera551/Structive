@@ -128,7 +128,7 @@ class PathManager implements IPathManager {
   }
   #dynamicDependencyKeys = new Set<string>();
   addDynamicDependency(target: string, source: string) {
-    const key = `${source}=>${target}`;
+    const key = source + "=>" + target;
     if (this.#dynamicDependencyKeys.has(key)) {
       return;
     }

@@ -50,8 +50,7 @@ class Renderer {
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
      */
     #reorderIndexesByRef = new Map();
-    #lastValueByRef = new Map();
-    #lastListIndexesByRef = new Map();
+    #lastListInfoByRef = new Map();
     #updater;
     constructor(engine, updater) {
         this.#engine = engine;
@@ -113,11 +112,8 @@ class Renderer {
         }
         return this.#engine;
     }
-    get lastValueByRef() {
-        return this.#lastValueByRef;
-    }
-    get lastListIndexesByRef() {
-        return this.#lastListIndexesByRef;
+    get lastListInfoByRef() {
+        return this.#lastListInfoByRef;
     }
     /**
      * リードオンリーな状態を生成し、コールバックに渡す
@@ -239,8 +235,9 @@ class Renderer {
         let diffListIndexes = new Set();
         if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
             const currentListIndexes = new Set(this.readonlyState[GetListIndexesByRefSymbol](ref) ?? []);
-            const lastListIndexes = new Set(this.lastListIndexesByRef.get(ref) ?? []);
-            diffListIndexes = currentListIndexes.difference(lastListIndexes);
+            const { listIndexes } = this.lastListInfoByRef.get(ref) ?? {};
+            const lastListIndexSet = new Set(listIndexes ?? []);
+            diffListIndexes = currentListIndexes.difference(lastListIndexSet);
         }
         // 静的な依存関係を辿る
         for (const [name, childNode] of node.childNodeByName) {

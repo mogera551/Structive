@@ -18,7 +18,7 @@
 import { createListIndex } from "../../ListIndex/ListIndex";
 import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
-import { ISwapInfo } from "../../Updater/types";
+import { IListInfo } from "../../Updater/types";
 import { raiseError } from "../../utils.js";
 import { GetByRefSymbol, GetListIndexesByRefSymbol } from "../symbols";
 import { IStateProxy, IStateHandler } from "../types";
@@ -33,7 +33,7 @@ export function setByRef(
 ): any {
   const isElements = handler.engine.pathManager.elements.has(ref.info.pattern);
   let parentRef: IStatePropertyRef | null = null;
-  let swapInfo: ISwapInfo | null = null;
+  let swapInfo: IListInfo | null = null;
   // elementsの場合はswapInfoを準備
   if (isElements) {
     parentRef = ref.parentRef ?? raiseError({

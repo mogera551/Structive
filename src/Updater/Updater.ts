@@ -8,7 +8,7 @@ import { useWritableStateProxy } from "../StateClass/useWritableStateProxy";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
 import { render } from "./Renderer";
-import { ISwapInfo, IUpdater, ReadonlyStateCallback, UpdateCallback } from "./types";
+import { IListInfo, IUpdater, ReadonlyStateCallback, UpdateCallback } from "./types";
 
 
 /**
@@ -23,7 +23,7 @@ class Updater implements IUpdater {
 
   #version: number;
   #revision: number = 0;
-  #swapInfoByRef: Map<IStatePropertyRef, ISwapInfo> = new Map();
+  #swapInfoByRef: Map<IStatePropertyRef, IListInfo> = new Map();
 
   constructor(engine: IComponentEngine) {
     this.#engine = engine;
@@ -38,7 +38,7 @@ class Updater implements IUpdater {
     return this.#revision;
   }
 
-  get swapInfoByRef(): Map<IStatePropertyRef, ISwapInfo> {
+  get swapInfoByRef(): Map<IStatePropertyRef, IListInfo> {
     return this.#swapInfoByRef;
   }
 

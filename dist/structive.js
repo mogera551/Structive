@@ -1193,9 +1193,6 @@ function getResolvedPathInfo(name) {
     return _cache$1.get(name) ?? (_cache$1.set(name, nameInfo = new ResolvedPathInfo(name)), nameInfo);
 }
 
-function createRefKey(info, listIndex) {
-    return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
-}
 class StatePropertyRef {
     info;
     #listIndexRef;
@@ -1213,7 +1210,7 @@ class StatePropertyRef {
     constructor(info, listIndex) {
         this.info = info;
         this.#listIndexRef = listIndex !== null ? new WeakRef(listIndex) : null;
-        this.key = createRefKey(info, listIndex);
+        this.key = (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
     }
     get parentRef() {
         const parentInfo = this.info.parentInfo;
@@ -1622,9 +1619,12 @@ function getByRef(target, ref, receiver, handler) {
                 if (listable) {
                     // リストインデックスを計算する必要がある
                     if (handler.renderer !== null) {
-                        if (!handler.renderer.lastValueByRef.has(ref) && !handler.renderer.lastListIndexesByRef.has(ref)) {
-                            handler.renderer.lastValueByRef.set(ref, lastCacheEntry?.value);
-                            handler.renderer.lastListIndexesByRef.set(ref, lastCacheEntry?.listIndexes ?? []);
+                        if (!handler.renderer.lastListInfoByRef.has(ref)) {
+                            const listInfo = {
+                                listIndexes: lastCacheEntry?.listIndexes ?? [],
+                                value: lastCacheEntry?.value,
+                            };
+                            handler.renderer.lastListInfoByRef.set(ref, listInfo);
                         }
                     }
                     const newListIndexes = createListIndexes(ref.listIndex, lastCacheEntry?.value, value, lastCacheEntry?.listIndexes ?? []);
@@ -2243,8 +2243,7 @@ class Renderer {
      * reorderList で収集し、後段で仮の IListDiff を生成するために用いる。
      */
     #reorderIndexesByRef = new Map();
-    #lastValueByRef = new Map();
-    #lastListIndexesByRef = new Map();
+    #lastListInfoByRef = new Map();
     #updater;
     constructor(engine, updater) {
         this.#engine = engine;
@@ -2306,11 +2305,8 @@ class Renderer {
         }
         return this.#engine;
     }
-    get lastValueByRef() {
-        return this.#lastValueByRef;
-    }
-    get lastListIndexesByRef() {
-        return this.#lastListIndexesByRef;
+    get lastListInfoByRef() {
+        return this.#lastListInfoByRef;
     }
     /**
      * リードオンリーな状態を生成し、コールバックに渡す
@@ -2432,8 +2428,9 @@ class Renderer {
         let diffListIndexes = new Set();
         if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
             const currentListIndexes = new Set(this.readonlyState[GetListIndexesByRefSymbol](ref) ?? []);
-            const lastListIndexes = new Set(this.lastListIndexesByRef.get(ref) ?? []);
-            diffListIndexes = currentListIndexes.difference(lastListIndexes);
+            const { listIndexes } = this.lastListInfoByRef.get(ref) ?? {};
+            const lastListIndexSet = new Set(listIndexes ?? []);
+            diffListIndexes = currentListIndexes.difference(lastListIndexSet);
         }
         // 静的な依存関係を辿る
         for (const [name, childNode] of node.childNodeByName) {
@@ -5684,7 +5681,7 @@ class PathManager {
     }
     #dynamicDependencyKeys = new Set();
     addDynamicDependency(target, source) {
-        const key = `${source}=>${target}`;
+        const key = source + "=>" + target;
         if (this.#dynamicDependencyKeys.has(key)) {
             return;
         }

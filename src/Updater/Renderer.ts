@@ -12,7 +12,7 @@ import { IStructuredPathInfo } from "../StateProperty/types";
 import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef";
 import { IStatePropertyRef } from "../StatePropertyRef/types";
 import { raiseError } from "../utils";
-import { IRenderer, IUpdater, ReadonlyStateCallback } from "./types";
+import { IListInfo, IRenderer, IUpdater, ReadonlyStateCallback } from "./types";
 
 /**
  * Renderer は、State の変更（参照 IStatePropertyRef の集合）に対応して、
@@ -62,8 +62,7 @@ class Renderer implements IRenderer {
    */
   #reorderIndexesByRef: Map<IStatePropertyRef, number[]> = new Map();
 
-  #lastValueByRef: Map<IStatePropertyRef, any> = new Map();
-  #lastListIndexesByRef: Map<IStatePropertyRef, IListIndex[]> = new Map();
+  #lastListInfoByRef: Map<IStatePropertyRef, IListInfo> = new Map();
 
   #updater: IUpdater;
 
@@ -135,12 +134,8 @@ class Renderer implements IRenderer {
     return this.#engine;
   }
 
-  get lastValueByRef(): Map<IStatePropertyRef, any> {
-    return this.#lastValueByRef;
-  }
-
-  get lastListIndexesByRef(): Map<IStatePropertyRef, IListIndex[]> {
-    return this.#lastListIndexesByRef;
+  get lastListInfoByRef(): Map<IStatePropertyRef, IListInfo> {
+    return this.#lastListInfoByRef;
   }
 
   /**
@@ -271,8 +266,9 @@ class Renderer implements IRenderer {
     let diffListIndexes: Set<IListIndex> = new Set();
     if (this.#engine.pathManager.lists.has(ref.info.pattern)) {
       const currentListIndexes = new Set(this.readonlyState[GetListIndexesByRefSymbol](ref) ?? []);
-      const lastListIndexes = new Set(this.lastListIndexesByRef.get(ref) ?? []);
-      diffListIndexes = currentListIndexes.difference(lastListIndexes);
+      const { listIndexes } = this.lastListInfoByRef.get(ref) ?? {};
+      const lastListIndexSet = new Set(listIndexes ?? []);
+      diffListIndexes = currentListIndexes.difference(lastListIndexSet);
     }
 
     // 静的な依存関係を辿る

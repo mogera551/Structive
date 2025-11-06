@@ -121,7 +121,7 @@ class PathManager {
     }
     #dynamicDependencyKeys = new Set();
     addDynamicDependency(target, source) {
-        const key = `${source}=>${target}`;
+        const key = source + "=>" + target;
         if (this.#dynamicDependencyKeys.has(key)) {
             return;
         }

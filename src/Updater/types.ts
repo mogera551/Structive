@@ -27,12 +27,12 @@ export interface IUpdater {
    */
   update(loopContext: ILoopContext | null, callback: UpdateCallback): Promise<void> | void;
 
-  swapInfoByRef: Map<IStatePropertyRef, ISwapInfo>;
+  swapInfoByRef: Map<IStatePropertyRef, IListInfo>;
 
   createReadonlyState<T = any>(callback: ReadonlyStateCallback<T>): T;
 }
 
-export interface ISwapInfo {
+export interface IListInfo {
   value: any[];
   listIndexes: IListIndex[];
 }
@@ -68,8 +68,7 @@ export interface IRenderer {
    */
   render(items: IStatePropertyRef[]): void;
 
-  lastValueByRef: Map<IStatePropertyRef, any>;
-  lastListIndexesByRef: Map<IStatePropertyRef, IListIndex[]>;
+  lastListInfoByRef: Map<IStatePropertyRef, IListInfo>;
 
   /**
    * 

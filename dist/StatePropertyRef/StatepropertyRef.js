@@ -1,7 +1,4 @@
 import { raiseError } from "../utils";
-function createRefKey(info, listIndex) {
-    return (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
-}
 class StatePropertyRef {
     info;
     #listIndexRef;
@@ -19,7 +16,7 @@ class StatePropertyRef {
     constructor(info, listIndex) {
         this.info = info;
         this.#listIndexRef = listIndex !== null ? new WeakRef(listIndex) : null;
-        this.key = createRefKey(info, listIndex);
+        this.key = (listIndex == null) ? info.sid : (info.sid + "#" + listIndex.sid);
     }
     get parentRef() {
         const parentInfo = this.info.parentInfo;
