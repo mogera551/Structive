@@ -281,15 +281,6 @@ class Renderer implements IRenderer {
             this.renderItem(childRef, childNode);
           }
         }
-/*
-        const listIndexes = this.readonlyState[GetListIndexesByRefSymbol](ref) ?? [];
-        for(let i = 0; i < listIndexes.length; i++) {
-          const childRef = getStatePropertyRef(childInfo, listIndexes[i]);
-          if (!this.processedRefs.has(childRef)) {
-            this.renderItem(childRef, childNode);
-          }
-        }
-*/
       } else {
         const childRef = getStatePropertyRef(childInfo, ref.listIndex);
         if (!this.processedRefs.has(childRef)) {
