@@ -61,13 +61,10 @@ function makeHandler(overrides: Partial<any> = {}): any {
 
   const handler: any = {
     engine: {
-      cache: {
-        get: (key: any) => cacheStorage.get(key),
-        set: vi.fn((key: any, value: any) => {
-          cacheStorage.set(key, value);
-          return handler.engine.cache;
-        }),
-      },
+      getCacheEntry: vi.fn((key: any) => cacheStorage.has(key) ? cacheStorage.get(key) : null),
+      setCacheEntry: vi.fn((key: any, value: any) => {
+        cacheStorage.set(key, value);
+      }),
       versionRevisionByPath: new Map<string, { version: number; revision: number }>(),
       pathManager: {
         lists: {
@@ -184,30 +181,32 @@ describe("StateClass/methods: getByRef", () => {
     handler.updater.version = 2;
     handler.updater.revision = 3;
     handler.renderer = {
-      lastValueByRef: new Map<any, any>(),
-      lastListIndexesByRef: new Map<any, any>(),
+      lastListInfoByRef: new Map<any, any>(),
     };
     createListIndexesMock.mockImplementation(() => [{ index: 1 }]);
     const target = { [info.pattern]: ["fresh"] } as any;
+    const previousValue = previousEntry.value;
+    const previousIndexes = previousEntry.listIndexes;
 
     const result = getByRef(target, ref, {} as any, handler);
 
     expect(result).toEqual(["fresh"]);
-    expect(handler.engine.cache.set).toHaveBeenCalledWith(ref, expect.objectContaining({
+    expect(handler.engine.setCacheEntry).toHaveBeenCalledWith(ref, expect.objectContaining({
       value: ["fresh"],
       listIndexes: [{ index: 1 }],
       version: 2,
       revision: 3,
     }));
-    const stored = handler.engine.cache.get(ref);
-    expect(stored.cloneValue).toEqual(["fresh"]);
-    expect(stored.cloneValue).not.toBe(result);
-    expect(handler.renderer.lastValueByRef.get(ref)).toBe(previousEntry.value);
-    expect(handler.renderer.lastListIndexesByRef.get(ref)).toBe(previousEntry.listIndexes);
+    const stored = handler.engine.getCacheEntry(ref)!;
+    expect(stored.value).toEqual(["fresh"]);
+    expect(stored.value).toBe(result);
+    expect(stored.listIndexes).toEqual([{ index: 1 }]);
+    const lastInfo = handler.renderer.lastListInfoByRef.get(ref);
+    expect(lastInfo).toEqual({ value: previousValue, listIndexes: previousIndexes });
     expect(handler.refStack.length).toBe(2);
     expect(handler.refIndex).toBe(0);
     expect(handler.lastRefStack).toBe(stackMarker);
-    expect(createListIndexesMock).toHaveBeenCalledWith(listIndex, previousEntry.value, result, previousEntry.listIndexes);
+  expect(createListIndexesMock).toHaveBeenCalledWith(listIndex, previousValue, result, previousIndexes);
     expect(checkDependencyMock).toHaveBeenCalledWith(handler, ref);
   });
 
@@ -229,8 +228,7 @@ describe("StateClass/methods: getByRef", () => {
     handler.updater.version = 1;
     handler.updater.revision = 1;
     handler.renderer = {
-      lastValueByRef: new Map<any, any>(),
-      lastListIndexesByRef: new Map<any, any>(),
+      lastListInfoByRef: new Map<any, any>(),
     };
     createListIndexesMock.mockImplementation((_, prevValue, newValue, prevIndexes) => {
       expect(prevValue).toBeUndefined();
@@ -239,16 +237,18 @@ describe("StateClass/methods: getByRef", () => {
     });
     const currentValue = { label: "object" };
     const target = { [info.pattern]: currentValue } as any;
+    const previousValue = previousEntry.value;
+    const previousIndexes = previousEntry.listIndexes;
 
     const result = getByRef(target, ref, {} as any, handler);
 
     expect(result).toBe(currentValue);
-    expect(handler.renderer.lastValueByRef.get(ref)).toBeUndefined();
-    expect(handler.renderer.lastListIndexesByRef.get(ref)).toEqual([]);
-    const stored = handler.engine.cache.get(ref);
-    expect(stored.cloneValue).toBe(result);
+    const lastInfo = handler.renderer.lastListInfoByRef.get(ref);
+    expect(lastInfo).toEqual({ value: previousValue, listIndexes: previousIndexes ?? [] });
+    const stored = handler.engine.getCacheEntry(ref)!;
+    expect(stored.value).toBe(result);
     expect(stored.listIndexes).toEqual(["new-index"]);
-    expect(handler.engine.cache.set).toHaveBeenCalled();
+    expect(handler.engine.setCacheEntry).toHaveBeenCalled();
     expect(checkDependencyMock).toHaveBeenCalledWith(handler, ref);
   });
 
@@ -275,11 +275,10 @@ describe("StateClass/methods: getByRef", () => {
 
     const result = getByRef(target, ref, target, handler);
 
-    const stored = handler.engine.cache.get(ref);
+    const stored = handler.engine.getCacheEntry(ref)!;
     expect(result).toBe(42);
     expect(stored.listIndexes).toBeNull();
-    expect(stored.cloneValue).toBeNull();
-    expect(handler.engine.cache.set).toHaveBeenCalledTimes(1);
+    expect(handler.engine.setCacheEntry).toHaveBeenCalledTimes(1);
     expect(handler.lastRefStack).toBeNull();
     expect(checkDependencyMock).toHaveBeenCalledWith(handler, ref);
   });

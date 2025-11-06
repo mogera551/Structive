@@ -291,6 +291,32 @@ describe("ComponentEngine", () => {
     expect(lastStateProxy?.[SetByRefSymbol]).toHaveBeenCalledTimes(1);
   });
 
+  it("getCacheEntry/setCacheEntry: キャッシュエントリを保存・更新できる", () => {
+    const info = getStructuredPathInfo("foo");
+    const ref = getStatePropertyRef(info, null);
+
+    expect(engine.getCacheEntry(ref)).toBeNull();
+
+    const firstEntry = { value: "first" } as any;
+    engine.setCacheEntry(ref, firstEntry);
+    expect(engine.getCacheEntry(ref)).toBe(firstEntry);
+    expect(engine.getBindings(ref)).toEqual([]);
+
+    const secondEntry = { value: "second" } as any;
+    engine.setCacheEntry(ref, secondEntry);
+    expect(engine.getCacheEntry(ref)).toBe(secondEntry);
+    expect(engine.getBindings(ref)).toEqual([]);
+
+    const binding = { id: "binding" } as any;
+    engine.saveBinding(ref, binding);
+    expect(engine.getBindings(ref)).toEqual([binding]);
+
+    const thirdEntry = { value: "third" } as any;
+    engine.setCacheEntry(ref, thirdEntry);
+    expect(engine.getCacheEntry(ref)).toBe(thirdEntry);
+    expect(engine.getBindings(ref)).toEqual([binding]);
+  });
+
   it("save/getBindings, saveListAndListIndexes, getListIndexes/Lists", () => {
     const info = getStructuredPathInfo("foo");
     const ref = getStatePropertyRef(info, null);

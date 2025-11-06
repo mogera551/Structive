@@ -86,7 +86,7 @@ describe("BindingNodeFor coverage", () => {
     expect(container.childNodes.length).toBeGreaterThan(1);
   });
 
-  it("早期 return: updatedBindings に含まれると何もしない", () => {
+  it("updatedBindings の管理は Binding 側で行われる", () => {
     const engine = createEngineStub();
     const comment = document.createComment("@@|300");
     const binding = createBindingStub(engine, comment);
@@ -100,7 +100,7 @@ describe("BindingNodeFor coverage", () => {
       readonlyState: {},
     });
     node.applyChange(renderer);
-    expect(renderer.calcListDiff).not.toHaveBeenCalled();
+    expect(renderer.calcListDiff).toHaveBeenCalledTimes(1);
     expect(container.childNodes.length).toBe(1); // コメントのみ
   });
 
@@ -692,6 +692,50 @@ describe("BindingNodeFor coverage", () => {
     node.applyChange(renderer);
 
     expect(dependentBinding.applyChange).toHaveBeenCalled();
+  });
+
+  it("changeListIndexes のバインディングが updatedBindings に含まれる場合はスキップされる", () => {
+    setupTemplate();
+    const engine = createEngineStub();
+    const comment = document.createComment("@@|313c-skip");
+    const binding = createBindingStub(engine, comment);
+    const container = document.createElement("div");
+    container.appendChild(comment);
+    const node = createBindingNodeFor("for", [], [])(binding, comment, engine.inputFilters);
+
+    const idx = createIndexes(2);
+    const diffAdd = {
+      oldListValue: [],
+      newListValue: [{}, {}],
+      newIndexes: idx,
+      adds: new Set(idx),
+      removes: new Set(),
+    } as any;
+    const rendererAdd = createRendererStub({ readonlyState: {}, calcListDiff: vi.fn(() => diffAdd) });
+    node.applyChange(rendererAdd);
+
+    const dependentBinding = { applyChange: vi.fn() } as any;
+    binding.bindingsByListIndex.set(idx[1], new Set([dependentBinding]));
+
+    const newIndex = { index: 2 } as any;
+    idx[1].index = 0;
+    idx[0].index = 1;
+    const newIndexes = [idx[1], idx[0], newIndex];
+    const diff = {
+      oldListValue: [{}, {}],
+      newListValue: [{}, {}, {}],
+      newIndexes,
+      adds: new Set([newIndex]),
+      removes: new Set(),
+    } as any;
+    const renderer = createRendererStub({
+      readonlyState: {},
+      calcListDiff: vi.fn(() => diff),
+      updatedBindings: new Set([dependentBinding]),
+    });
+
+    node.applyChange(renderer);
+    expect(dependentBinding.applyChange).not.toHaveBeenCalled();
   });
 
   it("processedRefs に含まれる updatingRef はスキップされる", () => {

@@ -129,6 +129,7 @@ describe("BindingState", () => {
     expect(bindingState.filters.length).toBe(0);
   expect((bindingState as any).binding).toBe(binding);
     expect(bindingState.listIndex).toBeNull();
+    expect(bindingState.isLoopIndex).toBe(false);
   });
 
   it("エラー: ワイルドカードで lastWildcardPath が null", () => {

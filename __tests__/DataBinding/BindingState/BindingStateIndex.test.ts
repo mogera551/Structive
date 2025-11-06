@@ -91,6 +91,7 @@ describe("BindingStateIndex", () => {
     expect((bs as any).binding).toBe(binding);
     expect(Array.isArray((bs as any).filters)).toBe(true);
     expect((bs as any).filters.length).toBe(1);
+    expect((bs as any).isLoopIndex).toBe(true);
   });
 
   it("pattern が数値でない場合はコンストラクタでエラー", () => {

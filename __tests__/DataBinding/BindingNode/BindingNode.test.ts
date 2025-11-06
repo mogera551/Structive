@@ -54,10 +54,9 @@ describe("BindingNode", () => {
     node.applyChange(renderer);
     expect(node.assigned).toEqual(["filtered"]);
     expect(binding.bindingState.getFilteredValue).toHaveBeenCalledTimes(1);
-    expect(renderer.updatedBindings.has(binding)).toBe(true);
 
     node.applyChange(renderer);
-    expect(node.assigned).toHaveLength(1);
-    expect(binding.bindingState.getFilteredValue).toHaveBeenCalledTimes(1);
+    expect(node.assigned).toEqual(["filtered", "filtered"]);
+    expect(binding.bindingState.getFilteredValue).toHaveBeenCalledTimes(2);
   });
 });

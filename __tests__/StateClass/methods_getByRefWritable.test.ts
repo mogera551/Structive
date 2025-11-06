@@ -66,7 +66,10 @@ function makeHandler(options?: { version?: number; revision?: number; getters?: 
         getters,
         lists,
       },
-      cache,
+      getCacheEntry: vi.fn((ref: any) => cache.has(ref) ? cache.get(ref) : null),
+      setCacheEntry: vi.fn((ref: any, entry: any) => {
+        cache.set(ref, entry);
+      }),
       stateOutput,
       versionRevisionByPath,
     },
@@ -98,17 +101,19 @@ describe("StateClass/methods getByRef (revision scenarios)", () => {
     versionRevisionByPath.set("items", { version: handler.updater.version, revision: handler.updater.revision });
     createListIndexesSpy.mockReturnValue(["new-index"] as any);
     const target = { items: [1, 2, 3] };
+    const previousValue = previous.value;
+    const previousIndexes = previous.listIndexes;
 
     const value = getByRef(target, ref, target as any, handler);
 
     const cacheEntry = cache.get(ref);
     expect(value).toEqual([1, 2, 3]);
-    expect(createListIndexesSpy).toHaveBeenCalledWith(ref.listIndex, previous.value, [1, 2, 3], previous.listIndexes);
+    expect(createListIndexesSpy).toHaveBeenCalledWith(ref.listIndex, previousValue, [1, 2, 3], previousIndexes);
     expect(cacheEntry.value).toEqual([1, 2, 3]);
     expect(cacheEntry.version).toBe(handler.updater.version);
     expect(cacheEntry.revision).toBe(handler.updater.revision);
     expect(cacheEntry.listIndexes).toEqual(["new-index"]);
-    expect(cacheEntry.cloneValue).toEqual([1, 2, 3]);
+    expect(handler.engine.setCacheEntry).toHaveBeenCalledWith(ref, cacheEntry);
   });
 
   it("cacheEntry.version が現在より大きい場合はキャッシュを返す", () => {

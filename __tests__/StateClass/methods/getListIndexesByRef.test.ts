@@ -19,7 +19,7 @@ function createHandler(listPatterns: string[] = [], cacheEntries: Map<any, any> 
   return {
     engine: {
       pathManager: { lists: new Set(listPatterns) },
-      cache: cacheEntries,
+      getCacheEntry: vi.fn((ref: any) => cacheEntries.has(ref) ? cacheEntries.get(ref) : null),
     },
   } as any;
 }
@@ -59,8 +59,8 @@ describe("StateClass/methods: getListIndexesByRef", () => {
   it("listIndexes が null の場合は LIST-203 エラー", () => {
     const ref = { info: { pattern: "items" } } as any;
     const cacheEntry = { listIndexes: null };
-    const cache = new Map([[ref, cacheEntry]]);
-    const handler = createHandler(["items"], cache);
+  const cache = new Map([[ref, cacheEntry]]);
+  const handler = createHandler(["items"], cache);
     const target = {};
     const receiver = {} as any;
 
@@ -77,8 +77,8 @@ describe("StateClass/methods: getListIndexesByRef", () => {
     const ref = { info: { pattern: "items" } } as any;
     const listIndexes = [{ index: 0 }, { index: 1 }];
     const cacheEntry = { listIndexes };
-    const cache = new Map([[ref, cacheEntry]]);
-    const handler = createHandler(["items"], cache);
+  const cache = new Map([[ref, cacheEntry]]);
+  const handler = createHandler(["items"], cache);
     const receiver = {} as any;
     const target = {};
 

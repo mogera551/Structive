@@ -70,7 +70,10 @@ function makeHandler() {
         getters,
         lists,
       },
-      cache,
+      getCacheEntry: vi.fn((ref: any) => cache.has(ref) ? cache.get(ref) : null),
+      setCacheEntry: vi.fn((ref: any, entry: any) => {
+        cache.set(ref, entry);
+      }),
       stateOutput,
       versionRevisionByPath,
     },
@@ -129,18 +132,20 @@ describe("StateClass/methods getByRef", () => {
     versionRevisionByPath.set("items", { version: handler.updater.version, revision: handler.updater.revision });
     const target = { items: [1, 2, 3] };
     createListIndexesSpy.mockReturnValue(["IDX"] as any);
+    const previousValue = cache.get(ref)?.value;
+    const previousIndexes = cache.get(ref)?.listIndexes;
 
     const result = getByRef(target, ref, target as any, handler);
 
     const cacheEntry = cache.get(ref);
     expect(result).toEqual([1, 2, 3]);
-    expect(createListIndexesSpy).toHaveBeenCalledWith(ref.listIndex, undefined, [1, 2, 3], []);
+    expect(createListIndexesSpy).toHaveBeenCalledWith(ref.listIndex, previousValue, [1, 2, 3], previousIndexes ?? []);
     expect(cacheEntry.value).toEqual([1, 2, 3]);
     expect(cacheEntry.listIndexes).toEqual(["IDX"]);
-    expect(cacheEntry.cloneValue).toEqual([1, 2, 3]);
     expect(cacheEntry.version).toBe(handler.updater.version);
     expect(cacheEntry.revision).toBe(handler.updater.revision);
     expect(handler.lastRefStack).toBeNull();
+    expect(handler.engine.setCacheEntry).toHaveBeenCalledWith(ref, cacheEntry);
   });
 
   it("プロパティが存在しない場合は raiseError を投げる", () => {

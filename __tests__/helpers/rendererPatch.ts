@@ -19,8 +19,7 @@ vi.mock("../../src/Updater/Renderer", async () => {
     readonly processedRefs: Set<any> = new Set();
     readonly updatingRefs: AnyRef[] = [];
     readonly updatingRefSet: Set<AnyRef> = new Set();
-    readonly lastValueByRef: WeakMap<AnyRef, any> = new WeakMap();
-    readonly lastListIndexesByRef: WeakMap<AnyRef, any[]> = new WeakMap();
+  readonly lastListInfoByRef: WeakMap<AnyRef, { value: any; listIndexes: any[] | null }> = new WeakMap();
     private _reorderIndexesByRef: Map<AnyRef, number[]> = new Map();
 
     constructor(engine: any, updater: any) {
@@ -252,13 +251,17 @@ vi.mock("../../src/Updater/Renderer", async () => {
 
         this._updater?.setListDiff?.(listRef, listDiff);
         const backup = this.engine.getListAndListIndexes(listRef);
-        if (backup && this._updater?.oldValueAndIndexesByRef) {
-          this._updater.oldValueAndIndexesByRef.set(listRef, backup);
+        if (backup && this._updater?.swapInfoByRef) {
+          const swapInfo = {
+            value: backup.listClone ?? backup.list ?? null,
+            listIndexes: backup.listIndexes ?? null,
+          };
+          this._updater.swapInfoByRef.set(listRef, swapInfo);
         }
-        this.lastListIndexesByRef.set(listRef, listDiff.newIndexes);
+        const storedValue = typeof newListValue === "undefined" ? null : newListValue ?? null;
+        this.lastListInfoByRef.set(listRef, { value: storedValue, listIndexes: listDiff.newIndexes });
 
         if (!listDiff.same || listDiff.overwrites?.size || indexes.length) {
-          const storedValue = typeof newListValue === "undefined" ? null : newListValue ?? null;
           this.engine.saveListAndListIndexes(listRef, storedValue, listDiff.newIndexes);
         }
 

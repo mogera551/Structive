@@ -87,6 +87,7 @@ export function createRendererStub(overrides: Partial<any> = {}) {
     updatedBindings: new Set(),
     processedRefs: new Set(),
     updatingRefs: [],
+    lastListInfoByRef: new Map<any, any>(),
     readonlyState,
     render: vi.fn(),
     unmountBindContent: vi.fn(),

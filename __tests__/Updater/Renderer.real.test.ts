@@ -155,8 +155,7 @@ describe("Updater/Renderer (real implementation)", () => {
         expect(renderer.readonlyState).toBe(readonlyState);
         expect(renderer.readonlyHandler).toBe(readonlyHandler);
         renderer.updatedBindings.add(listBinding as any);
-        renderer.lastValueByRef.set(listRef, "latest");
-        renderer.lastListIndexesByRef.set(listRef, [listIndexA]);
+        renderer.lastListInfoByRef.set(listRef, { value: "latest", listIndexes: [listIndexA] });
       }),
     } as any;
     const wildcardBinding = {
@@ -300,6 +299,58 @@ describe("Updater/Renderer (real implementation)", () => {
     expect(listBinding.applyChange).toHaveBeenCalledTimes(1);
   });
 
+  it("reorderList は updatedBindings 済みのバインディングをスキップする", () => {
+    const engine = makeEngine();
+    engine.pathManager.elements.add("list.item");
+    engine.pathManager.lists.add("list");
+
+    const listInfo = { pattern: "list", wildcardCount: 0, wildcardParentInfos: [], parentInfo: null };
+    const listRef: TestRef = { info: listInfo, listIndex: null, key: "list-null", parentRef: null };
+    const itemInfo = { pattern: "list.item", wildcardCount: 0, wildcardParentInfos: [], parentInfo: listInfo };
+    const itemRef: TestRef = { info: itemInfo, listIndex: { index: 0 }, key: "list.item-0", parentRef: listRef };
+
+    const binding = { applyChange: vi.fn() } as any;
+    engine.getBindings.mockImplementation((ref: TestRef) => (ref === listRef ? [binding] : []));
+
+    const defaultHandlerImpl = (eng: any, upd: any, renderer: any) => ({ engine: eng, updater: upd, renderer });
+    createReadonlyStateHandlerMock.mockImplementation(defaultHandlerImpl);
+    createReadonlyStateHandlerMock.mockImplementationOnce((eng: any, upd: any, renderer: any) => {
+      renderer.updatedBindings.add(binding);
+      return defaultHandlerImpl(eng, upd, renderer);
+    });
+
+    findPathNodeByPathMock.mockImplementation((_root: any, pattern: string) => ({
+      currentPath: pattern,
+      childNodeByName: new Map(),
+    }));
+
+    render([itemRef], engine as any, makeUpdater() as any);
+
+    expect(binding.applyChange).not.toHaveBeenCalled();
+  });
+
+  it("renderItem は updatedBindings 済みのバインディングをスキップする", () => {
+    const engine = makeEngine();
+
+    const ref: TestRef = { info: { pattern: "root" }, listIndex: null, key: "root-null", parentRef: null };
+    const binding = { applyChange: vi.fn() } as any;
+
+    engine.getBindings.mockReturnValue([binding]);
+
+    const defaultHandlerImpl = (eng: any, upd: any, renderer: any) => ({ engine: eng, updater: upd, renderer });
+    createReadonlyStateHandlerMock.mockImplementation(defaultHandlerImpl);
+    createReadonlyStateHandlerMock.mockImplementationOnce((eng: any, upd: any, renderer: any) => {
+      renderer.updatedBindings.add(binding);
+      return defaultHandlerImpl(eng, upd, renderer);
+    });
+
+    findPathNodeByPathMock.mockReturnValue({ currentPath: "root", childNodeByName: new Map() });
+
+    render([ref], engine as any, makeUpdater() as any);
+
+    expect(binding.applyChange).not.toHaveBeenCalled();
+  });
+
   it("parentRef が null の要素は UPD-004 を投げる", () => {
     const engine = makeEngine();
     engine.pathManager.elements.add("list.item");
@@ -352,7 +403,7 @@ describe("Updater/Renderer (real implementation)", () => {
 
     const listBinding = {
       applyChange: vi.fn((renderer: any) => {
-        expect(renderer.lastListIndexesByRef.has(listRef)).toBe(false);
+  expect(renderer.lastListInfoByRef.has(listRef)).toBe(false);
       }),
     } as any;
     engine.getBindings.mockReturnValue([listBinding]);

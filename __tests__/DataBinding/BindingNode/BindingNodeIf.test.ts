@@ -81,7 +81,7 @@ describe("BindingNodeIf", () => {
     node.applyChange(createRendererStub({ readonlyState: {} }));
   });
 
-  it("bindContents getter と updatedBindings スキップ", () => {
+  it("bindContents getter と updatedBindings は Binding 側で制御される", () => {
     ensureTemplate(700, `<div>if-content</div>`);
     const engine = createEngineStub();
     const parent = document.createElement("div");
@@ -98,6 +98,6 @@ describe("BindingNodeIf", () => {
     binding.bindingState.getFilteredValue.mockClear();
     const skipped = createRendererStub({ readonlyState: {}, updatedBindings: new Set([binding]) });
     node.applyChange(skipped);
-    expect(binding.bindingState.getFilteredValue).not.toHaveBeenCalled();
+    expect(binding.bindingState.getFilteredValue).toHaveBeenCalledTimes(1);
   });
 });

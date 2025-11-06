@@ -72,13 +72,13 @@ const makeTestUpdater = (
     createReadonlyStateImpl?: (cb: Function) => any;
     getListDiff?: (ref: any) => any;
     setListDiff?: (ref: any, diff: any) => void;
-    oldValueAndIndexesByRef?: Map<any, any>;
+    swapInfoByRef?: Map<any, any>;
     revision?: number;
     version?: number;
   } = {}
 ) => {
   const listDiffByRef = options.listDiffByRef ?? new Map<any, any>();
-  const oldValueAndIndexesByRef = options.oldValueAndIndexesByRef ?? new Map<any, any>();
+  const swapInfoByRef = options.swapInfoByRef ?? new Map<any, any>();
   let updaterRef: any = null;
   const createReadonlyStateImpl = options.createReadonlyStateImpl ?? ((cb: Function) => {
     const handler = options.readonlyHandler ?? createReadonlyStateHandlerMock(engine, updaterRef, null);
@@ -96,7 +96,7 @@ const makeTestUpdater = (
     version: options.version ?? 0,
     revision: options.revision ?? 0,
     revisionByUpdatedPath: new Map<string, number>(),
-    oldValueAndIndexesByRef,
+    swapInfoByRef,
     enqueueRef: vi.fn(),
     update: vi.fn(),
     createReadonlyState: vi.fn((cb: Function) => createReadonlyStateImpl(cb)),
@@ -849,7 +849,7 @@ describe("Updater/Renderer.render", () => {
     expect(diff.overwrites?.size).toBeGreaterThan(0);
   });
 
-  it("reorderList: 差分生成時に旧リスト情報を oldValueAndIndexesByRef に保持する", () => {
+  it("reorderList: 差分生成時に旧リスト情報を swapInfoByRef に保持する", () => {
     const engine = makeEngine();
     engine.getBindings.mockReturnValue([]);
     engine.pathManager.elements.add("root.item");
@@ -876,12 +876,15 @@ describe("Updater/Renderer.render", () => {
     createReadonlyStateProxyMock.mockReturnValue(makeReadonlyState(["new"]));
 
     const customMap = new Map<any, any>();
-    const { updater } = makeTestUpdater(engine, { oldValueAndIndexesByRef: customMap });
+    const { updater } = makeTestUpdater(engine, { swapInfoByRef: customMap });
 
     render([itemRef0], engine, updater);
 
     expect(engine.saveListAndListIndexes).toHaveBeenCalled();
-    expect(customMap.get(listRef)).toBe(saveInfo);
+    expect(customMap.get(listRef)).toEqual({
+      value: saveInfo.listClone ?? saveInfo.list ?? null,
+      listIndexes: saveInfo.listIndexes,
+    });
   });
 
   it("pathManager.lists/elements: リストとエレメントが適切に分離される", () => {
