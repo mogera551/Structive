@@ -17,6 +17,7 @@
  * - ワイルドカードや多重ループにも柔軟に対応し、再帰的な値取得を実現
  * - finallyでキャッシュへの格納を保証
  */
+import { ICacheEntry } from "../../ComponentEngine/types";
 import { IStatePropertyRef } from "../../StatePropertyRef/types";
 import { raiseError } from "../../utils";
 import { IStateProxy, IStateHandler } from "../types";
@@ -50,7 +51,7 @@ export function getByRef(
   const listable = handler.engine.pathManager.lists.has(ref.info.pattern);
   const cacheable = ref.info.wildcardCount > 0 || 
                     handler.engine.pathManager.getters.has(ref.info.pattern);
-  let lastCacheEntry;
+  let lastCacheEntry = null;
   if (cacheable || listable) {
     lastCacheEntry = handler.engine.getCacheEntry(ref);
     const versionRevision = handler.engine.versionRevisionByPath.get(ref.info.pattern);
@@ -99,7 +100,7 @@ export function getByRef(
       handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
       // キャッシュへ格納
       if (cacheable || listable) {
-        let cacheEntry;
+        let newListIndexes = null;
         if (listable) {
           // リストインデックスを計算する必要がある
           if (handler.renderer !== null) {
@@ -111,21 +112,18 @@ export function getByRef(
               handler.renderer.lastListInfoByRef.set(ref, listInfo);
             }
           }
-          const newListIndexes = createListIndexes(ref.listIndex, lastCacheEntry?.value, value, lastCacheEntry?.listIndexes ?? []);
-          cacheEntry = {
-            value,
-            listIndexes: newListIndexes,
-            version: handler.updater.version,
-            revision: handler.updater.revision,
-          }
-        } else {
-          cacheEntry = {
-            value,
-            listIndexes: null,
-            version: handler.updater.version,
-            revision: handler.updater.revision,
-          }
+          newListIndexes = createListIndexes(ref.listIndex, lastCacheEntry?.value, value, lastCacheEntry?.listIndexes ?? []);
         }
+        let cacheEntry: ICacheEntry = lastCacheEntry ?? {
+          value: null,
+          listIndexes: null,
+          version: 0,
+          revision: 0,
+        };
+        cacheEntry.value = value;
+        cacheEntry.listIndexes = newListIndexes;
+        cacheEntry.version = handler.updater.version;
+        cacheEntry.revision = handler.updater.revision;
         handler.engine.setCacheEntry(ref, cacheEntry);
       }
     }

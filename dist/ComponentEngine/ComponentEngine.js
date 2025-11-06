@@ -244,26 +244,26 @@ class ComponentEngine {
     unregisterChildComponent(component) {
         this.structiveChildComponents.delete(component);
     }
-    #IPropertyRefInfoByRef = new WeakMap();
+    #propertyRefInfoByRef = new WeakMap();
     getCacheEntry(ref) {
-        return this.#IPropertyRefInfoByRef.get(ref)?.cacheEntry ?? null;
+        return this.#propertyRefInfoByRef.get(ref)?.cacheEntry ?? null;
     }
     setCacheEntry(ref, entry) {
-        let info = this.#IPropertyRefInfoByRef.get(ref);
+        let info = this.#propertyRefInfoByRef.get(ref);
         if (typeof info === "undefined") {
-            this.#IPropertyRefInfoByRef.set(ref, { bindings: [], cacheEntry: entry });
+            this.#propertyRefInfoByRef.set(ref, { bindings: [], cacheEntry: entry });
         }
         else {
             info.cacheEntry = entry;
         }
     }
     getBindings(ref) {
-        return this.#IPropertyRefInfoByRef.get(ref)?.bindings ?? [];
+        return this.#propertyRefInfoByRef.get(ref)?.bindings ?? [];
     }
     saveBinding(ref, binding) {
-        const info = this.#IPropertyRefInfoByRef.get(ref);
+        const info = this.#propertyRefInfoByRef.get(ref);
         if (typeof info === "undefined") {
-            this.#IPropertyRefInfoByRef.set(ref, { bindings: [binding], cacheEntry: null });
+            this.#propertyRefInfoByRef.set(ref, { bindings: [binding], cacheEntry: null });
         }
         else {
             info.bindings.push(binding);

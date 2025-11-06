@@ -1562,7 +1562,7 @@ function getByRef(target, ref, receiver, handler) {
     const listable = handler.engine.pathManager.lists.has(ref.info.pattern);
     const cacheable = ref.info.wildcardCount > 0 ||
         handler.engine.pathManager.getters.has(ref.info.pattern);
-    let lastCacheEntry;
+    let lastCacheEntry = null;
     if (cacheable || listable) {
         lastCacheEntry = handler.engine.getCacheEntry(ref);
         const versionRevision = handler.engine.versionRevisionByPath.get(ref.info.pattern);
@@ -1610,7 +1610,7 @@ function getByRef(target, ref, receiver, handler) {
             handler.lastRefStack = handler.refIndex >= 0 ? handler.refStack[handler.refIndex] : null;
             // キャッシュへ格納
             if (cacheable || listable) {
-                let cacheEntry;
+                let newListIndexes = null;
                 if (listable) {
                     // リストインデックスを計算する必要がある
                     if (handler.renderer !== null) {
@@ -1622,22 +1622,18 @@ function getByRef(target, ref, receiver, handler) {
                             handler.renderer.lastListInfoByRef.set(ref, listInfo);
                         }
                     }
-                    const newListIndexes = createListIndexes(ref.listIndex, lastCacheEntry?.value, value, lastCacheEntry?.listIndexes ?? []);
-                    cacheEntry = {
-                        value,
-                        listIndexes: newListIndexes,
-                        version: handler.updater.version,
-                        revision: handler.updater.revision,
-                    };
+                    newListIndexes = createListIndexes(ref.listIndex, lastCacheEntry?.value, value, lastCacheEntry?.listIndexes ?? []);
                 }
-                else {
-                    cacheEntry = {
-                        value,
-                        listIndexes: null,
-                        version: handler.updater.version,
-                        revision: handler.updater.revision,
-                    };
-                }
+                let cacheEntry = lastCacheEntry ?? {
+                    value: null,
+                    listIndexes: null,
+                    version: 0,
+                    revision: 0,
+                };
+                cacheEntry.value = value;
+                cacheEntry.listIndexes = newListIndexes;
+                cacheEntry.version = handler.updater.version;
+                cacheEntry.revision = handler.updater.revision;
                 handler.engine.setCacheEntry(ref, cacheEntry);
             }
         }
@@ -5177,26 +5173,26 @@ class ComponentEngine {
     unregisterChildComponent(component) {
         this.structiveChildComponents.delete(component);
     }
-    #IPropertyRefInfoByRef = new WeakMap();
+    #propertyRefInfoByRef = new WeakMap();
     getCacheEntry(ref) {
-        return this.#IPropertyRefInfoByRef.get(ref)?.cacheEntry ?? null;
+        return this.#propertyRefInfoByRef.get(ref)?.cacheEntry ?? null;
     }
     setCacheEntry(ref, entry) {
-        let info = this.#IPropertyRefInfoByRef.get(ref);
+        let info = this.#propertyRefInfoByRef.get(ref);
         if (typeof info === "undefined") {
-            this.#IPropertyRefInfoByRef.set(ref, { bindings: [], cacheEntry: entry });
+            this.#propertyRefInfoByRef.set(ref, { bindings: [], cacheEntry: entry });
         }
         else {
             info.cacheEntry = entry;
         }
     }
     getBindings(ref) {
-        return this.#IPropertyRefInfoByRef.get(ref)?.bindings ?? [];
+        return this.#propertyRefInfoByRef.get(ref)?.bindings ?? [];
     }
     saveBinding(ref, binding) {
-        const info = this.#IPropertyRefInfoByRef.get(ref);
+        const info = this.#propertyRefInfoByRef.get(ref);
         if (typeof info === "undefined") {
-            this.#IPropertyRefInfoByRef.set(ref, { bindings: [binding], cacheEntry: null });
+            this.#propertyRefInfoByRef.set(ref, { bindings: [binding], cacheEntry: null });
         }
         else {
             info.bindings.push(binding);

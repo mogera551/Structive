@@ -22,7 +22,6 @@ import { getStatePropertyRef } from "../StatePropertyRef/StatepropertyRef.js";
 import { RESERVED_WORD_SET } from "../constants.js";
 import { addPathNode } from "../PathTree/PathNode.js";
 import { IStatePropertyRef } from "../StatePropertyRef/types.js";
-import { IStructuredPathInfo } from "../StateProperty/types.js";
 
 /**
  * ComponentEngine は、Structive コンポーネントの状態・依存関係・
@@ -267,25 +266,25 @@ class ComponentEngine implements IComponentEngine {
     this.structiveChildComponents.delete(component);
   }
 
-  #IPropertyRefInfoByRef: WeakMap<IStatePropertyRef, IPropertyRefInfo> = new WeakMap();
+  #propertyRefInfoByRef: WeakMap<IStatePropertyRef, IPropertyRefInfo> = new WeakMap();
   getCacheEntry(ref: IStatePropertyRef): ICacheEntry | null {
-    return this.#IPropertyRefInfoByRef.get(ref)?.cacheEntry ?? null;
+    return this.#propertyRefInfoByRef.get(ref)?.cacheEntry ?? null;
   }
   setCacheEntry(ref: IStatePropertyRef, entry: ICacheEntry): void {
-    let info = this.#IPropertyRefInfoByRef.get(ref);
+    let info = this.#propertyRefInfoByRef.get(ref);
     if (typeof info === "undefined") {
-      this.#IPropertyRefInfoByRef.set(ref, { bindings: [], cacheEntry: entry });
+      this.#propertyRefInfoByRef.set(ref, { bindings: [], cacheEntry: entry });
     } else {
       info.cacheEntry = entry;
     }
   }
   getBindings(ref: IStatePropertyRef): IBinding[] {
-    return this.#IPropertyRefInfoByRef.get(ref)?.bindings ?? [];
+    return this.#propertyRefInfoByRef.get(ref)?.bindings ?? [];
   }
   saveBinding(ref: IStatePropertyRef, binding: IBinding): void {
-    const info = this.#IPropertyRefInfoByRef.get(ref);
+    const info = this.#propertyRefInfoByRef.get(ref);
     if (typeof info === "undefined") {
-      this.#IPropertyRefInfoByRef.set(ref, { bindings: [binding], cacheEntry: null });
+      this.#propertyRefInfoByRef.set(ref, { bindings: [binding], cacheEntry: null });
     } else {
       info.bindings.push(binding);
     }
