@@ -51,8 +51,13 @@ const makeEngine = () => ({
     dynamicDependencies: new Map<string, Set<string>>(),
     lists: new Set<string>(),
     elements: new Set<string>(),
+    getters: {
+      intersection: () => new Set<string>(),
+    },
   },
   getBindings: vi.fn((_ref: TestRef) => [] as any[]),
+  structiveChildComponents: new Set<any>(),
+  bindingsByComponent: new WeakMap<any, Set<any>>(),
 });
 
 const makeUpdater = () => ({

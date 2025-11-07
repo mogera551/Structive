@@ -15,10 +15,35 @@ vi.mock("../../../src/utils", () => ({
   raiseError: (detail: any) => raiseErrorMock(detail),
 }));
 
-function createHandler(listPatterns: string[] = [], cacheEntries: Map<any, any> = new Map()) {
+function createHandler(
+  listPatterns: string[] = [],
+  cacheEntries: Map<any, any> = new Map(),
+  options: {
+    startsWith?: boolean;
+    intersectionSize?: number;
+    stateOutputListIndexes?: any[] | null;
+  } = {},
+) {
+  const intersectionSize = options.intersectionSize ?? 1;
+  const intersectionMock = vi.fn(() => {
+    const result = new Set<any>();
+    for (let i = 0; i < intersectionSize; i++) {
+      result.add(`path-${i}`);
+    }
+    return result;
+  });
   return {
     engine: {
-      pathManager: { lists: new Set(listPatterns) },
+      pathManager: {
+        lists: new Set(listPatterns),
+        getters: {
+          intersection: intersectionMock,
+        },
+      },
+      stateOutput: {
+        startsWith: vi.fn(() => options.startsWith ?? false),
+        getListIndexes: vi.fn(() => options.stateOutputListIndexes ?? null),
+      },
       getCacheEntry: vi.fn((ref: any) => cacheEntries.has(ref) ? cacheEntries.get(ref) : null),
     },
   } as any;
@@ -31,7 +56,7 @@ describe("StateClass/methods: getListIndexesByRef", () => {
   });
 
   it("lists に存在しないパターンは LIST-201 エラー", () => {
-    const ref = { info: { pattern: "items" } } as any;
+  const ref = { info: { pattern: "items", cumulativePathSet: new Set(["items"]) } } as any;
     const handler = createHandler();
 
     expect(() => getListIndexesByRef({}, ref, {} as any, handler)).toThrowError("path is not a list: items");
@@ -42,7 +67,7 @@ describe("StateClass/methods: getListIndexesByRef", () => {
   });
 
   it("キャッシュ未登録の場合は LIST-202 エラー", () => {
-    const ref = { info: { pattern: "items" } } as any;
+  const ref = { info: { pattern: "items", cumulativePathSet: new Set(["items"]) } } as any;
     const handler = createHandler(["items"]);
     const target = {};
     const receiver = {} as any;
@@ -57,7 +82,7 @@ describe("StateClass/methods: getListIndexesByRef", () => {
   });
 
   it("listIndexes が null の場合は LIST-203 エラー", () => {
-    const ref = { info: { pattern: "items" } } as any;
+    const ref = { info: { pattern: "items", cumulativePathSet: new Set(["items"]) } } as any;
     const cacheEntry = { listIndexes: null };
   const cache = new Map([[ref, cacheEntry]]);
   const handler = createHandler(["items"], cache);
@@ -74,7 +99,7 @@ describe("StateClass/methods: getListIndexesByRef", () => {
   });
 
   it("キャッシュの listIndexes を返し getByRef を呼ぶ", () => {
-    const ref = { info: { pattern: "items" } } as any;
+    const ref = { info: { pattern: "items", cumulativePathSet: new Set(["items"]) } } as any;
     const listIndexes = [{ index: 0 }, { index: 1 }];
     const cacheEntry = { listIndexes };
   const cache = new Map([[ref, cacheEntry]]);
@@ -87,5 +112,21 @@ describe("StateClass/methods: getListIndexesByRef", () => {
     expect(result).toBe(listIndexes);
     expect(getByRefMock).toHaveBeenCalledWith(target, ref, receiver, handler);
     expect(raiseErrorMock).not.toHaveBeenCalled();
+  });
+
+  it("stateOutput 分岐: startsWith true かつ intersection が空なら stateOutput.getListIndexes を返す", () => {
+    const ref = { info: { pattern: "items", cumulativePathSet: new Set(["items"]) } } as any;
+    const expected = [{ index: 99 }];
+    const handler = createHandler(["items"], new Map(), {
+      startsWith: true,
+      intersectionSize: 0,
+      stateOutputListIndexes: expected,
+    });
+
+    const result = getListIndexesByRef({}, ref, {} as any, handler);
+
+    expect(result).toBe(expected);
+    expect(handler.engine.stateOutput.getListIndexes).toHaveBeenCalledWith(ref);
+    expect(getByRefMock).not.toHaveBeenCalled();
   });
 });

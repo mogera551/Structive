@@ -72,18 +72,12 @@ describe("createComponentStateInput", () => {
     } as any;
 
     const updateMod = await import("../../src/Updater/Updater");
-    const { SetByRefSymbol } = await import("../../src/StateClass/symbols");
-    const calls: any[] = [];
+    const enqueued: any[] = [];
     const spy = vi.spyOn(updateMod, "createUpdater");
     spy.mockImplementation(async (_engine: any, cb: any) => {
       const updater = {
-        update: vi.fn(async (_loop: any, fn: any) => {
-          const stateProxy = {
-            [SetByRefSymbol]: vi.fn((ref: any, value: any) => {
-              calls.push({ ref, value });
-            }),
-          } as any;
-          await fn(stateProxy, {} as any);
+        enqueueRef: vi.fn((ref: any) => {
+          enqueued.push(ref);
         }),
       };
       await cb(updater);
@@ -97,8 +91,8 @@ describe("createComponentStateInput", () => {
 
     input[NotifyRedrawSymbol]([ref1, ref2]);
 
-    expect(calls).toHaveLength(1);
-    expect(calls[0].ref.info.pattern.startsWith("child.")).toBe(true);
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0].info.pattern.startsWith("child.")).toBe(true);
 
     spy.mockRestore();
   });

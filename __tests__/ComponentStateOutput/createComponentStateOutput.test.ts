@@ -3,8 +3,6 @@ import { createComponentStateOutput } from "../../src/ComponentStateOutput/creat
 import { getStructuredPathInfo } from "../../src/StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../../src/StatePropertyRef/StatepropertyRef";
 import type { IComponentStateBinding } from "../../src/ComponentStateBinding/types";
-import * as Updater from "../../src/Updater/Updater";
-import { SetByRefSymbol } from "../../src/StateClass/symbols";
 
 // テスト用の簡易バインディングモックを構築
 function makeBindingMock(opts?: {
@@ -19,11 +17,16 @@ function makeBindingMock(opts?: {
   const engine = {
     getPropertyValue: vi.fn(() => "PARENT_VALUE"),
     getListIndexes: vi.fn(() => [{ sid: "LI#X", at: () => null }]),
+    pathManager: {
+      addPath: vi.fn(),
+    },
+    setPropertyValue: vi.fn(),
   } as any;
 
+  const defaultListIndex = { sid: "LI#A", at: () => null } as any;
   const fakeBinding: any = {
     engine,
-    bindingState: { listIndex: [{ sid: "LI#A", at: () => null }] },
+    bindingState: { listIndex: defaultListIndex },
   };
   bindingByChildPath.set(childPath, fakeBinding);
 
@@ -32,7 +35,12 @@ function makeBindingMock(opts?: {
     toParentPathFromChildPath: vi.fn((p: string) => (opts?.parentFromChild ? opts.parentFromChild(p) : p.replace(/^child\./, "parent."))),
     bindingByChildPath,
   };
-  return { binding, engine, childInfo, childPath, fakeBinding };
+  const childEngine = {
+    pathManager: {
+      lists: new Set<string>(),
+    },
+  } as any;
+  return { binding, engine, childEngine, childInfo, childPath, fakeBinding };
 }
 
 describe("createComponentStateOutput", () => {
@@ -40,6 +48,7 @@ describe("createComponentStateOutput", () => {
   let engine: any;
   let childInfo: any;
   let fakeBinding: any;
+  let childEngine: any;
 
   beforeEach(() => {
     const m = makeBindingMock();
@@ -47,10 +56,11 @@ describe("createComponentStateOutput", () => {
     engine = m.engine;
     childInfo = m.childInfo;
     fakeBinding = m.fakeBinding;
+    childEngine = m.childEngine;
   });
 
   it("startsWith: 子側パターンにマッチすると true", () => {
-    const out = createComponentStateOutput(binding);
+    const out = createComponentStateOutput(binding, childEngine);
     expect(out.startsWith(childInfo)).toBe(true);
 
     const other = getStructuredPathInfo("other.path");
@@ -58,7 +68,8 @@ describe("createComponentStateOutput", () => {
   });
 
   it("get: 子ref -> 親ref に変換して engine.getPropertyValue を呼ぶ（listIndex は childRef が優先、なければ bindingState.listIndex）", () => {
-    const out = createComponentStateOutput(binding);
+    childEngine.pathManager.lists.add(childInfo.pattern);
+    const out = createComponentStateOutput(binding, childEngine);
     // child 側の ref（listIndex なし）
     const childRefNoLI = getStatePropertyRef(childInfo, null);
     const v1 = out.get(childRefNoLI);
@@ -77,33 +88,19 @@ describe("createComponentStateOutput", () => {
     expect(calledParentRef2.listIndex).not.toBe(fakeBinding.bindingState.listIndex);
   });
 
-  it("set: 親ref に変換して createUpdater 経由で SetByRefSymbol を叩く", async () => {
-    const out = createComponentStateOutput(binding);
-    // createUpdater をスパイして、中で SetByRefSymbol が叩かれることを確認
-    const createUpdaterSpy = vi.spyOn(Updater, "createUpdater");
-    const setByRefMock = vi.fn();
-    createUpdaterSpy.mockImplementation(async (_engine: any, cb: any) => {
-      const updater = {
-        update: vi.fn(async (_loop: any, fn: any) => {
-          const stateProxy = { [SetByRefSymbol]: setByRefMock } as any;
-          await fn(stateProxy, {} as any);
-        }),
-      };
-      await cb(updater);
-    });
-
+  it("set: 親ref に変換して parentBinding.engine.setPropertyValue を呼ぶ", () => {
+    childEngine.pathManager.lists.add(childInfo.pattern);
+    const out = createComponentStateOutput(binding, childEngine);
     const childRef = getStatePropertyRef(childInfo, null);
     const ok = out.set(childRef, 123);
     expect(ok).toBe(true);
-    expect(createUpdaterSpy).toHaveBeenCalledTimes(1);
-    expect(setByRefMock).toHaveBeenCalledTimes(1);
-    expect(setByRefMock.mock.calls[0][1]).toBe(123);
-
-    createUpdaterSpy.mockRestore();
+    expect(engine.setPropertyValue).toHaveBeenCalledTimes(1);
+    expect(engine.setPropertyValue.mock.calls[0][1]).toBe(123);
   });
 
   it("getListIndexes: 親ref に変換して engine.getListIndexes を呼ぶ（listIndex は childRef をそのまま使用）", () => {
-    const out = createComponentStateOutput(binding);
+    childEngine.pathManager.lists.add(childInfo.pattern);
+    const out = createComponentStateOutput(binding, childEngine);
     const childRef = getStatePropertyRef(childInfo, [{ sid: "LI#C", at: () => null }] as any);
     const ret = out.getListIndexes(childRef);
     expect(Array.isArray(ret)).toBe(true);
@@ -117,7 +114,7 @@ describe("createComponentStateOutput", () => {
     const out = createComponentStateOutput({
       ...binding,
       startsWithByChildPath: vi.fn(() => null),
-    });
+    }, childEngine);
     const childRef = getStatePropertyRef(childInfo, null);
     expect(() => out.get(childRef)).toThrow(/No child path found/);
     expect(() => out.set(childRef, 1)).toThrow(/No child path found/);
@@ -134,7 +131,7 @@ describe("createComponentStateOutput", () => {
       // しかしマップは空
       bindingByChildPath: new Map<string, any>(),
     } as any;
-    const out = createComponentStateOutput(b2);
+    const out = createComponentStateOutput(b2, childEngine);
     const ref = getStatePropertyRef(childInfo, null);
     expect(() => out.get(ref)).toThrow(/No binding found/);
     expect(() => out.set(ref, 1)).toThrow(/No binding found/);
