@@ -102,8 +102,13 @@ class PathManager implements IPathManager {
     }
   }
   
-  addPath(path: string): void {
-    const info = getStructuredPathInfo(path);
+  addPath(addPath: string, isList: boolean = false): void {
+    const info = getStructuredPathInfo(addPath);
+    if (isList && !this.lists.has(addPath)) {
+      this.lists.add(addPath);
+      const elementPath = addPath + ".*";
+      this.elements.add(elementPath);
+    }
     for(const path of info.cumulativePathSet) {
       if (this.alls.has(path)) continue;
       this.alls.add(path);

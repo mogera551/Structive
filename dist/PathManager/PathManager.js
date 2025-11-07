@@ -95,8 +95,13 @@ class PathManager {
             }
         }
     }
-    addPath(path) {
-        const info = getStructuredPathInfo(path);
+    addPath(addPath, isList = false) {
+        const info = getStructuredPathInfo(addPath);
+        if (isList && !this.lists.has(addPath)) {
+            this.lists.add(addPath);
+            const elementPath = addPath + ".*";
+            this.elements.add(elementPath);
+        }
         for (const path of info.cumulativePathSet) {
             if (this.alls.has(path))
                 continue;

@@ -88,7 +88,7 @@ class ComponentEngine {
         this.outputFilters = componentClass.outputFilters;
         this.owner = owner;
         this.stateInput = createComponentStateInput(this, this.#stateBinding);
-        this.stateOutput = createComponentStateOutput(this.#stateBinding);
+        this.stateOutput = createComponentStateOutput(this.#stateBinding, this);
     }
     get pathManager() {
         return this.owner.constructor.pathManager;

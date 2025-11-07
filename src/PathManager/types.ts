@@ -67,7 +67,7 @@ export interface IPathManager {
    * @param source 依存元のパス
    */
   addDynamicDependency(target: string, source: string): void;
-  addPath(path: string): void;
+  addPath(path: string, isList?: boolean): void;
   /**
    * パスツリーのルートノード
    */

@@ -1,6 +1,5 @@
 import { createFilters } from "../../BindingBuilder/createFilters.js";
 import { NotifyRedrawSymbol } from "../../ComponentStateInput/symbols.js";
-import { getStatePropertyRef } from "../../StatePropertyRef/StatepropertyRef.js";
 import { registerStructiveComponent } from "../../WebComponents/findStructiveParent.js";
 import { BindingNode } from "./BindingNode.js";
 /**
@@ -37,53 +36,37 @@ class BindingNodeComponent extends BindingNode {
         }
         bindings.add(this.binding);
     }
-    assignValue(value) {
+    _notifyRedraw(refs) {
+        const component = this.node;
+        component.state[NotifyRedrawSymbol](refs);
+    }
+    applyChange(renderer) {
+        this._notifyRedraw([this.binding.bindingState.ref]);
     }
     notifyRedraw(refs) {
         const notifyRefs = [];
-        const info = this.binding.bindingState.info;
-        const listIndex = this.binding.bindingState.listIndex?.at(info.wildcardCount - 1) ?? null;
-        const at = (listIndex?.length ?? 0) - 1;
+        const compRef = this.binding.bindingState.ref;
+        const listIndex = compRef.listIndex;
+        const atIndex = (listIndex?.length ?? 0) - 1;
         for (const ref of refs) {
-            if (info.pathSegments.length > ref.info.pathSegments.length) {
-                // 親パスが更新された
-                // ex values, values.* valuesが更新された場合
-                if (info.cumulativePathSet.has(ref.info.pattern)) {
-                    const thisAt = (ref.listIndex?.length ?? 0) - 1;
-                    if (thisAt >= 0) {
-                        if (listIndex === null)
-                            continue;
-                        if (ref.listIndex !== listIndex?.at(thisAt))
-                            continue;
-                    }
-                    const newRef = getStatePropertyRef(info, listIndex);
-                    notifyRefs.push(newRef);
+            if (ref.info.pattern === compRef.info.pattern) {
+                // applyChangeで処理済みなのでスキップ
+                continue;
+            }
+            if (!ref.info.cumulativePathSet.has(compRef.info.pattern)) {
+                continue;
+            }
+            if (atIndex >= 0) {
+                if (ref.listIndex?.at(atIndex) !== listIndex) {
+                    continue;
                 }
             }
-            else if (info.pathSegments.length === ref.info.pathSegments.length) {
-                if (info.pattern === ref.info.pattern) {
-                    // 同一パスが更新された
-                    notifyRefs.push(ref);
-                }
-            }
-            else {
-                // 子パスが更新された
-                // ex values.*.foo values.* values.*.fooが更新された
-                if (!ref.info.cumulativePathSet.has(info.pattern)) {
-                    // リストインデックスが一致しない場合はスキップ
-                    if (at >= 0) {
-                        if (ref.listIndex?.at(at) !== listIndex)
-                            continue;
-                    }
-                    notifyRefs.push(ref);
-                }
-            }
+            notifyRefs.push(ref);
         }
         if (notifyRefs.length === 0) {
             return;
         }
-        const component = this.node;
-        component.state[NotifyRedrawSymbol](notifyRefs);
+        this._notifyRedraw(notifyRefs);
     }
 }
 /**

@@ -108,7 +108,7 @@ class ComponentEngine implements IComponentEngine {
     this.outputFilters = componentClass.outputFilters;
     this.owner =  owner;
     this.stateInput = createComponentStateInput(this, this.#stateBinding);
-    this.stateOutput = createComponentStateOutput(this.#stateBinding);
+    this.stateOutput = createComponentStateOutput(this.#stateBinding, this);
   }
 
   get pathManager(): IPathManager {
