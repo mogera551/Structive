@@ -501,9 +501,9 @@ const builtinFilters = {
 const outputBuiltinFilters = builtinFilters;
 const inputBuiltinFilters = builtinFilters;
 
-let id$1 = 0;
+let id$2 = 0;
 function generateId() {
-    return ++id$1;
+    return ++id$2;
 }
 
 /**
@@ -1381,13 +1381,13 @@ for (let i = 0; i < MAX_WILDCARD_DEPTH; i++) {
 }
 
 let version = 0;
-let id = 0;
+let id$1 = 0;
 class ListIndex {
     #parentListIndex = null;
     #pos = 0;
     #index = 0;
     #version;
-    #id = ++id;
+    #id = ++id$1;
     #sid = this.#id.toString();
     constructor(parentListIndex, index) {
         this.#parentListIndex = parentListIndex;
@@ -2381,6 +2381,15 @@ class Renderer {
                     }
                     if (!this.processedRefs.has(ref)) {
                         this.renderItem(ref, node);
+                    }
+                }
+                // 子コンポーネントへの再描画通知
+                if (this.#engine.structiveChildComponents.size > 0) {
+                    for (const structiveComponent of this.#engine.structiveChildComponents) {
+                        const structiveComponentBindings = this.#engine.bindingsByComponent.get(structiveComponent) ?? new Set();
+                        for (const binding of structiveComponentBindings) {
+                            binding.notifyRedraw(remainItems);
+                        }
                     }
                 }
             }
@@ -3411,6 +3420,12 @@ class BindingNodeComponent extends BindingNode {
                     }
                     const newRef = getStatePropertyRef(info, listIndex);
                     notifyRefs.push(newRef);
+                }
+            }
+            else if (info.pathSegments.length === ref.info.pathSegments.length) {
+                if (info.pattern === ref.info.pattern) {
+                    // 同一パスが更新された
+                    notifyRefs.push(ref);
                 }
             }
             else {
@@ -4848,9 +4863,10 @@ class ComponentStateInputHandler {
                 const value = this.engine.getPropertyValue(childRef);
                 // Ref情報をもとに状態更新キューに追加
                 createUpdater(this.engine, (updater) => {
-                    updater.update(null, (stateProxy, handler) => {
-                        stateProxy[SetByRefSymbol](childRef, value);
-                    });
+                    updater.enqueueRef(childRef);
+                    //updater.update(null, (stateProxy, handler) => {
+                    //stateProxy[SetByRefSymbol](childRef, value);
+                    //});
                 });
             }
             catch (e) {
@@ -5819,6 +5835,7 @@ function unescapeEmbed(html) {
         return `{{${expr}}}`;
     });
 }
+let id = 0;
 async function createSingleFileComponent(text) {
     const template = document.createElement("template");
     template.innerHTML = escapeEmbed(text);
@@ -5827,7 +5844,8 @@ async function createSingleFileComponent(text) {
     const script = template.content.querySelector("script[type=module]");
     let scriptModule = {};
     if (script) {
-        const b64 = btoa(String.fromCodePoint(...new TextEncoder().encode(script.text)));
+        const uniq_comment = `\r\n/*__UNIQ_ID_${id++}__*/`;
+        const b64 = btoa(String.fromCodePoint(...new TextEncoder().encode(script.text + uniq_comment)));
         scriptModule = await import("data:application/javascript;base64," + b64);
     }
     //  const scriptModule = script ? await import("data:text/javascript;charset=utf-8," + script.text) : {};

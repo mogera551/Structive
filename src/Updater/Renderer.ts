@@ -221,6 +221,16 @@ class Renderer implements IRenderer {
             this.renderItem(ref, node);
           }
         }
+        // 子コンポーネントへの再描画通知
+        if (this.#engine.structiveChildComponents.size > 0) {
+          for(const structiveComponent of this.#engine.structiveChildComponents) {
+            const structiveComponentBindings = this.#engine.bindingsByComponent.get(structiveComponent) ?? new Set<IBinding>();
+            for(const binding of structiveComponentBindings) {
+              binding.notifyRedraw(remainItems);
+            }
+          }
+        }
+
       } finally {
         this.#readonlyState = null;
         this.#readonlyHandler = null;

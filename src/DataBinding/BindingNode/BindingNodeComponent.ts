@@ -73,6 +73,11 @@ class BindingNodeComponent extends BindingNode {
           const newRef = getStatePropertyRef(info, listIndex);
           notifyRefs.push(newRef);
         }
+      } else if (info.pathSegments.length === ref.info.pathSegments.length) {
+        if (info.pattern === ref.info.pattern) {
+          // 同一パスが更新された
+          notifyRefs.push(ref);
+        }
       } else {
         // 子パスが更新された
         // ex values.*.foo values.* values.*.fooが更新された

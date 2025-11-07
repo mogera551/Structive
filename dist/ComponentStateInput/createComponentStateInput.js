@@ -37,9 +37,10 @@ class ComponentStateInputHandler {
                 const value = this.engine.getPropertyValue(childRef);
                 // Ref情報をもとに状態更新キューに追加
                 createUpdater(this.engine, (updater) => {
-                    updater.update(null, (stateProxy, handler) => {
-                        stateProxy[SetByRefSymbol](childRef, value);
-                    });
+                    updater.enqueueRef(childRef);
+                    //updater.update(null, (stateProxy, handler) => {
+                    //stateProxy[SetByRefSymbol](childRef, value);
+                    //});
                 });
             }
             catch (e) {
