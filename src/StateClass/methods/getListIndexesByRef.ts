@@ -20,6 +20,10 @@ export function getListIndexesByRef(
       docsUrl: '/docs/error-codes.md#state',
     });
   }
+  if (handler.engine.stateOutput.startsWith(ref.info) && handler.engine.pathManager.getters.intersection(ref.info.cumulativePathSet).size === 0) {
+    return handler.engine.stateOutput.getListIndexes(ref) ?? [];
+  }
+
   getByRef(target, ref, receiver, handler); // キャッシュ更新を兼ねる
   const cacheEntry = handler.engine.getCacheEntry(ref);
   if (cacheEntry === null) {
