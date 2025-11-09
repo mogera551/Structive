@@ -1,8 +1,26 @@
 import { describe, it, expect, vi } from "vitest";
 import { createComponentStateInput } from "../../src/ComponentStateInput/createComponentStateInput";
 import { AssignStateSymbol, NotifyRedrawSymbol } from "../../src/ComponentStateInput/symbols";
+import { IListIndex } from "../../src/ListIndex/types";
 import { getStructuredPathInfo } from "../../src/StateProperty/getStructuredPathInfo";
 import { getStatePropertyRef } from "../../src/StatePropertyRef/StatepropertyRef";
+
+function createListIndex(overrides: Partial<IListIndex> = {}): IListIndex {
+  return {
+    parentListIndex: overrides.parentListIndex ?? null,
+    id: overrides.id ?? 0,
+    sid: overrides.sid ?? `test-list-${Math.random().toString(36).slice(2)}`,
+    position: overrides.position ?? 0,
+    length: overrides.length ?? 0,
+    index: overrides.index ?? 0,
+    version: overrides.version ?? 0,
+    dirty: overrides.dirty ?? false,
+    indexes: overrides.indexes ?? [],
+    listIndexes: overrides.listIndexes ?? ([] as unknown as WeakRef<IListIndex>[]),
+    varName: overrides.varName ?? "item",
+    at: overrides.at ?? (() => null),
+  };
+}
 
 describe("createComponentStateInput", () => {
   it("get/set 経由で engine.getPropertyValue / setPropertyValue が呼ばれる", () => {
@@ -86,13 +104,76 @@ describe("createComponentStateInput", () => {
     const input = createComponentStateInput(engine, binding);
     const parentInfo = getStructuredPathInfo("parent.values.*.foo");
     const childInfo = getStructuredPathInfo("child.values.*.foo");
-    const ref1 = getStatePropertyRef(parentInfo, null); // 対象
+    const atIndex = childInfo.wildcardCount - 1;
+
+    const parentListIndex = createListIndex({ sid: "parent-list" });
+    const childListIndex = createListIndex({ sid: "child-list", parentListIndex });
+    parentListIndex.at = (position: number) => (position === atIndex ? childListIndex : null);
+
+    const ref1 = getStatePropertyRef(parentInfo, parentListIndex); // 対象
     const ref2 = getStatePropertyRef(childInfo, null); // 対象外（try-catch の catch 側）
 
     input[NotifyRedrawSymbol]([ref1, ref2]);
 
     expect(enqueued).toHaveLength(1);
     expect(enqueued[0].info.pattern.startsWith("child.")).toBe(true);
+
+    spy.mockRestore();
+  });
+
+  it("NotifyRedrawSymbol: ワイルドカード無しのパスも enqueueRef に積む", async () => {
+    const engine = {
+      getPropertyValue: vi.fn(() => 7),
+    } as any;
+    const binding = {
+      toChildPathFromParentPath: vi.fn((p: string) => p.replace(/^parent\./, "child.")),
+    } as any;
+
+    const updateMod = await import("../../src/Updater/Updater");
+    const enqueued: any[] = [];
+    const spy = vi.spyOn(updateMod, "createUpdater");
+    spy.mockImplementation(async (_engine: any, cb: any) => {
+      const updater = {
+        enqueueRef: vi.fn((ref: any) => {
+          enqueued.push(ref);
+        }),
+      };
+      await cb(updater);
+    });
+
+    const input = createComponentStateInput(engine, binding);
+    const parentInfo = getStructuredPathInfo("parent.profile.name");
+    const childInfo = getStructuredPathInfo("child.profile.name");
+    const parentRef = getStatePropertyRef(parentInfo, null);
+
+    input[NotifyRedrawSymbol]([parentRef]);
+
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0].info.pattern).toBe(childInfo.pattern);
+
+    spy.mockRestore();
+  });
+
+  it("NotifyRedrawSymbol: listIndex が無い場合は raiseError", async () => {
+    const engine = {
+      getPropertyValue: vi.fn(() => 0),
+    } as any;
+    const binding = {
+      toChildPathFromParentPath: vi.fn((p: string) => p.replace(/^parent\./, "child.")),
+    } as any;
+
+    const updateMod = await import("../../src/Updater/Updater");
+    const spy = vi.spyOn(updateMod, "createUpdater");
+    spy.mockImplementation((_engine: any, cb: any) => {
+      const updater = { enqueueRef: vi.fn() };
+      cb(updater);
+    });
+
+    const input = createComponentStateInput(engine, binding);
+    const parentInfo = getStructuredPathInfo("parent.values.*.foo");
+    const parentRef = getStatePropertyRef(parentInfo, null);
+
+    expect(() => input[NotifyRedrawSymbol]([parentRef])).toThrow(/ListIndex not found/);
 
     spy.mockRestore();
   });

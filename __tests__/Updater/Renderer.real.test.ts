@@ -356,6 +356,38 @@ describe("Updater/Renderer (real implementation)", () => {
     expect(binding.applyChange).not.toHaveBeenCalled();
   });
 
+  it("構造化子コンポーネントに notifyRedraw を伝播する", () => {
+    const engine = makeEngine();
+    const childComponent = {};
+    const childBinding = { notifyRedraw: vi.fn() } as any;
+
+    engine.structiveChildComponents.add(childComponent);
+    engine.bindingsByComponent.set(childComponent, new Set([childBinding]));
+    engine.getBindings.mockReturnValue([]);
+
+    findPathNodeByPathMock.mockReturnValue({ currentPath: "root", childNodeByName: new Map() });
+
+    const ref: TestRef = { info: { pattern: "root" }, listIndex: null, key: "root-null", parentRef: null };
+
+    render([ref], engine as any, makeUpdater() as any);
+
+    expect(childBinding.notifyRedraw).toHaveBeenCalledTimes(1);
+    expect(childBinding.notifyRedraw).toHaveBeenCalledWith([ref]);
+  });
+
+  it("構造化子コンポーネントがバインディングを持たなくてもエラーなく進む", () => {
+    const engine = makeEngine();
+    const childComponent = {};
+
+    engine.structiveChildComponents.add(childComponent);
+    engine.getBindings.mockReturnValue([]);
+    findPathNodeByPathMock.mockReturnValue({ currentPath: "root", childNodeByName: new Map() });
+
+    const ref: TestRef = { info: { pattern: "root" }, listIndex: null, key: "root-null", parentRef: null };
+
+    expect(() => render([ref], engine as any, makeUpdater() as any)).not.toThrow();
+  });
+
   it("parentRef が null の要素は UPD-004 を投げる", () => {
     const engine = makeEngine();
     engine.pathManager.elements.add("list.item");

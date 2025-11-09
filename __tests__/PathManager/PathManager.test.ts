@@ -548,6 +548,32 @@ describe("PathManager/PathManager", () => {
       expect(mockCreateAccessorFunctions).not.toHaveBeenCalled();
       expect(pathManager.staticDependencies.size).toBe(0);
     });
+
+    test("should register list paths when flagged", () => {
+      mockGetPathsSetById.mockReturnValue(new Set());
+      mockGetListPathsSetById.mockReturnValue(new Set());
+
+      mockGetStructuredPathInfo.mockImplementation((path: string) => ({
+        cumulativePathSet: new Set([path]),
+        pathSegments: path ? path.split(".") : [],
+        parentPath: path && path.includes(".") ? path.substring(0, path.lastIndexOf(".")) : ""
+      }) as any);
+
+      const componentClass = {
+        id: 21,
+        stateClass: class {}
+      } as unknown as StructiveComponentClass;
+
+      pathManager = createPathManager(componentClass);
+
+      expect(pathManager.lists.has("items")).toBe(false);
+      expect(pathManager.elements.has("items.*")).toBe(false);
+
+      pathManager.addPath("items", true);
+
+      expect(pathManager.lists.has("items")).toBe(true);
+      expect(pathManager.elements.has("items.*")).toBe(true);
+    });
   });
 
   describe("addDynamicDependency", () => {

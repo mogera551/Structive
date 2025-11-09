@@ -3401,7 +3401,13 @@ class BindingNodeComponent extends BindingNode {
     }
     _notifyRedraw(refs) {
         const component = this.node;
-        component.state[NotifyRedrawSymbol](refs);
+        // コンポーネントが定義されるのを待ち、初期化完了後に notifyRedraw を呼び出す
+        const tagName = component.tagName.toLowerCase();
+        customElements.whenDefined(tagName).then(() => {
+            component.waitForInitialize.promise.then(() => {
+                component.state[NotifyRedrawSymbol](refs);
+            });
+        });
     }
     applyChange(renderer) {
         this._notifyRedraw([this.binding.bindingState.ref]);
@@ -4837,26 +4843,37 @@ class ComponentStateInputHandler {
      * @param refs
      */
     notifyRedraw(refs) {
-        // ToDo: createUpdater内でループさせるべきか検討
-        for (const parentPathRef of refs) {
-            try {
-                const childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathRef.info.pattern);
+        createUpdater(this.engine, (updater) => {
+            for (const parentPathRef of refs) {
+                let childPath;
+                try {
+                    childPath = this.componentStateBinding.toChildPathFromParentPath(parentPathRef.info.pattern);
+                }
+                catch (e) {
+                    // 対象でないものは何もしない
+                    continue;
+                }
                 const childPathInfo = getStructuredPathInfo(childPath);
-                const childListIndex = parentPathRef.listIndex;
+                const atIndex = childPathInfo.wildcardCount - 1;
+                const childListIndex = (atIndex >= 0) ? (parentPathRef.listIndex?.at(atIndex) ?? null) : null;
+                if (atIndex >= 0 && childListIndex === null) {
+                    raiseError({
+                        code: 'LIST-201',
+                        message: `ListIndex not found for parent ref: ${parentPathRef.info.pattern}`,
+                        context: {
+                            where: 'ComponentStateInput.notifyRedraw',
+                            parentPattern: parentPathRef.info.pattern,
+                            childPattern: childPathInfo.pattern,
+                        },
+                        docsUrl: '/docs/error-codes.md#list',
+                    });
+                }
                 const childRef = getStatePropertyRef(childPathInfo, childListIndex);
-                const value = this.engine.getPropertyValue(childRef);
+                this.engine.getPropertyValue(childRef);
                 // Ref情報をもとに状態更新キューに追加
-                createUpdater(this.engine, (updater) => {
-                    updater.enqueueRef(childRef);
-                    //updater.update(null, (stateProxy, handler) => {
-                    //stateProxy[SetByRefSymbol](childRef, value);
-                    //});
-                });
+                updater.enqueueRef(childRef);
             }
-            catch (e) {
-                // 対象でないものは何もしない
-            }
-        }
+        });
     }
     get(target, prop, receiver) {
         if (prop === AssignStateSymbol) {

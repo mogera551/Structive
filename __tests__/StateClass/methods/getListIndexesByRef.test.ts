@@ -129,4 +129,19 @@ describe("StateClass/methods: getListIndexesByRef", () => {
     expect(handler.engine.stateOutput.getListIndexes).toHaveBeenCalledWith(ref);
     expect(getByRefMock).not.toHaveBeenCalled();
   });
+
+  it("stateOutput 分岐で null が返った場合は空配列を返す", () => {
+    const ref = { info: { pattern: "items", cumulativePathSet: new Set(["items"]) } } as any;
+    const handler = createHandler(["items"], new Map(), {
+      startsWith: true,
+      intersectionSize: 0,
+      stateOutputListIndexes: null,
+    });
+
+    const result = getListIndexesByRef({}, ref, {} as any, handler);
+
+    expect(result).toEqual([]);
+    expect(handler.engine.stateOutput.getListIndexes).toHaveBeenCalledWith(ref);
+    expect(getByRefMock).not.toHaveBeenCalled();
+  });
 });
