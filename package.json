@@ -1,6 +1,6 @@
 {
   "name": "structive",
-  "version": "0.11.2",
+  "version": "0.11.3",
   "description": "Structure-driven template engine where structure defines meaning.",
   "main": "dist/structive.js",
   "module": "dist/structive.mjs",
